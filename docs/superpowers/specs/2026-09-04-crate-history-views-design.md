@@ -353,7 +353,7 @@ amended); `ImportSummary.version` is optional so old summaries type-check;
 `playsFor` falls through a zero-play id row to the name path; `gemCutoff`
 and `rateBand` are exported beyond §5's list; lists page at 100 rows on
 Classics and Finish too; the Winter month strip includes the previous
-December (§3 amended); `Empty` kept its original props (§6 amended); the
+December (§3 amended); `Empty` keeps only its original props, the `href`/`cta` additions were dropped (§6 amended); the
 Heavy-rotation `Open <month>` link names the window month with the most
 plays.
 
