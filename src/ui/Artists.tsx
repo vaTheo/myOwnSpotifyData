@@ -16,6 +16,10 @@ export function Artists() {
   const list = query
     ? m.artists.filter((a) => normalize(a.name).includes(query))
     : m.artists;
+  // Rank comes from the full list, so filtering never renumbers the rows.
+  const ranks = new Map(
+    m.artists.map((a, i): [string, number] => [a.key, i + 1])
+  );
   return (
     <section>
       <h1>Artists by saved tracks</h1>
@@ -27,10 +31,10 @@ export function Artists() {
         placeholder="Filter artists"
       />
       <ul class="list">
-        {list.map((a, i) => (
+        {list.map((a) => (
           <TrackRow
             key={a.key}
-            rank={i + 1}
+            rank={ranks.get(a.key) ?? 0}
             title={a.name}
             subtitle={`${plural(a.trackKeys.size, 'track')} · ${plural(a.playlistIds.size, 'playlist')}`}
             href={routeHref({ name: 'artist', key: a.key })}
