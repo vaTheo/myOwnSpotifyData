@@ -113,6 +113,25 @@ describe('createClient', () => {
     expect((err as QuotaError).retryAt).toBe(1_000_000 + 61_389_000);
   });
 
+  it('treats a blank Retry-After as unreadable', async () => {
+    const quota = setup([
+      () =>
+        json({ error: { status: 429, reason: 'QUOTA_EXCEEDED' } }, 429, {
+          'Retry-After': '',
+        }),
+    ]);
+    const err = await quota.client.get('/me').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(QuotaError);
+    expect((err as QuotaError).retryAt).toBe(1_000_000 + 86_400_000);
+
+    const plain = setup([
+      () => json({}, 429, { 'Retry-After': '' }),
+      () => json({ ok: true }),
+    ]);
+    await expect(plain.client.get('/me')).resolves.toEqual({ ok: true });
+    expect(plain.sleep).toHaveBeenCalledWith(2000);
+  });
+
   it('retries 5xx three times then fails', async () => {
     const ok = setup([
       () => json({}, 503),

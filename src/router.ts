@@ -7,6 +7,15 @@ export type Route =
   | { name: 'import' }
   | { name: 'settings' };
 
+/** decodeURIComponent throws on a malformed escape; keep the raw segment. */
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 export function parseRoute(hash: string): Route {
   const path = hash.replace(/^#\/?/, '');
   const [head, ...rest] = path.split('/');
@@ -16,13 +25,13 @@ export function parseRoute(hash: string): Route {
       return { name: 'playlists' };
     case 'playlist':
       return tail
-        ? { name: 'playlist', id: decodeURIComponent(tail) }
+        ? { name: 'playlist', id: decodeSegment(tail) }
         : { name: 'playlists' };
     case 'artists':
       return { name: 'artists' };
     case 'artist':
       return tail
-        ? { name: 'artist', key: decodeURIComponent(tail) }
+        ? { name: 'artist', key: decodeSegment(tail) }
         : { name: 'artists' };
     case 'import':
       return { name: 'import' };

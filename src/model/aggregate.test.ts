@@ -231,6 +231,23 @@ describe('playlistRanking', () => {
     expect(p2.map((r) => r.track.key)).toEqual(['t2', 't3', 'spotify:local:x']);
     expect(playlistRanking(model, 'nope')).toEqual([]);
   });
+
+  it('falls back to playlist position when no track is in a top list', () => {
+    const untopped = buildModel({
+      playlists: [playlist('p9')],
+      tracks: [track('u1'), track('u2')],
+      entries: [
+        { playlistId: 'p9', position: 1, trackKey: 'u1', addedAt: null },
+        { playlistId: 'p9', position: 0, trackKey: 'u2', addedAt: null },
+      ],
+      topItems: [],
+      plays: [],
+    });
+    expect(playlistRanking(untopped, 'p9').map((r) => r.track.key)).toEqual([
+      'u2',
+      'u1',
+    ]);
+  });
 });
 
 describe('top lists', () => {

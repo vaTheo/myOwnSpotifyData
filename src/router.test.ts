@@ -27,6 +27,14 @@ describe('parseRoute', () => {
     });
   });
 
+  it('keeps a malformed escape rather than throwing', () => {
+    expect(parseRoute('#/artist/%zz')).toEqual({ name: 'artist', key: '%zz' });
+    expect(parseRoute('#/playlist/%E0%A4%A')).toEqual({
+      name: 'playlist',
+      id: '%E0%A4%A',
+    });
+  });
+
   it('treats a detail route without an id as its list', () => {
     expect(parseRoute('#/playlist/')).toEqual({ name: 'playlists' });
     expect(parseRoute('#/artist')).toEqual({ name: 'artists' });
