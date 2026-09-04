@@ -165,3 +165,25 @@ export function CrateShell(p: { title: string; children?: ComponentChildren }) {
     </section>
   );
 }
+
+/** List footer: spec §3 renders PAGE_SIZE rows, then grows on demand. */
+export function Paged(p: {
+  shown: number;
+  total: number;
+  step: number;
+  onMore: () => void;
+}) {
+  if (p.total <= p.shown) return null;
+  return (
+    <>
+      <p class="footer-note">
+        Showing the top {p.shown.toLocaleString()} of {p.total.toLocaleString()}
+      </p>
+      <div class="actions">
+        <button type="button" onClick={p.onMore}>
+          Show {p.step.toLocaleString()} more
+        </button>
+      </div>
+    </>
+  );
+}
