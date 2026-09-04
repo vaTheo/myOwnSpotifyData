@@ -152,6 +152,12 @@ function bestRank(model: Model, id: string | null): number {
     : Number.POSITIVE_INFINITY;
 }
 
+/** Ordering for bestRank values; subtracting two Infinities would give NaN. */
+function compareRank(a: number, b: number): number {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
 export interface RankedTrack {
   entry: EntryRow;
   track: TrackRow;
@@ -177,7 +183,7 @@ export function playlistRanking(
   return ranked.sort(
     (a, b) =>
       (b.plays?.plays ?? 0) - (a.plays?.plays ?? 0) ||
-      bestRank(model, a.track.id) - bestRank(model, b.track.id) ||
+      compareRank(bestRank(model, a.track.id), bestRank(model, b.track.id)) ||
       a.entry.position - b.entry.position
   );
 }

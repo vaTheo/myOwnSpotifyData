@@ -40,7 +40,8 @@ function backoffMs(attempt: number): number {
 }
 
 function parseRetryAfter(header: string | null): number | null {
-  if (header === null) return null;
+  // An absent or blank header is unreadable, not "retry immediately".
+  if (header === null || header.trim() === '') return null;
   const seconds = Number(header);
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
 }
