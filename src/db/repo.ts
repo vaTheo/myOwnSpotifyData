@@ -33,9 +33,23 @@ export async function closeDb(): Promise<void> {
   if (pending) (await pending).close();
 }
 
-export async function wipeDb(): Promise<void> {
+export async function wipeDb(timeoutMs = 5000): Promise<void> {
   await closeDb();
-  await deleteDB(DB_NAME);
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(
+        new Error(
+          'Local data is still open in another tab. Close the other tabs and try again.'
+        )
+      );
+    }, timeoutMs);
+  });
+  try {
+    await Promise.race([deleteDB(DB_NAME), timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
 }
 
 function playlistRange(playlistId: string): IDBKeyRange {
