@@ -20,8 +20,9 @@ export function formatDateTime(ms: number): string {
   });
 }
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString([], { dateStyle: 'medium' });
+/** Accepts an export timestamp (ISO) or a stored epoch (`importedAt`). */
+export function formatDate(value: string | number): string {
+  return new Date(value).toLocaleDateString([], { dateStyle: 'medium' });
 }
 
 export function plural(n: number, word: string): string {

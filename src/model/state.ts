@@ -1,6 +1,6 @@
-import { signal } from '@preact/signals';
+import { computed, signal } from '@preact/signals';
 import { auth } from '../auth/browser';
-import { getAllRows, getMeta, wipeDb } from '../db/repo';
+import { getAllRows, getMeta, putMeta, wipeDb } from '../db/repo';
 import {
   HISTORY_SUMMARY_META,
   runImport,
@@ -24,8 +24,32 @@ export const lastSyncAt = signal<number | null>(null);
 export const historySummary = signal<ImportSummary | null>(null);
 export const banner = signal<string | null>(null);
 
+export const CRATE_NOTICE_META = 'crateNoticeShown';
+
+const CRATE_NOTICE = 'The new Crate views need your history imported again.';
+
+export type CrateStatus = 'empty' | 'reimport' | 'ready';
+
+/**
+ * What the Crate can show: an import made before the month buckets existed
+ * carries no `version`, so it is detected from the summary and never by
+ * sniffing rows.
+ */
+export const crateStatus = computed<CrateStatus>(() => {
+  const summary = historySummary.value;
+  if (!summary) return 'empty';
+  return summary.version === 2 ? 'ready' : 'reimport';
+});
+
 function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** Said once per browser; the hub's re-import card carries it from then on. */
+async function showCrateNotice(): Promise<void> {
+  if ((await getMeta<boolean>(CRATE_NOTICE_META)) === true) return;
+  banner.value = CRATE_NOTICE;
+  await putMeta(CRATE_NOTICE_META, true);
 }
 
 export async function loadFromDb(): Promise<void> {
@@ -36,6 +60,7 @@ export async function loadFromDb(): Promise<void> {
     if (saved && saved.status !== 'running') syncState.value = saved;
     historySummary.value =
       (await getMeta<ImportSummary>(HISTORY_SUMMARY_META)) ?? null;
+    if (crateStatus.value === 'reimport') await showCrateNotice();
   } catch (err) {
     banner.value = `Could not open local storage: ${describeError(err)}`;
   }
