@@ -196,9 +196,10 @@ zone at import` and `214,908 starts, 61% played through`.
 
 ### Re-import notice
 
-On the first load after this version with an import that has no `version`,
-the existing banner says once: `The new Crate views need your history
-imported again.` A meta flag `crateNoticeShown` prevents repeats.
+After this version, while the stored import has no `version`, the existing
+banner says: `The new Crate views need your history imported again.` It
+appears on each load until the owner dismisses it or runs a sync or import;
+the meta flag `crateNoticeShown` then prevents repeats.
 
 ## 4. Thresholds and defaults
 
