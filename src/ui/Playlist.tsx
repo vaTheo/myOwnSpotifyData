@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals';
 import { playlistRanking } from '../model/aggregate';
-import { model, startSync, syncState } from '../model/state';
+import { isSyncBusy, model, startSync, syncState } from '../model/state';
 import { Badge } from './components/Badge';
 import { PlaysBadge } from './components/PlaysBadge';
 import { Segmented } from './components/Segmented';
@@ -27,9 +27,7 @@ export function Playlist({ id }: { id: string }) {
       ? ranked
       : [...ranked].sort((a, b) => a.entry.position - b.entry.position);
   const sync = syncState.value;
-  const busy =
-    sync.status === 'running' ||
-    (sync.status === 'locked' && sync.retryAt > Date.now());
+  const busy = isSyncBusy(sync);
   return (
     <section>
       <h1>{playlist.name}</h1>

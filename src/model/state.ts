@@ -50,6 +50,14 @@ function lockMessage(retryAt: number): string {
   return `Spotify quota reached. Sync again after ${formatDateTime(retryAt)}.`;
 }
 
+/** True while a sync is running or the quota lock-out has not lapsed. */
+export function isSyncBusy(state: SyncState, now = Date.now()): boolean {
+  return (
+    state.status === 'running' ||
+    (state.status === 'locked' && state.retryAt > now)
+  );
+}
+
 export async function startSync(priorityId?: string): Promise<void> {
   const current = syncState.value;
   if (current.status === 'running') return;
@@ -58,6 +66,17 @@ export async function startSync(priorityId?: string): Promise<void> {
     return;
   }
   banner.value = null;
+  // Claim the running state synchronously so a second tap cannot start a
+  // second sync before runSync reports its first state. `as SyncState` keeps
+  // the signal at its declared union type: without it TypeScript narrows
+  // syncState.value to this literal for the rest of the function.
+  syncState.value = {
+    status: 'running',
+    done: 0,
+    total: 0,
+    current: null,
+    pending: [],
+  } as SyncState;
   await runSync(
     {
       client: api,
@@ -101,6 +120,14 @@ export async function startImport(files: File[]): Promise<void> {
 }
 
 export async function disconnect(): Promise<void> {
+  if (
+    syncState.value.status === 'running' ||
+    importState.value.status === 'running'
+  ) {
+    banner.value =
+      'Wait for the current sync or import to finish before disconnecting.';
+    return;
+  }
   try {
     await wipeDb();
   } catch (err) {

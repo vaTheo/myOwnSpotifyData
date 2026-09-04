@@ -1,6 +1,8 @@
 import {
   disconnect,
   historySummary,
+  importState,
+  isSyncBusy,
   lastSyncAt,
   startSync,
   syncState,
@@ -13,6 +15,7 @@ export function Settings() {
   const running = state.status === 'running';
   const locked = state.status === 'locked' && state.retryAt > Date.now();
   const history = historySummary.value;
+  const working = running || importState.value.status === 'running';
   return (
     <section>
       <h1>Settings</h1>
@@ -44,7 +47,7 @@ export function Settings() {
         <button
           type="button"
           class="primary"
-          disabled={running || locked}
+          disabled={isSyncBusy(state)}
           onClick={() => void startSync()}
         >
           {running ? 'Syncing…' : 'Sync now'}
@@ -67,6 +70,7 @@ export function Settings() {
         <button
           type="button"
           class="danger"
+          disabled={working}
           onClick={() => {
             if (confirm('Disconnect and delete all local data?')) {
               void disconnect();
