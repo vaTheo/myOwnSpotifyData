@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import { useEffect } from 'preact/hooks';
 import type { PlayRow } from '../../db/schema';
 import {
   PAGE_SIZE,
@@ -35,15 +36,11 @@ const expanded = signal<string | null>(null);
 const limit = signal(PAGE_SIZE);
 
 /**
- * The route's period segment is applied once per value: arriving from
- * `Open Aug 2026 ›` selects 2026 and August, but a later tap on another chip is
- * never undone by a re-render of the same screen.
+ * The route's period segment is applied once per mount: arriving from
+ * `Open Aug 2026 ›` selects 2026 and August on every visit, while a later tap
+ * on another chip stands until the screen is left and entered again.
  */
-let lastAppliedPeriod: string | null = null;
-
 function applyPeriod(period: string): void {
-  if (period === lastAppliedPeriod) return;
-  lastAppliedPeriod = period;
   const match = /^(\d{4})-(\d{2})$/.exec(period);
   if (!match) return;
   const month = Number(match[2]);
@@ -75,15 +72,28 @@ function selectionLabel(year: number, period: YearPeriod): string {
   return `${monthLabel(first)} – ${monthLabel(last)}`;
 }
 
-function monthStrip(row: PlayRow, year: number): string {
-  return MONTHS.map((label, i) => {
+/**
+ * The year's twelve months, preceded by the previous December under Winter
+ * (spec §3): the strip then covers every month the badge counted, so a track
+ * played only in that December no longer reads as twelve dashes.
+ */
+function monthStrip(row: PlayRow, year: number, period: YearPeriod): string {
+  const cells = MONTHS.map((label, i) => {
     const key = `${year}-${String(i + 1).padStart(2, '0')}`;
     return `${label} ${row.months?.[key] ?? '—'}`;
-  }).join(' · ');
+  });
+  if (period === 'winter') {
+    const previous = year - 1;
+    const plays = row.months?.[`${previous}-12`] ?? '—';
+    cells.unshift(`Dec '${String(previous).slice(2)} ${plays}`);
+  }
+  return cells.join(' · ');
 }
 
 export function ByYear({ period }: { period?: string }) {
-  if (period) applyPeriod(period);
+  useEffect(() => {
+    if (period) applyPeriod(period);
+  }, [period]);
   const rows = useCrateRows();
   const years = yearsWithPlays(rows);
   const year =
@@ -154,7 +164,7 @@ export function ByYear({ period }: { period?: string }) {
                   {plural(item.row.plays, 'play')} lifetime · last{' '}
                   {formatDate(item.row.lastTs)}
                 </p>
-                <p class="strip">{monthStrip(item.row, year)}</p>
+                <p class="strip">{monthStrip(item.row, year, selection)}</p>
                 <PlaylistLinks row={item.row} />
               </CrateRow>
             ))}
