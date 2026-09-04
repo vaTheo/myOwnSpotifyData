@@ -8,8 +8,8 @@ import {
   finishRate,
   forgottenGems,
   heavyRotation,
+  yearSetting,
   yearsWithPlays,
-  type YearPeriod,
 } from '../../model/crate';
 import { crateStatus, historySummary, model } from '../../model/state';
 import { routeHref, type CrateView } from '../../router';
@@ -41,21 +41,12 @@ function topLine(row: PlayRow | undefined, prefix: string): string {
 }
 
 function rotationSetting(months: number): string {
-  return `last ${months === 1 ? '1 month' : `${months} months`}`;
+  return `last ${plural(months, 'month')}`;
 }
 
 function gemSetting(months: number): string {
-  if (months % 12 !== 0) return `unplayed ${months} months+`;
-  const years = months / 12;
-  return `unplayed ${years === 1 ? '1 year' : `${years} years`}+`;
-}
-
-function yearSetting(year: number, period: YearPeriod): string {
-  if (period === 'all') return String(year);
-  if (typeof period === 'number') {
-    return monthLabel(`${year}-${String(period).padStart(2, '0')}`);
-  }
-  return `${period[0].toUpperCase()}${period.slice(1)} ${year}`;
+  if (months % 12 !== 0) return `unplayed ${plural(months, 'month')}+`;
+  return `unplayed ${plural(months / 12, 'year')}+`;
 }
 
 /**

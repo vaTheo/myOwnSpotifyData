@@ -1,27 +1,12 @@
 import type { ComponentChildren } from 'preact';
 import type { PlayRow } from '../../db/schema';
 import type { Model } from '../../model/aggregate';
-import { hasMonthData } from '../../model/crate';
+import { MONTH_NAMES, hasMonthData } from '../../model/crate';
 import { nameKey } from '../../model/normalize';
 import { model } from '../../model/state';
 import { routeHref } from '../../router';
 import { TrackRow } from '../components/TrackRow';
 import { artistNames, plural } from '../format';
-
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 /**
  * Spec §3: an export whose last play is older than this reads as stale. The

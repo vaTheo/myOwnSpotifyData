@@ -18,8 +18,10 @@ import {
   heavyRotation,
   lastMonths,
   monthKey,
+  peakMonth,
   periodMonths,
   rateBand,
+  yearSetting,
   yearsWithPlays,
 } from './crate';
 
@@ -391,5 +393,37 @@ describe('finishRate', () => {
     expect([rateBand(1), rateBand(0.65)]).toEqual(['high', 'high']);
     expect([rateBand(0.6499), rateBand(0.35)]).toEqual(['mid', 'mid']);
     expect([rateBand(0.3499), rateBand(0)]).toEqual(['low', 'low']);
+  });
+});
+
+describe('peakMonth', () => {
+  const keys = ['2026-06', '2026-07', '2026-08'];
+
+  it('names the month with the most plays', () => {
+    const months = { '2026-06': 2, '2026-07': 9, '2026-08': 4 };
+    expect(peakMonth(months, keys)).toBe('2026-07');
+  });
+
+  it('gives a tie to the latest month', () => {
+    expect(peakMonth({ '2026-06': 5, '2026-08': 5 }, keys)).toBe('2026-08');
+  });
+
+  it('is null without a play in the window', () => {
+    expect(peakMonth({ '2026-05': 9, '2026-07': 0 }, keys)).toBeNull();
+  });
+});
+
+describe('yearSetting', () => {
+  it('names the year alone for All', () => {
+    expect(yearSetting(2022, 'all')).toBe('2022');
+  });
+
+  it('names a month, single digit or not', () => {
+    expect(yearSetting(2022, 3)).toBe('Mar 2022');
+    expect(yearSetting(2022, 12)).toBe('Dec 2022');
+  });
+
+  it('capitalises a season', () => {
+    expect(yearSetting(2022, 'winter')).toBe('Winter 2022');
   });
 });

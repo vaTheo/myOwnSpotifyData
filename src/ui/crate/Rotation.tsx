@@ -2,14 +2,17 @@ import { signal } from '@preact/signals';
 import type { PlayRow } from '../../db/schema';
 import {
   MIN_ROTATION_PLAYS,
+  MONTH_NAMES,
   PAGE_SIZE,
   ROTATION_WINDOWS,
   hasMonthData,
   heavyRotation,
   lastMonths,
   monthKey,
+  peakMonth,
 } from '../../model/crate';
 import { historySummary } from '../../model/state';
+import { routeHref } from '../../router';
 import { Badge } from '../components/Badge';
 import { Segmented } from '../components/Segmented';
 import { plural } from '../format';
@@ -28,28 +31,13 @@ import {
 const expanded = signal<string | null>(null);
 const shown = signal(PAGE_SIZE);
 
-const SHORT_MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
 const OPTIONS = ROTATION_WINDOWS.map((n) => ({
   value: String(n),
   label: n === 1 ? '1 month' : `${n} months`,
 }));
 
 function shortMonth(key: string): string {
-  return SHORT_MONTHS[Number(key.slice(5, 7)) - 1];
+  return MONTH_NAMES[Number(key.slice(5, 7)) - 1];
 }
 
 function windowLabel(months: number): string {
@@ -74,25 +62,6 @@ function stripText(row: PlayRow, keys: string[]): string {
       return `${shortMonth(key)} ${n > 0 ? n.toLocaleString() : '—'}`;
     })
     .join(' · ');
-}
-
-/**
- * The window month with the most plays, for `Open Aug 2026 ›`; a tie goes
- * to the latest of the tied months. `keys` is oldest first (`lastMonths`),
- * so scanning forward with `>=` keeps the latest on a tie.
- */
-function peakMonth(row: PlayRow, keys: string[]): string | null {
-  if (!hasMonthData(row)) return null;
-  let best: string | null = null;
-  let bestPlays = 0;
-  for (const key of keys) {
-    const n = row.months[key] ?? 0;
-    if (n > 0 && n >= bestPlays) {
-      bestPlays = n;
-      best = key;
-    }
-  }
-  return best;
 }
 
 function staleMonth(now: Date): string | null {
@@ -135,7 +104,7 @@ export function Rotation() {
                 Your history ends {monthLabel(stale)}, so nothing falls in the
                 last {windowLabel(months)}.
               </p>
-              <a href="#/import">Import a fresh export</a>
+              <a href={routeHref({ name: 'import' })}>Import a fresh export</a>
             </>
           ) : (
             <>
@@ -163,7 +132,9 @@ export function Rotation() {
             {items.slice(0, shown.value).map((item, i) => {
               const id = item.row.trackId;
               const strip = stripText(item.row, keys);
-              const month = peakMonth(item.row, keys);
+              const month = hasMonthData(item.row)
+                ? peakMonth(item.row.months, keys)
+                : null;
               return (
                 <CrateRow
                   key={id}

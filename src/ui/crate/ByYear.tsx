@@ -2,6 +2,7 @@ import { signal } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
 import type { PlayRow } from '../../db/schema';
 import {
+  MONTH_NAMES,
   PAGE_SIZE,
   byYear,
   periodMonths,
@@ -21,15 +22,13 @@ import {
   useCrateRows,
 } from './shared';
 
-const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
-
 const PERIOD_OPTIONS = [
   { value: 'all', label: 'All' },
   { value: 'winter', label: 'Winter' },
   { value: 'spring', label: 'Spring' },
   { value: 'summer', label: 'Summer' },
   { value: 'autumn', label: 'Autumn' },
-  ...MONTHS.map((label, i) => ({ value: String(i + 1), label })),
+  ...MONTH_NAMES.map((label, i) => ({ value: String(i + 1), label })),
 ];
 
 const expanded = signal<string | null>(null);
@@ -56,7 +55,7 @@ function toPeriod(value: string): YearPeriod {
 }
 
 function monthName(key: string): string {
-  return MONTHS[Number(key.slice(5, 7)) - 1] ?? key;
+  return MONTH_NAMES[Number(key.slice(5, 7)) - 1] ?? key;
 }
 
 /** `2022`, `Mar 2022`, `Jun – Aug 2022`, `Dec 2021 – Feb 2022`. */
@@ -78,7 +77,7 @@ function selectionLabel(year: number, period: YearPeriod): string {
  * played only in that December no longer reads as twelve dashes.
  */
 function monthStrip(row: PlayRow, year: number, period: YearPeriod): string {
-  const cells = MONTHS.map((label, i) => {
+  const cells = MONTH_NAMES.map((label, i) => {
     const key = `${year}-${String(i + 1).padStart(2, '0')}`;
     return `${label} ${row.months?.[key] ?? '—'}`;
   });

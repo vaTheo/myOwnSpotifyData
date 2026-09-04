@@ -24,6 +24,22 @@ const SEASON_MONTHS: Record<Season, number[]> = {
 
 const MONTHS_OF_YEAR = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
+/** January first. The one copy the strips, chips and labels all read. */
+export const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
 function yearMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`;
 }
@@ -49,6 +65,13 @@ export function periodMonths(year: number, period: YearPeriod): string[] {
   return SEASON_MONTHS[period].map((m) =>
     yearMonth(period === 'winter' && m === 12 ? year - 1 : year, m)
   );
+}
+
+/** The hub's `By year` badge: `2022`, `Mar 2022`, `Winter 2022`. */
+export function yearSetting(year: number, period: YearPeriod): string {
+  if (period === 'all') return String(year);
+  if (typeof period === 'number') return `${MONTH_NAMES[period - 1]} ${year}`;
+  return `${period[0].toUpperCase()}${period.slice(1)} ${year}`;
 }
 
 /** Rows from an import before month buckets are ignored by every view. */
@@ -108,6 +131,28 @@ export function heavyRotation(
       b.row.plays - a.row.plays ||
       compareNames(a.row, b.row)
   );
+}
+
+/**
+ * The month of `keys` with the most plays, for `Open Aug 2026 ›`; a tie goes
+ * to the latest of the tied months. `keys` is oldest first (`lastMonths`), so
+ * scanning forward with `>=` keeps the latest on a tie. Null when the row has
+ * no plays in any of them.
+ */
+export function peakMonth(
+  months: Record<string, number>,
+  keys: string[]
+): string | null {
+  let best: string | null = null;
+  let bestPlays = 0;
+  for (const key of keys) {
+    const n = months[key] ?? 0;
+    if (n > 0 && n >= bestPlays) {
+      bestPlays = n;
+      best = key;
+    }
+  }
+  return best;
 }
 
 export interface GemItem {
