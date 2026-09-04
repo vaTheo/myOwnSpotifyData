@@ -5,6 +5,9 @@ import { parseRoute, routeHref, type Route } from './router';
 import { Banner } from './ui/components/Banner';
 import { Settings } from './ui/Settings';
 import { Connect } from './ui/Connect';
+import { Artist } from './ui/Artist';
+import { Artists } from './ui/Artists';
+import { Import } from './ui/Import';
 import { Playlist } from './ui/Playlist';
 import { Playlists } from './ui/Playlists';
 import { Top } from './ui/Top';
@@ -39,10 +42,14 @@ function Screen({ route }: { route: Route }) {
       return <Playlists />;
     case 'playlist':
       return <Playlist id={route.id} />;
+    case 'artists':
+      return <Artists />;
+    case 'artist':
+      return <Artist artistKey={route.key} />;
+    case 'import':
+      return <Import />;
     case 'settings':
       return <Settings />;
-    default:
-      return <p class="empty">Coming in the next task</p>;
   }
 }
 
