@@ -3,6 +3,19 @@ import { historySummary, importState, startImport } from '../model/state';
 import { Progress } from './components/Progress';
 import { formatDate, formatDateTime, plural } from './format';
 
+/** "214,908 starts, 61% played through"; the clause is dropped at zero. */
+function startsLine(o: {
+  attempts: number;
+  finished: number;
+  skipped: number;
+}): string {
+  const starts = plural(o.attempts, 'start');
+  const outcomes = o.finished + o.skipped;
+  if (outcomes === 0) return starts;
+  const pct = Math.round((o.finished / outcomes) * 100);
+  return `${starts}, ${pct}% played through`;
+}
+
 function Summary({ summary }: { summary: ImportSummary }) {
   const c = summary.counts;
   return (
@@ -17,6 +30,12 @@ function Summary({ summary }: { summary: ImportSummary }) {
           From {formatDate(summary.range.first)} to{' '}
           {formatDate(summary.range.last)}
         </li>
+      )}
+      {summary.version === 2 && summary.zone && (
+        <li>Months use {summary.zone}, this phone's zone at import</li>
+      )}
+      {summary.version === 2 && summary.outcomes && (
+        <li>{startsLine(summary.outcomes)}</li>
       )}
       <li>
         Imported {formatDateTime(summary.importedAt)} from{' '}

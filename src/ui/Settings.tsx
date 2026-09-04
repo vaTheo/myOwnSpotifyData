@@ -1,3 +1,4 @@
+import type { ImportSummary } from '../history/importer';
 import {
   disconnect,
   historySummary,
@@ -7,14 +8,62 @@ import {
   startSync,
   syncState,
 } from '../model/state';
+import { routeHref } from '../router';
 import { Progress } from './components/Progress';
-import { formatDateTime, plural } from './format';
+import { formatDate, formatDateTime, plural } from './format';
+
+function historyLine(summary: ImportSummary, zoneAtImport?: string): string {
+  const parts = [
+    `Imported ${formatDate(summary.importedAt)}:`,
+    `${plural(summary.plays, 'play')} across`,
+    `${plural(summary.tracks, 'track')}.`,
+  ];
+  if (summary.range) {
+    parts.push(`${formatDate(summary.range.first)} –`);
+    parts.push(`${formatDate(summary.range.last)}.`);
+  }
+  if (zoneAtImport) parts.push(`Months bucketed in ${zoneAtImport}.`);
+  return parts.join(' ');
+}
+
+function HistoryCard() {
+  const summary = historySummary.value;
+  const importHref = routeHref({ name: 'import' });
+  if (!summary) {
+    return (
+      <div class="card">
+        <h2>Listening history</h2>
+        <p>No history imported yet.</p>
+        <p>
+          <a href={importHref}>Import history</a>
+        </p>
+      </div>
+    );
+  }
+  // Only a version 2 summary knows which zone bucketed its months; an older
+  // one has no zone to compare, so it never shows the mismatch warning.
+  const zoneAtImport = summary.version === 2 ? summary.zone : undefined;
+  const deviceZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return (
+    <div class="card">
+      <h2>Listening history</h2>
+      <p>{historyLine(summary, zoneAtImport)}</p>
+      {zoneAtImport && zoneAtImport !== deviceZone && (
+        <p class="warn">
+          This phone is now on {deviceZone}. Re-import to re-bucket months.
+        </p>
+      )}
+      <p>
+        <a href={importHref}>Update import</a>
+      </p>
+    </div>
+  );
+}
 
 export function Settings() {
   const state = syncState.value;
   const running = state.status === 'running';
   const locked = state.status === 'locked' && state.retryAt > Date.now();
-  const history = historySummary.value;
   const working = running || importState.value.status === 'running';
   return (
     <section>
@@ -53,14 +102,7 @@ export function Settings() {
           {running ? 'Syncing…' : 'Sync now'}
         </button>
       </div>
-      <div class="card">
-        <h2>Listening history</h2>
-        <p>
-          {history
-            ? `Imported ${formatDateTime(history.importedAt)}: ${plural(history.plays, 'play')}.`
-            : 'No history imported yet. Use the Import tab.'}
-        </p>
-      </div>
+      <HistoryCard />
       <div class="card">
         <h2>Disconnect</h2>
         <p>
