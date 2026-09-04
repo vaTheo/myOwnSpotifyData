@@ -76,8 +76,8 @@ research file):
   risk for a private single-user tool.
 - **History export**: zip `my_spotify_data.zip`, folder name varies, files
   `Streaming_History_Audio_<YYYY|YYYY-YYYY>_<n>.json` and
-  `Streaming_History_Video_*.json` (same schema, music-video plays with track
-  URIs). Each file ≤ ~12 MB, ~16k records, pretty-printed UTF-8. 23 keys, every
+  `Streaming_History_Video_<YYYY|YYYY-YYYY>.json` without a numeric suffix
+  (same schema, music-video plays with track URIs). Each file ≤ ~12 MB, ~16k records, pretty-printed UTF-8. 23 keys, every
   value nullable. Music play = `spotify_track_uri` starting with
   `spotify:track:`. Artist is a **name only**. The "Account data" package has
   a different schema (`endTime`, `msPlayed`, no URI) and must be rejected.
@@ -308,7 +308,7 @@ Worker (`import.worker.ts`) receives `File[]`:
 1. For a `.zip`: read as ArrayBuffer, list entry names with
    `fflate.unzipSync(buf, {filter: () => false})`-style enumeration (the filter
    sees every name, decompresses nothing), keep base names matching
-   `/^Streaming_History_(Audio|Video)_\d{4}(?:-\d{4})?_\d+\.json$/i` (folder
+   `/^Streaming_History_(Audio|Video)_\d{4}(?:-\d{4})?(?:_\d+)?\.json$/i` (folder
    ignored), sort by numeric `<n>`, then inflate **one entry at a time** with
    `unzipSync(buf, {filter: f => f.name === name})` so only one ~12 MB file is
    in memory besides the zip itself. Loose `.json` files are matched by the
