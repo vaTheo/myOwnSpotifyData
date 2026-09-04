@@ -4,6 +4,7 @@ import {
   deletePlaylists,
   getAllRows,
   getMeta,
+  getPlaylists,
   putMeta,
   putTopItems,
   replacePlays,
@@ -82,6 +83,11 @@ describe('replacePlaylist', () => {
       rows.entries.map((e) => `${e.playlistId}:${e.position}:${e.trackKey}`)
     ).toEqual(['p1:0:t2', 'p2:0:t9']);
     expect(rows.playlists.find((p) => p.id === 'p1')?.snapshotId).toBe('s2');
+  });
+
+  it('getPlaylists lists only playlist rows', async () => {
+    await replacePlaylist(playlist('p1'), [track('t1')], entries('p1', ['t1']));
+    await expect(getPlaylists()).resolves.toEqual([playlist('p1')]);
   });
 });
 

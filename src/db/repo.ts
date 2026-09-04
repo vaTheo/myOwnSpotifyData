@@ -117,3 +117,8 @@ export async function putMeta(name: string, value: unknown): Promise<void> {
   const db = await openDb();
   await db.put('meta', { name, value });
 }
+
+export async function getPlaylists(): Promise<PlaylistRow[]> {
+  const db = await openDb();
+  return db.getAll('playlists');
+}
