@@ -192,7 +192,7 @@ export async function runSync(
           { limit: PAGE_LIMIT, offset, fields: candidate ?? undefined }
         );
         if (!Array.isArray(page.items)) {
-          lastError = new ApiError(0, 'Playlist items response had no items');
+          lastError = new Error('Playlist items response had no items');
           continue;
         }
         const stripped =
@@ -202,13 +202,12 @@ export async function runSync(
             (entry) => entry && ('item' in entry || 'track' in entry)
           );
         if (stripped) {
-          lastError = new ApiError(
-            0,
-            'fields filter dropped the playable objects'
+          lastError = new Error(
+            'Could not read playlist items: the fields filter returned no playable objects'
           );
           continue;
         }
-        fields = candidate;
+        if (page.items.length > 0) fields = candidate;
         return page;
       } catch (err) {
         if (err instanceof ApiError && err.status === 400) {
