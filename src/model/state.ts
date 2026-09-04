@@ -45,11 +45,39 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Said once per browser; the hub's re-import card carries it from then on. */
+/**
+ * The re-import notice is said once per browser; the hub's re-import card
+ * carries it from then on. The meta flag is written when the user closes the
+ * banner (`dismissBanner`) or on the next `loadFromDb` after the notice has
+ * been on screen, so a sync or an import started before it was read no longer
+ * retires it unseen. A reload with the notice still open counts as unshown and
+ * says it one more time.
+ */
+let noticePending = false;
+
+async function markNoticeShown(): Promise<void> {
+  noticePending = false;
+  await putMeta(CRATE_NOTICE_META, true);
+}
+
 async function showCrateNotice(): Promise<void> {
+  // Already shown earlier in this session: it has had its turn.
+  if (noticePending) return markNoticeShown();
   if ((await getMeta<boolean>(CRATE_NOTICE_META)) === true) return;
   banner.value = CRATE_NOTICE;
-  await putMeta(CRATE_NOTICE_META, true);
+  noticePending = true;
+}
+
+/** The banner's close button: dismissing the re-import notice retires it. */
+export function dismissBanner(): void {
+  const wasNotice = banner.value === CRATE_NOTICE;
+  banner.value = null;
+  if (wasNotice && noticePending) void markNoticeShown();
+}
+
+/** A sync or an import clears its own message, never a pending notice. */
+function clearBanner(): void {
+  if (banner.value !== CRATE_NOTICE) banner.value = null;
 }
 
 export async function loadFromDb(): Promise<void> {
@@ -90,7 +118,7 @@ export async function startSync(priorityId?: string): Promise<void> {
     banner.value = lockMessage(current.retryAt);
     return;
   }
-  banner.value = null;
+  clearBanner();
   // Claim the running state synchronously so a second tap cannot start a
   // second sync before runSync reports its first state. `as SyncState` keeps
   // the signal at its declared union type: without it TypeScript narrows
@@ -127,7 +155,7 @@ export async function startSync(priorityId?: string): Promise<void> {
 
 export async function startImport(files: File[]): Promise<void> {
   if (importState.value.status === 'running') return;
-  banner.value = null;
+  clearBanner();
   await runImport(files, {
     createWorker: () =>
       new Worker(new URL('../history/import.worker.ts', import.meta.url), {

@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals';
 import { auth } from './auth/browser';
-import { banner } from './model/state';
+import { banner, dismissBanner } from './model/state';
 import { parseRoute, routeHref, type Route } from './router';
 import { Banner } from './ui/components/Banner';
 import { Settings } from './ui/Settings';
@@ -67,12 +67,7 @@ export function App() {
   return (
     <div class="app">
       {banner.value && (
-        <Banner
-          message={banner.value}
-          onClose={() => {
-            banner.value = null;
-          }}
-        />
+        <Banner message={banner.value} onClose={dismissBanner} />
       )}
       <main class="screen">
         <Screen route={current} />
