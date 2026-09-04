@@ -258,6 +258,16 @@ button.danger {
   color: #9cc0ff;
 }
 
+.badge.todo {
+  background: #3a2a00;
+  color: #ffd27a;
+}
+
+.badge.skip {
+  background: #3d1416;
+  color: #f0a0a2;
+}
+
 .spotify-link {
   font-size: 0.8rem;
   color: var(--accent);
@@ -286,6 +296,21 @@ button.danger {
 .segmented button.active {
   background: var(--surface-2);
   color: var(--text);
+}
+
+.segmented.scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.segmented.scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.segmented.scroll button {
+  flex: none;
+  min-height: 44px;
+  padding: 8px 14px;
 }
 
 .filter {
@@ -326,6 +351,9 @@ button.danger {
 
 .sublist li {
   padding: 6px 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
 }
 
 .facts {
@@ -347,4 +375,93 @@ label.file span {
 
 input[type='file'] {
   width: 100%;
+}
+
+.back {
+  display: inline-block;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 6px 0;
+}
+
+.provenance {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 10px;
+}
+
+.provenance a {
+  text-decoration: none;
+}
+
+.caption {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  margin: 0 0 8px;
+}
+
+.legend {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: -4px 0 8px;
+}
+
+.footer-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 10px 0 8px;
+}
+
+.strip {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  margin: 4px 0;
+}
+
+.hub-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 4px;
+  border: 0;
+  border-bottom: 1px solid #2a2a2a;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.hub-row .main {
+  flex: 1;
+  min-width: 0;
+}
+
+.hub-row .name {
+  display: block;
+  font-weight: 600;
+}
+
+.hub-row .sub {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hub-row .chev {
+  color: var(--muted);
+  flex: none;
 }

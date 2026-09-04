@@ -2,9 +2,10 @@ export function Segmented<T extends string>(p: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
+  scroll?: boolean;
 }) {
   return (
-    <div class="segmented" role="tablist">
+    <div class={p.scroll ? 'segmented scroll' : 'segmented'} role="tablist">
       {p.options.map((o) => (
         <button
           type="button"
