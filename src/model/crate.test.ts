@@ -299,15 +299,27 @@ describe('byYear', () => {
     expect([result.plays, result.tracks]).toEqual([60, 3]);
   });
 
-  it('keeps the year total when Winter reaches into the previous year', () => {
+  it('folds the previous December into the year total when Winter reaches back', () => {
     const result = byYear(yearRows, 2022, 'winter');
     expect(
       result.items.map((i) => [i.row.trackId, i.selectionPlays, i.yearPlays])
     ).toEqual([
-      ['a', 10, 31],
+      // a's yearPlays now includes its 2021-12 plays (4) on top of the
+      // calendar year's 31, so the selection never exceeds the total.
+      ['a', 10, 35],
       ['b', 8, 28],
     ]);
     expect([result.plays, result.tracks]).toEqual([18, 2]);
+  });
+
+  it('keeps yearPlays at least the selection when a track plays only the previous December', () => {
+    const decemberOnly = [row('decOnly', { '2021-12': 9 })];
+    const result = byYear(decemberOnly, 2022, 'winter');
+    expect(result.items).toHaveLength(1);
+    const [item] = result.items;
+    expect(item.selectionPlays).toBe(9);
+    expect(item.yearPlays).toBe(item.selectionPlays);
+    expect(item.yearPlays).toBeGreaterThan(0);
   });
 
   it('drills into one month and ties on lifetime plays', () => {
@@ -327,8 +339,16 @@ describe('byYear', () => {
 
 const finishRows = [
   outcome('loyal', 300, { finished: 312, skipped: 12, attempts: 331 }),
-  outcome('mixed', 20, { finished: 10, skipped: 10, attempts: 25 }),
-  outcome('tieA', 5, { finished: 5, skipped: 5, attempts: 10 }),
+  // Tied at 0.7: finZ has more plays, fewer outcomes and a later name than
+  // finA (trackName defaults to `Song ${trackId}`) — only a plays tie-break
+  // puts finZ first; an outcomes or name tie-break would put finA first.
+  outcome('finZ', 50, { finished: 7, skipped: 3, attempts: 10 }),
+  outcome('finA', 4, { finished: 14, skipped: 6, attempts: 20 }),
+  // Tied at 0.4: skipZ has more outcomes, fewer plays and a later name than
+  // skipA — only an outcomes tie-break puts skipZ first; a plays or name
+  // tie-break would put skipA first.
+  outcome('skipZ', 3, { finished: 8, skipped: 12, attempts: 20 }),
+  outcome('skipA', 9, { finished: 4, skipped: 6, attempts: 10 }),
   // Short records only: `plays: 0` with an empty `months`, still counted.
   row('bail', {}, { finished: 2, skipped: 14, attempts: 20 }),
   outcome('rare', 30, { finished: 5, skipped: 4, attempts: 12 }),
@@ -340,8 +360,10 @@ describe('finishRate', () => {
     const items = finishRate(finishRows, 'finished');
     expect(items.map((i) => i.row.trackId)).toEqual([
       'loyal',
-      'mixed',
-      'tieA',
+      'finZ',
+      'finA',
+      'skipA',
+      'skipZ',
       'bail',
     ]);
     expect(items[0].outcomes).toBe(324);
@@ -353,8 +375,10 @@ describe('finishRate', () => {
     const items = finishRate(finishRows, 'skipped');
     expect(items.map((i) => i.row.trackId)).toEqual([
       'bail',
-      'mixed',
-      'tieA',
+      'skipZ',
+      'skipA',
+      'finA',
+      'finZ',
       'loyal',
     ]);
     expect(items[0].row.plays).toBe(0);

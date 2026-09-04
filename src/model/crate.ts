@@ -210,7 +210,12 @@ export function byYear(
   period: YearPeriod
 ): YearResult {
   const selectionKeys = periodMonths(year, period);
-  const yearKeys = periodMonths(year, 'all');
+  // The union with the selection, not just the calendar year: Winter's
+  // selection reaches into the previous December, which the calendar year
+  // alone would omit, letting yearPlays fall below selectionPlays.
+  const yearKeys = [
+    ...new Set([...periodMonths(year, 'all'), ...selectionKeys]),
+  ];
   const items: YearItem[] = [];
   let plays = 0;
   for (const row of rows) {
