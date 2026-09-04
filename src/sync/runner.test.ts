@@ -274,6 +274,23 @@ describe('runSync resilience', () => {
     expect((await getAllRows()).entries).toHaveLength(2);
   });
 
+  it('does not lock in an unproven fields variant from an empty first playlist', async () => {
+    const routes = baseRoutes([summary('p1'), summary('p2')], {});
+    routes['/playlists/p1/items'] = (q) => page([], q);
+    routes['/playlists/p2/items'] = (q) =>
+      String(q.fields ?? '').includes('item(')
+        ? page([{ added_at: null, is_local: false }], q)
+        : page([trackItem('a')], q);
+    const { states, calls } = await run(routes);
+    expect(states.at(-1)).toEqual({ status: 'idle' });
+    const variants = itemCalls(calls).map((c) =>
+      String(c.query.fields ?? '').includes('item(') ? 'item' : 'track'
+    );
+    expect(variants).toEqual(['item', 'item', 'track']);
+    const rows = await getAllRows();
+    expect(rows.entries.filter((e) => e.playlistId === 'p2')).toHaveLength(1);
+  });
+
   it('reports an error state with the message and pending ids', async () => {
     const routes = baseRoutes([summary('p1')], {});
     routes['/playlists/p1/items'] = () => new ApiError(500, 'boom');
@@ -307,13 +324,27 @@ describe('runSync resilience', () => {
         spotifyUrl: null,
         syncedAt: 1,
       },
-      [],
+      [
+        {
+          key: 'stale',
+          id: 'stale',
+          uri: 'spotify:track:stale',
+          name: 'Stale',
+          artists: [],
+          album: '',
+          durationMs: 1,
+          isrc: null,
+          spotifyUrl: null,
+          isLocal: false,
+        },
+      ],
       []
     );
     await putMeta('accountId', 'someone-else');
     await run(baseRoutes([summary('p1')], { p1: [] }));
     const rows = await getAllRows();
     expect(rows.playlists.map((p) => p.id)).toEqual(['p1']);
+    expect(rows.tracks.map((t) => t.key)).not.toContain('stale');
     await expect(getMeta('accountId')).resolves.toBe('me');
   });
 
