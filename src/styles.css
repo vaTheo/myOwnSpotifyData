@@ -465,3 +465,13 @@ input[type='file'] {
   color: var(--muted);
   flex: none;
 }
+
+.sublist ul {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+}
+
+.sublist p {
+  margin: 2px 0;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { artistNames, artistUrl, plural } from './format';
+import { artistNames, artistUrl, formatDate, plural } from './format';
 
 describe('format helpers', () => {
   it('pluralises', () => {
@@ -23,5 +23,12 @@ describe('format helpers', () => {
       'https://open.spotify.com/artist/4tZwfgrHOc3mvqYlEYSvVi'
     );
     expect(artistUrl(null)).toBeNull();
+  });
+
+  it('formats a day from an ISO string or an epoch', () => {
+    // Noon UTC: the same calendar day in every zone the phone might use.
+    const ms = Date.UTC(2026, 8, 15, 12, 0, 0);
+    expect(formatDate(ms)).toBe(formatDate(new Date(ms).toISOString()));
+    expect(formatDate(ms)).toContain('2026');
   });
 });
