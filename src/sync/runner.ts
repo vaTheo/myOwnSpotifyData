@@ -172,7 +172,16 @@ export async function runSync(
 
   async function setFinalState(state: SyncState): Promise<void> {
     onState(state);
-    await putMeta(SYNC_STATE_META, state);
+    try {
+      await putMeta(SYNC_STATE_META, state);
+    } catch (err) {
+      // Never let the state write throw: the catch block below calls this too.
+      onState({
+        status: 'error',
+        message: `Could not save sync state: ${describeError(err)}`,
+        pending: state.status === 'idle' ? [] : state.pending,
+      });
+    }
   }
 
   function running(current: string | null): void {
