@@ -7,6 +7,8 @@ import { Settings } from './ui/Settings';
 import { Connect } from './ui/Connect';
 import { Artist } from './ui/Artist';
 import { Artists } from './ui/Artists';
+import { CrateHub } from './ui/crate/CrateHub';
+import { CrateView } from './ui/crate/CrateView';
 import { Import } from './ui/Import';
 import { Playlist } from './ui/Playlist';
 import { Playlists } from './ui/Playlists';
@@ -21,21 +23,27 @@ export function installRouter(): void {
 }
 
 const TABS: { route: Route; label: string }[] = [
+  { route: { name: 'crate' }, label: 'Crate' },
   { route: { name: 'top' }, label: 'Top' },
   { route: { name: 'playlists' }, label: 'Playlists' },
   { route: { name: 'artists' }, label: 'Artists' },
-  { route: { name: 'import' }, label: 'Import' },
   { route: { name: 'settings' }, label: 'Settings' },
 ];
 
 function tabOf(r: Route): Route['name'] {
   if (r.name === 'playlist') return 'playlists';
   if (r.name === 'artist') return 'artists';
+  if (r.name === 'crateView') return 'crate';
+  if (r.name === 'import') return 'settings';
   return r.name;
 }
 
 function Screen({ route }: { route: Route }) {
   switch (route.name) {
+    case 'crate':
+      return <CrateHub />;
+    case 'crateView':
+      return <CrateView view={route.view} period={route.period} />;
     case 'top':
       return <Top />;
     case 'playlists':
