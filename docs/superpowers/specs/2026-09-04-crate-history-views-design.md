@@ -144,7 +144,9 @@ January and February; Spring Mar–May; Summer Jun–Aug; Autumn Sep–Nov.
 Caption: `2022 · 4,812 plays · 936 tracks`, `Dec 2021 – Feb 2022 · 806
 plays · 241 tracks`, `Mar 2022 · 402 plays · 180 tracks`. Rows sorted by
 plays in the selection. Badge 1 `41 plays`. Badge 2 `of 148 in 2022` when a
-season or month is selected, else `of 358 all-time`; amber replaces it when
+season or month is selected (the year's twelve months, plus the previous
+December when Winter is selected, so the number is never below the
+selection), else `of 358 all-time`; amber replaces it when
 the track is in no playlist. Expansion: `358 plays lifetime · last 14 Aug
 2026`, all twelve months of the year as a strip, playlists. Empty: `No
 plays in Feb 2022.` Lists show 100 rows with `Showing the top 100 of 918`
@@ -157,7 +159,9 @@ Control: `Finished · Skipped` (default Finished). Caption on Finished:
 Skipped: `You bail out of these · 10+ clear outcomes · 1,204 tracks`. A
 legend line `65%+ green · under 35% red`. Badge 1 `96% finished`: green at
 65% or more, grey between, red under 35%. Badge 2 `312 of 324` or amber.
-Sorted by rate descending (Finished) or ascending (Skipped); ties by plays.
+Sorted by rate descending (Finished) or ascending (Skipped). Ties on
+Finished break by plays; ties on Skipped break by number of outcomes,
+because most skipped tracks have no credited play at all.
 Expansion: `318 plays · 331 starts`, `312 finished · 12 skipped · 7
 unclear`, playlists. Empty: `No track has 10 clear outcomes yet.`
 
@@ -339,6 +343,13 @@ Pure logic only, as before:
   message and the summary; `version: 2`; `tracks` counts `plays > 0`.
 
 ## 8. Deviations noted for the record
+
+Rulings made during execution: the Skipped tab ties on outcomes, not plays
+(§3 amended); `yearPlays` includes the previous December under Winter (§3
+amended); `ImportSummary.version` is optional so old summaries type-check;
+`playsFor` falls through a zero-play id row to the name path; `gemCutoff`
+and `rateBand` are exported beyond §5's list; lists page at 100 rows on
+Classics and Finish too.
 
 The research recommended a `DB_VERSION` bump; the design keeps version 1
 (reasons in §5). The research suggested optional per-year storage; years
