@@ -34,6 +34,24 @@ const play = (trackId: string) => ({
   lastTs: '2021-01-01T00:00:00Z',
   trackName: 'S',
   artistName: 'A',
+  months: { '2020-01': 2, '2021-01': 1 },
+  attempts: 4,
+  finished: 3,
+  skipped: 1,
+});
+
+const shortOnly = (trackId: string) => ({
+  trackId,
+  plays: 0,
+  msPlayed: 0,
+  firstTs: '',
+  lastTs: '',
+  trackName: 'S',
+  artistName: 'A',
+  months: {},
+  attempts: 4,
+  finished: 0,
+  skipped: 4,
 });
 
 beforeEach(async () => {
@@ -49,6 +67,8 @@ describe('runImport', () => {
         type: 'done',
         plays: [play('a'), play('b')],
         counts: { ...emptyCounts(), credited: 6 },
+        outcomes: { attempts: 8, finished: 6, skipped: 2 },
+        zone: 'Europe/Paris',
         range: { first: '2020-01-01T00:00:00Z', last: '2021-01-01T00:00:00Z' },
         processed: ['f0', 'f1'],
         skipped: [],
@@ -64,11 +84,14 @@ describe('runImport', () => {
     expect(states.at(-1)).toEqual({
       status: 'done',
       summary: {
+        version: 2,
         importedAt: 77,
         plays: 6,
         tracks: 2,
         matchedTracks: 1,
         counts: { ...emptyCounts(), credited: 6 },
+        outcomes: { attempts: 8, finished: 6, skipped: 2 },
+        zone: 'Europe/Paris',
         range: { first: '2020-01-01T00:00:00Z', last: '2021-01-01T00:00:00Z' },
         processed: ['f0', 'f1'],
         skipped: [],
@@ -118,6 +141,8 @@ describe('runImport', () => {
             type: 'done',
             plays: [],
             counts: emptyCounts(),
+            outcomes: { attempts: 0, finished: 0, skipped: 0 },
+            zone: 'Europe/Paris',
             range: null,
             processed: [],
             skipped: [
@@ -159,5 +184,46 @@ describe('runImport', () => {
       status: 'error',
       message: 'Could not start the import worker: Worker is not defined',
     });
+  });
+
+  it('counts only tracks with a credited play', async () => {
+    const states: ImportState[] = [];
+    await runImport([], {
+      createWorker: () =>
+        new FakeWorker([
+          {
+            type: 'done',
+            plays: [play('a'), shortOnly('b')],
+            counts: { ...emptyCounts(), credited: 3, short: 4 },
+            outcomes: { attempts: 8, finished: 3, skipped: 5 },
+            zone: 'America/New_York',
+            range: {
+              first: '2020-01-01T00:00:00Z',
+              last: '2021-01-01T00:00:00Z',
+            },
+            processed: ['f0'],
+            skipped: [],
+          },
+        ]) as unknown as Worker,
+      knownTrackIds: new Set(['a', 'b']),
+      now: () => 5,
+      onState: (s) => states.push(s),
+    });
+    const last = states.at(-1);
+    if (last?.status !== 'done') throw new Error('expected done');
+    expect(last.summary.version).toBe(2);
+    expect(last.summary.tracks).toBe(1);
+    expect(last.summary.matchedTracks).toBe(1);
+    expect(last.summary.zone).toBe('America/New_York');
+    expect(last.summary.outcomes).toEqual({
+      attempts: 8,
+      finished: 3,
+      skipped: 5,
+    });
+    // The skipped-only row is still stored: the finish-rate view needs it.
+    expect((await getAllRows()).plays.map((p) => p.trackId)).toEqual([
+      'a',
+      'b',
+    ]);
   });
 });

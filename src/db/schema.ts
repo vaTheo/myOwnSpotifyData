@@ -82,6 +82,17 @@ export interface PlayRow {
   lastTs: string;
   trackName: string | null;
   artistName: string | null;
+  /** 'YYYY-MM' -> credited plays, bucketed in the importing device's zone. */
+  months?: Record<string, number>;
+  /** Every record with a track URI, including plays under 30 s. */
+  attempts?: number;
+  /** Records whose reason_end was 'trackdone'. */
+  finished?: number;
+  /** Records the skip rule counted as a skip. */
+  skipped?: number;
+  // The four are optional so rows written by an older import still type-check.
+  // DB_VERSION stays 1: play records are schemaless, replacePlays clears the
+  // store, and the current upgrade callback would throw on a bump.
 }
 
 export interface MetaRow {
