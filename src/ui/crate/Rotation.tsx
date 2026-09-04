@@ -76,14 +76,23 @@ function stripText(row: PlayRow, keys: string[]): string {
     .join(' · ');
 }
 
-/** The window month the row was last played in, for `Open Aug 2026 ›`. */
-function latestMonth(row: PlayRow, keys: string[]): string | null {
+/**
+ * The window month with the most plays, for `Open Aug 2026 ›`; a tie goes
+ * to the latest of the tied months. `keys` is oldest first (`lastMonths`),
+ * so scanning forward with `>=` keeps the latest on a tie.
+ */
+function peakMonth(row: PlayRow, keys: string[]): string | null {
   if (!hasMonthData(row)) return null;
-  for (let i = keys.length - 1; i >= 0; i -= 1) {
-    const key = keys[i];
-    if ((row.months[key] ?? 0) > 0) return key;
+  let best: string | null = null;
+  let bestPlays = 0;
+  for (const key of keys) {
+    const n = row.months[key] ?? 0;
+    if (n > 0 && n >= bestPlays) {
+      bestPlays = n;
+      best = key;
+    }
   }
-  return null;
+  return best;
 }
 
 function staleMonth(now: Date): string | null {
@@ -154,7 +163,7 @@ export function Rotation() {
             {items.slice(0, shown.value).map((item, i) => {
               const id = item.row.trackId;
               const strip = stripText(item.row, keys);
-              const month = latestMonth(item.row, keys);
+              const month = peakMonth(item.row, keys);
               return (
                 <CrateRow
                   key={id}
@@ -182,7 +191,6 @@ export function Rotation() {
                   <p class="muted">
                     {item.windowPlays.toLocaleString()} of{' '}
                     {plural(item.row.plays, 'play')}
-                    {item.isNew ? ', all in this window' : ''}
                   </p>
                   {strip && <p class="strip">{strip}</p>}
                   <PlaylistLinks row={item.row} />
