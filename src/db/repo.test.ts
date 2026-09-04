@@ -11,6 +11,7 @@ import {
   replacePlaylist,
   wipeDb,
 } from './repo';
+import { DB_NAME } from './schema';
 import type { EntryRow, PlaylistRow, TrackRow } from './schema';
 
 function playlist(id: string, snapshotId = 's1'): PlaylistRow {
@@ -152,5 +153,16 @@ describe('top items, plays and meta', () => {
     await putMeta('accountId', 'me');
     await wipeDb();
     await expect(getMeta('accountId')).resolves.toBeUndefined();
+  });
+
+  it('wipeDb rejects while another tab holds the database open, then succeeds once it closes', async () => {
+    const other = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    await expect(wipeDb(50)).rejects.toThrow(/another tab/);
+    other.close();
+    await expect(wipeDb()).resolves.toBeUndefined();
   });
 });

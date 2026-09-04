@@ -101,8 +101,13 @@ export async function startImport(files: File[]): Promise<void> {
 }
 
 export async function disconnect(): Promise<void> {
+  try {
+    await wipeDb();
+  } catch (err) {
+    banner.value = `Could not delete local data: ${describeError(err)}`;
+    return;
+  }
   auth.clearAll();
-  await wipeDb();
   model.value = null;
   syncState.value = { status: 'idle' };
   importState.value = { status: 'idle' };
