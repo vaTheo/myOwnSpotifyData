@@ -1,8 +1,8 @@
-export function Empty(p: { what: string; href?: string; cta?: string }) {
+export function Empty(p: { what: string }) {
   return (
     <div class="empty">
       <p>No {p.what} yet.</p>
-      <a href={p.href ?? '#/settings'}>{p.cta ?? 'Sync in Settings'}</a>
+      <a href="#/settings">Sync in Settings</a>
     </div>
   );
 }

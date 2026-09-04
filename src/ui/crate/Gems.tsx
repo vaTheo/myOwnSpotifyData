@@ -7,7 +7,6 @@ import {
   forgottenGems,
   hasMonthData,
   monthKey,
-  yearsWithPlays,
 } from '../../model/crate';
 import { Badge } from '../components/Badge';
 import { Segmented } from '../components/Segmented';
@@ -20,6 +19,7 @@ import {
   PlaylistLinks,
   inNoPlaylist,
   monthLabel,
+  spanYears,
   useCrateRows,
 } from './shared';
 
@@ -62,7 +62,7 @@ export function Gems() {
   const now = new Date();
   const months = gemMonths.value;
   const items = forgottenGems(rows, now, months);
-  const span = yearsWithPlays(rows).length;
+  const span = spanYears(rows).length;
   const since = monthLabel(cutoffMonth(now, months));
   return (
     <>

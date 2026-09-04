@@ -1,14 +1,11 @@
 import { signal } from '@preact/signals';
-import type { PlayRow } from '../../db/schema';
 import {
   CLASSIC_MIN_PLAYS_PER_YEAR,
   CLASSIC_MIN_YEARS,
   PAGE_SIZE,
   classics,
   monthKey,
-  yearsWithPlays,
 } from '../../model/crate';
-import { historySummary } from '../../model/state';
 import { Badge } from '../components/Badge';
 import { Segmented } from '../components/Segmented';
 import { formatDate, plural } from '../format';
@@ -19,32 +16,12 @@ import {
   Paged,
   PlaylistLinks,
   inNoPlaylist,
+  spanYears,
   useCrateRows,
 } from './shared';
 
 const expanded = signal<string | null>(null);
 const limit = signal(PAGE_SIZE);
-
-function yearOf(iso: string | undefined): number | null {
-  if (!iso) return null;
-  const year = new Date(iso).getFullYear();
-  return Number.isFinite(year) ? year : null;
-}
-
-/**
- * Every year the export covers, gaps included: the strip prints a dash for a
- * year without plays, so the span comes from the import range and not from the
- * years that happen to have rows.
- */
-function spanYears(rows: PlayRow[]): number[] {
-  const range = historySummary.value?.range;
-  const played = yearsWithPlays(rows);
-  const first = yearOf(range?.first) ?? played[0] ?? new Date().getFullYear();
-  const last = yearOf(range?.last) ?? played[played.length - 1] ?? first;
-  const years: number[] = [];
-  for (let y = first; y <= last; y += 1) years.push(y);
-  return years.length > 0 ? years : [first];
-}
 
 function yearStrip(span: number[], perYear: Map<number, number>): string {
   return span
