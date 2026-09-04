@@ -10,26 +10,25 @@ Small personal TypeScript project to fetch and explore the owner's Spotify data.
 
 Node 24 (`.nvmrc`), yarn classic 1.22. Install with `yarn`.
 
-| Task                                     | Command                        |
-| ---------------------------------------- | ------------------------------ |
-| Run the app with `.env` loaded           | `yarn dev`                     |
-| All tests                                | `yarn test`                    |
-| One test file                            | `yarn test src/config.test.ts` |
-| Tests matching a name                    | `yarn test -t "throws when"`   |
-| Watch mode                               | `yarn vitest`                  |
-| Type-check (includes test files)         | `yarn typecheck`               |
-| Lint                                     | `yarn lint`                    |
-| Format (not enforced in CI)              | `yarn format`                  |
-| Compile to `dist/` (test files excluded) | `yarn build`                   |
+| Task                                                           | Command                        |
+| -------------------------------------------------------------- | ------------------------------ |
+| Vite dev server (open http://127.0.0.1:5173/myOwnSpotifyData/) | `yarn dev`                     |
+| All tests                                                      | `yarn test`                    |
+| One test file                                                  | `yarn test src/router.test.ts` |
+| Tests matching a name                                          | `yarn test -t "throws when"`   |
+| Watch mode                                                     | `yarn vitest`                  |
+| Type-check (includes test files)                               | `yarn typecheck`               |
+| Lint                                                           | `yarn lint`                    |
+| Format (not enforced in CI)                                    | `yarn format`                  |
+| Production build to `dist/`                                    | `yarn build`                   |
 
 CI (`.github/workflows/ci.yml`) runs `yarn install --frozen-lockfile`, `typecheck`, `lint`, `test` on every push to `main` and every PR. Run those three locally before pushing.
 
 ## Conventions that are easy to get wrong
 
-- **ESM + NodeNext resolution.** `package.json` has `"type": "module"` and tsconfig uses `module: NodeNext`. Relative imports must carry a `.js` extension even when the target is a `.ts` file (`import { loadConfig } from './config.js'`). Omitting it passes in Vitest but fails `tsc` and the built output.
-- **Tests sit next to source** as `src/**/*.test.ts`. `tsconfig.json` includes them so `yarn typecheck` covers tests; `tsconfig.build.json` excludes them so they never land in `dist/`.
-- **Environment loading is native Node**, not dotenv. `dev` and `start` pass `--env-file-if-exists=.env` to Node. Code reads credentials only through `loadConfig()` in `src/config.ts`, which throws naming the first missing variable. Add new settings there and mirror them in `.env.example`.
-- **Spotify variables**: `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI`.
+- **Bundler resolution.** `tsconfig.json` uses `moduleResolution: bundler`; relative imports carry **no** extension. Vite compiles JSX itself (`jsx: react-jsx`, `jsxImportSource: preact`); there is no framework plugin.
+- **Tests sit next to source** as `src/**/*.test.ts`. `tsconfig.json` includes them so `yarn typecheck` covers tests, and Vite never bundles them.
+- **Only one setting exists**: `VITE_SPOTIFY_CLIENT_ID`, read from `.env` locally (Vite loads it) and mirrored in `.env.example`. There is no client secret anywhere and must never be.
 
 ## Pinned dependencies (do not bump blindly)
 
