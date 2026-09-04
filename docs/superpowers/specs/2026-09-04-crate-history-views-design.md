@@ -148,7 +148,9 @@ season or month is selected (the year's twelve months, plus the previous
 December when Winter is selected, so the number is never below the
 selection), else `of 358 all-time`; amber replaces it when
 the track is in no playlist. Expansion: `358 plays lifetime · last 14 Aug
-2026`, all twelve months of the year as a strip, playlists. Empty: `No
+2026`, the year's twelve months as a strip (preceded by the previous December
+when Winter is selected, so the strip never contradicts the badge),
+playlists. Empty: `No
 plays in Feb 2022.` Lists show 100 rows with `Showing the top 100 of 918`
 and a `Show 100 more` button.
 
@@ -320,8 +322,9 @@ Rows without `months` are ignored by every function.
 - `Segmented` gains `scroll?: boolean`: chips that do not shrink and scroll
   horizontally (`.segmented.scroll`).
 - `Badge` gains kinds `'todo'` (amber, the banner palette) and `'skip'` (red).
-- `Empty` gains `href?` and `cta?` so Crate empties can point at Import or
-  at another window.
+- `Empty` is unchanged: Crate empty states are inline blocks with their own
+  copy and links (an earlier draft added `href`/`cta` props; they were removed
+  as unused).
 - CSS: `.segmented.scroll`, `.badge.todo`, `.badge.skip`, `.strip`
   (small, muted, tabular numerals), `.hub-row`, `.provenance`, `.caption`,
   `.legend`, `.footer-note`, and `.sublist li { min-height: 44px }`.
@@ -349,7 +352,10 @@ Rulings made during execution: the Skipped tab ties on outcomes, not plays
 amended); `ImportSummary.version` is optional so old summaries type-check;
 `playsFor` falls through a zero-play id row to the name path; `gemCutoff`
 and `rateBand` are exported beyond §5's list; lists page at 100 rows on
-Classics and Finish too.
+Classics and Finish too; the Winter month strip includes the previous
+December (§3 amended); `Empty` kept its original props (§6 amended); the
+Heavy-rotation `Open <month>` link names the window month with the most
+plays.
 
 The research recommended a `DB_VERSION` bump; the design keeps version 1
 (reasons in §5). The research suggested optional per-year storage; years
