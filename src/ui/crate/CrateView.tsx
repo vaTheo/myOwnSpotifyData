@@ -1,6 +1,14 @@
-import { routeHref, type CrateView as View } from '../../router';
+import { crateStatus } from '../../model/state';
+import type { CrateView as CrateViewName } from '../../router';
+import { ByYear } from './ByYear';
+import { Classics } from './Classics';
+import { CrateEmpty } from './CrateEmpty';
+import { Finish } from './Finish';
+import { Gems } from './Gems';
+import { Rotation } from './Rotation';
+import { CrateShell } from './shared';
 
-const TITLES: Record<View, string> = {
+const TITLE: Record<CrateViewName, string> = {
   rotation: 'Heavy rotation',
   gems: 'Forgotten gems',
   classics: 'All-time classics',
@@ -8,16 +16,37 @@ const TITLES: Record<View, string> = {
   finish: 'Finish rate',
 };
 
-export function CrateView(p: { view: View; period?: string }) {
+function Body({ view, period }: { view: CrateViewName; period?: string }) {
+  switch (view) {
+    case 'rotation':
+      return <Rotation />;
+    case 'gems':
+      return <Gems />;
+    case 'classics':
+      return <Classics />;
+    case 'year':
+      return <ByYear period={period} />;
+    case 'finish':
+      return <Finish />;
+  }
+}
+
+export function CrateView({
+  view,
+  period,
+}: {
+  view: CrateViewName;
+  period?: string;
+}) {
   return (
-    <section>
-      <a class="back" href={routeHref({ name: 'crate' })}>
-        ‹ Crate
-      </a>
-      <h1>{TITLES[p.view]}</h1>
-      <p class="caption">
-        {p.period ? `Coming soon · ${p.period}` : 'Coming soon'}
-      </p>
-    </section>
+    <CrateShell title={TITLE[view]}>
+      {crateStatus.value === 'ready' ? (
+        <Body view={view} period={period} />
+      ) : (
+        <CrateEmpty
+          status={crateStatus.value === 'reimport' ? 'reimport' : 'empty'}
+        />
+      )}
+    </CrateShell>
   );
 }
