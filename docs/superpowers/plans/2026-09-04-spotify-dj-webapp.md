@@ -73,6 +73,22 @@ Spec deviations, decided while planning (each is smaller than the spec's version
 - The `entries` store has no secondary indexes. Per-playlist deletion uses a primary-key range on `[playlistId, position]`; every other lookup happens in memory.
 - `history/process.ts` holds the unzip and parse logic so it is unit-testable in Node; `import.worker.ts` is a five-line wrapper.
 
+Execution amendments (rulings made while executing; the committed code is the
+authority where it differs from a task's code block below):
+
+- Task 1: the Vite config imports `package.json` with `with { type: 'json' }`
+  (Vite warns otherwise). CLAUDE.md received an interim correction right after
+  Task 1 so later agents did not read stale NodeNext conventions.
+- Task 7: the two internal sentinels in `getItemsPage` are plain `Error`s with
+  specific messages (an `ApiError` with status 0 would have been reported as
+  "Offline"); a `fields` variant is cached only once a non-empty page proved
+  it; one more runner test covers an empty first playlist followed by a
+  stripped page; the account-wipe test seeds a track row so it can fail.
+- Task 11: `wipeDb(timeoutMs = 5000)` races `deleteDB` against a timer and
+  rejects with a "still open in another tab" message when blocked, with a repo
+  test; `disconnect()` wipes first and only logs out after success, showing a
+  banner on failure.
+
 ---
 
 ### Task 1: Scaffold the Vite app and the hash router
