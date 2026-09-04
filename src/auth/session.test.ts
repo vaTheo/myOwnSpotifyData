@@ -33,13 +33,16 @@ const NOW = 1_700_000_000_000;
 function setup(
   opts: {
     session?: Session;
+    rawSession?: string;
     pkce?: { verifier: string; state: string };
-    responses?: Array<() => Response>;
+    responses?: Array<() => Response | Promise<Response>>;
     clientId?: string;
   } = {}
 ) {
   const storage = new MemoryStorage();
   if (opts.session) storage.setItem('session', JSON.stringify(opts.session));
+  if (opts.rawSession !== undefined)
+    storage.setItem('session', opts.rawSession);
   if (opts.pkce) storage.setItem('pkce', JSON.stringify(opts.pkce));
   const responses = opts.responses ?? [];
   const fetchFn = vi.fn(async () => {
@@ -120,6 +123,26 @@ describe('completeLogin', () => {
     ).rejects.toMatchObject({ reason: 'state' });
   });
 
+  it('rejects when Spotify returns no refresh token', async () => {
+    const { store, storage } = setup({
+      pkce: { verifier: 'v', state: 's' },
+      responses: [
+        () =>
+          json({
+            access_token: 'at',
+            token_type: 'Bearer',
+            scope: SCOPES,
+            expires_in: 3600,
+          }),
+      ],
+    });
+    await expect(
+      store.completeLogin(new URLSearchParams('code=c&state=s'))
+    ).rejects.toMatchObject({ name: 'AuthError', reason: 'missing' });
+    expect(store.session.value).toBeNull();
+    expect(storage.getItem('session')).toBeNull();
+  });
+
   it('exchanges the code and stores the session', async () => {
     const { store, storage, fetchFn } = setup({
       pkce: { verifier: 'v', state: 's' },
@@ -147,6 +170,13 @@ describe('completeLogin', () => {
     expect(store.session.value).toEqual(live);
     expect(JSON.parse(storage.getItem('session')!)).toEqual(live);
     expect(storage.getItem('pkce')).toBeNull();
+  });
+});
+
+describe('createSessionStore', () => {
+  it('starts disconnected when the stored session is corrupt', () => {
+    const { store } = setup({ rawSession: '{not json' });
+    expect(store.session.value).toBeNull();
   });
 });
 
@@ -234,6 +264,37 @@ describe('getAccessToken', () => {
 });
 
 describe('logout and clearAll', () => {
+  it('does not resurrect the session when a refresh lands after logout', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const { store, storage } = setup({
+      session: stale,
+      responses: [
+        async () => {
+          await gate;
+          return json({
+            access_token: 'at2',
+            token_type: 'Bearer',
+            scope: SCOPES,
+            expires_in: 3600,
+            refresh_token: 'rt2',
+          });
+        },
+      ],
+    });
+    const pending = store.getAccessToken();
+    store.logout();
+    release();
+    await expect(pending).rejects.toMatchObject({
+      name: 'AuthError',
+      reason: 'missing',
+    });
+    expect(store.session.value).toBeNull();
+    expect(storage.getItem('session')).toBeNull();
+  });
+
   it('logout drops the session, clearAll also drops pkce', () => {
     const { store, storage } = setup({
       session: live,

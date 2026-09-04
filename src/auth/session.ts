@@ -68,10 +68,17 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
   );
   const lastAuthError = signal<string | null>(null);
   let refreshing: Promise<string> | null = null;
+  /** Bumped whenever the session is cleared, to strand refreshes in flight. */
+  let generation = 0;
 
   function save(next: Session | null): void {
-    if (next) deps.storage.setItem(SESSION_KEY, JSON.stringify(next));
-    else deps.storage.removeItem(SESSION_KEY);
+    if (next) {
+      deps.storage.setItem(SESSION_KEY, JSON.stringify(next));
+    } else {
+      deps.storage.removeItem(SESSION_KEY);
+      generation += 1;
+      refreshing = null;
+    }
     session.value = next;
   }
 
@@ -141,11 +148,16 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
   }
 
   async function doRefresh(current: Session): Promise<string> {
+    const started = generation;
     try {
       const res = await refreshTokens(
         { clientId: deps.clientId, refreshToken: current.refreshToken },
         deps.fetchFn
       );
+      if (generation !== started) {
+        // Logged out while this refresh was in flight: do not resurrect it.
+        throw new AuthError('missing', 'Not connected to Spotify.');
+      }
       save({
         accessToken: res.access_token,
         expiresAt: deps.now() + res.expires_in * 1000,
@@ -175,8 +187,9 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
     if (!forceRefresh && current.expiresAt - deps.now() > REFRESH_MARGIN_MS) {
       return Promise.resolve(current.accessToken);
     }
+    const started = generation;
     refreshing ??= doRefresh(current).finally(() => {
-      refreshing = null;
+      if (generation === started) refreshing = null;
     });
     return refreshing;
   }
