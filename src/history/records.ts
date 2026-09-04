@@ -87,9 +87,9 @@ export class PlayAggregator {
     if (ts > row.lastTs) row.lastTs = ts;
     // Keep the latest name Spotify reported; older exports carry null names.
     const trackName = text(r.master_metadata_track_name);
-    if (trackName) row.trackName = trackName;
+    if (trackName !== null) row.trackName = trackName;
     const artistName = text(r.master_metadata_album_artist_name);
-    if (artistName) row.artistName = artistName;
+    if (artistName !== null) row.artistName = artistName;
   }
 
   rows(): PlayRow[] {
