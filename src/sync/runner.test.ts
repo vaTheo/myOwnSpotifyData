@@ -10,7 +10,21 @@ import {
 import { paginate, type Query, type SpotifyClient } from '../spotify/client';
 import { ApiError, QuotaError } from '../spotify/errors';
 import type { ApiPlaylistItem, ApiPlaylistSummary } from '../spotify/types';
-import { runSync, type SyncState } from './runner';
+import { SYNC_STATE_META, runSync, type SyncState } from './runner';
+
+/** Lets one test make a single meta write fail; null means "no failure". */
+const failingMeta = vi.hoisted(() => ({ name: null as string | null }));
+
+vi.mock('../db/repo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../db/repo')>();
+  return {
+    ...actual,
+    putMeta: async (name: string, value: unknown) => {
+      if (failingMeta.name === name) throw new Error('disk is full');
+      await actual.putMeta(name, value);
+    },
+  };
+});
 
 type Handler = (query: Query) => unknown;
 
@@ -144,6 +158,7 @@ const itemCalls = (calls: Array<{ path: string; query: Query }>) =>
   calls.filter((c) => c.path.endsWith('/items'));
 
 beforeEach(async () => {
+  failingMeta.name = null;
   await wipeDb();
 });
 
@@ -346,6 +361,19 @@ describe('runSync resilience', () => {
     expect(rows.playlists.map((p) => p.id)).toEqual(['p1']);
     expect(rows.tracks.map((t) => t.key)).not.toContain('stale');
     await expect(getMeta('accountId')).resolves.toBe('me');
+  });
+
+  it('reports a failed sync state write instead of throwing out of runSync', async () => {
+    failingMeta.name = SYNC_STATE_META;
+    const { states } = await run(
+      baseRoutes([summary('p1')], { p1: [trackItem('a')] })
+    );
+    expect(states.at(-1)).toEqual({
+      status: 'error',
+      message: 'Could not save sync state: disk is full',
+      pending: [],
+    });
+    expect((await getAllRows()).playlists.map((p) => p.id)).toEqual(['p1']);
   });
 
   it('acquires and releases the wake lock even on failure', async () => {
