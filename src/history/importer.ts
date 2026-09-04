@@ -28,16 +28,37 @@ export interface ImporterDeps {
   onState: (state: ImportState) => void;
 }
 
+function describeError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 function storageMessage(err: unknown): string {
   if (err instanceof DOMException && err.name === 'QuotaExceededError') {
     return 'Local storage is full. Free space on the phone and try again.';
   }
-  return err instanceof Error ? err.message : String(err);
+  return describeError(err);
+}
+
+function noFileReadMessage(
+  skipped: { name: string; reason: string }[]
+): string {
+  const detail = skipped.map((s) => `${s.name} (${s.reason})`).join(', ');
+  return detail ? `No file could be read: ${detail}` : 'No file could be read.';
 }
 
 export function runImport(files: File[], deps: ImporterDeps): Promise<void> {
   return new Promise((resolve) => {
-    const worker = deps.createWorker();
+    let worker: Worker;
+    try {
+      worker = deps.createWorker();
+    } catch (err) {
+      deps.onState({
+        status: 'error',
+        message: `Could not start the import worker: ${describeError(err)}`,
+      });
+      resolve();
+      return;
+    }
     let finished = false;
     let currentFile = '';
     const finish = (state: ImportState) => {
@@ -70,6 +91,14 @@ export function runImport(files: File[], deps: ImporterDeps): Promise<void> {
       }
       if (message.type === 'error') {
         finish({ status: 'error', message: message.message });
+        return;
+      }
+      if (message.processed.length === 0) {
+        // Nothing was read: keep the previous history rather than wiping it.
+        finish({
+          status: 'error',
+          message: noFileReadMessage(message.skipped),
+        });
         return;
       }
       void (async () => {

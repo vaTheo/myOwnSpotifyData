@@ -130,6 +130,14 @@ describe('PlayAggregator', () => {
     expect(agg.rows()[0].trackName).toBe('Song');
   });
 
+  it('keeps the latest non-null name when a later record renames a track', () => {
+    const agg = new PlayAggregator();
+    agg.add(rec({ master_metadata_track_name: 'Old title' }));
+    agg.add(rec({ master_metadata_track_name: null }));
+    agg.add(rec({ master_metadata_track_name: 'New title' }));
+    expect(agg.rows()[0].trackName).toBe('New title');
+  });
+
   it('has no range when nothing was credited', () => {
     expect(new PlayAggregator().range()).toBeNull();
   });

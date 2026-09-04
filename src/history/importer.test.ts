@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getAllRows, getMeta, wipeDb } from '../db/repo';
+import { getAllRows, getMeta, replacePlays, wipeDb } from '../db/repo';
 import { runImport, type ImportState } from './importer';
 import type { ImportMessage } from './process';
 import { emptyCounts } from './records';
@@ -106,5 +106,58 @@ describe('runImport', () => {
       onState: (s) => crashed.push(s),
     });
     expect(crashed.at(-1)).toEqual({ status: 'error', message: 'boom' });
+  });
+
+  it('keeps the previous history when every file was skipped', async () => {
+    await replacePlays([play('kept')]);
+    const states: ImportState[] = [];
+    await runImport([], {
+      createWorker: () =>
+        new FakeWorker([
+          {
+            type: 'done',
+            plays: [],
+            counts: emptyCounts(),
+            range: null,
+            processed: [],
+            skipped: [
+              {
+                name: 'Streaming_History_Audio_2021_1.json',
+                reason: 'unreadable: Unexpected end of JSON input',
+              },
+              {
+                name: 'Streaming_History_Audio_2022_1.json',
+                reason: 'not a JSON array',
+              },
+            ],
+          },
+        ]) as unknown as Worker,
+      knownTrackIds: new Set(),
+      now: () => 1,
+      onState: (s) => states.push(s),
+    });
+    const last = states.at(-1);
+    expect(last?.status).toBe('error');
+    expect(last?.status === 'error' && last.message).toBe(
+      'No file could be read: Streaming_History_Audio_2021_1.json (unreadable: Unexpected end of JSON input), Streaming_History_Audio_2022_1.json (not a JSON array)'
+    );
+    expect((await getAllRows()).plays.map((p) => p.trackId)).toEqual(['kept']);
+    await expect(getMeta('historySummary')).resolves.toBeUndefined();
+  });
+
+  it('reports a worker that cannot be created', async () => {
+    const states: ImportState[] = [];
+    await runImport([], {
+      createWorker: () => {
+        throw new Error('Worker is not defined');
+      },
+      knownTrackIds: new Set(),
+      now: () => 1,
+      onState: (s) => states.push(s),
+    });
+    expect(states.at(-1)).toEqual({
+      status: 'error',
+      message: 'Could not start the import worker: Worker is not defined',
+    });
   });
 });
