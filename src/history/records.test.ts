@@ -4,12 +4,13 @@ import {
   PlayAggregator,
   classify,
   emptyCounts,
+  outcomeOf,
   trackIdFromUri,
 } from './records';
 
 function rec(over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    ts: '2024-01-01T00:00:00Z',
+    ts: '2024-01-15T12:00:00Z',
     platform: 'android',
     ms_played: 200000,
     conn_country: 'FR',
@@ -74,16 +75,55 @@ describe('classify', () => {
   });
 });
 
+describe('outcomeOf', () => {
+  it('lets trackdone win over the skipped flag', () => {
+    expect(outcomeOf(rec({ reason_end: 'trackdone', skipped: true }))).toBe(
+      'finished'
+    );
+  });
+
+  it('counts the four skip reasons and the skipped flag', () => {
+    for (const reason of ['fwdbtn', 'backbtn', 'endplay', 'unknown']) {
+      expect(outcomeOf(rec({ reason_end: reason }))).toBe('skipped');
+    }
+    expect(outcomeOf(rec({ reason_end: 'logout', skipped: true }))).toBe(
+      'skipped'
+    );
+  });
+
+  it('leaves interruptions and the pre-2017 values neutral', () => {
+    for (const reason of [
+      'logout',
+      'remote',
+      'trackerror',
+      'unexpected-exit',
+      'unexpected-exit-while-paused',
+      'switched-to-audio',
+      '',
+      'appload',
+      'clickrow',
+      'clickside',
+      'playbtn',
+      'popup',
+      'uriopen',
+    ]) {
+      expect(outcomeOf(rec({ reason_end: reason }))).toBe('neutral');
+    }
+    expect(outcomeOf(rec({ reason_end: null }))).toBe('neutral');
+    expect(outcomeOf(42)).toBe('neutral');
+  });
+});
+
 describe('PlayAggregator', () => {
   it('counts plays per track with totals, first and last timestamps', () => {
     const agg = new PlayAggregator();
-    agg.add(rec({ ts: '2024-03-01T00:00:00Z' }));
-    agg.add(rec({ ts: '2022-01-01T00:00:00Z', ms_played: 50000 }));
+    agg.add(rec({ ts: '2024-03-15T12:00:00Z' }));
+    agg.add(rec({ ts: '2022-01-15T12:00:00Z', ms_played: 50000 }));
     agg.add(rec({ ms_played: 1000 }));
     agg.add(
       rec({
         spotify_track_uri: 'spotify:track:t2',
-        ts: '2025-01-01T00:00:00Z',
+        ts: '2025-01-15T12:00:00Z',
         master_metadata_track_name: null,
       })
     );
@@ -102,24 +142,37 @@ describe('PlayAggregator', () => {
         trackId: 't1',
         plays: 2,
         msPlayed: 250000,
-        firstTs: '2022-01-01T00:00:00Z',
-        lastTs: '2024-03-01T00:00:00Z',
+        firstTs: '2022-01-15T12:00:00Z',
+        lastTs: '2024-03-15T12:00:00Z',
         trackName: 'Song',
         artistName: 'Artist',
+        months: { '2022-01': 1, '2024-03': 1 },
+        attempts: 3,
+        finished: 3,
+        skipped: 0,
       },
       {
         trackId: 't2',
         plays: 1,
         msPlayed: 200000,
-        firstTs: '2025-01-01T00:00:00Z',
-        lastTs: '2025-01-01T00:00:00Z',
+        firstTs: '2025-01-15T12:00:00Z',
+        lastTs: '2025-01-15T12:00:00Z',
         trackName: null,
         artistName: 'Artist',
+        months: { '2025-01': 1 },
+        attempts: 1,
+        finished: 1,
+        skipped: 0,
       },
     ]);
     expect(agg.range()).toEqual({
-      first: '2022-01-01T00:00:00Z',
-      last: '2025-01-01T00:00:00Z',
+      first: '2022-01-15T12:00:00Z',
+      last: '2025-01-15T12:00:00Z',
+    });
+    expect(agg.outcomes()).toEqual({
+      attempts: 4,
+      finished: 4,
+      skipped: 0,
     });
   });
 
@@ -140,5 +193,76 @@ describe('PlayAggregator', () => {
 
   it('has no range when nothing was credited', () => {
     expect(new PlayAggregator().range()).toBeNull();
+  });
+
+  it('gives a short-only track a row with no play', () => {
+    const agg = new PlayAggregator();
+    agg.add(
+      rec({
+        spotify_track_uri: 'spotify:track:s1',
+        ms_played: 4000,
+        reason_end: 'fwdbtn',
+      })
+    );
+    agg.add(
+      rec({
+        spotify_track_uri: 'spotify:track:s1',
+        ms_played: 1200,
+        reason_end: 'backbtn',
+      })
+    );
+    expect(agg.rows()).toEqual([
+      {
+        trackId: 's1',
+        plays: 0,
+        msPlayed: 0,
+        firstTs: '',
+        lastTs: '',
+        trackName: 'Song',
+        artistName: 'Artist',
+        months: {},
+        attempts: 2,
+        finished: 0,
+        skipped: 2,
+      },
+    ]);
+    expect(agg.counts.short).toBe(2);
+    expect(agg.range()).toBeNull();
+    expect(agg.outcomes()).toEqual({
+      attempts: 2,
+      finished: 0,
+      skipped: 2,
+    });
+  });
+
+  it('buckets credited plays by month so the months sum to the plays', () => {
+    const agg = new PlayAggregator();
+    agg.add(rec({ ts: '2024-07-15T12:00:00Z' }));
+    agg.add(rec({ ts: '2024-07-20T12:00:00Z' }));
+    agg.add(rec({ ts: '2025-02-15T12:00:00Z' }));
+    agg.add(
+      rec({
+        ts: '2025-02-16T12:00:00Z',
+        ms_played: 2000,
+        reason_end: 'fwdbtn',
+      })
+    );
+    const row = agg.rows()[0];
+    expect(row.months).toEqual({ '2024-07': 2, '2025-02': 1 });
+    const summed = Object.values(row.months ?? {}).reduce((a, b) => a + b, 0);
+    expect(summed).toBe(row.plays);
+    expect(row.attempts).toBe(4);
+    expect(row.skipped).toBe(1);
+  });
+
+  it('reports the device zone alongside the outcome totals', () => {
+    const agg = new PlayAggregator();
+    agg.add(rec());
+    expect(agg.zone()).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    expect(agg.outcomes()).toEqual({
+      attempts: 1,
+      finished: 1,
+      skipped: 0,
+    });
   });
 });

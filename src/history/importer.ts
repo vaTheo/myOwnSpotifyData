@@ -1,15 +1,24 @@
 import { putMeta, replacePlays } from '../db/repo';
 import type { ImportMessage } from './process';
-import type { ImportCounts } from './records';
+import type { ImportCounts, Outcomes } from './records';
 
 export const HISTORY_SUMMARY_META = 'historySummary';
 
 export interface ImportSummary {
+  /**
+   * 2 since the Crate views. Optional because summaries stored by an earlier
+   * version have no version at all; those show the re-import state.
+   */
+  version?: 2;
   importedAt: number;
   plays: number;
+  /** Tracks with at least one credited play; short-only rows do not count. */
   tracks: number;
   matchedTracks: number;
   counts: ImportCounts;
+  outcomes: Outcomes;
+  /** IANA zone the month keys were bucketed in. */
+  zone: string;
   range: { first: string; last: string } | null;
   processed: string[];
   skipped: { name: string; reason: string }[];
@@ -104,14 +113,20 @@ export function runImport(files: File[], deps: ImporterDeps): Promise<void> {
       void (async () => {
         try {
           await replacePlays(message.plays);
+          // Rows with no credited play exist only for the finish-rate view;
+          // they are stored but never counted as tracks the owner played.
+          const played = message.plays.filter((p) => p.plays > 0);
           const summary: ImportSummary = {
+            version: 2,
             importedAt: deps.now(),
             plays: message.counts.credited,
-            tracks: message.plays.length,
-            matchedTracks: message.plays.filter((p) =>
+            tracks: played.length,
+            matchedTracks: played.filter((p) =>
               deps.knownTrackIds.has(p.trackId)
             ).length,
             counts: message.counts,
+            outcomes: message.outcomes,
+            zone: message.zone,
             range: message.range,
             processed: message.processed,
             skipped: message.skipped,

@@ -153,4 +153,25 @@ describe('processFiles', () => {
       },
     ]);
   });
+
+  it('reports the import zone, the outcome totals and the months', async () => {
+    const messages = await collect([
+      jsonFile('Streaming_History_Audio_2024_0.json', [
+        rec({ ts: '2024-05-15T12:00:00Z', reason_end: 'trackdone' }),
+        rec({
+          ts: '2024-05-16T12:00:00Z',
+          ms_played: 4000,
+          reason_end: 'fwdbtn',
+        }),
+        rec({ ts: '2024-05-17T12:00:00Z', reason_end: 'logout' }),
+      ]),
+    ]);
+    const done = messages.at(-1);
+    if (done?.type !== 'done') throw new Error('expected done');
+    expect(done.zone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    expect(done.outcomes).toEqual({ attempts: 3, finished: 1, skipped: 1 });
+    expect(done.plays).toHaveLength(1);
+    expect(done.plays[0].plays).toBe(2);
+    expect(done.plays[0].months).toEqual({ '2024-05': 2 });
+  });
 });

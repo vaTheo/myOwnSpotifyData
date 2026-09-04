@@ -9,6 +9,7 @@ import {
   topArtists,
   topTracks,
 } from './aggregate';
+import { nameKey } from './normalize';
 
 const daft = { id: 'daft', name: 'Daft Punk' };
 const justice = { id: 'justice', name: 'Justice' };
@@ -165,6 +166,32 @@ const rows: AllRows = {
       trackName: 'Relinked Song',
       artistName: 'Daft Punk',
     },
+    {
+      trackId: 'other-id-3',
+      plays: 0,
+      msPlayed: 0,
+      firstTs: '',
+      lastTs: '',
+      trackName: 'Relinked Song',
+      artistName: 'Daft Punk',
+      months: {},
+      attempts: 2,
+      finished: 0,
+      skipped: 2,
+    },
+    {
+      trackId: 't3',
+      plays: 0,
+      msPlayed: 0,
+      firstTs: '',
+      lastTs: '',
+      trackName: 'Song t3',
+      artistName: 'Justice',
+      months: {},
+      attempts: 5,
+      finished: 0,
+      skipped: 5,
+    },
   ],
 };
 
@@ -196,6 +223,17 @@ describe('buildModel', () => {
     expect([...model.playlistsOfTrack.get('t2')!]).toEqual(['p1', 'p2']);
     expect([...model.playlistsOfTrack.get('t1')!]).toEqual(['p1']);
   });
+
+  it('keeps the raw play rows and maps track names to playlists', () => {
+    const inPlaylists = (artist: string, title: string) => [
+      ...(model.playlistsOfNameKey.get(nameKey(artist, title)) ?? []),
+    ];
+    expect(model.plays).toBe(rows.plays);
+    expect(inPlaylists('Daft Punk', 'Relinked Song')).toEqual(['p1']);
+    expect(inPlaylists('Daft Punk', 'Song t2')).toEqual(['p1', 'p2']);
+    expect(inPlaylists('Justice', 'Song t3')).toEqual(['p2']);
+    expect(inPlaylists('Daft Punk', 'Song t9')).toEqual([]);
+  });
 });
 
 describe('playsFor', () => {
@@ -214,6 +252,18 @@ describe('playsFor', () => {
     });
     expect(playsFor(model, track('t3', [justice]))).toBeNull();
     expect(playsFor(model, track('x', []))).toBeNull();
+  });
+
+  it('ignores rows with no credited play on both paths', () => {
+    expect(model.playsById.get('t3')?.plays).toBe(0);
+    expect(model.playsByName.has(nameKey('Justice', 'Song t3'))).toBe(false);
+    expect(
+      playsFor(model, {
+        id: 'other-id-3',
+        name: 'Relinked Song',
+        artists: [daft],
+      })
+    ).toEqual({ plays: 8, msPlayed: 5, source: 'name' });
   });
 });
 

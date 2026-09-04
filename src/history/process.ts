@@ -7,7 +7,7 @@ import {
   isHistoryFile,
   sortHistoryFiles,
 } from './files';
-import { PlayAggregator, type ImportCounts } from './records';
+import { PlayAggregator, type ImportCounts, type Outcomes } from './records';
 
 export type ImportMessage =
   | { type: 'progress'; file: string; index: number; total: number }
@@ -15,6 +15,9 @@ export type ImportMessage =
       type: 'done';
       plays: PlayRow[];
       counts: ImportCounts;
+      outcomes: Outcomes;
+      /** IANA zone the month keys were bucketed in. */
+      zone: string;
       range: { first: string; last: string } | null;
       processed: string[];
       skipped: { name: string; reason: string }[];
@@ -131,6 +134,8 @@ export async function processFiles(
     type: 'done',
     plays: aggregator.rows(),
     counts: aggregator.counts,
+    outcomes: aggregator.outcomes(),
+    zone: aggregator.zone(),
     range: aggregator.range(),
     processed,
     skipped,

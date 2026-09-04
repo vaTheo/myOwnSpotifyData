@@ -34,10 +34,14 @@ export interface Model {
   tracksByKey: Map<string, TrackRow>;
   entriesByPlaylist: Map<string, EntryRow[]>;
   playlistsOfTrack: Map<string, Set<string>>;
+  /** nameKey(lead artist, title) -> playlists holding a track of that name. */
+  playlistsOfNameKey: Map<string, Set<string>>;
   artists: ArtistAgg[];
   artistsByKey: Map<string, ArtistAgg>;
   topItems: Map<string, TopItemsRow>;
   topRank: Map<string, Map<Period, number>>;
+  /** Every imported row, including tracks with no credited play. */
+  plays: PlayRow[];
   playsById: Map<string, PlayRow>;
   playsByName: Map<string, { plays: number; msPlayed: number }>;
 }
@@ -54,6 +58,7 @@ export function buildModel(rows: AllRows): Model {
   const tracksByKey = new Map(rows.tracks.map((t) => [t.key, t]));
   const entriesByPlaylist = new Map<string, EntryRow[]>();
   const playlistsOfTrack = new Map<string, Set<string>>();
+  const playlistsOfNameKey = new Map<string, Set<string>>();
   const artistsByKey = new Map<string, ArtistAgg>();
 
   for (const entry of rows.entries) {
@@ -66,6 +71,15 @@ export function buildModel(rows: AllRows): Model {
     playlistsOfTrack.set(entry.trackKey, owners);
     const track = tracksByKey.get(entry.trackKey);
     if (!track) continue;
+    // Consulted after playlistsOfTrack so a relinked id, whose history row
+    // has a different track id, is not reported as being in no playlist.
+    const lead = track.artists[0]?.name;
+    if (lead) {
+      const key = nameKey(lead, track.name);
+      const named = playlistsOfNameKey.get(key) ?? new Set<string>();
+      named.add(entry.playlistId);
+      playlistsOfNameKey.set(key, named);
+    }
     for (const ref of track.artists) {
       const key = artistKey(ref);
       const agg = artistsByKey.get(key) ?? {
@@ -102,6 +116,9 @@ export function buildModel(rows: AllRows): Model {
   const playsById = new Map(rows.plays.map((p) => [p.trackId, p]));
   const playsByName = new Map<string, { plays: number; msPlayed: number }>();
   for (const p of rows.plays) {
+    // A row built from short records only would create a name key totalling
+    // zero, which playsFor would then report as "0 plays".
+    if (p.plays === 0) continue;
     if (!p.trackName || !p.artistName) continue;
     const key = nameKey(p.artistName, p.trackName);
     const current = playsByName.get(key) ?? { plays: 0, msPlayed: 0 };
@@ -116,10 +133,12 @@ export function buildModel(rows: AllRows): Model {
     tracksByKey,
     entriesByPlaylist,
     playlistsOfTrack,
+    playlistsOfNameKey,
     artists,
     artistsByKey,
     topItems,
     topRank,
+    plays: rows.plays,
     playsById,
     playsByName,
   };
@@ -131,7 +150,10 @@ export function playsFor(
 ): PlaysInfo | null {
   if (track.id) {
     const byId = model.playsById.get(track.id);
-    if (byId)
+    // A row with no credited play is not a play count. Fall through to the
+    // name path, which is where this track landed before short-only rows
+    // existed at all.
+    if (byId && byId.plays > 0)
       return { plays: byId.plays, msPlayed: byId.msPlayed, source: 'id' };
   }
   const artist = track.artists[0]?.name;
