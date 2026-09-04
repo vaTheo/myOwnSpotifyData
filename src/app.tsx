@@ -5,6 +5,9 @@ import { parseRoute, routeHref, type Route } from './router';
 import { Banner } from './ui/components/Banner';
 import { Settings } from './ui/Settings';
 import { Connect } from './ui/Connect';
+import { Playlist } from './ui/Playlist';
+import { Playlists } from './ui/Playlists';
+import { Top } from './ui/Top';
 
 export const route = signal<Route>(parseRoute(location.hash));
 
@@ -30,6 +33,12 @@ function tabOf(r: Route): Route['name'] {
 
 function Screen({ route }: { route: Route }) {
   switch (route.name) {
+    case 'top':
+      return <Top />;
+    case 'playlists':
+      return <Playlists />;
+    case 'playlist':
+      return <Playlist id={route.id} />;
     case 'settings':
       return <Settings />;
     default:
