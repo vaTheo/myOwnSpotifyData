@@ -1,9 +1,64 @@
 import { putMeta, replacePlays } from '../db/repo';
+import { plural } from '../ui/format';
 import { describeError, storageMessage } from '../util/errors';
 import type { ImportMessage } from './process';
 import type { ImportCounts, Outcomes } from './records';
 
 export const HISTORY_SUMMARY_META = 'historySummary';
+
+/** Said when a narrower import is refused; nothing was written. */
+export const IMPORT_CANCELLED =
+  'Import cancelled. Your existing history was kept.';
+
+/** The first and last play an import covers, as export ISO strings. */
+export interface HistoryRange {
+  first: string;
+  last: string;
+}
+
+const DAY_MS = 86_400_000;
+
+/** "12 days", "8 months", "4 years": the coarsest unit that stays honest. */
+function describeSpan(range: HistoryRange): string {
+  const days = Math.max(
+    1,
+    Math.round((Date.parse(range.last) - Date.parse(range.first)) / DAY_MS)
+  );
+  if (days < 60) return plural(days, 'day');
+  const months = Math.round(days / 30.44);
+  if (months < 24) return plural(months, 'month');
+  return plural(Math.round(days / 365.25), 'year');
+}
+
+/**
+ * An import replaces the whole history (spec §8), which is only a surprise
+ * when it covers less than what is stored — picking a few of the loose JSON
+ * files rather than the zip, or picking the video files, which are read but
+ * credit no play at all. Returns the question to ask, or null when there is
+ * nothing to warn about: no stored history, an unreadable stored range, or an
+ * incoming range at least as wide.
+ */
+export function replaceQuestion(
+  incoming: HistoryRange | null,
+  current: HistoryRange | null
+): string | null {
+  if (!current) return null;
+  const currentMs = Date.parse(current.last) - Date.parse(current.first);
+  if (!Number.isFinite(currentMs)) return null;
+  if (!incoming) {
+    return (
+      `This import covers no plays at all; your current history covers ` +
+      `${describeSpan(current)}. Replace it?`
+    );
+  }
+  const incomingMs = Date.parse(incoming.last) - Date.parse(incoming.first);
+  if (!Number.isFinite(incomingMs)) return null;
+  if (incomingMs >= currentMs) return null;
+  return (
+    `This import covers ${describeSpan(incoming)}; your current history ` +
+    `covers ${describeSpan(current)}. Replace it?`
+  );
+}
 
 export interface ImportSummary {
   /**
@@ -20,7 +75,7 @@ export interface ImportSummary {
   outcomes: Outcomes;
   /** IANA zone the month keys were bucketed in. */
   zone: string;
-  range: { first: string; last: string } | null;
+  range: HistoryRange | null;
   processed: string[];
   skipped: { name: string; reason: string }[];
 }
@@ -29,6 +84,7 @@ export type ImportState =
   | { status: 'idle' }
   | { status: 'running'; file: string; index: number; total: number }
   | { status: 'done'; summary: ImportSummary }
+  | { status: 'cancelled'; message: string }
   | { status: 'error'; message: string };
 
 export interface ImporterDeps {
@@ -36,6 +92,10 @@ export interface ImporterDeps {
   knownTrackIds: ReadonlySet<string>;
   now: () => number;
   onState: (state: ImportState) => void;
+  /** The stored history's range, so a narrower import can be spotted. */
+  currentRange?: HistoryRange | null;
+  /** Asked with `replaceQuestion`'s text; false keeps the stored history. */
+  confirmReplace?: (question: string) => boolean;
 }
 
 function noFileReadMessage(
@@ -98,6 +158,14 @@ export function runImport(files: File[], deps: ImporterDeps): Promise<void> {
           status: 'error',
           message: noFileReadMessage(message.skipped),
         });
+        return;
+      }
+      const question = replaceQuestion(
+        message.range,
+        deps.currentRange ?? null
+      );
+      if (question && deps.confirmReplace && !deps.confirmReplace(question)) {
+        finish({ status: 'cancelled', message: IMPORT_CANCELLED });
         return;
       }
       void (async () => {

@@ -230,6 +230,8 @@ export async function startImport(files: File[]): Promise<void> {
       }),
     knownTrackIds: new Set(model.value?.tracksByKey.keys() ?? []),
     now: () => Date.now(),
+    currentRange: historySummary.value?.range ?? null,
+    confirmReplace: (question) => confirm(question),
     onState: (state) => {
       importState.value = state;
     },
