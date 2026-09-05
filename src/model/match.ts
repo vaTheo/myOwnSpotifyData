@@ -55,6 +55,10 @@ function byDelta(a: MatchResult, b: MatchResult): number {
  * relation then by |ΔBPM%|, then the rest with a feature by |ΔBPM%|, then the
  * ones with no feature in their original order. Half and double time are not
  * folded in (spec §2).
+ *
+ * A seed with no BPM has no tolerance to apply, so every candidate with a
+ * feature ranks by key relation alone — the mirror of a seed with no key,
+ * which ranks by |ΔBPM%| alone.
  */
 export function rankMatches(
   seed: ResolvedFeature,
@@ -80,7 +84,11 @@ export function rankMatches(
       relation: relationOf(seed, feature),
       deltaPct,
     };
-    if (deltaPct !== null && Math.abs(deltaPct) <= tolerancePct) {
+    const inTolerance =
+      seed.bpm === null
+        ? true
+        : deltaPct !== null && Math.abs(deltaPct) <= tolerancePct;
+    if (inTolerance) {
       near.push(result);
     } else {
       far.push(result);

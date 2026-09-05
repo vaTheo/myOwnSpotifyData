@@ -214,6 +214,32 @@ export function playlistRanking(
   );
 }
 
+/**
+ * Where a Match seed was tapped. The track key alone is not an identity: a
+ * playlist may hold the same track twice, and the seed must not rank as the
+ * top result of its own list.
+ */
+export interface SeedRef {
+  trackKey: string;
+  position: number;
+}
+
+/**
+ * The row a seed points at: the exact position first, then any row with that
+ * track key, so a seed survives a resync that moved the track.
+ */
+export function findSeedRow(
+  rows: RankedTrack[],
+  ref: SeedRef | undefined
+): RankedTrack | undefined {
+  if (!ref) return undefined;
+  return (
+    rows.find(
+      (r) => r.entry.position === ref.position && r.track.key === ref.trackKey
+    ) ?? rows.find((r) => r.track.key === ref.trackKey)
+  );
+}
+
 export interface AnnotatedTopTrack {
   item: TopTrackItem;
   playlistIds: string[];
