@@ -145,6 +145,16 @@ describe('fetchAudioFeatures', () => {
     expect(sleep.mock.calls.map((c) => c[0])).toEqual([10_000, 10_000]);
   });
 
+  it('gives up at once when Retry-After exceeds a minute, without sleeping', async () => {
+    const { deps, sleep } = setup([
+      () => json({}, 429, { 'Retry-After': '86400' }),
+    ]);
+    await expect(fetchAudioFeatures(['one'], deps)).rejects.toThrow(
+      'ReccoBeats asked us to wait 1440 min. Try again later.'
+    );
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
   it('gives up after five 429 retries', async () => {
     const { deps, fetchFn } = setup(
       Array.from(

@@ -1,4 +1,5 @@
 import type { FeatureValue } from '../db/schema';
+import { MAX_5XX_RETRIES, backoffMs, parseRetryAfter } from '../util/retry';
 
 /** Batch endpoint; an id is either a Spotify track id or an ISRC. */
 export const RECCOBEATS_URL = 'https://api.reccobeats.com/v1/audio-features';
@@ -7,8 +8,9 @@ export const RECCOBEATS_URL = 'https://api.reccobeats.com/v1/audio-features';
 export const MAX_IDS = 40;
 
 const MAX_429_RETRIES = 5;
-const MAX_5XX_RETRIES = 3;
 const DEFAULT_RETRY_AFTER_S = 10;
+/** Above this, the wait is longer than the owner will sit with the app open. */
+const MAX_RETRY_AFTER_S = 60;
 
 export interface FetchDeps {
   fetchFn: typeof fetch;
@@ -22,17 +24,6 @@ export type FetchedFeature = FeatureValue & { isrc: string | null };
 export interface FeatureBatch {
   byId: Map<string, FetchedFeature>;
   byIsrc: Map<string, FetchedFeature>;
-}
-
-function backoffMs(attempt: number): number {
-  return Math.min(2000 * 2 ** (attempt - 1), 60_000);
-}
-
-/** An absent or blank header is unreadable, not "retry immediately". */
-function parseRetryAfter(header: string | null): number | null {
-  if (header === null || header.trim() === '') return null;
-  const seconds = Number(header);
-  return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
 }
 
 /** Uppercase and dash-free, so 'gb-aht-21-00123' and 'GBAHT2100123' meet. */
@@ -87,8 +78,9 @@ function toFeature(raw: unknown, fetchedAt: number): FetchedFeature {
 
 /**
  * One request for at most `MAX_IDS` ids, retried on 429 (five times, honouring
- * `Retry-After`) and on a 5xx, a network failure or a truncated body (three
- * times, backing off). Any other status throws at once. The batching and the
+ * `Retry-After`, unless it asks for more than a minute, which ends the lookup
+ * at once) and on a 5xx, a network failure or a truncated body (three times,
+ * backing off). Any other status throws at once. The batching and the
  * one-request-per-second pacing belong to the caller.
  */
 export async function fetchAudioFeatures(
@@ -108,39 +100,43 @@ export async function fetchAudioFeatures(
   const url = `${RECCOBEATS_URL}?ids=${ids.map(encodeURIComponent).join(',')}`;
   let attempts429 = 0;
   let attempts5xx = 0;
+
+  /** Counts, backs off and reports whether the caller should retry. */
+  async function retryTransport(): Promise<boolean> {
+    attempts5xx += 1;
+    if (attempts5xx > MAX_5XX_RETRIES) return false;
+    await deps.sleep(backoffMs(attempts5xx));
+    return true;
+  }
+
   for (;;) {
     let res: Response;
     try {
       res = await deps.fetchFn(url);
     } catch (err) {
-      attempts5xx += 1;
-      if (attempts5xx <= MAX_5XX_RETRIES) {
-        await deps.sleep(backoffMs(attempts5xx));
-        continue;
-      }
+      if (await retryTransport()) continue;
       const reason = err instanceof Error ? err.message : String(err);
       // `cause` is required by ESLint 10's preserve-caught-error rule.
       throw new Error(`ReccoBeats is unreachable: ${reason}`, { cause: err });
     }
     if (res.status === 429) {
+      const parsedSeconds = parseRetryAfter(res.headers.get('Retry-After'));
+      if (parsedSeconds !== null && parsedSeconds > MAX_RETRY_AFTER_S) {
+        throw new Error(
+          `ReccoBeats asked us to wait ${Math.ceil(parsedSeconds / 60)} min. Try again later.`
+        );
+      }
       attempts429 += 1;
       if (attempts429 > MAX_429_RETRIES) {
         throw new Error(
           'ReccoBeats rate limited the lookup too many times. Try again later.'
         );
       }
-      const seconds =
-        parseRetryAfter(res.headers.get('Retry-After')) ??
-        DEFAULT_RETRY_AFTER_S;
-      await deps.sleep(seconds * 1000);
+      await deps.sleep((parsedSeconds ?? DEFAULT_RETRY_AFTER_S) * 1000);
       continue;
     }
     if (res.status >= 500) {
-      attempts5xx += 1;
-      if (attempts5xx <= MAX_5XX_RETRIES) {
-        await deps.sleep(backoffMs(attempts5xx));
-        continue;
-      }
+      if (await retryTransport()) continue;
       throw new Error(`ReccoBeats server error ${res.status}`);
     }
     if (!res.ok) throw new Error(`ReccoBeats error ${res.status}`);
@@ -150,11 +146,7 @@ export async function fetchAudioFeatures(
     } catch {
       // A truncated 200 is a transport failure, not "no results": marking
       // forty tracks notFound for ninety days over it would be wrong.
-      attempts5xx += 1;
-      if (attempts5xx <= MAX_5XX_RETRIES) {
-        await deps.sleep(backoffMs(attempts5xx));
-        continue;
-      }
+      if (await retryTransport()) continue;
       throw new Error('ReccoBeats returned a malformed response');
     }
     const content = field(body, 'content');
