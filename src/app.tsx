@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals';
 import { auth } from './auth/browser';
 import { banner, dismissBanner } from './model/state';
-import { parseRoute, routeHref, type Route } from './router';
+import { parseRoute, routeHref, visitEntry, type Route } from './router';
 import { Banner } from './ui/components/Banner';
 import { Settings } from './ui/Settings';
 import { Connect } from './ui/Connect';
@@ -16,9 +16,22 @@ import { Top } from './ui/Top';
 
 export const route = signal<Route>(parseRoute(location.hash));
 
+/**
+ * What boot is still doing. `main.tsx` is the only writer: it renders the
+ * shell before it loads anything, so it sets the phase before the first
+ * render and again as each step finishes.
+ */
+export const bootPhase = signal<'signin' | 'loading' | 'ready'>('loading');
+
 export function installRouter(): void {
+  // The entry the app booted on counts as visited, so a later back to it
+  // restores its scroll position instead of jumping to the top.
+  visitEntry(history);
   addEventListener('hashchange', () => {
     route.value = parseRoute(location.hash);
+    // A new screen starts at the top. Back and forward keep the position
+    // the browser has already restored for them.
+    if (visitEntry(history)) scrollTo(0, 0);
   });
 }
 
