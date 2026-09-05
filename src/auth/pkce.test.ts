@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../spotify/errors';
 import {
   AUTHORIZE_URL,
   TOKEN_URL,
@@ -139,5 +140,18 @@ describe('refreshTokens', () => {
       client_id: 'cid',
     });
     expect(init.headers).not.toHaveProperty('Authorization');
+  });
+
+  it('turns an unreachable token endpoint into an offline ApiError', async () => {
+    const fetchFn = vi.fn(() => {
+      throw new TypeError('Failed to fetch');
+    });
+    const err = await refreshTokens(
+      { clientId: 'cid', refreshToken: 'rt' },
+      fetchFn as unknown as typeof fetch
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(0);
+    expect((err as ApiError).message).toBe('Network error: Failed to fetch');
   });
 });

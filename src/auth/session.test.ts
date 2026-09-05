@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AuthError } from '../spotify/errors';
+import { ApiError, AuthError } from '../spotify/errors';
 import { challengeFor } from './pkce';
 import {
   SCOPES,
@@ -260,6 +260,22 @@ describe('getAccessToken', () => {
       name: 'TokenError',
     });
     expect(store.session.value).not.toBeNull();
+  });
+
+  it('keeps the session when the refresh cannot reach Spotify', async () => {
+    const { store, storage } = setup({
+      session: stale,
+      responses: [
+        () => {
+          throw new TypeError('Failed to fetch');
+        },
+      ],
+    });
+    const err = await store.getAccessToken().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(0);
+    expect(store.session.value).not.toBeNull();
+    expect(storage.getItem('session')).not.toBeNull();
   });
 });
 
