@@ -72,8 +72,8 @@ Internal form: pitch class 0..11 plus `major`. Exports:
 - `camelot(key, major): string` — `((7*key + (major ? 7 : 4)) % 12) + 1` then
   `B` for major, `A` for minor. Examples: A minor → `8A`, C major → `8B`,
   F minor → `4A`, D major → `10B`.
-- `openKey(key, major): string` — number `((camelotNumber + 6) % 12) + 1`
-  (with 12 for 0), `d` for major, `m` for minor.
+- `openKey(key, major): string` — number `(camelotNumber + 5) % 12`, printed
+  as 12 when 0 (so Camelot 8 is Open Key 1), `d` for major, `m` for minor.
 - `classicName(key, major): string` — `C, Db, D, Eb, E, F, F#, G, Ab, A, Bb, B`
   plus ` minor` for minor (major has no suffix).
 - `formatKey(key, major, notation: 'camelot' | 'open' | 'classic')`.
@@ -220,6 +220,12 @@ track yet` and keeps the plays order.
   can be exercised live) and a Rekordbox XML fixture.
 
 ## 8. Policy notes
+
+Rulings made while planning: the Open Key formula above was corrected
+(the first draft had the inverse direction); `candidateIds` is the universe of
+ids and `runLookup` applies the skip rules; key and mode resolve as a pair;
+`resolveFeature` returns null unless a BPM or a key survived; `camelotNumber`
+is exported for the pill hue.
 
 ReccoBeats relays Spotify's numbers; the app caches values only for the
 owner's own library and shows the ReccoBeats attribution. Rekordbox data is
