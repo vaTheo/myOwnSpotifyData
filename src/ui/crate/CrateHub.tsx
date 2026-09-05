@@ -24,7 +24,8 @@ import {
   yearPeriod,
   yearSel,
 } from './selections';
-import { STALE_MS, monthLabel, trackLabel, useCrateRows } from './shared';
+import { STALE_MS } from './labels';
+import { monthLabel, trackLabel, useCrateRows } from './shared';
 
 interface HubRow {
   view: CrateView;
