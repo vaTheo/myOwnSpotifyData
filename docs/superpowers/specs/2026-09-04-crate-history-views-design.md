@@ -86,12 +86,17 @@ Top: Nils Frahm — Says
 
 Badge 1 is the row count the view would show with its current setting;
 badge 2 is that setting. Order is workflow order (now, bring back, safe bets,
-era digging, quality lens). "Top:" shows the first row of the view.
+era digging, quality lens). "Top:" shows the first row of the view. A view
+with no rows reads `Nothing yet`, except the two whose setting is a time
+window: Heavy rotation reads `Nothing in the last 3 months` and By year
+`Nothing in Dec 2025`, naming the window that emptied it.
 
 **Stale export** (`range.last` older than 35 days): the provenance line
 becomes `History ends Aug 2025 · re-import` in the warn colour. Windows are
 anchored to today, not to the export, so staleness is shown rather than
-hidden.
+hidden. The month, and both years of the span on the non-stale line, are read
+in the device zone — the zone the month keys were bucketed in — so the line
+can never name a different month or year from the data below it.
 
 **No import yet**: the five rows are replaced by a card, "Your crate is
 empty. These five views are built from your Spotify Extended streaming
@@ -139,7 +144,8 @@ Empty: `No track reaches 3 years yet. Your history covers 2 years.`
 
 Two scrollable chip rows: years with plays (default: latest), then
 `All · Winter · Spring · Summer · Autumn · Jan … Dec` (default All).
-Single selection in each row. Winter is December of the previous year plus
+Single selection in each row, centred in view on arrival and whenever it
+changes. Winter is December of the previous year plus
 January and February; Spring Mar–May; Summer Jun–Aug; Autumn Sep–Nov.
 Caption: `2022 · 4,812 plays · 936 tracks`, `Dec 2021 – Feb 2022 · 806
 plays · 241 tracks`, `Mar 2022 · 402 plays · 180 tracks`. Rows sorted by
@@ -321,14 +327,19 @@ Rows without `months` are ignored by every function.
 ## 6. Components and styling
 
 - `Segmented` gains `scroll?: boolean`: chips that do not shrink and scroll
-  horizontally (`.segmented.scroll`).
+  horizontally (`.segmented.scroll`). A scrolling row centres its selected
+  chip on mount and on every change, and fades its right edge while chips
+  remain to the right of the viewport (`.segmented.scroll.faded`). Rows
+  without `scroll` are untouched.
 - `Badge` gains kinds `'todo'` (amber, the banner palette) and `'skip'` (red).
 - `Empty` is unchanged: Crate empty states are inline blocks with their own
   copy and links (an earlier draft added `href`/`cta` props; they were removed
   as unused).
-- CSS: `.segmented.scroll`, `.badge.todo`, `.badge.skip`, `.strip`
-  (small, muted, tabular numerals), `.hub-row`, `.provenance`, `.caption`,
-  `.legend`, `.footer-note`, and `.sublist li { min-height: 44px }`.
+- CSS: `.segmented.scroll`, `.segmented.scroll.faded` (a right-edge mask),
+  `.badge.todo`, `.badge.skip`, `.strip` (small, muted, tabular numerals) with
+  `.strip span { white-space: nowrap }`, `.hub-row`, `.provenance`,
+  `.caption`, `.legend`, `.footer-note`, and
+  `.sublist li { min-height: 44px }`.
 
 ## 7. Tests
 
@@ -345,6 +356,9 @@ Pure logic only, as before:
 - `router.test.ts`: the crate routes, period segment, unknown view → hub.
 - `process.test.ts` / `importer.test.ts`: `zone` and `outcomes` in the done
   message and the summary; `version: 2`; `tracks` counts `plays > 0`.
+- `labels.test.ts`: the stale month and the year span read in a pinned
+  non-UTC zone (`Pacific/Kiritimati`), the fresh case, the no-range and
+  unreadable-timestamp cases, `windowLabel`.
 
 ## 8. Deviations noted for the record
 
@@ -357,6 +371,19 @@ Classics and Finish too; the Winter month strip includes the previous
 December (§3 amended); `Empty` keeps only its original props, the `href`/`cta` additions were dropped (§6 amended); the
 Heavy-rotation `Open <month>` link names the window month with the most
 plays.
+
+Rulings made while fixing the UX audit (2026-09-05): the hub's stale month and
+year span are read with `new Date(...)` in the device zone, not by slicing the
+UTC string, and both live in the new pure module `src/ui/crate/labels.ts`
+together with `STALE_MS`, which `shared.tsx` no longer exports (§3, §7
+amended); the hub's empty top line names the window on the two window-shaped
+rows only — Forgotten gems, All-time classics and Finish rate are scoped by a
+threshold, not a window, so an empty one is a fact about the library (§3
+amended); the Crate strips wrap each pair in a nowrap span that carries its own
+trailing " ·", so a line ends with the separator rather than starting with it,
+and `Strip` in `shared.tsx` is the one producer of that markup (§6 amended);
+the right-edge fade on a scrolling `Segmented` is a mask on the scroller
+itself, painted only while chips remain to its right (§6 amended).
 
 The research recommended a `DB_VERSION` bump; the design keeps version 1
 (reasons in §5). The research suggested optional per-year storage; years
