@@ -352,8 +352,10 @@ name is "Open in Spotify"; the Artist and Playlist headers spell the words out
 (`SpotifyLink`'s `label` prop). Local files have no Spotify page, so the link
 is omitted for them.
 
-- **Connect** (no session): one button, one sentence on what is read, and the
-  reason when arriving from an expired or refused session.
+- **Connect** (no session): one button, one sentence on what is read and on
+  the one thing that leaves the browser (track ids sent to ReccoBeats during a
+  BPM/key lookup), and the reason when arriving from an expired or refused
+  session.
 - **Top** (`#/top`): segmented control 4 weeks / 6 months / 1 year (maps to
   short/medium/long_term); toggle Tracks / Artists. Track row: rank, title,
   artists, badges "in N playlists" — or the amber "not in a playlist" once any
