@@ -1,7 +1,7 @@
 import type { DBSchema } from 'idb';
 
 export const DB_NAME = 'spotify-dj';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export interface ArtistRef {
   id: string | null;
@@ -91,8 +91,36 @@ export interface PlayRow {
   /** Records the skip rule counted as a skip. */
   skipped?: number;
   // The four are optional so rows written by an older import still type-check.
-  // DB_VERSION stays 1: play records are schemaless, replacePlays clears the
-  // store, and the current upgrade callback would throw on a bump.
+  // Play records stay schemaless: replacePlays clears the store, so no
+  // DB_VERSION bump ever has to migrate them.
+}
+
+/** BPM and key as one source reports them. */
+export interface FeatureValue {
+  /** Beats per minute, as reported. */
+  bpm: number | null;
+  /** Pitch class 0..11, C = 0. */
+  key: number | null;
+  /** true = major, false = minor. */
+  major: boolean | null;
+  /** 0..1 when the source has it, else null. */
+  energy: number | null;
+  /** epoch ms */
+  fetchedAt: number;
+}
+
+export interface RekordboxValue extends FeatureValue {
+  matchedBy: 'title-artist-duration' | 'title-artist';
+  rbTitle: string;
+  rbArtist: string;
+}
+
+export interface FeatureRow {
+  trackId: string;
+  isrc: string | null;
+  reccobeats?: FeatureValue | { notFound: true; checkedAt: number };
+  rekordbox?: RekordboxValue;
+  updatedAt: number;
 }
 
 export interface MetaRow {
@@ -106,6 +134,7 @@ export interface AllRows {
   entries: EntryRow[];
   topItems: TopItemsRow[];
   plays: PlayRow[];
+  features: FeatureRow[];
 }
 
 export interface DjDb extends DBSchema {
@@ -114,5 +143,6 @@ export interface DjDb extends DBSchema {
   entries: { key: [string, number]; value: EntryRow };
   topItems: { key: string; value: TopItemsRow };
   plays: { key: string; value: PlayRow };
+  features: { key: string; value: FeatureRow };
   meta: { key: string; value: MetaRow };
 }

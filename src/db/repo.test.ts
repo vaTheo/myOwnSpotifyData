@@ -3,16 +3,19 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   deletePlaylists,
   getAllRows,
+  getFeatures,
   getMeta,
   getPlaylists,
+  openDb,
+  putFeatures,
   putMeta,
   putTopItems,
   replacePlays,
   replacePlaylist,
   wipeDb,
 } from './repo';
-import { DB_NAME } from './schema';
-import type { EntryRow, PlaylistRow, TrackRow } from './schema';
+import { DB_NAME, DB_VERSION } from './schema';
+import type { EntryRow, FeatureRow, PlaylistRow, TrackRow } from './schema';
 
 function playlist(id: string, snapshotId = 's1'): PlaylistRow {
   return {
@@ -48,6 +51,48 @@ function entries(playlistId: string, keys: string[]): EntryRow[] {
     trackKey,
     addedAt: null,
   }));
+}
+
+function feature(trackId: string, over: Partial<FeatureRow> = {}): FeatureRow {
+  return {
+    trackId,
+    isrc: `ISRC${trackId}`,
+    reccobeats: { bpm: 128, key: 9, major: false, energy: 0.8, fetchedAt: 10 },
+    updatedAt: 20,
+    ...over,
+  };
+}
+
+/** The six stores of version 1, with the key paths that shipped. */
+const V1_STORES: [string, string | string[]][] = [
+  ['playlists', 'id'],
+  ['tracks', 'key'],
+  ['entries', ['playlistId', 'position']],
+  ['topItems', 'key'],
+  ['plays', 'trackId'],
+  ['meta', 'name'],
+];
+
+function openV1(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      for (const [name, keyPath] of V1_STORES) {
+        req.result.createObjectStore(name, { keyPath });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function putV1Playlist(db: IDBDatabase, row: PlaylistRow): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('playlists', 'readwrite');
+    tx.objectStore('playlists').put(row);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 beforeEach(async () => {
@@ -164,5 +209,45 @@ describe('top items, plays and meta', () => {
     await expect(wipeDb(50)).rejects.toThrow(/another tab/);
     other.close();
     await expect(wipeDb()).resolves.toBeUndefined();
+  });
+});
+
+describe('features', () => {
+  it('round-trips feature rows and replaces them by track id', async () => {
+    await putFeatures([feature('t1'), feature('t2')]);
+    await putFeatures([
+      feature('t2', {
+        reccobeats: { notFound: true, checkedAt: 30 },
+        updatedAt: 31,
+      }),
+    ]);
+    const stored = (await getFeatures()).sort((a, b) =>
+      a.trackId.localeCompare(b.trackId)
+    );
+    expect(stored.map((f) => f.trackId)).toEqual(['t1', 't2']);
+    expect(stored[0]).toEqual(feature('t1'));
+    expect(stored[1].reccobeats).toEqual({ notFound: true, checkedAt: 30 });
+    expect((await getAllRows()).features).toHaveLength(2);
+  });
+
+  it('accepts an empty batch', async () => {
+    await expect(putFeatures([])).resolves.toBeUndefined();
+    await expect(getFeatures()).resolves.toEqual([]);
+  });
+});
+
+describe('migration', () => {
+  it('upgrades a version 1 database, keeping its rows and adding features', async () => {
+    const v1 = await openV1();
+    await putV1Playlist(v1, playlist('p1'));
+    v1.close();
+    const rows = await getAllRows();
+    expect(rows.playlists).toEqual([playlist('p1')]);
+    expect(rows.features).toEqual([]);
+    const db = await openDb();
+    expect(db.version).toBe(DB_VERSION);
+    expect(db.objectStoreNames.contains('features')).toBe(true);
+    await putFeatures([feature('t1')]);
+    await expect(getFeatures()).resolves.toEqual([feature('t1')]);
   });
 });
