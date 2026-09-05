@@ -95,7 +95,10 @@ returns candidates sorted: first those with a feature within
 key relation rank (`same` 0, `relative` 1, `adjacent` 2, `boost` 3, `none`
 4) then by `|ΔBPM%|`; then the rest with a feature (out of tolerance) by
 `|ΔBPM%|`; then candidates without a feature, in their original order. Each
-result carries `relation` and `deltaPct` (null when unknown).
+result carries `relation` and `deltaPct` (null when unknown). When the seed has
+no BPM there is no tolerance to apply, so every candidate with a feature is
+ranked by key relation alone — the mirror of a seed with no key, which ranks by
+|ΔBPM%| alone.
 
 ## 3. ReccoBeats lookup (`src/features/reccobeats.ts`, `src/features/lookup.ts`)
 
@@ -167,8 +170,12 @@ feature pills are a separate group rendered after them.
 - Coverage line: `BPM and key for 3,120 of 4,980 tracks · ReccoBeats 2,900 ·
   Rekordbox 800` (tracks = candidate ids as defined in §3; a track counts
   when it resolves to at least a BPM or a key).
-- `Look up (ReccoBeats)` button with progress `done / total batches` and the
-  result `found N · not found M`; disabled while running; last error shown.
+- `Look up (ReccoBeats)` button with progress
+  `Looking up · <pass> · done / total tracks` — the pass is `by track id` or
+  `retry by ISRC`, and each pass counts its own tracks so the denominator never
+  grows — and the result `found N · not found M`; disabled while running, while
+  a Rekordbox import runs, and when there are no candidate ids; last error
+  shown.
 - Rekordbox import: file input `.xml`, progress, summary `parsed 1,204 ·
   with BPM 1,190 · with key 1,050 · matched 820 · unmatched 384`, last import
   date.
@@ -185,15 +192,21 @@ is `rankMatches(seed, rows)`. Each row's badges: relation (`same key`,
 `relative`, `+1`, `−1`, `boost`) as a blue badge and `ΔBPM` as a grey badge
 (`+1.6%`); rows out of tolerance show `ΔBPM` only; rows without data show
 `no data`. Tapping another row makes it the seed. The seed choice is a
-module-level signal per playlist id and is cleared when leaving Match mode.
-Tracks whose seed has no feature: Match mode shows `No BPM or key for this
-track yet` and keeps the plays order.
+module-level signal per playlist id holding a `{ trackKey, position }` pair, so
+a playlist that lists the same track twice cannot match a copy against itself;
+the row is resolved by position first, and by track key alone once a resync has
+moved it. Leaving Match mode and the `Clear` button drop this playlist's seed
+and no other. Tracks whose seed has no feature: Match mode shows `No BPM or key
+for this track yet` and keeps the plays order. A seed with a key but no BPM
+shows `No BPM for this track — matching by key alone` and ranks by key
+relation. The header count reads `13 others` while a seed is ranking, because
+the seed row is not in the list.
 
 ## 6. Components and styles
 
 - `TrackRow` unchanged (pills go through `badges`).
-- CSS: `.pill` (inline-block, 0.72rem, 2px 6px, radius 999px, tabular
-  numerals), `.pill.bpm` (grey), `.pill.key-1` … `.pill.key-12` (twelve hues
+- CSS: `.pill` (inline-block, 0.75rem — the same size as `.badge`, which
+  shares its row, 2px 6px, radius 999px, tabular numerals), `.pill.bpm` (grey), `.pill.key-1` … `.pill.key-12` (twelve hues
   from a fixed list, text colour dark on light hue), `.pill.major` (outlined,
   transparent background, hue as border and text), `.badge.relation` (blue).
 
@@ -235,6 +248,57 @@ default, five retries). A ReccoBeats `Retry-After` above 60 s is not slept on:
 the lookup ends in the error state "ReccoBeats asked us to wait N min. Try
 again later." so the Settings card never hangs at `running`.
 
+Rulings made while fixing the UX audit (2026-09-05):
+
+- The shell paints before any await. `bootPhase` (`'signin' | 'loading' |
+'ready'`) lives in `app.tsx` and is written only by `main.tsx`.
+- Scroll reset is keyed on a `djVisited` flag stamped into `history.state`, so
+  back and forward keep the position `history.scrollRestoration` restored. A
+  tab tap while already on that tab fires no `hashchange` and does not scroll.
+- `BannerMessage.inlineOn` means "this screen prints the same message in its
+  own card, with or without a `Last error:` prefix". The quota lock-out is
+  **not** suppressed: the Settings card states the lock in a different
+  sentence. Nor are the storage failure, the wipe failure, the disconnect-busy
+  guard, the account-switch notice and the Crate re-import notice.
+- `SpotifyLink` is icon-only in rows and keeps the words behind `label`;
+  `.chev` is no longer scoped to `.hub-row`, so navigating `TrackRow`s reuse
+  it while expanding rows still get none.
+- `.sublist li > a` fills its row by moving the `li`'s vertical padding onto a
+  stretched flex child. The audit proposed `display: block`, which leaves the
+  anchor 32 px tall inside the 44 px row. XCUT-1 is scoped to `.spotify-link`,
+  `.back`, `.banner button`, `.sublist li > a` and `.sublist p a`; the
+  remaining bare inline links each have a 48 px tab duplicating them and were
+  left alone.
+- The native file input is hidden and `label.file` is the app's standard 48 px
+  button; the disabled state comes from `label.file:has(input:disabled)`.
+- The Match seed is a row (a `trackKey` and a `position`), resolved by
+  `findSeedRow` in `src/model/aggregate.ts`, because a playlist may hold the
+  same track twice; `Clear` and leaving Match mode scope to the current
+  playlist id, which is what the per-playlist signal was always for; a seed
+  with a key and no BPM ranks by key relation alone and says so on screen; the
+  Match header counts the rows it actually shows (`13 others`), since the seed
+  is not one of them.
+- The Top row's playlist badge stays id-only (`playlistsOfTrack`), so a
+  relinked id can read `not in a playlist` there while the Crate, which also
+  matches by artist and title, says otherwise. Widening it would change the
+  "in N playlists" count §9 of the webapp spec defines.
+- W-28(d) is copy, not a tooltip: the plays badge reads
+  `(by artist and title)`. A `title` attribute does nothing on a phone.
+- The lookup pass labels are words (`by track id`, `retry by ISRC`), not
+  "pass 1 of 2": during pass 1 nobody knows whether pass 2 will run.
+- Sync cancel ends in the persisted `error` state (Settings shows it after a
+  reload, because the account is still mismatched); import cancel ends in a
+  new `cancelled` state with a muted line, because nothing changed. If the
+  account-switch wipe is followed by an auth error, `startSync` returns early
+  to the Connect screen and the notice banner is never set — that path already
+  replaces the whole screen with a login reason.
+- `replaceQuestion` also asks when an import credits no play at all (the
+  `Streaming_History_Video_*.json` files match the filename rule, so the
+  existing "nothing could be read" guard does not fire).
+- Import step 5 reads "Pick that zip on this screen": the W-20 reorder puts
+  the picker above the disclosure, so "below" became false.
+
 ReccoBeats relays Spotify's numbers; the app caches values only for the
 owner's own library and shows the ReccoBeats attribution. Rekordbox data is
-the owner's own. No data leaves the browser except the lookup requests.
+the owner's own. No data leaves the browser except the lookup requests, which
+the Connect screen now names.
