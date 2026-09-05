@@ -17,12 +17,18 @@ describe('errorBanner', () => {
 });
 
 describe('warnBanner', () => {
-  it('is amber and never suppressed', () => {
+  it('is amber and shown everywhere by default', () => {
     expect(warnBanner('Spotify quota reached.')).toEqual({
       text: 'Spotify quota reached.',
       kind: 'warn',
       inlineOn: [],
     });
+  });
+
+  it('records the screens that print the same message inline', () => {
+    expect(warnBanner('Sync stopped.', ['settings']).inlineOn).toEqual([
+      'settings',
+    ]);
   });
 });
 

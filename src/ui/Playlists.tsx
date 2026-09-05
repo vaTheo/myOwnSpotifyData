@@ -14,7 +14,9 @@ export function Playlists() {
   const m = model.value;
   if (!m || m.playlists.length === 0) return <Empty what="playlists" />;
   const state = syncState.value;
-  const pending = new Set(state.status === 'idle' ? [] : state.pending);
+  const pending = new Set(
+    state.status === 'idle' || state.status === 'cancelled' ? [] : state.pending
+  );
   const query = normalize(filter.value);
   const list = query
     ? m.playlists.filter((p) => normalize(p.name).includes(query))

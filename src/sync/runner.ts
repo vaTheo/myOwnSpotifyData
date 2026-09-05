@@ -47,6 +47,7 @@ export type SyncState =
       done: number;
       total: number;
     }
+  | { status: 'cancelled'; message: string }
   | {
       status: 'error';
       message: string;
@@ -197,7 +198,10 @@ export async function runSync(
       onState({
         status: 'error',
         message: `Could not save sync state: ${describeError(err)}`,
-        pending: state.status === 'idle' ? [] : state.pending,
+        pending:
+          state.status === 'idle' || state.status === 'cancelled'
+            ? []
+            : state.pending,
       });
     }
   }
@@ -275,9 +279,8 @@ export async function runSync(
       // the next sync with the right account is an ordinary one.
       if (deps.confirmAccountSwitch && !deps.confirmAccountSwitch()) {
         await setFinalState({
-          status: 'error',
+          status: 'cancelled',
           message: ACCOUNT_SWITCH_STOPPED,
-          pending,
         });
         return;
       }

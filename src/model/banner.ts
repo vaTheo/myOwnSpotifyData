@@ -21,9 +21,16 @@ export function errorBanner(
   return { text, kind: 'error', inlineOn };
 }
 
-/** Warnings and notices are never duplicated by a card, so they always show. */
-export function warnBanner(text: string): BannerMessage {
-  return { text, kind: 'warn', inlineOn: [] };
+/**
+ * Amber for a warning or a neutral notice. Shown everywhere by default; pass
+ * `inlineOn` when a screen's own card already prints the same text, the same
+ * rule `errorBanner` follows.
+ */
+export function warnBanner(
+  text: string,
+  inlineOn: Route['name'][] = []
+): BannerMessage {
+  return { text, kind: 'warn', inlineOn };
 }
 
 /** What the banner slot should render on this screen, if anything. */

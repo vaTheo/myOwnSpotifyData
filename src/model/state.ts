@@ -207,12 +207,19 @@ export async function startSync(priorityId?: string): Promise<void> {
     auth.logout();
     return;
   }
-  // Settings prints the same sync failure and the same lock in its own card.
+  // Settings prints the same sync failure, lock and cancellation in its own
+  // card.
   if (state.status === 'error') {
     banner.value = errorBanner(state.message, ['settings']);
   }
   if (state.status === 'locked') {
     banner.value = warnBanner(lockMessage(state.retryAt));
+  }
+  // A refused account switch is a cancellation, not a failure: amber, muted
+  // on Settings (it already prints the same line inline), still visible from
+  // a Playlist screen's own "Sync this playlist" trigger.
+  if (state.status === 'cancelled') {
+    banner.value = warnBanner(state.message, ['settings']);
   }
   // Last, so it wins the banner: an error or a lock is still on the Settings
   // card, but nothing else on screen says why the data went away. It is a

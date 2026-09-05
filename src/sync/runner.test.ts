@@ -398,9 +398,8 @@ describe('runSync resilience', () => {
       }
     );
     const stopped = {
-      status: 'error',
+      status: 'cancelled',
       message: ACCOUNT_SWITCH_STOPPED,
-      pending: [],
     };
     expect(states.at(-1)).toEqual(stopped);
     await expect(getMeta(SYNC_STATE_META)).resolves.toEqual(stopped);
