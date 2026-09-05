@@ -87,19 +87,50 @@ describe('rankMatches', () => {
     expect(results[1].relation).toBe('same');
   });
 
-  it('keeps the input order when the seed has no BPM', () => {
+  it('ranks by key relation when the seed has no BPM', () => {
     const results = rankMatches(feat(null, '8A'), [
       { id: 'a', feature: feat(120, '9A') },
       { id: 'b', feature: feat(120, '8B') },
       { id: 'c', feature: null },
     ]);
-    expect(ids(results)).toEqual(['a', 'b', 'c']);
+    expect(ids(results)).toEqual(['b', 'a', 'c']);
     expect(results.map((r) => r.relation)).toEqual([
-      'adjacent',
       'relative',
+      'adjacent',
       null,
     ]);
     expect(results.map((r) => r.deltaPct)).toEqual([null, null, null]);
+  });
+
+  it('sorts a candidate with no key last of the ones that have a feature', () => {
+    const results = rankMatches(feat(null, '8A'), [
+      { id: 'adjacent', feature: feat(120, '9A') },
+      { id: 'nokey', feature: feat(128, null) },
+      { id: 'relative', feature: feat(120, '8B') },
+      { id: 'same', feature: feat(90, '8A') },
+      { id: 'nodata', feature: null },
+    ]);
+    expect(ids(results)).toEqual([
+      'same',
+      'relative',
+      'adjacent',
+      'nokey',
+      'nodata',
+    ]);
+    expect(results.map((r) => r.relation)).toEqual([
+      'same',
+      'relative',
+      'adjacent',
+      null,
+      null,
+    ]);
+    expect(results.map((r) => r.deltaPct)).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
   });
 
   it('falls back to |ΔBPM%| alone when the seed has no key', () => {

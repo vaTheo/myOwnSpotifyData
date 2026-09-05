@@ -4,6 +4,7 @@ import {
   artistKey,
   artistTracks,
   buildModel,
+  findSeedRow,
   playlistRanking,
   playsFor,
   topArtists,
@@ -365,5 +366,42 @@ describe('artistTracks', () => {
       ['t2', 5, ['p1', 'p2']],
     ]);
     expect(artistTracks(model, 'nope')).toEqual([]);
+  });
+});
+
+describe('findSeedRow', () => {
+  it('prefers the row saved at that position, then any row with the key', () => {
+    const rows = playlistRanking(model, 'p1');
+    expect(findSeedRow(rows, { trackKey: 't2', position: 1 })?.track.key).toBe(
+      't2'
+    );
+    expect(
+      findSeedRow(rows, { trackKey: 't4', position: 9 })?.entry.position
+    ).toBe(2);
+    expect(findSeedRow(rows, { trackKey: 't9', position: 0 })).toBeUndefined();
+    expect(findSeedRow(rows, undefined)).toBeUndefined();
+  });
+
+  it('keeps the tapped copy when the same track sits at two positions', () => {
+    const twice = buildModel({
+      playlists: [playlist('p9')],
+      tracks: [track('u1'), track('u2')],
+      entries: [
+        { playlistId: 'p9', position: 0, trackKey: 'u1', addedAt: null },
+        { playlistId: 'p9', position: 1, trackKey: 'u2', addedAt: null },
+        { playlistId: 'p9', position: 2, trackKey: 'u1', addedAt: null },
+      ],
+      topItems: [],
+      plays: [],
+      features: [],
+    });
+    const rows = playlistRanking(twice, 'p9');
+    expect(rows.map((r) => r.entry.position)).toEqual([0, 1, 2]);
+    expect(
+      findSeedRow(rows, { trackKey: 'u1', position: 2 })?.entry.position
+    ).toBe(2);
+    expect(
+      findSeedRow(rows, { trackKey: 'u1', position: 0 })?.entry.position
+    ).toBe(0);
   });
 });
