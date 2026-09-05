@@ -29,22 +29,36 @@ export function Playlists() {
         }}
         placeholder="Filter playlists"
       />
-      <ul class="list">
-        {list.map((p) => (
-          <TrackRow
-            key={p.id}
-            imageUrl={p.imageUrl}
-            title={p.name}
-            subtitle={plural(
-              m.entriesByPlaylist.get(p.id)?.length ?? 0,
-              'track'
-            )}
-            href={routeHref({ name: 'playlist', id: p.id })}
-            spotifyUrl={p.spotifyUrl}
-            badges={pending.has(p.id) ? <Badge>pending</Badge> : undefined}
-          />
-        ))}
-      </ul>
+      {list.length === 0 ? (
+        <div class="empty">
+          <p>No playlists match "{filter.value}".</p>
+          <button
+            type="button"
+            onClick={() => {
+              filter.value = '';
+            }}
+          >
+            Clear filter
+          </button>
+        </div>
+      ) : (
+        <ul class="list">
+          {list.map((p) => (
+            <TrackRow
+              key={p.id}
+              imageUrl={p.imageUrl}
+              title={p.name}
+              subtitle={plural(
+                m.entriesByPlaylist.get(p.id)?.length ?? 0,
+                'track'
+              )}
+              href={routeHref({ name: 'playlist', id: p.id })}
+              spotifyUrl={p.spotifyUrl}
+              badges={pending.has(p.id) ? <Badge>pending</Badge> : undefined}
+            />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
