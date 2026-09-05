@@ -7,7 +7,7 @@ export function PlaysBadge(p: { plays: PlaysInfo | null }) {
   return (
     <Badge kind="plays">
       {plural(p.plays.plays, 'play')}
-      {p.plays.source === 'name' ? ' (by name)' : ''}
+      {p.plays.source === 'name' ? ' (by artist and title)' : ''}
     </Badge>
   );
 }

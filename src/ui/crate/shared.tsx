@@ -137,19 +137,27 @@ export function Strip(p: { cells: string[] }) {
   return <p class="strip">{nodes}</p>;
 }
 
+/**
+ * The one sentence a row shows when the track sits in none of the synced
+ * playlists. `Top.tsx` renders it too, so the wording exists once.
+ */
+export function NoPlaylistNote() {
+  const m = model.value;
+  if (!m) return null;
+  return (
+    <p>
+      {m.playlists.length === 0
+        ? 'Sync your playlists in Settings to see where this sits'
+        : `Not in any of your ${plural(m.playlists.length, 'playlist')}`}
+    </p>
+  );
+}
+
 export function PlaylistLinks(p: { row: PlayRow }) {
   const m = model.value;
   if (!m) return null;
   const ids = playlistsOfRow(m, p.row);
-  if (ids.length === 0) {
-    return (
-      <p>
-        {m.playlists.length === 0
-          ? 'Sync your playlists in Settings to see where this sits'
-          : `Not in any of your ${plural(m.playlists.length, 'playlist')}`}
-      </p>
-    );
-  }
+  if (ids.length === 0) return <NoPlaylistNote />;
   return (
     <>
       <p>In {plural(ids.length, 'playlist')}</p>

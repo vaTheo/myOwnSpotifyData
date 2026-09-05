@@ -9,6 +9,7 @@ import { FeaturePills } from './components/FeaturePills';
 import { PlaysBadge } from './components/PlaysBadge';
 import { Segmented } from './components/Segmented';
 import { TrackRow } from './components/TrackRow';
+import { NoPlaylistNote } from './crate/shared';
 import { PERIOD_LABEL, artistNames, plural } from './format';
 
 const period = signal<Period>('short_term');
@@ -58,23 +59,32 @@ export function Top() {
               }}
               badges={
                 <>
-                  <Badge>{plural(t.playlistIds.length, 'playlist')}</Badge>
+                  {t.playlistIds.length === 0 && m.playlists.length > 0 ? (
+                    <Badge kind="todo">not in a playlist</Badge>
+                  ) : (
+                    <Badge>{plural(t.playlistIds.length, 'playlist')}</Badge>
+                  )}
                   <PlaysBadge plays={t.plays} />
                   <FeaturePills trackId={t.item.id} />
                 </>
               }
             >
-              {expanded.value === t.item.id && t.playlistIds.length > 0 && (
-                <ul class="sublist">
-                  {t.playlistIds.map((id) => (
-                    <li key={id}>
-                      <a href={routeHref({ name: 'playlist', id })}>
-                        {m.playlistsById.get(id)?.name ?? id}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {expanded.value === t.item.id &&
+                (t.playlistIds.length > 0 ? (
+                  <ul class="sublist">
+                    {t.playlistIds.map((id) => (
+                      <li key={id}>
+                        <a href={routeHref({ name: 'playlist', id })}>
+                          {m.playlistsById.get(id)?.name ?? id}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div class="sublist">
+                    <NoPlaylistNote />
+                  </div>
+                ))}
             </TrackRow>
           ))}
         </ul>
