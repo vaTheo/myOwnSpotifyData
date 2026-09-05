@@ -25,7 +25,7 @@ export function Artist({ artistKey }: { artistKey: string }) {
       <p class="muted">
         {plural(tracks.length, 'saved track')} in{' '}
         {plural(agg.playlistIds.size, 'playlist')} ·{' '}
-        <SpotifyLink href={artistUrl(agg.id)} />
+        <SpotifyLink href={artistUrl(agg.id)} label />
       </p>
       <ul class="list">
         {tracks.map((t) => (

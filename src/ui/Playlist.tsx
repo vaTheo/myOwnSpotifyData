@@ -169,7 +169,7 @@ export function Playlist({ id }: { id: string }) {
       <h1>{playlist.name}</h1>
       <p class="muted">
         {plural(ranked.length, 'track')} ·{' '}
-        <SpotifyLink href={playlist.spotifyUrl} />
+        <SpotifyLink href={playlist.spotifyUrl} label />
       </p>
       <div class="actions">
         <button
