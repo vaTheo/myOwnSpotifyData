@@ -147,8 +147,14 @@ button.danger {
   padding: 10px 12px;
 }
 
+.banner.error {
+  background: #3d1416;
+  color: #f0a0a2;
+}
+
 .banner button {
-  min-height: 32px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 4px 10px;
   background: transparent;
   color: inherit;

@@ -25,6 +25,7 @@ import {
 import { formatDateTime } from '../ui/format';
 import { describeError } from '../util/errors';
 import { buildModel, type Model } from './aggregate';
+import { errorBanner, warnBanner, type BannerMessage } from './banner';
 import { resolveFeature } from './features';
 
 export const model = signal<Model | null>(null);
@@ -35,7 +36,7 @@ export const historySummary = signal<ImportSummary | null>(null);
 export const lookupState = signal<LookupState>({ status: 'idle' });
 export const rekordboxState = signal<RekordboxState>({ status: 'idle' });
 export const rekordboxSummary = signal<RekordboxSummary | null>(null);
-export const banner = signal<string | null>(null);
+export const banner = signal<BannerMessage | null>(null);
 
 export type KeyNotation = 'camelot' | 'open' | 'classic';
 
@@ -102,20 +103,20 @@ async function showCrateNotice(): Promise<void> {
   // Already shown earlier in this session: it has had its turn.
   if (noticePending) return markNoticeShown();
   if ((await getMeta<boolean>(CRATE_NOTICE_META)) === true) return;
-  banner.value = CRATE_NOTICE;
+  banner.value = warnBanner(CRATE_NOTICE);
   noticePending = true;
 }
 
 /** The banner's close button: dismissing the re-import notice retires it. */
 export function dismissBanner(): void {
-  const wasNotice = banner.value === CRATE_NOTICE;
+  const wasNotice = banner.value?.text === CRATE_NOTICE;
   banner.value = null;
   if (wasNotice && noticePending) void markNoticeShown();
 }
 
 /** A sync or an import clears its own message, never a pending notice. */
 function clearBanner(): void {
-  if (banner.value !== CRATE_NOTICE) banner.value = null;
+  if (banner.value?.text !== CRATE_NOTICE) banner.value = null;
 }
 
 export async function loadFromDb(): Promise<void> {
@@ -130,7 +131,9 @@ export async function loadFromDb(): Promise<void> {
       (await getMeta<RekordboxSummary>(REKORDBOX_SUMMARY_META)) ?? null;
     if (crateStatus.value === 'reimport') await showCrateNotice();
   } catch (err) {
-    banner.value = `Could not open local storage: ${describeError(err)}`;
+    banner.value = errorBanner(
+      `Could not open local storage: ${describeError(err)}`
+    );
   }
 }
 
@@ -155,7 +158,7 @@ export async function startSync(priorityId?: string): Promise<void> {
   const current = syncState.value;
   if (current.status === 'running') return;
   if (current.status === 'locked' && current.retryAt > Date.now()) {
-    banner.value = lockMessage(current.retryAt);
+    banner.value = warnBanner(lockMessage(current.retryAt));
     return;
   }
   clearBanner();
@@ -189,8 +192,13 @@ export async function startSync(priorityId?: string): Promise<void> {
     auth.logout();
     return;
   }
-  if (state.status === 'error') banner.value = state.message;
-  if (state.status === 'locked') banner.value = lockMessage(state.retryAt);
+  // Settings prints the same sync failure and the same lock in its own card.
+  if (state.status === 'error') {
+    banner.value = errorBanner(state.message, ['settings']);
+  }
+  if (state.status === 'locked') {
+    banner.value = warnBanner(lockMessage(state.retryAt));
+  }
 }
 
 export async function startImport(files: File[]): Promise<void> {
@@ -209,7 +217,9 @@ export async function startImport(files: File[]): Promise<void> {
   });
   await loadFromDb();
   const state = importState.value;
-  if (state.status === 'error') banner.value = state.message;
+  if (state.status === 'error') {
+    banner.value = errorBanner(state.message, ['import']);
+  }
 }
 
 export interface Coverage {
@@ -302,7 +312,9 @@ export async function startLookup(): Promise<void> {
   // run still shows its coverage.
   await loadFromDb();
   const state = lookupState.value;
-  if (state.status === 'error') banner.value = state.message;
+  if (state.status === 'error') {
+    banner.value = errorBanner(state.message, ['settings']);
+  }
 }
 
 export async function startRekordboxImport(file: File): Promise<void> {
@@ -327,7 +339,9 @@ export async function startRekordboxImport(file: File): Promise<void> {
   });
   await loadFromDb();
   const state = rekordboxState.value;
-  if (state.status === 'error') banner.value = state.message;
+  if (state.status === 'error') {
+    banner.value = errorBanner(state.message, ['settings']);
+  }
 }
 
 export async function disconnect(): Promise<void> {
@@ -337,14 +351,17 @@ export async function disconnect(): Promise<void> {
     lookupState.value.status === 'running' ||
     rekordboxState.value.status === 'running'
   ) {
-    banner.value =
-      'Wait for the current sync, history import, lookup or Rekordbox import to finish before disconnecting.';
+    banner.value = warnBanner(
+      'Wait for the current sync, history import, lookup or Rekordbox import to finish before disconnecting.'
+    );
     return;
   }
   try {
     await wipeDb();
   } catch (err) {
-    banner.value = `Could not delete local data: ${describeError(err)}`;
+    banner.value = errorBanner(
+      `Could not delete local data: ${describeError(err)}`
+    );
     return;
   }
   auth.clearAll();
