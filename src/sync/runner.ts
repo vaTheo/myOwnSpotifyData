@@ -59,12 +59,30 @@ export const SYNC_STATE_META = 'syncState';
 export const LAST_SYNC_META = 'lastSyncAt';
 export const ACCOUNT_META = 'accountId';
 
+/** Worded like the Disconnect confirm, because it deletes the same rows. */
+export const ACCOUNT_SWITCH_CONFIRM =
+  'This is a different Spotify account. Delete all local data for the previous account?';
+
+/** Said after the wipe, so the emptied cards explain themselves. */
+export const ACCOUNT_SWITCH_NOTICE =
+  'Signed in as a different Spotify account — local data for the previous account was cleared.';
+
+/** The sync stops here when the wipe is refused; nothing was deleted. */
+export const ACCOUNT_SWITCH_STOPPED =
+  'Sync stopped — a different Spotify account is signed in and the local data was kept.';
+
 export interface RunnerDeps {
   client: SpotifyClient;
   now: () => number;
   onState: (state: SyncState) => void;
   /** Optional screen wake lock; resolves to a release function. */
   acquireWakeLock?: () => Promise<() => Promise<void>>;
+  /**
+   * Asked before an account switch wipes the local data. `false` stops the
+   * sync and deletes nothing. Left out (the unit tests, any caller with no
+   * way to ask) the wipe happens as it always did.
+   */
+  confirmAccountSwitch?: () => boolean;
 }
 
 export interface SyncOptions {
@@ -252,7 +270,19 @@ export async function runSync(
     running('Profile');
     const me = await fetchProfileId(client);
     const cachedAccount = await getMeta<string>(ACCOUNT_META);
-    if (cachedAccount !== undefined && cachedAccount !== me) await wipeDb();
+    if (cachedAccount !== undefined && cachedAccount !== me) {
+      // Refused: stop before the wipe and before the account id is stored, so
+      // the next sync with the right account is an ordinary one.
+      if (deps.confirmAccountSwitch && !deps.confirmAccountSwitch()) {
+        await setFinalState({
+          status: 'error',
+          message: ACCOUNT_SWITCH_STOPPED,
+          pending,
+        });
+        return;
+      }
+      await wipeDb();
+    }
     await putMeta(ACCOUNT_META, me);
 
     running('Top tracks and artists');

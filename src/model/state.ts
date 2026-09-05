@@ -22,6 +22,8 @@ import {
 } from '../history/importer';
 import { api } from '../spotify/api';
 import {
+  ACCOUNT_SWITCH_CONFIRM,
+  ACCOUNT_SWITCH_NOTICE,
   LAST_SYNC_META,
   SYNC_STATE_META,
   runSync,
@@ -178,12 +180,20 @@ export async function startSync(priorityId?: string): Promise<void> {
     current: null,
     pending: [],
   } as SyncState;
+  // Set only when the owner accepted the wipe, so the banner below explains
+  // the cards that just emptied themselves.
+  let accountSwitched = false;
   await runSync(
     {
       client: api,
       now: () => Date.now(),
       onState: (state) => {
         syncState.value = state;
+      },
+      confirmAccountSwitch: () => {
+        const ok = confirm(ACCOUNT_SWITCH_CONFIRM);
+        if (ok) accountSwitched = true;
+        return ok;
       },
       acquireWakeLock: 'wakeLock' in navigator ? acquireWakeLock : undefined,
     },
@@ -204,6 +214,10 @@ export async function startSync(priorityId?: string): Promise<void> {
   if (state.status === 'locked') {
     banner.value = warnBanner(lockMessage(state.retryAt));
   }
+  // Last, so it wins the banner: an error or a lock is still on the Settings
+  // card, but nothing else on screen says why the data went away. It is a
+  // notice, not a failure, so it is amber and never suppressed.
+  if (accountSwitched) banner.value = warnBanner(ACCOUNT_SWITCH_NOTICE);
 }
 
 export async function startImport(files: File[]): Promise<void> {
