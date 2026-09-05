@@ -1,3 +1,4 @@
+import { auth } from '../auth/browser';
 import type { RekordboxSummary } from '../features/rekordboxImport';
 import type { ImportSummary } from '../history/importer';
 import {
@@ -144,7 +145,7 @@ function AudioCard() {
       )}
       <button
         type="button"
-        disabled={busy || !m}
+        disabled={busy || !cov || cov.total === 0}
         onClick={() => void startLookup()}
       >
         {lookup.status === 'running' ? 'Looking up…' : 'Look up (ReccoBeats)'}
@@ -166,7 +167,9 @@ function AudioCard() {
           unit="files"
         />
       )}
-      {rekordbox.status === 'error' && <p class="error">{rekordbox.message}</p>}
+      {rekordbox.status === 'error' && (
+        <p class="error">Last error: {rekordbox.message}</p>
+      )}
       {summary && (
         <p class="muted">
           {rekordboxLine(summary)} · imported {formatDate(summary.importedAt)}
@@ -220,14 +223,27 @@ export function Settings() {
         {state.status === 'error' && (
           <p class="error">Last error: {state.message}</p>
         )}
-        <button
-          type="button"
-          class="primary"
-          disabled={isSyncBusy(state)}
-          onClick={() => void startSync()}
-        >
-          {running ? 'Syncing…' : 'Sync now'}
-        </button>
+        <div class="actions">
+          <button
+            type="button"
+            class="primary"
+            disabled={isSyncBusy(state)}
+            onClick={() => void startSync()}
+          >
+            {running ? 'Syncing…' : 'Sync now'}
+          </button>
+          <button
+            type="button"
+            disabled={working}
+            onClick={() => auth.logout()}
+          >
+            Connect again
+          </button>
+        </div>
+        <p class="muted">
+          Connect again signs you out and back in. Nothing on this phone is
+          deleted.
+        </p>
       </div>
       <HistoryCard />
       <AudioCard />
