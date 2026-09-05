@@ -1,15 +1,28 @@
+import type { RekordboxSummary } from '../features/rekordboxImport';
 import type { ImportSummary } from '../history/importer';
 import {
+  coverage,
   disconnect,
   historySummary,
   importState,
   isSyncBusy,
+  keyNotation,
   lastSyncAt,
+  lookupState,
+  model,
+  rekordboxState,
+  rekordboxSummary,
+  setKeyNotation,
+  startLookup,
+  startRekordboxImport,
   startSync,
   syncState,
+  type Coverage,
+  type KeyNotation,
 } from '../model/state';
 import { routeHref } from '../router';
 import { Progress } from './components/Progress';
+import { Segmented } from './components/Segmented';
 import { formatDate, formatDateTime, plural } from './format';
 
 function historyLine(summary: ImportSummary, zoneAtImport?: string): string {
@@ -60,11 +73,121 @@ function HistoryCard() {
   );
 }
 
+/** Spec §5: "BPM and key for 3,120 of 4,980 tracks · ReccoBeats 2,900 · …". */
+function coverageLine(c: Coverage): string {
+  const total = plural(c.total, 'track');
+  return [
+    `BPM and key for ${c.covered.toLocaleString()} of ${total}`,
+    `ReccoBeats ${c.reccobeats.toLocaleString()}`,
+    `Rekordbox ${c.rekordbox.toLocaleString()}`,
+  ].join(' · ');
+}
+
+/** "parsed 1,204 · with BPM 1,190 · with key 1,050 · matched 820 · …" */
+function rekordboxLine(s: RekordboxSummary): string {
+  return [
+    `parsed ${s.parsed.toLocaleString()}`,
+    `with BPM ${s.withBpm.toLocaleString()}`,
+    `with key ${s.withKey.toLocaleString()}`,
+    `matched ${s.matched.toLocaleString()}`,
+    `unmatched ${s.unmatched.toLocaleString()}`,
+  ].join(' · ');
+}
+
+const NOTATIONS: { value: KeyNotation; label: string }[] = [
+  { value: 'camelot', label: 'Camelot' },
+  { value: 'open', label: 'Open Key' },
+  { value: 'classic', label: 'Classic' },
+];
+
+function AudioCard() {
+  const m = model.value;
+  const lookup = lookupState.value;
+  const rekordbox = rekordboxState.value;
+  const summary = rekordboxSummary.value;
+  // Both write the same store, so neither starts while the other runs.
+  const busy = lookup.status === 'running' || rekordbox.status === 'running';
+  const onXml = (event: Event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file) void startRekordboxImport(file);
+  };
+  return (
+    <div class="card">
+      <h2>Audio data</h2>
+      {m ? (
+        <p>{coverageLine(coverage(m))}</p>
+      ) : (
+        <p class="muted">Sync or import a history first.</p>
+      )}
+      {lookup.status === 'running' && (
+        <Progress
+          label="Looking up"
+          done={lookup.done}
+          total={lookup.total}
+          unit="batches"
+        />
+      )}
+      {lookup.status === 'done' && (
+        <p class="muted">
+          found {lookup.found.toLocaleString()} · not found{' '}
+          {lookup.notFound.toLocaleString()}
+        </p>
+      )}
+      {lookup.status === 'error' && (
+        <p class="error">Last error: {lookup.message}</p>
+      )}
+      <button
+        type="button"
+        disabled={busy || !m}
+        onClick={() => void startLookup()}
+      >
+        {lookup.status === 'running' ? 'Looking up…' : 'Look up (ReccoBeats)'}
+      </button>
+      <label class="file">
+        <span>Rekordbox collection XML (File &gt; Export Collection)</span>
+        <input
+          type="file"
+          accept=".xml,text/xml,application/xml"
+          disabled={busy || !m}
+          onChange={onXml}
+        />
+      </label>
+      {rekordbox.status === 'running' && (
+        <Progress
+          label={rekordbox.file}
+          done={rekordbox.index}
+          total={rekordbox.total}
+          unit="files"
+        />
+      )}
+      {rekordbox.status === 'error' && <p class="error">{rekordbox.message}</p>}
+      {summary && (
+        <p class="muted">
+          {rekordboxLine(summary)} · imported {formatDate(summary.importedAt)}
+        </p>
+      )}
+      <p class="muted">Key notation</p>
+      <Segmented
+        options={NOTATIONS}
+        value={keyNotation.value}
+        onChange={setKeyNotation}
+      />
+      <p class="muted">Audio data via ReccoBeats (Spotify audio features).</p>
+    </div>
+  );
+}
+
 export function Settings() {
   const state = syncState.value;
   const running = state.status === 'running';
   const locked = state.status === 'locked' && state.retryAt > Date.now();
-  const working = running || importState.value.status === 'running';
+  const working =
+    running ||
+    importState.value.status === 'running' ||
+    lookupState.value.status === 'running' ||
+    rekordboxState.value.status === 'running';
   return (
     <section>
       <h1>Settings</h1>
@@ -103,6 +226,7 @@ export function Settings() {
         </button>
       </div>
       <HistoryCard />
+      <AudioCard />
       <div class="card">
         <h2>Disconnect</h2>
         <p>

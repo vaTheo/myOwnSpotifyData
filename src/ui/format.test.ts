@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { artistNames, artistUrl, formatDate, plural } from './format';
+import {
+  artistNames,
+  artistUrl,
+  formatBpm,
+  formatDate,
+  plural,
+} from './format';
 
 describe('format helpers', () => {
   it('pluralises', () => {
@@ -30,5 +36,14 @@ describe('format helpers', () => {
     const ms = Date.UTC(2026, 8, 15, 12, 0, 0);
     expect(formatDate(ms)).toBe(formatDate(new Date(ms).toISOString()));
     expect(formatDate(ms)).toContain('2026');
+  });
+
+  it('prints a BPM with one decimal and drops a trailing .0', () => {
+    expect(formatBpm(124)).toBe('124');
+    expect(formatBpm(127.5)).toBe('127.5');
+    // ReccoBeats sends three decimals; rounding must not leave "128.0".
+    expect(formatBpm(128.04)).toBe('128');
+    expect(formatBpm(124.96)).toBe('125');
+    expect(formatBpm(0)).toBe('0');
   });
 });

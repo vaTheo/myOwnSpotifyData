@@ -1,6 +1,14 @@
 import { computed, signal } from '@preact/signals';
 import { auth } from '../auth/browser';
 import { getAllRows, getMeta, putMeta, wipeDb } from '../db/repo';
+import { candidateIds, runLookup, type LookupState } from '../features/lookup';
+import type { LibraryTrack } from '../features/rekordbox-match';
+import {
+  REKORDBOX_SUMMARY_META,
+  runRekordboxImport,
+  type RekordboxState,
+  type RekordboxSummary,
+} from '../features/rekordboxImport';
 import {
   HISTORY_SUMMARY_META,
   runImport,
@@ -16,13 +24,46 @@ import {
 } from '../sync/runner';
 import { formatDateTime } from '../ui/format';
 import { buildModel, type Model } from './aggregate';
+import { resolveFeature } from './features';
 
 export const model = signal<Model | null>(null);
 export const syncState = signal<SyncState>({ status: 'idle' });
 export const importState = signal<ImportState>({ status: 'idle' });
 export const lastSyncAt = signal<number | null>(null);
 export const historySummary = signal<ImportSummary | null>(null);
+export const lookupState = signal<LookupState>({ status: 'idle' });
+export const rekordboxState = signal<RekordboxState>({ status: 'idle' });
+export const rekordboxSummary = signal<RekordboxSummary | null>(null);
 export const banner = signal<string | null>(null);
+
+export type KeyNotation = 'camelot' | 'open' | 'classic';
+
+const KEY_NOTATION_KEY = 'keyNotation';
+
+/** `getItem` returns `string | null`, so narrow before trusting it. */
+function storedNotation(): KeyNotation {
+  try {
+    const saved = localStorage.getItem(KEY_NOTATION_KEY);
+    if (saved === 'camelot' || saved === 'open' || saved === 'classic') {
+      return saved;
+    }
+  } catch {
+    // Private mode or storage blocked: Camelot, and nothing is persisted.
+  }
+  return 'camelot';
+}
+
+/** Which notation every key pill prints. Default Camelot (spec §5). */
+export const keyNotation = signal<KeyNotation>(storedNotation());
+
+export function setKeyNotation(value: KeyNotation): void {
+  keyNotation.value = value;
+  try {
+    localStorage.setItem(KEY_NOTATION_KEY, value);
+  } catch {
+    // The choice still applies to this session.
+  }
+}
 
 export const CRATE_NOTICE_META = 'crateNoticeShown';
 
@@ -88,6 +129,8 @@ export async function loadFromDb(): Promise<void> {
     if (saved && saved.status !== 'running') syncState.value = saved;
     historySummary.value =
       (await getMeta<ImportSummary>(HISTORY_SUMMARY_META)) ?? null;
+    rekordboxSummary.value =
+      (await getMeta<RekordboxSummary>(REKORDBOX_SUMMARY_META)) ?? null;
     if (crateStatus.value === 'reimport') await showCrateNotice();
   } catch (err) {
     banner.value = `Could not open local storage: ${describeError(err)}`;
@@ -172,13 +215,133 @@ export async function startImport(files: File[]): Promise<void> {
   if (state.status === 'error') banner.value = state.message;
 }
 
+export interface Coverage {
+  total: number;
+  covered: number;
+  reccobeats: number;
+  rekordbox: number;
+}
+
+/** A source value counts only once it carries a BPM or a key. */
+function hasValue(v: { bpm: number | null; key: number | null }): boolean {
+  return v.bpm !== null || v.key !== null;
+}
+
+/**
+ * Spec §5's coverage line. `total` is every candidate id — §3's universe,
+ * not the ids a lookup would still fetch, which would shrink to zero as the
+ * lookup succeeds — and `covered` counts the ids that resolve to at least a
+ * BPM or a key. The two source counts overlap on purpose: a track with both
+ * a Rekordbox and a ReccoBeats value is counted in both, which is why they
+ * can add up to more than `covered`.
+ */
+export function coverage(m: Model): Coverage {
+  const candidates = candidateIds(m);
+  let covered = 0;
+  let reccobeats = 0;
+  let rekordbox = 0;
+  for (const candidate of candidates) {
+    const row = m.features.get(candidate.id);
+    if (!row) continue;
+    // resolveFeature is already null unless a BPM or a key survived, which
+    // is spec §5's counting rule word for word.
+    if (resolveFeature(row)) covered++;
+    if (row.rekordbox && hasValue(row.rekordbox)) rekordbox++;
+    const recco = row.reccobeats;
+    // A notFound marker is a checked id, not a value.
+    if (recco && !('notFound' in recco) && hasValue(recco)) reccobeats++;
+  }
+  return { total: candidates.length, covered, reccobeats, rekordbox };
+}
+
+/**
+ * The Rekordbox matcher works on Spotify tracks only: a local file has no
+ * id to hang a FeatureRow on. Built with a loop rather than
+ * `.filter().map()` so `id` narrows from `string | null` to `string`.
+ */
+function libraryTracks(m: Model): LibraryTrack[] {
+  const out: LibraryTrack[] = [];
+  for (const track of m.tracksByKey.values()) {
+    if (track.isLocal || track.id === null) continue;
+    out.push({
+      id: track.id,
+      name: track.name,
+      artists: track.artists.map((a) => a.name),
+      durationMs: track.durationMs,
+    });
+  }
+  return out;
+}
+
+/** Never on load: the ReccoBeats lookup runs only from this button. */
+export async function startLookup(): Promise<void> {
+  if (lookupState.value.status === 'running') return;
+  const m = model.value;
+  if (!m) return;
+  clearBanner();
+  // Claimed synchronously so a second tap cannot start a second lookup.
+  // `as LookupState` keeps the signal at its declared union type: without
+  // it TypeScript narrows lookupState.value to this literal for the rest of
+  // the function, as in startSync.
+  lookupState.value = { status: 'running', done: 0, total: 0 } as LookupState;
+  // The existing rows come from the model, not from a fresh IndexedDB read:
+  // every path that writes a FeatureRow reloads the model afterwards, and a
+  // rejected read here would leave the state stuck on `running` forever,
+  // because runLookup itself never throws.
+  await runLookup(
+    {
+      // Bare `fetch` throws "Illegal invocation" once unbound from window.
+      fetchFn: (input, init) => fetch(input, init),
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      now: () => Date.now(),
+      onState: (state) => {
+        lookupState.value = state;
+      },
+    },
+    candidateIds(m),
+    [...m.features.values()]
+  );
+  // Rows written batch by batch: reload even after an error, so a partial
+  // run still shows its coverage.
+  await loadFromDb();
+  const state = lookupState.value;
+  if (state.status === 'error') banner.value = state.message;
+}
+
+export async function startRekordboxImport(file: File): Promise<void> {
+  if (rekordboxState.value.status === 'running') return;
+  const m = model.value;
+  if (!m) return;
+  clearBanner();
+  await runRekordboxImport(file, {
+    createWorker: () =>
+      new Worker(new URL('../features/rekordbox.worker.ts', import.meta.url), {
+        type: 'module',
+      }),
+    library: libraryTracks(m),
+    // Same reason as startLookup: the model is the freshest copy of the
+    // rows, and a merge that dropped them would erase every ReccoBeats
+    // value the matched tracks already hold.
+    existing: [...m.features.values()],
+    now: () => Date.now(),
+    onState: (state) => {
+      rekordboxState.value = state;
+    },
+  });
+  await loadFromDb();
+  const state = rekordboxState.value;
+  if (state.status === 'error') banner.value = state.message;
+}
+
 export async function disconnect(): Promise<void> {
   if (
     syncState.value.status === 'running' ||
-    importState.value.status === 'running'
+    importState.value.status === 'running' ||
+    lookupState.value.status === 'running' ||
+    rekordboxState.value.status === 'running'
   ) {
     banner.value =
-      'Wait for the current sync or import to finish before disconnecting.';
+      'Wait for the current sync, import or lookup to finish before disconnecting.';
     return;
   }
   try {
@@ -191,7 +354,11 @@ export async function disconnect(): Promise<void> {
   model.value = null;
   syncState.value = { status: 'idle' };
   importState.value = { status: 'idle' };
+  lookupState.value = { status: 'idle' };
+  rekordboxState.value = { status: 'idle' };
   lastSyncAt.value = null;
   historySummary.value = null;
+  rekordboxSummary.value = null;
   banner.value = null;
+  // keyNotation is a display preference, not data: it survives a wipe.
 }

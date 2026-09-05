@@ -475,3 +475,86 @@ input[type='file'] {
 .sublist p {
   margin: 2px 0;
 }
+
+.pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill.bpm {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.pill.minor {
+  background: var(--hue);
+  border-color: var(--hue);
+  color: #14181f;
+}
+
+.pill.major {
+  background: transparent;
+  border-color: var(--hue);
+  color: var(--hue);
+}
+
+.pill.key-1 {
+  --hue: #e68989;
+}
+
+.pill.key-2 {
+  --hue: #e6b889;
+}
+
+.pill.key-3 {
+  --hue: #e6e689;
+}
+
+.pill.key-4 {
+  --hue: #b8e689;
+}
+
+.pill.key-5 {
+  --hue: #89e689;
+}
+
+.pill.key-6 {
+  --hue: #89e6b8;
+}
+
+.pill.key-7 {
+  --hue: #89e6e6;
+}
+
+.pill.key-8 {
+  --hue: #89b8e6;
+}
+
+.pill.key-9 {
+  --hue: #8989e6;
+}
+
+.pill.key-10 {
+  --hue: #b889e6;
+}
+
+.pill.key-11 {
+  --hue: #e689e6;
+}
+
+.pill.key-12 {
+  --hue: #e689b8;
+}
+
+.badge.relation {
+  background: #1c3a6e;
+  color: #cfe0ff;
+}
+
+.card button + label.file {
+  margin-top: 12px;
+}
