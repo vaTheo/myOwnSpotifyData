@@ -17,9 +17,9 @@ export const LOOKUP_INTERVAL_MS = 1000;
 
 /**
  * `running.total` counts batches and grows when the ISRC pass starts, because
- * its batch count is unknown until the first pass has missed; render it as
- * text, never as a bar width. `done.total` counts the tracks looked up in the
- * run and always equals `found + notFound`.
+ * its batch count is unknown until the first pass has missed; a progress bar
+ * over it must tolerate a growing denominator (`Progress` does). `done.total`
+ * counts the tracks looked up in the run and always equals `found + notFound`.
  */
 export type LookupState =
   | { status: 'idle' }

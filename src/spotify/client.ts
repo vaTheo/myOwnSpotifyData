@@ -1,5 +1,6 @@
 import { ApiError, QuotaError } from './errors';
 import type { ApiPage } from './types';
+import { MAX_5XX_RETRIES, backoffMs, parseRetryAfter } from '../util/retry';
 
 export const API_BASE = 'https://api.spotify.com/v1';
 export const PAGE_LIMIT = 50;
@@ -7,7 +8,6 @@ export const PAGE_LIMIT = 50;
 const QUOTA_LOCK_THRESHOLD_S = 300;
 const QUOTA_DEFAULT_WAIT_MS = 24 * 60 * 60 * 1000;
 const MAX_429_RETRIES = 6;
-const MAX_5XX_RETRIES = 3;
 
 export type Query = Record<string, string | number | undefined>;
 
@@ -33,17 +33,6 @@ export function buildUrl(path: string, query?: Query): string {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
   return url.toString();
-}
-
-function backoffMs(attempt: number): number {
-  return Math.min(2000 * 2 ** (attempt - 1), 60_000);
-}
-
-function parseRetryAfter(header: string | null): number | null {
-  // An absent or blank header is unreadable, not "retry immediately".
-  if (header === null || header.trim() === '') return null;
-  const seconds = Number(header);
-  return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
 }
 
 async function safeJson(res: Response): Promise<unknown> {
