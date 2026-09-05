@@ -48,6 +48,18 @@ export function notCountedLine(counts: ImportCounts): string | null {
   return parts.length > 0 ? `Not counted: ${parts.join(', ')}` : null;
 }
 
+/**
+ * A yearly Wikipedia view count, where the exact figure carries no meaning:
+ * `1,352` -> '1,352'; `288,783` -> '289k'; `999,999` -> '1m';
+ * `1,240,000` -> '1.2m'. The 999,500 boundary exists so the `k` branch can
+ * never print `1000k`. Listeners and fans are always printed in full.
+ */
+export function compactCount(n: number): string {
+  if (n < 10_000) return n.toLocaleString();
+  if (n < 999_500) return `${Math.round(n / 1000)}k`;
+  return `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}m`;
+}
+
 /** One decimal, a trailing `.0` dropped: `124`, `127.5` (spec §5). */
 export function formatBpm(bpm: number): string {
   return bpm.toFixed(1).replace(/\.0$/, '');
