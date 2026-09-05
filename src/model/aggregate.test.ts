@@ -263,6 +263,60 @@ describe('buildModel', () => {
     expect(model.features.size).toBe(1);
   });
 
+  it('indexes identity rows by artist id and reach rows by their own key', () => {
+    const built = buildModel({
+      ...rows,
+      artistIdentity: [
+        {
+          artistId: 'daft',
+          name: 'Daft Punk',
+          mbid: 'mb-daft',
+          mbidStatus: 'ok',
+          qid: null,
+          qidStatus: 'unchecked',
+          qidCheckedAt: null,
+          sitelinks: null,
+          wikiTitles: { en: null, fr: null },
+          deezerArtistId: null,
+          deezerName: null,
+          deezerStatus: 'unchecked',
+          resolvedAt: 5,
+          retryAfter: null,
+        },
+      ],
+      artistReach: [
+        {
+          key: 'daft|listenbrainz',
+          artistId: 'daft',
+          source: 'listenbrainz',
+          status: 'ok',
+          value: 5051,
+          fetchedAt: 6,
+          retryAfter: null,
+          sourceUrl:
+            'https://api.listenbrainz.org/1/stats/artist/mb-daft/listeners',
+        },
+        {
+          key: 'daft|deezer',
+          artistId: 'daft',
+          source: 'deezer',
+          status: 'notFound',
+          value: null,
+          fetchedAt: 6,
+          retryAfter: null,
+          sourceUrl: 'https://api.deezer.com/artist/1?output=jsonp',
+        },
+      ],
+    });
+    expect(built.identities.get('daft')?.mbid).toBe('mb-daft');
+    expect(built.identities.size).toBe(1);
+    expect(built.reach.get('daft|listenbrainz')?.value).toBe(5051);
+    expect(built.reach.get('daft|deezer')?.status).toBe('notFound');
+    expect(built.reach.size).toBe(2);
+    // The shared fixture holds neither, so every other test sees empty maps.
+    expect(model.identities.size + model.reach.size).toBe(0);
+  });
+
   it('keeps the raw play rows and maps track names to playlists', () => {
     const inPlaylists = (artist: string, title: string) => [
       ...(model.playlistsOfNameKey.get(nameKey(artist, title)) ?? []),

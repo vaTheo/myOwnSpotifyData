@@ -2,6 +2,8 @@ import {
   PERIODS,
   topKey,
   type AllRows,
+  type ArtistIdentityRow,
+  type ArtistReachRow,
   type ArtistRef,
   type EntryRow,
   type FeatureRow,
@@ -47,6 +49,10 @@ export interface Model {
   playsByName: Map<string, { plays: number; msPlayed: number }>;
   /** BPM and key rows by Spotify track id; resolve them with featureFor. */
   features: Map<string, FeatureRow>;
+  /** Artist reach identities by Spotify artist id. */
+  identities: Map<string, ArtistIdentityRow>;
+  /** Reach rows by their own composite key, `${artistId}|${source}`. */
+  reach: Map<string, ArtistReachRow>;
 }
 
 export function artistKey(a: ArtistRef): string {
@@ -145,6 +151,8 @@ export function buildModel(rows: AllRows): Model {
     playsById,
     playsByName,
     features: new Map(rows.features.map((f) => [f.trackId, f])),
+    identities: new Map(rows.artistIdentity.map((r) => [r.artistId, r])),
+    reach: new Map(rows.artistReach.map((r) => [r.key, r])),
   };
 }
 
