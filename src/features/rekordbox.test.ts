@@ -68,6 +68,14 @@ const TRAKTOR = `<?xml version="1.0" encoding="UTF-8"?>
 </NML>
 `;
 
+const HEX_ENTITIES = `<DJ_PLAYLISTS><COLLECTION Entries="1"><TRACK TrackID="1" Name="Murphy&#x2019;s Law" Artist="R&#xF3;is&#xED;n Murphy" AverageBpm="118.00" Tonality="5A" TotalTime="300"/></COLLECTION></DJ_PLAYLISTS>`;
+
+// &#x110000; is above U+10FFFF (the highest valid code point) and &foo; is
+// not one of the five named entities decodeEntities knows, so its guard
+// (`valid` for the numeric form, the ENTITIES lookup for the named form)
+// leaves both as literal source text instead of throwing or dropping them.
+const RAW_ENTITIES = `<DJ_PLAYLISTS><COLLECTION Entries="1"><TRACK TrackID="1" Name="Bad&#x110000;Ref" Artist="Unknown&foo;Entity" AverageBpm="120.00" Tonality="" TotalTime="200"/></COLLECTION></DJ_PLAYLISTS>`;
+
 describe('parseRekordbox', () => {
   it('reads every collection track, and only those', () => {
     expect(parseRekordbox(COLLECTION)).toEqual([
@@ -123,5 +131,17 @@ describe('parseRekordbox', () => {
   it('rejects a collection that holds only playlist references', () => {
     expect(() => parseRekordbox(REFERENCES_ONLY)).toThrow(RekordboxFormatError);
     expect(() => parseRekordbox(REFERENCES_ONLY)).toThrow(NO_TRACKS_MESSAGE);
+  });
+
+  it('decodes a hex entity reference', () => {
+    const [track] = parseRekordbox(HEX_ENTITIES);
+    expect(track.title).toBe('Murphy’s Law');
+    expect(track.artist).toBe('Róisín Murphy');
+  });
+
+  it('keeps an out-of-range hex reference and an unknown named entity as raw text', () => {
+    const [track] = parseRekordbox(RAW_ENTITIES);
+    expect(track.title).toBe('Bad&#x110000;Ref');
+    expect(track.artist).toBe('Unknown&foo;Entity');
   });
 });

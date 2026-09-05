@@ -1,6 +1,7 @@
 import { putFeatures } from '../db/repo';
 import type { FeatureRow, FeatureValue } from '../db/schema';
 import type { Model } from '../model/aggregate';
+import { storageMessage } from '../util/errors';
 import {
   MAX_IDS,
   fetchAudioFeatures,
@@ -101,13 +102,6 @@ function withReccobeats(
     reccobeats,
     updatedAt,
   };
-}
-
-function describeError(err: unknown): string {
-  if (err instanceof DOMException && err.name === 'QuotaExceededError') {
-    return 'Local storage is full. Free space on the phone and try again.';
-  }
-  return err instanceof Error ? err.message : String(err);
 }
 
 /**
@@ -221,6 +215,6 @@ export async function runLookup(
       total: found + notFound,
     });
   } catch (err) {
-    deps.onState({ status: 'error', message: describeError(err) });
+    deps.onState({ status: 'error', message: storageMessage(err) });
   }
 }

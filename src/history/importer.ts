@@ -1,4 +1,5 @@
 import { putMeta, replacePlays } from '../db/repo';
+import { describeError, storageMessage } from '../util/errors';
 import type { ImportMessage } from './process';
 import type { ImportCounts, Outcomes } from './records';
 
@@ -35,17 +36,6 @@ export interface ImporterDeps {
   knownTrackIds: ReadonlySet<string>;
   now: () => number;
   onState: (state: ImportState) => void;
-}
-
-function describeError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-function storageMessage(err: unknown): string {
-  if (err instanceof DOMException && err.name === 'QuotaExceededError') {
-    return 'Local storage is full. Free space on the phone and try again.';
-  }
-  return describeError(err);
 }
 
 function noFileReadMessage(

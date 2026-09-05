@@ -142,13 +142,20 @@ export function Playlist({ id }: { id: string }) {
   const seed = matching ? byKey.get(seeds.value[id]) : undefined;
   const seedFeature =
     seed && seed.track.id ? featureFor(m, seed.track.id) : null;
+  const seedPosition = seed?.entry.position;
   const listed: ListedRow[] = seedFeature
     ? rankMatches(
         seedFeature,
-        rows.map((r) => ({
-          id: String(r.entry.position),
-          feature: r.track.id ? featureFor(m, r.track.id) : null,
-        })),
+        // Exclude only the seed's own position (not its track id): the
+        // caption already names the seed as "Matching: …", so it must not
+        // also rank as the top result of its own list. A track that
+        // appears twice in the playlist keeps its other row.
+        rows
+          .filter((r) => r.entry.position !== seedPosition)
+          .map((r) => ({
+            id: String(r.entry.position),
+            feature: r.track.id ? featureFor(m, r.track.id) : null,
+          })),
         TOLERANCE_PCT
       ).flatMap((match) => {
         const row = byPosition.get(match.id);

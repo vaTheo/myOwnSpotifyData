@@ -23,6 +23,7 @@ import {
   type SyncState,
 } from '../sync/runner';
 import { formatDateTime } from '../ui/format';
+import { describeError } from '../util/errors';
 import { buildModel, type Model } from './aggregate';
 import { resolveFeature } from './features';
 
@@ -81,10 +82,6 @@ export const crateStatus = computed<CrateStatus>(() => {
   if (!summary) return 'empty';
   return summary.version === 2 ? 'ready' : 'reimport';
 });
-
-function describeError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 /**
  * The re-import notice is said once per browser; the hub's re-import card
@@ -341,7 +338,7 @@ export async function disconnect(): Promise<void> {
     rekordboxState.value.status === 'running'
   ) {
     banner.value =
-      'Wait for the current sync, import or lookup to finish before disconnecting.';
+      'Wait for the current sync, history import, lookup or Rekordbox import to finish before disconnecting.';
     return;
   }
   try {

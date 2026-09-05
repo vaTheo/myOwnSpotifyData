@@ -1,5 +1,6 @@
 import { putFeatures, putMeta } from '../db/repo';
 import type { FeatureRow } from '../db/schema';
+import { describeError, storageMessage } from '../util/errors';
 import type { RekordboxMessage } from './rekordbox';
 import { matchRekordbox, type LibraryTrack } from './rekordbox-match';
 
@@ -28,17 +29,6 @@ export interface RekordboxDeps {
   existing: FeatureRow[];
   now: () => number;
   onState: (state: RekordboxState) => void;
-}
-
-function describeError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-function storageMessage(err: unknown): string {
-  if (err instanceof DOMException && err.name === 'QuotaExceededError') {
-    return 'Local storage is full. Free space on the phone and try again.';
-  }
-  return describeError(err);
 }
 
 /** Never rejects: every failure arrives through `onState`. */
