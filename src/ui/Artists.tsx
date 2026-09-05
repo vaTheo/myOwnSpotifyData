@@ -30,18 +30,32 @@ export function Artists() {
         }}
         placeholder="Filter artists"
       />
-      <ul class="list">
-        {list.map((a) => (
-          <TrackRow
-            key={a.key}
-            rank={ranks.get(a.key) ?? 0}
-            title={a.name}
-            subtitle={`${plural(a.trackKeys.size, 'track')} · ${plural(a.playlistIds.size, 'playlist')}`}
-            href={routeHref({ name: 'artist', key: a.key })}
-            spotifyUrl={artistUrl(a.id)}
-          />
-        ))}
-      </ul>
+      {list.length === 0 ? (
+        <div class="empty">
+          <p>No artists match "{filter.value}".</p>
+          <button
+            type="button"
+            onClick={() => {
+              filter.value = '';
+            }}
+          >
+            Clear filter
+          </button>
+        </div>
+      ) : (
+        <ul class="list">
+          {list.map((a) => (
+            <TrackRow
+              key={a.key}
+              rank={ranks.get(a.key) ?? 0}
+              title={a.name}
+              subtitle={`${plural(a.trackKeys.size, 'track')} · ${plural(a.playlistIds.size, 'playlist')}`}
+              href={routeHref({ name: 'artist', key: a.key })}
+              spotifyUrl={artistUrl(a.id)}
+            />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
