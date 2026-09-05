@@ -5,6 +5,7 @@ import { model } from '../model/state';
 import { routeHref } from '../router';
 import { Badge } from './components/Badge';
 import { Empty } from './components/Empty';
+import { FeaturePills } from './components/FeaturePills';
 import { PlaysBadge } from './components/PlaysBadge';
 import { Segmented } from './components/Segmented';
 import { TrackRow } from './components/TrackRow';
@@ -59,6 +60,7 @@ export function Top() {
                 <>
                   <Badge>{plural(t.playlistIds.length, 'playlist')}</Badge>
                   <PlaysBadge plays={t.plays} />
+                  <FeaturePills trackId={t.item.id} />
                 </>
               }
             >

@@ -58,6 +58,21 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   (request _Extended streaming history_; it arrives by email). A play counts
   once a track was listened to for at least 30 seconds. Months are bucketed
   in the phone's time zone at import time, so re-import after moving zones.
+- **BPM and key** show as two small pills on every track row, once you have
+  filled them in from the **Audio data** card in Settings.
+  `Look up (ReccoBeats)` fetches Spotify's own tempo and key for the tracks
+  ReccoBeats knows, and the `.xml` file input takes a rekordbox collection
+  export (_File > Export Collection in xml format_), which wins wherever it
+  has a value of its own. Neither starts by itself, and both pick up where
+  they stopped. The key pill follows the notation chosen on the same card:
+  Camelot, Open Key or classic names. Audio data via ReccoBeats (Spotify
+  audio features).
+- **Match** is the third control on a playlist. Tap a track and the list
+  re-ranks around it: everything within ±6% BPM first, ordered by key relation
+  (`same key`, `relative`, `+1`, `−1`, `boost`) and then by BPM distance, then
+  the rest of the tracks that have data, then the ones that have none. Each
+  row shows its relation and its ΔBPM against the seed. Tapping another row
+  moves the seed; `Clear`, or leaving Match, drops it.
 - **Re-import once for the Crate.** An import made before the Crate shipped
   kept no month, start or skip data, so the year, month and finish-rate views
   stay empty until you import the export again; the app says so once and the
