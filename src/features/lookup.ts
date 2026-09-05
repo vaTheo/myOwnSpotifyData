@@ -17,14 +17,22 @@ export const LOOKUP_NOT_FOUND_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 export const LOOKUP_INTERVAL_MS = 1000;
 
 /**
- * `running.total` counts batches and grows when the ISRC pass starts, because
- * its batch count is unknown until the first pass has missed; a progress bar
- * over it must tolerate a growing denominator (`Progress` does). `done.total`
- * counts the tracks looked up in the run and always equals `found + notFound`.
+ * The two progress labels. Pass 2 runs only on the pass-1 misses that carry
+ * an ISRC, so its size is unknown until pass 1 has finished; naming the pass
+ * is what lets the count restart instead of the denominator growing.
+ */
+export const PASS_BY_ID = 'by track id';
+export const PASS_BY_ISRC = 'retry by ISRC';
+
+/**
+ * `running` reports the pass and the tracks that pass has finished, so its
+ * denominator is fixed for the whole pass and the bar never walks backwards.
+ * `done.total` counts the tracks looked up in the run and always equals
+ * `found + notFound`.
  */
 export type LookupState =
   | { status: 'idle' }
-  | { status: 'running'; done: number; total: number }
+  | { status: 'running'; pass: string; done: number; total: number }
   | { status: 'done'; found: number; notFound: number; total: number }
   | { status: 'error'; message: string };
 
@@ -119,13 +127,14 @@ export async function runLookup(
   const startedAt = deps.now();
   const todo = candidates.filter((c) => !isFresh(rows.get(c.id), startedAt));
   let requests = 0;
+  let pass = PASS_BY_ID;
   let done = 0;
-  let total = Math.ceil(todo.length / MAX_IDS);
+  let total = todo.length;
   let found = 0;
   let notFound = 0;
 
   function running(): void {
-    deps.onState({ status: 'running', done, total });
+    deps.onState({ status: 'running', pass, done, total });
   }
 
   async function ask(batchIds: string[]): Promise<FeatureBatch> {
@@ -134,9 +143,14 @@ export async function runLookup(
     return fetchAudioFeatures(batchIds, deps);
   }
 
-  async function write(writes: FeatureRow[]): Promise<void> {
+  /**
+   * `tracks` is the whole batch, not `writes.length`: a pass-1 candidate that
+   * missed on its id and goes to the ISRC pass writes no row here, and the
+   * count is of tracks looked at, so the pass still ends on its total.
+   */
+  async function write(writes: FeatureRow[], tracks: number): Promise<void> {
     if (writes.length > 0) await putFeatures(writes);
-    done += 1;
+    done += tracks;
     running();
   }
 
@@ -171,12 +185,14 @@ export async function runLookup(
           notFound += 1;
         }
       }
-      await write(writes);
+      await write(writes, batch.length);
     }
 
     const isrcBatches = chunk(missed, MAX_IDS);
     if (isrcBatches.length > 0) {
-      total += isrcBatches.length;
+      pass = PASS_BY_ISRC;
+      done = 0;
+      total = missed.length;
       running();
     }
     for (const batch of isrcBatches) {
@@ -205,7 +221,7 @@ export async function runLookup(
           notFound += 1;
         }
       }
-      await write(writes);
+      await write(writes, batch.length);
     }
 
     deps.onState({

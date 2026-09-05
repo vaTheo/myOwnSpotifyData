@@ -6,6 +6,8 @@ import { buildModel, type Model } from '../model/aggregate';
 import { MAX_IDS, RECCOBEATS_URL } from './reccobeats';
 import {
   LOOKUP_NOT_FOUND_TTL_MS,
+  PASS_BY_ID,
+  PASS_BY_ISRC,
   candidateIds,
   runLookup,
   type LookupState,
@@ -150,7 +152,12 @@ describe('runLookup', () => {
       energy: 0.6,
       fetchedAt: NOW,
     });
-    expect(states).toContainEqual({ status: 'running', done: 1, total: 2 });
+    expect(states).toContainEqual({
+      status: 'running',
+      pass: PASS_BY_ID,
+      done: 40,
+      total: 45,
+    });
     expect(states.at(-1)).toEqual({
       status: 'done',
       found: 45,
@@ -203,6 +210,14 @@ describe('runLookup', () => {
       notFound: true,
       checkedAt: NOW,
     });
+    // The denominator is the pass's own track count, so the bar fills once
+    // per pass and never walks backwards when the ISRC pass starts.
+    expect(states.filter((s) => s.status === 'running')).toEqual([
+      { status: 'running', pass: PASS_BY_ID, done: 0, total: 4 },
+      { status: 'running', pass: PASS_BY_ID, done: 4, total: 4 },
+      { status: 'running', pass: PASS_BY_ISRC, done: 0, total: 2 },
+      { status: 'running', pass: PASS_BY_ISRC, done: 2, total: 2 },
+    ]);
     expect(states.at(-1)).toEqual({
       status: 'done',
       found: 2,

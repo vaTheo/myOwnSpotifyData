@@ -124,10 +124,10 @@ function AudioCard() {
       )}
       {lookup.status === 'running' && (
         <Progress
-          label="Looking up"
+          label={`Looking up · ${lookup.pass}`}
           done={lookup.done}
           total={lookup.total}
-          unit="batches"
+          unit="tracks"
         />
       )}
       {lookup.status === 'done' && lookup.total === 0 && (
