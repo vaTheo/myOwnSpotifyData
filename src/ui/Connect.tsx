@@ -8,7 +8,8 @@ export function Connect() {
       <p>
         Your most played tracks, your playlists ranked by plays, and the artists
         you have saved the most. Reads your top lists and the playlists you own.
-        Nothing leaves this browser.
+        Nothing leaves this browser except the track ids sent to ReccoBeats when
+        you look up BPM and key.
       </p>
       {error && <p class="error">{error}</p>}
       <button
