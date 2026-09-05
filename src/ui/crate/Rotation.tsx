@@ -8,7 +8,6 @@ import {
   hasMonthData,
   heavyRotation,
   lastMonths,
-  monthKey,
   peakMonth,
 } from '../../model/crate';
 import { historySummary } from '../../model/state';
@@ -16,13 +15,13 @@ import { routeHref } from '../../router';
 import { Badge } from '../components/Badge';
 import { Segmented } from '../components/Segmented';
 import { plural } from '../format';
+import { staleMonthKey, windowLabel } from './labels';
 import { rotationMonths } from './selections';
 import {
   CrateRow,
   OpenMonthLink,
   Paged,
   PlaylistLinks,
-  STALE_MS,
   inNoPlaylist,
   monthLabel,
   useCrateRows,
@@ -38,10 +37,6 @@ const OPTIONS = ROTATION_WINDOWS.map((n) => ({
 
 function shortMonth(key: string): string {
   return MONTH_NAMES[Number(key.slice(5, 7)) - 1];
-}
-
-function windowLabel(months: number): string {
-  return months === 1 ? 'month' : `${months} months`;
 }
 
 function rangeLabel(keys: string[]): string {
@@ -64,14 +59,6 @@ function stripText(row: PlayRow, keys: string[]): string {
     .join(' · ');
 }
 
-function staleMonth(now: Date): string | null {
-  const range = historySummary.value?.range;
-  if (!range) return null;
-  const last = Date.parse(range.last);
-  if (Number.isNaN(last) || now.getTime() - last <= STALE_MS) return null;
-  return monthKey(new Date(last));
-}
-
 export function Rotation() {
   const rows = useCrateRows();
   const now = new Date();
@@ -84,7 +71,7 @@ export function Rotation() {
     caption.push(`${current} is ${plural(now.getDate(), 'day')} in`);
   }
   caption.push(`${MIN_ROTATION_PLAYS}+ plays`, plural(items.length, 'track'));
-  const stale = staleMonth(now);
+  const stale = staleMonthKey(historySummary.value?.range, now);
   return (
     <>
       <Segmented

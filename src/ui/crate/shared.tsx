@@ -9,12 +9,6 @@ import { FeaturePills } from '../components/FeaturePills';
 import { TrackRow } from '../components/TrackRow';
 import { artistNames, plural } from '../format';
 
-/**
- * Spec §3: an export whose last play is older than this reads as stale. The
- * hub's provenance line and Heavy rotation's empty state both need it.
- */
-export const STALE_MS = 35 * 24 * 60 * 60 * 1000;
-
 /** A play row from an import that recorded month buckets. */
 export type CrateRowData = PlayRow & { months: Record<string, number> };
 
