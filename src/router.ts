@@ -83,3 +83,29 @@ export function routeHref(route: Route): string {
       return `#/${route.name}`;
   }
 }
+
+/** The `history` methods `visitEntry` needs, so it can be tested with a stub. */
+export interface HistoryLike {
+  state: unknown;
+  replaceState(state: unknown, unused: string): void;
+}
+
+/** Marks a history entry the app has already been on. */
+const VISITED = 'djVisited';
+
+/**
+ * Stamps the current history entry and reports whether the app is arriving on
+ * it for the first time. A hash link creates an entry with no state, so `true`
+ * means a new navigation — the screen should start at the top — and `false`
+ * means back or forward, where `history.scrollRestoration` has already put the
+ * page back where it was.
+ */
+export function visitEntry(h: HistoryLike): boolean {
+  const state = h.state;
+  const isObject = typeof state === 'object' && state !== null;
+  if (isObject && (state as Record<string, unknown>)[VISITED] === true) {
+    return false;
+  }
+  h.replaceState({ ...(isObject ? state : {}), [VISITED]: true }, '');
+  return true;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CRATE_VIEWS, parseRoute, routeHref } from './router';
+import { CRATE_VIEWS, parseRoute, routeHref, visitEntry } from './router';
 
 describe('parseRoute', () => {
   it('defaults to top for empty or unknown hashes', () => {
@@ -106,5 +106,43 @@ describe('routeHref', () => {
     expect(
       routeHref({ name: 'crateView', view: 'year', period: '2022-06' })
     ).toBe('#/crate/year/2022-06');
+  });
+});
+
+describe('visitEntry', () => {
+  /** A stub history: one entry's state, replaced in place. */
+  function fakeHistory(state: unknown) {
+    const h = {
+      state,
+      replaceState(next: unknown) {
+        h.state = next;
+      },
+    };
+    return h;
+  }
+
+  it('stamps an unvisited entry and calls it a new navigation', () => {
+    const h = fakeHistory(null);
+    expect(visitEntry(h)).toBe(true);
+    expect(h.state).toEqual({ djVisited: true });
+  });
+
+  it('reports back and forward on an entry it already stamped', () => {
+    const h = fakeHistory(null);
+    visitEntry(h);
+    expect(visitEntry(h)).toBe(false);
+    expect(h.state).toEqual({ djVisited: true });
+  });
+
+  it('keeps whatever else the entry state holds', () => {
+    const h = fakeHistory({ scrollTop: 320 });
+    expect(visitEntry(h)).toBe(true);
+    expect(h.state).toEqual({ scrollTop: 320, djVisited: true });
+  });
+
+  it('stamps a state that is not an object', () => {
+    const h = fakeHistory('replaced by the OAuth cleanup');
+    expect(visitEntry(h)).toBe(true);
+    expect(h.state).toEqual({ djVisited: true });
   });
 });
