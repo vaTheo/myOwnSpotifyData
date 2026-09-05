@@ -227,6 +227,14 @@ ids and `runLookup` applies the skip rules; key and mode resolve as a pair;
 `resolveFeature` returns null unless a BPM or a key survived; `camelotNumber`
 is exported for the pill hue.
 
+Rulings made while executing: the retry helpers that both HTTP clients share
+(`backoffMs`, `parseRetryAfter`, `MAX_5XX_RETRIES`) live in `src/util/retry.ts`
+and are imported by `src/spotify/client.ts` and `src/features/reccobeats.ts`;
+the 429 policies stay separate (Spotify: quota lock-out; ReccoBeats: 10 s
+default, five retries). A ReccoBeats `Retry-After` above 60 s is not slept on:
+the lookup ends in the error state "ReccoBeats asked us to wait N min. Try
+again later." so the Settings card never hangs at `running`.
+
 ReccoBeats relays Spotify's numbers; the app caches values only for the
 owner's own library and shows the ReccoBeats attribution. Rekordbox data is
 the owner's own. No data leaves the browser except the lookup requests.
