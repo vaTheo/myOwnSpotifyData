@@ -217,8 +217,11 @@ closed tab can resume.
 
 Order:
 
-1. `GET /me`. If `meta.accountId` exists and differs → wipe database, then
-   store the new id.
+1. `GET /me`. If `meta.accountId` exists and differs → ask for confirmation
+   (`ACCOUNT_SWITCH_CONFIRM`, worded like Disconnect's); on yes wipe the
+   database, store the new id and leave a persistent banner
+   (`ACCOUNT_SWITCH_NOTICE`); on no stop the sync with the error message
+   `ACCOUNT_SWITCH_STOPPED` and delete nothing.
 2. Top items: `GET /me/top/tracks` and `/me/top/artists` × three
    `time_range`s, `limit=50`. Each list replaces its `topItems` record.
 3. Listing: `paginate('/me/playlists', {limit: 50})`. Keep entries where
@@ -333,45 +336,69 @@ Main thread (`importer.ts`): `repo.replacePlays(plays)` in one transaction,
 then `meta.historyImportedAt`, `historyRange`, `historyCounts`; model reload.
 The summary shows plays credited, distinct tracks, how many of those tracks are
 in the synced playlists, date range, and the skipped counters with their
-meaning. A new import replaces the previous aggregate entirely.
+meaning, the zero ones dropped. A new import replaces the previous aggregate
+entirely. When the incoming range is shorter than the stored one, or when the
+import credits no play at all (the video files), one `confirm()` asks first
+(`This import covers 8 months; your current history covers 4 years. Replace
+it?`); cancelling keeps the stored history and says so. There is no
+month-level merge.
 
 ## 9. Screens
 
 Bottom tab bar: Top, Playlists, Artists, Import, Settings. Rows ≥ 48 px. Every
-track, artist and playlist row carries an "Open in Spotify" link from
-`external_urls.spotify`. Local files have no Spotify page, so the link is
-omitted for them.
+track, artist and playlist row carries a link to its Spotify page from
+`external_urls.spotify`, drawn as an icon-only 44 px target whose accessible
+name is "Open in Spotify"; the Artist and Playlist headers spell the words out
+(`SpotifyLink`'s `label` prop). Local files have no Spotify page, so the link
+is omitted for them.
 
 - **Connect** (no session): one button, one sentence on what is read, and the
   reason when arriving from an expired or refused session.
 - **Top** (`#/top`): segmented control 4 weeks / 6 months / 1 year (maps to
   short/medium/long_term); toggle Tracks / Artists. Track row: rank, title,
-  artists, badges "in N playlists" and "N plays" (or "by name" hint). Tap
-  expands the playlists that contain it. Artist row: rank, name, "N saved
+  artists, badges "in N playlists" — or the amber "not in a playlist" once any
+  playlist is synced — and "N plays" (with "(by artist and title)" when the
+  count was matched by name). Tap expands the playlists that contain it, or the
+  line "Not in any of your N playlists". Artist row: rank, name, "N saved
   tracks"; tap → Artist. Empty state prompts a sync.
 - **Playlists** (`#/playlists`): owned playlists, track count, a "pending"
   marker when the playlist is queued or was left pending by a quota lock-out.
-  Filter box (substring, normalised).
+  Filter box (substring, normalised). A filter that matches nothing shows
+  `No playlists match "<query>".` with a Clear filter button.
 - **Playlist** (`#/playlist/<id>`): header with name, count, "Sync this
-  playlist". List sorted by plays desc, toggle to playlist order. Row: title,
-  artists, plays, "by name" hint, top-list badge, Spotify link.
+  playlist". List sorted by plays desc, toggle to playlist order; before any
+  history import a muted caption reads `No play counts yet — import your
+history` and links to `#/import`, and the default stays By plays. Row: title,
+  artists, plays with the "(by artist and title)" hint, top-list badge, Spotify
+  link.
 - **Artists** (`#/artists`): ranked list, "N tracks · M playlists". Filter
-  box.
-- **Artist** (`#/artist/<key>`): every saved track with plays and the
-  playlists containing it.
-- **Import** (`#/import`): instructions (Account → Privacy → Download your
-  data → *Extended streaming history* → confirm the email → zip by email,
-  hours to weeks), file picker, per-file progress, summary, and the last
-  import's summary when one exists.
+  box. A filter that matches nothing shows `No artists match "<query>".` with
+  a Clear filter button.
+- **Artist** (`#/artist/<key>`): the name and the Spotify link even when the
+  artist is only in a top list and nothing is saved (the body then reads "No
+  saved tracks from <name> in your playlists."), then every saved track with
+  plays; tapping a track shows the playlists containing it, and the first three
+  rows start open.
+- **Import** (`#/import`): the last import's summary first when one exists,
+  then the file picker with per-file progress, then the instructions (Account →
+  Privacy → Download your data → _Extended streaming history_ → confirm the
+  email → zip by email, hours to weeks) folded into a `<details>` disclosure;
+  with no import yet the instructions come first and stay open.
 - **Settings** (`#/settings`): last sync, Sync button with "12 / 140
-  playlists", quota lock-out message with retry time, last error text,
-  Disconnect with confirm, app version (from `package.json`).
+  playlists", a non-destructive "Connect again" button (clears the session,
+  keeps IndexedDB), quota lock-out message with retry time, last error text
+  prefixed "Last error:", Disconnect with confirm, app version (from
+  `package.json`).
 
 ## 10. Error handling
 
 - Every failure is stored in the relevant state signal and shown: a banner on
-  the current screen and the full message in Settings. Nothing is caught
-  without being surfaced.
+  the current screen — red for a failure, amber for a warning or a notice —
+  and the full message in Settings or Import, always prefixed "Last error:".
+  The banner is suppressed on a screen whose own card already prints that
+  exact message, so the text is never on screen twice. Nothing is caught
+  without being surfaced. A user cancellation is not a failure: it ends in its
+  own state with a muted line.
 - Auth: `AuthError` → Connect screen with reason. `NotAllowlistedError` →
   Connect screen with the user-list instruction.
 - Sync: `QuotaError` → locked state with retry time. `ApiError` → error state
@@ -380,8 +407,9 @@ omitted for them.
   with the explanation; worker crash surfaces as an error with the file name.
 - Storage: `QuotaExceededError` from IndexedDB → error with a hint to free
   space; the failed transaction is rolled back by IndexedDB itself.
-- Offline: `fetch` failure → banner "Offline, showing cached data"; cached
-  screens keep working.
+- Offline: any `fetch` failure, the token endpoint included, becomes
+  `ApiError(0, …)` → banner "Offline, showing cached data."; cached screens
+  keep working, and the session is kept.
 
 ## 11. Testing
 
