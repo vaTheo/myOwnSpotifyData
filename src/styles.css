@@ -645,3 +645,11 @@ label.file input {
 .card button + label.file {
   margin-top: 12px;
 }
+
+details.card > summary {
+  font-size: 1.05rem;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 10px 0;
+  cursor: pointer;
+}

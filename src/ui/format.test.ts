@@ -4,6 +4,7 @@ import {
   artistUrl,
   formatBpm,
   formatDate,
+  notCountedLine,
   plural,
 } from './format';
 
@@ -36,6 +37,29 @@ describe('format helpers', () => {
     const ms = Date.UTC(2026, 8, 15, 12, 0, 0);
     expect(formatDate(ms)).toBe(formatDate(new Date(ms).toISOString()));
     expect(formatDate(ms)).toContain('2026');
+  });
+
+  it('drops the zero categories from the not-counted line', () => {
+    expect(
+      notCountedLine({
+        credited: 900,
+        short: 22,
+        podcast: 13,
+        audiobook: 0,
+        unattributed: 5,
+        malformed: 0,
+      })
+    ).toBe('Not counted: 22 under 30 s, 13 podcast, 5 without a track id');
+    expect(
+      notCountedLine({
+        credited: 900,
+        short: 0,
+        podcast: 0,
+        audiobook: 0,
+        unattributed: 0,
+        malformed: 0,
+      })
+    ).toBeNull();
   });
 
   it('prints a BPM with one decimal and drops a trailing .0', () => {

@@ -1,4 +1,5 @@
 import type { ArtistRef, Period } from '../db/schema';
+import type { ImportCounts } from '../history/records';
 
 export const PERIOD_LABEL: Record<Period, string> = {
   short_term: '4 weeks',
@@ -27,6 +28,24 @@ export function formatDate(value: string | number): string {
 
 export function plural(n: number, word: string): string {
   return `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
+}
+
+/**
+ * The import summary's "Not counted" line with the zero categories dropped:
+ * "Not counted: 22 under 30 s, 13 podcast". Null when everything counted, so
+ * the whole line disappears rather than reading "Not counted: ".
+ */
+export function notCountedLine(counts: ImportCounts): string | null {
+  const parts: string[] = [];
+  const add = (n: number, label: string): void => {
+    if (n > 0) parts.push(`${n.toLocaleString()} ${label}`);
+  };
+  add(counts.short, 'under 30 s');
+  add(counts.podcast, 'podcast');
+  add(counts.audiobook, 'audiobook');
+  add(counts.unattributed, 'without a track id');
+  add(counts.malformed, 'unreadable');
+  return parts.length > 0 ? `Not counted: ${parts.join(', ')}` : null;
 }
 
 /** One decimal, a trailing `.0` dropped: `124`, `127.5` (spec §5). */
