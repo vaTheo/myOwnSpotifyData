@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   artistNames,
   artistUrl,
+  compactCount,
   formatBpm,
   formatDate,
   notCountedLine,
@@ -60,6 +61,18 @@ describe('format helpers', () => {
         malformed: 0,
       })
     ).toBeNull();
+  });
+
+  it('compacts a yearly view count at every boundary', () => {
+    // Under 10,000 the exact figure is printed, in the device's own locale.
+    expect(compactCount(999)).toBe((999).toLocaleString());
+    expect(compactCount(9999)).toBe((9999).toLocaleString());
+    expect(compactCount(10_000)).toBe('10k');
+    expect(compactCount(288_783)).toBe('289k');
+    // The k branch stops just short of printing "1000k".
+    expect(compactCount(999_499)).toBe('999k');
+    expect(compactCount(999_999)).toBe('1m');
+    expect(compactCount(1_240_000)).toBe('1.2m');
   });
 
   it('prints a BPM with one decimal and drops a trailing .0', () => {
