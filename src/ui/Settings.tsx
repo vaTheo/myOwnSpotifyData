@@ -155,7 +155,7 @@ function AudioCard() {
         <input
           type="file"
           accept=".xml,text/xml,application/xml"
-          disabled={busy || !m}
+          disabled={busy || !cov || cov.total === 0}
           onChange={onXml}
         />
       </label>
@@ -220,6 +220,7 @@ export function Settings() {
               : 'You can retry now.'}
           </p>
         )}
+        {state.status === 'cancelled' && <p class="muted">{state.message}</p>}
         {state.status === 'error' && (
           <p class="error">Last error: {state.message}</p>
         )}

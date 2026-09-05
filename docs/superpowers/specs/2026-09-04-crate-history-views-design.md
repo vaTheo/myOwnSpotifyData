@@ -328,14 +328,16 @@ Rows without `months` are ignored by every function.
 
 - `Segmented` gains `scroll?: boolean`: chips that do not shrink and scroll
   horizontally (`.segmented.scroll`). A scrolling row centres its selected
-  chip on mount and on every change, and fades its right edge while chips
-  remain to the right of the viewport (`.segmented.scroll.faded`). Rows
+  chip on mount and on every change, and fades whichever edge still has chips
+  beyond it — left, right, or both — recomputed on scroll and on resize
+  (`.segmented.scroll.faded-left`, `.segmented.scroll.faded-right`). Rows
   without `scroll` are untouched.
 - `Badge` gains kinds `'todo'` (amber, the banner palette) and `'skip'` (red).
 - `Empty` is unchanged: Crate empty states are inline blocks with their own
   copy and links (an earlier draft added `href`/`cta` props; they were removed
   as unused).
-- CSS: `.segmented.scroll`, `.segmented.scroll.faded` (a right-edge mask),
+- CSS: `.segmented.scroll`, `.segmented.scroll.faded-left` and
+  `.segmented.scroll.faded-right` (edge masks, combined when both apply),
   `.badge.todo`, `.badge.skip`, `.strip` (small, muted, tabular numerals) with
   `.strip span { white-space: nowrap }`, `.hub-row`, `.provenance`,
   `.caption`, `.legend`, `.footer-note`, and
@@ -382,8 +384,9 @@ threshold, not a window, so an empty one is a fact about the library (§3
 amended); the Crate strips wrap each pair in a nowrap span that carries its own
 trailing " ·", so a line ends with the separator rather than starting with it,
 and `Strip` in `shared.tsx` is the one producer of that markup (§6 amended);
-the right-edge fade on a scrolling `Segmented` is a mask on the scroller
-itself, painted only while chips remain to its right (§6 amended).
+the fade on a scrolling `Segmented` is a mask on the scroller itself, painted
+on each edge independently — left, right, or both — only while chips remain
+beyond it, and recomputed on scroll and on resize (§6 amended).
 
 The research recommended a `DB_VERSION` bump; the design keeps version 1
 (reasons in §5). The research suggested optional per-year storage; years

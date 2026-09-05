@@ -220,8 +220,8 @@ Order:
 1. `GET /me`. If `meta.accountId` exists and differs → ask for confirmation
    (`ACCOUNT_SWITCH_CONFIRM`, worded like Disconnect's); on yes wipe the
    database, store the new id and leave a persistent banner
-   (`ACCOUNT_SWITCH_NOTICE`); on no stop the sync with the error message
-   `ACCOUNT_SWITCH_STOPPED` and delete nothing.
+   (`ACCOUNT_SWITCH_NOTICE`); on no stop the sync with a cancellation line
+   (`ACCOUNT_SWITCH_STOPPED`) and delete nothing.
 2. Top items: `GET /me/top/tracks` and `/me/top/artists` × three
    `time_range`s, `limit=50`. Each list replaces its `topItems` record.
 3. Listing: `paginate('/me/playlists', {limit: 50})`. Keep entries where

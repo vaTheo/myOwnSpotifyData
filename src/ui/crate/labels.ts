@@ -1,3 +1,4 @@
+import type { HistoryRange } from '../../history/importer';
 import { monthKey } from '../../model/crate';
 
 /**
@@ -5,12 +6,6 @@ import { monthKey } from '../../model/crate';
  * hub's provenance line and Heavy rotation's empty state both need it.
  */
 export const STALE_MS = 35 * 24 * 60 * 60 * 1000;
-
-/** `ImportSummary.range`: the export's first and last play, ISO in UTC. */
-export interface HistoryRange {
-  first: string;
-  last: string;
-}
 
 /**
  * The month the export's last play falls in, read in the device zone, or null
