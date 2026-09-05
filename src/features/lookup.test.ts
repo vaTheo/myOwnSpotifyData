@@ -90,6 +90,8 @@ function modelOf(tracks: TrackRow[], plays: PlayRow[]): Model {
     topItems: [],
     plays,
     features: [],
+    artistIdentity: [],
+    artistReach: [],
   });
 }
 

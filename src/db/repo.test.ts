@@ -8,14 +8,24 @@ import {
   getPlaylists,
   openDb,
   putFeatures,
+  putIdentities,
   putMeta,
+  putReach,
   putTopItems,
   replacePlays,
   replacePlaylist,
   wipeDb,
 } from './repo';
-import { DB_NAME, DB_VERSION } from './schema';
-import type { EntryRow, FeatureRow, PlaylistRow, TrackRow } from './schema';
+import { DB_NAME, DB_VERSION, reachKey } from './schema';
+import type {
+  ArtistIdentityRow,
+  ArtistReachRow,
+  EntryRow,
+  FeatureRow,
+  PlaylistRow,
+  ReachSource,
+  TrackRow,
+} from './schema';
 
 function playlist(id: string, snapshotId = 's1'): PlaylistRow {
   return {
@@ -63,6 +73,48 @@ function feature(trackId: string, over: Partial<FeatureRow> = {}): FeatureRow {
   };
 }
 
+function identity(
+  artistId: string,
+  over: Partial<ArtistIdentityRow> = {}
+): ArtistIdentityRow {
+  return {
+    artistId,
+    name: `Artist ${artistId}`,
+    mbid: `mbid-${artistId}`,
+    mbidStatus: 'ok',
+    qid: 'Q1',
+    qidStatus: 'ok',
+    qidCheckedAt: 1000,
+    sitelinks: 3,
+    wikiTitles: { en: 'Some_Artist', fr: null },
+    deezerArtistId: 42,
+    deezerName: `Artist ${artistId}`,
+    deezerStatus: 'ok',
+    resolvedAt: 1000,
+    retryAfter: null,
+    ...over,
+  };
+}
+
+function reachRow(
+  artistId: string,
+  source: ReachSource,
+  over: Partial<ArtistReachRow> = {}
+): ArtistReachRow {
+  return {
+    key: reachKey(artistId, source),
+    artistId,
+    source,
+    status: 'ok',
+    value: 5051,
+    extra: { listens: 69448 },
+    fetchedAt: 2000,
+    retryAfter: null,
+    sourceUrl: `https://example.test/${source}/${artistId}`,
+    ...over,
+  };
+}
+
 /** The six stores of version 1, with the key paths that shipped. */
 const V1_STORES: [string, string | string[]][] = [
   ['playlists', 'id'],
@@ -73,11 +125,21 @@ const V1_STORES: [string, string | string[]][] = [
   ['meta', 'name'],
 ];
 
-function openV1(): Promise<IDBDatabase> {
+/** The seven stores of version 2: version 1 plus `features`. */
+const V2_STORES: [string, string | string[]][] = [
+  ...V1_STORES,
+  ['features', 'trackId'],
+];
+
+/** Opens the database at an old version with exactly the stores it had. */
+function openAt(
+  version: number,
+  stores: [string, string | string[]][]
+): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(DB_NAME, version);
     req.onupgradeneeded = () => {
-      for (const [name, keyPath] of V1_STORES) {
+      for (const [name, keyPath] of stores) {
         req.result.createObjectStore(name, { keyPath });
       }
     };
@@ -86,10 +148,14 @@ function openV1(): Promise<IDBDatabase> {
   });
 }
 
-function putV1Playlist(db: IDBDatabase, row: PlaylistRow): Promise<void> {
+function putLegacyRow(
+  db: IDBDatabase,
+  store: string,
+  row: object
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('playlists', 'readwrite');
-    tx.objectStore('playlists').put(row);
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(row);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -236,10 +302,57 @@ describe('features', () => {
   });
 });
 
+describe('artist identity and reach', () => {
+  it('round-trips identity rows and replaces them by artist id', async () => {
+    await putIdentities([identity('a1'), identity('a2')]);
+    await putIdentities([
+      identity('a2', {
+        mbid: null,
+        mbidStatus: 'retryLater',
+        retryAfter: 5000,
+        resolvedAt: 3000,
+      }),
+    ]);
+    const stored = (await getAllRows()).artistIdentity.sort((a, b) =>
+      a.artistId.localeCompare(b.artistId)
+    );
+    expect(stored.map((r) => r.artistId)).toEqual(['a1', 'a2']);
+    expect(stored[0]).toEqual(identity('a1'));
+    expect(stored[1].mbidStatus).toBe('retryLater');
+    expect(stored[1].retryAfter).toBe(5000);
+    expect(stored[1].qidCheckedAt).toBe(1000);
+  });
+
+  it('round-trips reach rows keyed by artist and source', async () => {
+    await putReach([
+      reachRow('a1', 'listenbrainz'),
+      reachRow('a1', 'deezer', { value: 13984, extra: undefined }),
+    ]);
+    await putReach([
+      reachRow('a1', 'listenbrainz', { value: 5100, fetchedAt: 2500 }),
+    ]);
+    const stored = (await getAllRows()).artistReach.sort((a, b) =>
+      a.key.localeCompare(b.key)
+    );
+    expect(stored.map((r) => r.key)).toEqual(['a1|deezer', 'a1|listenbrainz']);
+    expect(stored[0].value).toBe(13984);
+    expect(stored[1].value).toBe(5100);
+    expect(stored[1].extra).toEqual({ listens: 69448 });
+  });
+
+  it('accepts empty batches', async () => {
+    await expect(putIdentities([])).resolves.toBeUndefined();
+    await expect(putReach([])).resolves.toBeUndefined();
+    const rows = await getAllRows();
+    expect(rows.artistIdentity).toEqual([]);
+    expect(rows.artistReach).toEqual([]);
+  });
+});
+
 describe('migration', () => {
   it('upgrades a version 1 database, keeping its rows and adding features', async () => {
-    const v1 = await openV1();
-    await putV1Playlist(v1, playlist('p1'));
+    const v1 = await openAt(1, V1_STORES);
+    await putLegacyRow(v1, 'playlists', playlist('p1'));
     v1.close();
     const rows = await getAllRows();
     expect(rows.playlists).toEqual([playlist('p1')]);
@@ -249,5 +362,28 @@ describe('migration', () => {
     expect(db.objectStoreNames.contains('features')).toBe(true);
     await putFeatures([feature('t1')]);
     await expect(getFeatures()).resolves.toEqual([feature('t1')]);
+  });
+
+  it('upgrades a version 2 database, keeping its rows and adding the two reach stores', async () => {
+    const v2 = await openAt(2, V2_STORES);
+    await putLegacyRow(v2, 'playlists', playlist('p1'));
+    await putLegacyRow(v2, 'tracks', track('t1'));
+    await putLegacyRow(v2, 'features', feature('t1'));
+    v2.close();
+    const rows = await getAllRows();
+    expect(rows.playlists).toEqual([playlist('p1')]);
+    expect(rows.tracks).toEqual([track('t1')]);
+    expect(rows.features).toEqual([feature('t1')]);
+    expect(rows.artistIdentity).toEqual([]);
+    expect(rows.artistReach).toEqual([]);
+    const db = await openDb();
+    expect(db.version).toBe(DB_VERSION);
+    expect(db.objectStoreNames.contains('artistIdentity')).toBe(true);
+    expect(db.objectStoreNames.contains('artistReach')).toBe(true);
+    await putIdentities([identity('a1')]);
+    await putReach([reachRow('a1', 'listenbrainz')]);
+    const after = await getAllRows();
+    expect(after.artistIdentity).toEqual([identity('a1')]);
+    expect(after.artistReach).toEqual([reachRow('a1', 'listenbrainz')]);
   });
 });

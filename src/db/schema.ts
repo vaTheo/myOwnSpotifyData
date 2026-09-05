@@ -1,7 +1,7 @@
 import type { DBSchema } from 'idb';
 
 export const DB_NAME = 'spotify-dj';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export interface ArtistRef {
   id: string | null;
@@ -123,6 +123,77 @@ export interface FeatureRow {
   updatedAt: number;
 }
 
+/** How far a per-artist identity step has got. 'unchecked' is the initial state. */
+export type ResolveStatus = 'unchecked' | 'ok' | 'notFound' | 'retryLater';
+
+/** The three sources that produce a stored number, i.e. `ArtistReachRow.source`. */
+export type ReachSource = 'listenbrainz' | 'deezer' | 'wikipedia';
+
+export type ReachStatus = 'ok' | 'notFound' | 'retryLater';
+
+/** Store `artistIdentity`, keyPath 'artistId'. */
+export interface ArtistIdentityRow {
+  /** Spotify artist id; the only key any lookup starts from. */
+  artistId: string;
+  /** Spotify's name, kept so a run can verify what a source echoes back. */
+  name: string;
+  mbid: string | null;
+  mbidStatus: ResolveStatus;
+  qid: string | null;
+  qidStatus: ResolveStatus;
+  /**
+   * When Wikidata last answered about this artist, or null if it never has.
+   * The QID refresh reads this clock and not `resolvedAt`: one row carries
+   * three steps, a `notFound` MBID or Deezer id is rewritten every thirty
+   * days, and every write bumps `resolvedAt` — so the ninety-day sitelink
+   * refresh would never come due.
+   */
+  qidCheckedAt: number | null;
+  /** Wikidata `wikibase:sitelinks`, all languages; null until Wikidata answered. */
+  sitelinks: number | null;
+  /** Article path segments exactly as the sitelink spells them, or null. */
+  wikiTitles: { en: string | null; fr: string | null };
+  deezerArtistId: number | null;
+  /** The name Deezer echoed, kept as the record of what the check accepted. */
+  deezerName: string | null;
+  deezerStatus: ResolveStatus;
+  /** When the row was last written; the clock the MBID and Deezer steps read. */
+  resolvedAt: number;
+  /** Epoch ms before which a 'retryLater' step must not be asked again. */
+  retryAfter: number | null;
+}
+
+/** Store `artistReach`, keyPath 'key' = `${artistId}|${source}`. */
+export interface ArtistReachRow {
+  key: string;
+  artistId: string;
+  source: ReachSource;
+  status: ReachStatus;
+  /**
+   * listenbrainz: total_user_count. deezer: nb_fan.
+   * wikipedia: en + fr views over the last 12 complete months.
+   * null unless status is 'ok'.
+   */
+  value: number | null;
+  /**
+   * listenbrainz fills `listens` (total_listen_count), kept so a later version
+   * can show listens per listener without re-fetching a source paced at one
+   * request per second; wikipedia fills `en`, `fr` and `months`; deezer fills
+   * nothing. All optional so a source can gain a field without a version bump.
+   */
+  extra?: { listens?: number; en?: number; fr?: number; months?: number };
+  fetchedAt: number;
+  /** Epoch ms before which a 'retryLater' row must not be asked again. */
+  retryAfter: number | null;
+  /** The exact URL the number came from, kept as provenance. */
+  sourceUrl: string;
+}
+
+/** The `artistReach` key path: one row per artist per source. */
+export function reachKey(artistId: string, source: ReachSource): string {
+  return `${artistId}|${source}`;
+}
+
 export interface MetaRow {
   name: string;
   value: unknown;
@@ -135,6 +206,8 @@ export interface AllRows {
   topItems: TopItemsRow[];
   plays: PlayRow[];
   features: FeatureRow[];
+  artistIdentity: ArtistIdentityRow[];
+  artistReach: ArtistReachRow[];
 }
 
 export interface DjDb extends DBSchema {
@@ -144,5 +217,7 @@ export interface DjDb extends DBSchema {
   topItems: { key: string; value: TopItemsRow };
   plays: { key: string; value: PlayRow };
   features: { key: string; value: FeatureRow };
+  artistIdentity: { key: string; value: ArtistIdentityRow };
+  artistReach: { key: string; value: ArtistReachRow };
   meta: { key: string; value: MetaRow };
 }

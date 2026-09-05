@@ -106,6 +106,8 @@ describe('featureFor', () => {
       topItems: [],
       plays: [],
       features: [row({ reccobeats: recco() })],
+      artistIdentity: [],
+      artistReach: [],
     };
     const model = buildModel(rows);
     expect(featureFor(model, 't1')).toEqual({
