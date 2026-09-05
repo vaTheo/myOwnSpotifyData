@@ -10,7 +10,12 @@ import {
 import { paginate, type Query, type SpotifyClient } from '../spotify/client';
 import { ApiError, QuotaError } from '../spotify/errors';
 import type { ApiPlaylistItem, ApiPlaylistSummary } from '../spotify/types';
-import { SYNC_STATE_META, runSync, type SyncState } from './runner';
+import {
+  ACCOUNT_SWITCH_STOPPED,
+  SYNC_STATE_META,
+  runSync,
+  type SyncState,
+} from './runner';
 
 /** Lets one test make a single meta write fail; null means "no failure". */
 const failingMeta = vi.hoisted(() => ({ name: null as string | null }));
@@ -138,6 +143,7 @@ async function run(
   opts: {
     priorityId?: string;
     acquireWakeLock?: () => Promise<() => Promise<void>>;
+    confirmAccountSwitch?: () => boolean;
   } = {}
 ) {
   const states: SyncState[] = [];
@@ -148,10 +154,42 @@ async function run(
       now: () => 42,
       onState: (s) => states.push(s),
       acquireWakeLock: opts.acquireWakeLock,
+      confirmAccountSwitch: opts.confirmAccountSwitch,
     },
     { priorityId: opts.priorityId }
   );
   return { states, calls };
+}
+
+/** One playlist and one track cached under a different Spotify account. */
+async function seedOtherAccount(): Promise<void> {
+  await replacePlaylist(
+    {
+      id: 'old',
+      name: 'Old',
+      snapshotId: 's',
+      itemCount: 0,
+      imageUrl: null,
+      spotifyUrl: null,
+      syncedAt: 1,
+    },
+    [
+      {
+        key: 'stale',
+        id: 'stale',
+        uri: 'spotify:track:stale',
+        name: 'Stale',
+        artists: [],
+        album: '',
+        durationMs: 1,
+        isrc: null,
+        spotifyUrl: null,
+        isLocal: false,
+      },
+    ],
+    []
+  );
+  await putMeta('accountId', 'someone-else');
 }
 
 const itemCalls = (calls: Array<{ path: string; query: Query }>) =>
@@ -329,38 +367,49 @@ describe('runSync resilience', () => {
   });
 
   it('wipes the cache when a different account logs in', async () => {
-    await replacePlaylist(
-      {
-        id: 'old',
-        name: 'Old',
-        snapshotId: 's',
-        itemCount: 0,
-        imageUrl: null,
-        spotifyUrl: null,
-        syncedAt: 1,
-      },
-      [
-        {
-          key: 'stale',
-          id: 'stale',
-          uri: 'spotify:track:stale',
-          name: 'Stale',
-          artists: [],
-          album: '',
-          durationMs: 1,
-          isrc: null,
-          spotifyUrl: null,
-          isLocal: false,
-        },
-      ],
-      []
-    );
-    await putMeta('accountId', 'someone-else');
+    await seedOtherAccount();
     await run(baseRoutes([summary('p1')], { p1: [] }));
     const rows = await getAllRows();
     expect(rows.playlists.map((p) => p.id)).toEqual(['p1']);
     expect(rows.tracks.map((t) => t.key)).not.toContain('stale');
     await expect(getMeta('accountId')).resolves.toBe('me');
+  });
+
+  it('asks before wiping and wipes once the switch is confirmed', async () => {
+    await seedOtherAccount();
+    const confirmAccountSwitch = vi.fn(() => true);
+    const { states } = await run(baseRoutes([summary('p1')], { p1: [] }), {
+      confirmAccountSwitch,
+    });
+    expect(confirmAccountSwitch).toHaveBeenCalledTimes(1);
+    expect(states.at(-1)).toEqual({ status: 'idle' });
+    const rows = await getAllRows();
+    expect(rows.playlists.map((p) => p.id)).toEqual(['p1']);
+    expect(rows.tracks.map((t) => t.key)).not.toContain('stale');
+    await expect(getMeta('accountId')).resolves.toBe('me');
+  });
+
+  it('stops and deletes nothing when the switch is refused', async () => {
+    await seedOtherAccount();
+    const { states, calls } = await run(
+      baseRoutes([summary('p1')], { p1: [] }),
+      {
+        confirmAccountSwitch: () => false,
+      }
+    );
+    const stopped = {
+      status: 'error',
+      message: ACCOUNT_SWITCH_STOPPED,
+      pending: [],
+    };
+    expect(states.at(-1)).toEqual(stopped);
+    await expect(getMeta(SYNC_STATE_META)).resolves.toEqual(stopped);
+    const rows = await getAllRows();
+    expect(rows.playlists.map((p) => p.id)).toEqual(['old']);
+    expect(rows.tracks.map((t) => t.key)).toEqual(['stale']);
+    await expect(getMeta('accountId')).resolves.toBe('someone-else');
+    await expect(getMeta('lastSyncAt')).resolves.toBeUndefined();
+    expect(calls.map((c) => c.path)).toEqual(['/me']);
   });
 
   it('reports a failed sync state write instead of throwing out of runSync', async () => {
