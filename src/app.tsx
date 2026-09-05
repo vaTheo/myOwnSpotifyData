@@ -1,5 +1,6 @@
 import { signal } from '@preact/signals';
 import { auth } from './auth/browser';
+import { visibleBanner } from './model/banner';
 import { banner, dismissBanner } from './model/state';
 import { parseRoute, routeHref, visitEntry, type Route } from './router';
 import { Banner } from './ui/components/Banner';
@@ -75,15 +76,29 @@ function Screen({ route }: { route: Route }) {
 }
 
 export function App() {
+  const phase = bootPhase.value;
+  if (phase === 'signin') {
+    return (
+      <div class="connect">
+        <h1>DJ Data</h1>
+        <p class="muted">Signing you in…</p>
+      </div>
+    );
+  }
   if (!auth.session.value) return <Connect />;
   const current = route.value;
+  const message = visibleBanner(banner.value, current.name);
   return (
     <div class="app">
-      {banner.value && (
-        <Banner message={banner.value} onClose={dismissBanner} />
-      )}
+      {message && <Banner message={message} onClose={dismissBanner} />}
       <main class="screen">
-        <Screen route={current} />
+        {phase === 'loading' ? (
+          <div class="empty">
+            <p>Loading your library…</p>
+          </div>
+        ) : (
+          <Screen route={current} />
+        )}
       </main>
       <nav class="tabs">
         {TABS.map((tab) => (
