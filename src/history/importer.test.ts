@@ -1,7 +1,12 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAllRows, getMeta, replacePlays, wipeDb } from '../db/repo';
-import { runImport, type ImportState } from './importer';
+import {
+  IMPORT_CANCELLED,
+  replaceQuestion,
+  runImport,
+  type ImportState,
+} from './importer';
 import type { ImportMessage } from './process';
 import { emptyCounts } from './records';
 
@@ -54,8 +59,58 @@ const shortOnly = (trackId: string) => ({
   skipped: 4,
 });
 
+const WIDE = { first: '2022-01-01T12:00:00Z', last: '2026-01-01T12:00:00Z' };
+const NARROW = { first: '2025-05-01T12:00:00Z', last: '2026-01-01T12:00:00Z' };
+const NARROW_QUESTION =
+  'This import covers 8 months; your current history covers 4 years. Replace it?';
+
+/** A done message whose range is NARROW, for the replace tests. */
+const narrowDone: ImportMessage = {
+  type: 'done',
+  plays: [play('a')],
+  counts: { ...emptyCounts(), credited: 3 },
+  outcomes: { attempts: 4, finished: 3, skipped: 1 },
+  zone: 'Europe/Paris',
+  range: NARROW,
+  processed: ['f0'],
+  skipped: [],
+};
+
 beforeEach(async () => {
   await wipeDb();
+});
+
+describe('replaceQuestion', () => {
+  it('asks only when the incoming history is the shorter one', () => {
+    expect(replaceQuestion(NARROW, WIDE)).toBe(NARROW_QUESTION);
+    expect(replaceQuestion(WIDE, NARROW)).toBeNull();
+    expect(replaceQuestion(WIDE, WIDE)).toBeNull();
+  });
+
+  it('asks when the import credits no play at all', () => {
+    // Picking the Streaming_History_Video files: they are read, so the
+    // "nothing could be read" guard does not fire, and they credit nothing.
+    expect(replaceQuestion(null, WIDE)).toBe(
+      'This import covers no plays at all; your current history covers 4 years. Replace it?'
+    );
+  });
+
+  it('says nothing when there is nothing to compare against', () => {
+    expect(replaceQuestion(NARROW, null)).toBeNull();
+    expect(replaceQuestion(null, null)).toBeNull();
+    expect(replaceQuestion({ first: 'x', last: 'y' }, WIDE)).toBeNull();
+  });
+
+  it('counts a short span in days', () => {
+    expect(
+      replaceQuestion(
+        { first: '2026-01-01T12:00:00Z', last: '2026-01-13T12:00:00Z' },
+        WIDE
+      )
+    ).toBe(
+      'This import covers 12 days; your current history covers 4 years. Replace it?'
+    );
+  });
 });
 
 describe('runImport', () => {
@@ -168,6 +223,42 @@ describe('runImport', () => {
     );
     expect((await getAllRows()).plays.map((p) => p.trackId)).toEqual(['kept']);
     await expect(getMeta('historySummary')).resolves.toBeUndefined();
+  });
+
+  it('keeps the stored history when a narrower import is refused', async () => {
+    await replacePlays([play('kept')]);
+    const states: ImportState[] = [];
+    const confirmReplace = vi.fn(() => false);
+    await runImport([], {
+      createWorker: () => new FakeWorker([narrowDone]) as unknown as Worker,
+      knownTrackIds: new Set(),
+      now: () => 1,
+      currentRange: WIDE,
+      confirmReplace,
+      onState: (s) => states.push(s),
+    });
+    expect(confirmReplace).toHaveBeenCalledWith(NARROW_QUESTION);
+    expect(states.at(-1)).toEqual({
+      status: 'cancelled',
+      message: IMPORT_CANCELLED,
+    });
+    expect((await getAllRows()).plays.map((p) => p.trackId)).toEqual(['kept']);
+    await expect(getMeta('historySummary')).resolves.toBeUndefined();
+  });
+
+  it('replaces the stored history once the narrower import is accepted', async () => {
+    await replacePlays([play('kept')]);
+    const states: ImportState[] = [];
+    await runImport([], {
+      createWorker: () => new FakeWorker([narrowDone]) as unknown as Worker,
+      knownTrackIds: new Set(),
+      now: () => 1,
+      currentRange: WIDE,
+      confirmReplace: () => true,
+      onState: (s) => states.push(s),
+    });
+    expect(states.at(-1)?.status).toBe('done');
+    expect((await getAllRows()).plays.map((p) => p.trackId)).toEqual(['a']);
   });
 
   it('reports a worker that cannot be created', async () => {
