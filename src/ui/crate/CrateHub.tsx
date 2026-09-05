@@ -24,7 +24,7 @@ import {
   yearPeriod,
   yearSel,
 } from './selections';
-import { STALE_MS } from './labels';
+import { staleMonthKey, windowLabel, yearSpanLabel } from './labels';
 import { monthLabel, trackLabel, useCrateRows } from './shared';
 
 interface HubRow {
@@ -35,8 +35,12 @@ interface HubRow {
   setting: string;
 }
 
-function topLine(row: PlayRow | undefined, prefix: string): string {
-  if (!row) return 'Nothing yet';
+function topLine(
+  row: PlayRow | undefined,
+  prefix: string,
+  empty: string
+): string {
+  if (!row) return empty;
   const label = trackLabel(row);
   return `${prefix}: ${label.subtitle} — ${label.title}`;
 }
@@ -63,40 +67,49 @@ function hubRows(rows: PlayRow[], now: Date): HubRow[] {
     yearSel.value ??
     (years.length > 0 ? years[years.length - 1] : now.getFullYear());
   const yearView = byYear(rows, year, yearPeriod.value);
+  const yearLabel = yearSetting(year, yearPeriod.value);
   const finish = finishRate(rows, finishTab.value);
   return [
     {
       view: 'rotation',
       name: 'Heavy rotation',
-      top: topLine(rotation[0]?.row, 'Top'),
+      top: topLine(
+        rotation[0]?.row,
+        'Top',
+        `Nothing in the last ${windowLabel(rotationMonths.value)}`
+      ),
       count: rotation.length,
       setting: rotationSetting(rotationMonths.value),
     },
     {
       view: 'gems',
       name: 'Forgotten gems',
-      top: topLine(gems[0]?.row, 'Top'),
+      top: topLine(gems[0]?.row, 'Top', 'Nothing yet'),
       count: gems.length,
       setting: gemSetting(gemMonths.value),
     },
     {
       view: 'classics',
       name: 'All-time classics',
-      top: topLine(classic[0]?.row, 'Top'),
+      top: topLine(classic[0]?.row, 'Top', 'Nothing yet'),
       count: classic.length,
       setting: `${CLASSIC_MIN_YEARS}+ years`,
     },
     {
       view: 'year',
       name: 'By year',
-      top: topLine(yearView.items[0]?.row, `Top in ${year}`),
+      top: topLine(
+        yearView.items[0]?.row,
+        `Top in ${year}`,
+        `Nothing in ${yearLabel}`
+      ),
       count: yearView.tracks,
-      setting: yearSetting(year, yearPeriod.value),
+      setting: yearLabel,
     },
     {
       view: 'finish',
       name: 'Finish rate',
-      top: topLine(finish[0]?.row, 'Top'),
+      top: topLine(finish[0]?.row, 'Top', 'Nothing yet'),
       count: finish.length,
       setting: `${FINISH_MIN_OUTCOMES}+ outcomes`,
     },
@@ -105,20 +118,18 @@ function hubRows(rows: PlayRow[], now: Date): HubRow[] {
 
 function Provenance(p: { summary: ImportSummary }) {
   const range = p.summary.range;
-  const stale =
-    range !== null && Date.now() - Date.parse(range.last) > STALE_MS;
+  const stale = staleMonthKey(range, new Date());
+  const span = yearSpanLabel(range);
   return (
     <p class="provenance">
-      {range && stale ? (
+      {stale ? (
         <span class="warn">
-          History ends {monthLabel(range.last.slice(0, 7))} ·{' '}
+          History ends {monthLabel(stale)} ·{' '}
           <a href={routeHref({ name: 'import' })}>re-import</a>
         </span>
       ) : (
         <span>
-          {range
-            ? `${range.first.slice(0, 4)} – ${range.last.slice(0, 4)} · `
-            : ''}
+          {span ? `${span} · ` : ''}
           {plural(p.summary.plays, 'play')}
         </span>
       )}
