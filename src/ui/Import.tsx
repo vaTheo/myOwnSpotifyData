@@ -1,7 +1,7 @@
 import type { ImportSummary } from '../history/importer';
 import { historySummary, importState, startImport } from '../model/state';
 import { Progress } from './components/Progress';
-import { formatDate, formatDateTime, plural } from './format';
+import { formatDate, formatDateTime, notCountedLine, plural } from './format';
 
 /** "214,908 starts, 61% played through"; the clause is dropped at zero. */
 function startsLine(o: {
@@ -17,7 +17,7 @@ function startsLine(o: {
 }
 
 function Summary({ summary }: { summary: ImportSummary }) {
-  const c = summary.counts;
+  const notCounted = notCountedLine(summary.counts);
   return (
     <ul class="facts">
       <li>
@@ -41,18 +41,34 @@ function Summary({ summary }: { summary: ImportSummary }) {
         Imported {formatDateTime(summary.importedAt)} from{' '}
         {plural(summary.processed.length, 'file')}
       </li>
-      <li class="muted">
-        Not counted: {c.short.toLocaleString()} under 30 s,{' '}
-        {c.podcast.toLocaleString()} podcast, {c.audiobook.toLocaleString()}{' '}
-        audiobook, {c.unattributed.toLocaleString()} without a track id,{' '}
-        {c.malformed.toLocaleString()} unreadable
-      </li>
+      {notCounted && <li class="muted">{notCounted}</li>}
       {summary.skipped.map((s) => (
         <li class="error" key={s.name}>
           Skipped {s.name}: {s.reason}
         </li>
       ))}
     </ul>
+  );
+}
+
+function Steps() {
+  return (
+    <ol>
+      <li>Open spotify.com/account/privacy and sign in.</li>
+      <li>
+        Under "Download your data", tick{' '}
+        <strong>Extended streaming history</strong> only, then request it.
+      </li>
+      <li>Confirm the email Spotify sends within 14 days.</li>
+      <li>
+        When the "your data is ready" email arrives (hours to a few weeks),
+        download my_spotify_data.zip to this phone.
+      </li>
+      <li>
+        Pick that zip on this screen. Nothing is uploaded; the file is read here
+        and only per-track play counts are kept.
+      </li>
+    </ol>
   );
 }
 
@@ -68,25 +84,19 @@ export function Import() {
   return (
     <section>
       <h1>Import listening history</h1>
-      <div class="card">
-        <h2>How to get the file</h2>
-        <ol>
-          <li>Open spotify.com/account/privacy and sign in.</li>
-          <li>
-            Under "Download your data", tick{' '}
-            <strong>Extended streaming history</strong> only, then request it.
-          </li>
-          <li>Confirm the email Spotify sends within 14 days.</li>
-          <li>
-            When the "your data is ready" email arrives (hours to a few weeks),
-            download my_spotify_data.zip to this phone.
-          </li>
-          <li>
-            Pick that zip below. Nothing is uploaded; the file is read here and
-            only per-track play counts are kept.
-          </li>
-        </ol>
-      </div>
+      {/* Once an import exists the screen leads with it, and the five steps
+          fold away: they are read once and scrolled past every time after. */}
+      {summary ? (
+        <div class="card">
+          <h2>Last import</h2>
+          <Summary summary={summary} />
+        </div>
+      ) : (
+        <div class="card">
+          <h2>How to get the file</h2>
+          <Steps />
+        </div>
+      )}
       <div class="card">
         <label class="file">
           <span>Pick my_spotify_data.zip, or the JSON files inside it</span>
@@ -106,13 +116,16 @@ export function Import() {
             unit="files"
           />
         )}
-        {state.status === 'error' && <p class="error">{state.message}</p>}
+        {state.status === 'cancelled' && <p class="muted">{state.message}</p>}
+        {state.status === 'error' && (
+          <p class="error">Last error: {state.message}</p>
+        )}
       </div>
       {summary && (
-        <div class="card">
-          <h2>Last import</h2>
-          <Summary summary={summary} />
-        </div>
+        <details class="card">
+          <summary>How to get the file</summary>
+          <Steps />
+        </details>
       )}
     </section>
   );
