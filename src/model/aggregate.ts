@@ -4,6 +4,7 @@ import {
   type AllRows,
   type ArtistRef,
   type EntryRow,
+  type FeatureRow,
   type Period,
   type PlayRow,
   type PlaylistRow,
@@ -44,6 +45,8 @@ export interface Model {
   plays: PlayRow[];
   playsById: Map<string, PlayRow>;
   playsByName: Map<string, { plays: number; msPlayed: number }>;
+  /** BPM and key rows by Spotify track id; resolve them with featureFor. */
+  features: Map<string, FeatureRow>;
 }
 
 export function artistKey(a: ArtistRef): string {
@@ -141,6 +144,7 @@ export function buildModel(rows: AllRows): Model {
     plays: rows.plays,
     playsById,
     playsByName,
+    features: new Map(rows.features.map((f) => [f.trackId, f])),
   };
 }
 

@@ -193,6 +193,14 @@ const rows: AllRows = {
       skipped: 5,
     },
   ],
+  features: [
+    {
+      trackId: 't1',
+      isrc: null,
+      reccobeats: { bpm: 128, key: 9, major: false, energy: 0.8, fetchedAt: 1 },
+      updatedAt: 1,
+    },
+  ],
 };
 
 const model = buildModel(rows);
@@ -222,6 +230,18 @@ describe('buildModel', () => {
   it('maps tracks to playlists', () => {
     expect([...model.playlistsOfTrack.get('t2')!]).toEqual(['p1', 'p2']);
     expect([...model.playlistsOfTrack.get('t1')!]).toEqual(['p1']);
+  });
+
+  it('indexes the feature rows by track id', () => {
+    expect(model.features.get('t1')?.reccobeats).toEqual({
+      bpm: 128,
+      key: 9,
+      major: false,
+      energy: 0.8,
+      fetchedAt: 1,
+    });
+    expect(model.features.has('t2')).toBe(false);
+    expect(model.features.size).toBe(1);
   });
 
   it('keeps the raw play rows and maps track names to playlists', () => {
@@ -292,6 +312,7 @@ describe('playlistRanking', () => {
       ],
       topItems: [],
       plays: [],
+      features: [],
     });
     expect(playlistRanking(untopped, 'p9').map((r) => r.track.key)).toEqual([
       'u2',

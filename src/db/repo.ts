@@ -5,6 +5,7 @@ import {
   type AllRows,
   type DjDb,
   type EntryRow,
+  type FeatureRow,
   type PlayRow,
   type PlaylistRow,
   type TopItemsRow,
@@ -16,12 +17,24 @@ let dbPromise: Promise<IDBPDatabase<DjDb>> | null = null;
 export function openDb(): Promise<IDBPDatabase<DjDb>> {
   dbPromise ??= openDB<DjDb>(DB_NAME, DB_VERSION, {
     upgrade(db) {
-      db.createObjectStore('playlists', { keyPath: 'id' });
-      db.createObjectStore('tracks', { keyPath: 'key' });
-      db.createObjectStore('entries', { keyPath: ['playlistId', 'position'] });
-      db.createObjectStore('topItems', { keyPath: 'key' });
-      db.createObjectStore('plays', { keyPath: 'trackId' });
-      db.createObjectStore('meta', { keyPath: 'name' });
+      // Only what is missing: a version 1 database keeps every row it holds
+      // and gains `features`.
+      if (!db.objectStoreNames.contains('playlists'))
+        db.createObjectStore('playlists', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('tracks'))
+        db.createObjectStore('tracks', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('entries'))
+        db.createObjectStore('entries', {
+          keyPath: ['playlistId', 'position'],
+        });
+      if (!db.objectStoreNames.contains('topItems'))
+        db.createObjectStore('topItems', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('plays'))
+        db.createObjectStore('plays', { keyPath: 'trackId' });
+      if (!db.objectStoreNames.contains('features'))
+        db.createObjectStore('features', { keyPath: 'trackId' });
+      if (!db.objectStoreNames.contains('meta'))
+        db.createObjectStore('meta', { keyPath: 'name' });
     },
   });
   return dbPromise;
@@ -67,16 +80,19 @@ export async function getAllRows(): Promise<AllRows> {
     'entries',
     'topItems',
     'plays',
+    'features',
   ]);
-  const [playlists, tracks, entries, topItems, plays] = await Promise.all([
-    tx.objectStore('playlists').getAll(),
-    tx.objectStore('tracks').getAll(),
-    tx.objectStore('entries').getAll(),
-    tx.objectStore('topItems').getAll(),
-    tx.objectStore('plays').getAll(),
-  ]);
+  const [playlists, tracks, entries, topItems, plays, features] =
+    await Promise.all([
+      tx.objectStore('playlists').getAll(),
+      tx.objectStore('tracks').getAll(),
+      tx.objectStore('entries').getAll(),
+      tx.objectStore('topItems').getAll(),
+      tx.objectStore('plays').getAll(),
+      tx.objectStore('features').getAll(),
+    ]);
   await tx.done;
-  return { playlists, tracks, entries, topItems, plays };
+  return { playlists, tracks, entries, topItems, plays, features };
 }
 
 /** Atomically replaces one playlist's entries and upserts its tracks. */
@@ -119,6 +135,20 @@ export async function replacePlays(rows: PlayRow[]): Promise<void> {
   const tx = db.transaction('plays', 'readwrite');
   const store = tx.objectStore('plays');
   await Promise.all([store.clear(), ...rows.map((r) => store.put(r)), tx.done]);
+}
+
+/** Upserts a batch of feature rows; the lookup writes one batch at a time. */
+export async function putFeatures(rows: FeatureRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  const db = await openDb();
+  const tx = db.transaction('features', 'readwrite');
+  const store = tx.objectStore('features');
+  await Promise.all([...rows.map((row) => store.put(row)), tx.done]);
+}
+
+export async function getFeatures(): Promise<FeatureRow[]> {
+  const db = await openDb();
+  return db.getAll('features');
 }
 
 export async function getMeta<T>(name: string): Promise<T | undefined> {
