@@ -29,6 +29,11 @@ export function plural(n: number, word: string): string {
   return `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
 }
 
+/** One decimal, a trailing `.0` dropped: `124`, `127.5` (spec §5). */
+export function formatBpm(bpm: number): string {
+  return bpm.toFixed(1).replace(/\.0$/, '');
+}
+
 export function artistNames(artists: ArtistRef[]): string {
   return artists.map((a) => a.name).join(', ');
 }
