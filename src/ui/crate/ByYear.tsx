@@ -17,6 +17,7 @@ import {
   CrateRow,
   Paged,
   PlaylistLinks,
+  Strip,
   inNoPlaylist,
   monthLabel,
   useCrateRows,
@@ -76,7 +77,7 @@ function selectionLabel(year: number, period: YearPeriod): string {
  * (spec §3): the strip then covers every month the badge counted, so a track
  * played only in that December no longer reads as twelve dashes.
  */
-function monthStrip(row: PlayRow, year: number, period: YearPeriod): string {
+function monthCells(row: PlayRow, year: number, period: YearPeriod): string[] {
   const cells = MONTH_NAMES.map((label, i) => {
     const key = `${year}-${String(i + 1).padStart(2, '0')}`;
     return `${label} ${row.months?.[key] ?? '—'}`;
@@ -86,7 +87,7 @@ function monthStrip(row: PlayRow, year: number, period: YearPeriod): string {
     const plays = row.months?.[`${previous}-12`] ?? '—';
     cells.unshift(`Dec '${String(previous).slice(2)} ${plays}`);
   }
-  return cells.join(' · ');
+  return cells;
 }
 
 export function ByYear({ period }: { period?: string }) {
@@ -163,7 +164,7 @@ export function ByYear({ period }: { period?: string }) {
                   {plural(item.row.plays, 'play')} lifetime · last{' '}
                   {formatDate(item.row.lastTs)}
                 </p>
-                <p class="strip">{monthStrip(item.row, year, selection)}</p>
+                <Strip cells={monthCells(item.row, year, selection)} />
                 <PlaylistLinks row={item.row} />
               </CrateRow>
             ))}

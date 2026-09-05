@@ -1,4 +1,4 @@
-import type { ComponentChildren } from 'preact';
+import type { ComponentChild, ComponentChildren } from 'preact';
 import type { PlayRow } from '../../db/schema';
 import type { Model } from '../../model/aggregate';
 import { MONTH_NAMES, hasMonthData, yearsWithPlays } from '../../model/crate';
@@ -120,6 +120,21 @@ export function CrateRow(p: {
       {p.expanded && <div class="sublist">{p.children}</div>}
     </TrackRow>
   );
+}
+
+/**
+ * A dense year/month readout. Each `<label> <count>` pair is one nowrap span
+ * carrying its own trailing separator, so a line can break only after a " · "
+ * and a count never opens a line.
+ */
+export function Strip(p: { cells: string[] }) {
+  const nodes: ComponentChild[] = [];
+  p.cells.forEach((cell, i) => {
+    const last = i === p.cells.length - 1;
+    nodes.push(<span key={`${i} ${cell}`}>{last ? cell : `${cell} ·`}</span>);
+    if (!last) nodes.push(' ');
+  });
+  return <p class="strip">{nodes}</p>;
 }
 
 export function PlaylistLinks(p: { row: PlayRow }) {

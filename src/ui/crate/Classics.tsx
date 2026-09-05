@@ -15,6 +15,7 @@ import {
   OpenMonthLink,
   Paged,
   PlaylistLinks,
+  Strip,
   inNoPlaylist,
   spanYears,
   useCrateRows,
@@ -23,10 +24,8 @@ import {
 const expanded = signal<string | null>(null);
 const limit = signal(PAGE_SIZE);
 
-function yearStrip(span: number[], perYear: Map<number, number>): string {
-  return span
-    .map((y) => `'${String(y).slice(2)} ${perYear.get(y) ?? '—'}`)
-    .join(' · ');
+function yearCells(span: number[], perYear: Map<number, number>): string[] {
+  return span.map((y) => `'${String(y).slice(2)} ${perYear.get(y) ?? '—'}`);
 }
 
 export function Classics() {
@@ -89,7 +88,7 @@ export function Classics() {
                   {plural(item.row.plays, 'play')} · last{' '}
                   {formatDate(item.row.lastTs)}
                 </p>
-                <p class="strip">{yearStrip(span, item.perYear)}</p>
+                <Strip cells={yearCells(span, item.perYear)} />
                 <PlaylistLinks row={item.row} />
                 <OpenMonthLink month={monthKey(new Date(item.row.lastTs))} />
               </CrateRow>

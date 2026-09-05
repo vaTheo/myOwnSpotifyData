@@ -22,6 +22,7 @@ import {
   OpenMonthLink,
   Paged,
   PlaylistLinks,
+  Strip,
   inNoPlaylist,
   monthLabel,
   useCrateRows,
@@ -49,14 +50,12 @@ function rangeLabel(keys: string[]): string {
   return `${monthLabel(first)} – ${monthLabel(last)}`;
 }
 
-function stripText(row: PlayRow, keys: string[]): string {
-  if (!hasMonthData(row)) return '';
-  return keys
-    .map((key) => {
-      const n = row.months[key] ?? 0;
-      return `${shortMonth(key)} ${n > 0 ? n.toLocaleString() : '—'}`;
-    })
-    .join(' · ');
+function stripCells(row: PlayRow, keys: string[]): string[] {
+  if (!hasMonthData(row)) return [];
+  return keys.map((key) => {
+    const n = row.months[key] ?? 0;
+    return `${shortMonth(key)} ${n > 0 ? n.toLocaleString() : '—'}`;
+  });
 }
 
 export function Rotation() {
@@ -118,7 +117,7 @@ export function Rotation() {
           <ul class="list">
             {items.slice(0, shown.value).map((item, i) => {
               const id = item.row.trackId;
-              const strip = stripText(item.row, keys);
+              const cells = stripCells(item.row, keys);
               const month = hasMonthData(item.row)
                 ? peakMonth(item.row.months, keys)
                 : null;
@@ -150,7 +149,7 @@ export function Rotation() {
                     {item.windowPlays.toLocaleString()} of{' '}
                     {plural(item.row.plays, 'play')}
                   </p>
-                  {strip && <p class="strip">{strip}</p>}
+                  {cells.length > 0 && <Strip cells={cells} />}
                   <PlaylistLinks row={item.row} />
                   {month && <OpenMonthLink month={month} />}
                 </CrateRow>

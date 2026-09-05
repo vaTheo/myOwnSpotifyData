@@ -481,6 +481,11 @@ label.file input {
   margin: 4px 0;
 }
 
+/* One year/month pair per span: a line breaks only after a separator. */
+.strip span {
+  white-space: nowrap;
+}
+
 .hub-row {
   display: flex;
   gap: 10px;
