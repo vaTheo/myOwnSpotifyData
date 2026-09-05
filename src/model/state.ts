@@ -1,7 +1,12 @@
 import { computed, signal } from '@preact/signals';
 import { auth } from '../auth/browser';
 import { getAllRows, getMeta, putMeta, wipeDb } from '../db/repo';
-import { candidateIds, runLookup, type LookupState } from '../features/lookup';
+import {
+  PASS_BY_ID,
+  candidateIds,
+  runLookup,
+  type LookupState,
+} from '../features/lookup';
 import type { LibraryTrack } from '../features/rekordbox-match';
 import {
   REKORDBOX_SUMMARY_META,
@@ -290,7 +295,12 @@ export async function startLookup(): Promise<void> {
   // `as LookupState` keeps the signal at its declared union type: without
   // it TypeScript narrows lookupState.value to this literal for the rest of
   // the function, as in startSync.
-  lookupState.value = { status: 'running', done: 0, total: 0 } as LookupState;
+  lookupState.value = {
+    status: 'running',
+    pass: PASS_BY_ID,
+    done: 0,
+    total: 0,
+  } as LookupState;
   // The existing rows come from the model, not from a fresh IndexedDB read:
   // every path that writes a FeatureRow reloads the model afterwards, and a
   // rejected read here would leave the state stuck on `running` forever,
