@@ -369,10 +369,21 @@ button.danger {
 }
 
 .sublist li {
-  padding: 6px 0;
   min-height: 44px;
   display: flex;
+  align-items: stretch;
+}
+
+.sublist li > a {
+  display: flex;
   align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.sublist p a {
+  display: inline-block;
+  padding: 12px 4px;
 }
 
 .facts {
@@ -384,24 +395,38 @@ button.danger {
 }
 
 label.file {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: center;
+  cursor: pointer;
 }
 
-label.file span {
-  display: block;
-  margin-bottom: 8px;
+label.file:has(input:disabled) {
+  opacity: 0.5;
+  cursor: default;
 }
 
-input[type='file'] {
-  width: 100%;
+label.file input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
 }
 
 .back {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--accent);
   text-decoration: none;
   font-size: 0.9rem;
-  padding: 6px 0;
+  padding: 6px 4px 6px 0;
 }
 
 .provenance {
@@ -497,7 +522,7 @@ input[type='file'] {
 
 .pill {
   display: inline-block;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   padding: 2px 6px;
   border: 1px solid transparent;
   border-radius: 999px;
