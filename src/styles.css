@@ -332,6 +332,18 @@ button.danger {
   padding: 8px 14px;
 }
 
+/* Only while the row overflows, so a two-year history keeps a clean edge.
+   The mask sits on the scroller's own box, so the fade stays at the right
+   edge while the chips scroll under it. */
+.segmented.scroll.faded {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #fff calc(100% - 28px),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #fff calc(100% - 28px), transparent);
+}
+
 .filter {
   width: 100%;
   font: inherit;
