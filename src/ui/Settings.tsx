@@ -113,11 +113,12 @@ function AudioCard() {
     input.value = '';
     if (file) void startRekordboxImport(file);
   };
+  const cov = m ? coverage(m) : null;
   return (
     <div class="card">
       <h2>Audio data</h2>
-      {m ? (
-        <p>{coverageLine(coverage(m))}</p>
+      {cov && cov.total > 0 ? (
+        <p>{coverageLine(cov)}</p>
       ) : (
         <p class="muted">Sync or import a history first.</p>
       )}
@@ -129,7 +130,10 @@ function AudioCard() {
           unit="batches"
         />
       )}
-      {lookup.status === 'done' && (
+      {lookup.status === 'done' && lookup.total === 0 && (
+        <p class="muted">Nothing new to look up.</p>
+      )}
+      {lookup.status === 'done' && lookup.total > 0 && (
         <p class="muted">
           found {lookup.found.toLocaleString()} · not found{' '}
           {lookup.notFound.toLocaleString()}
