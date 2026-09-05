@@ -6,7 +6,8 @@ counts, and artists ranked by how many of their tracks I have saved.
 
 It runs entirely in the browser: login with PKCE, playlists cached in
 IndexedDB, and Spotify's _Extended streaming history_ export imported locally
-for play counts. Nothing is uploaded anywhere.
+for play counts. Nothing is uploaded anywhere except the track ids the BPM and
+key lookup sends to ReccoBeats, and only when you start it.
 
 ## Run locally
 
@@ -58,6 +59,8 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   (request _Extended streaming history_; it arrives by email). A play counts
   once a track was listened to for at least 30 seconds. Months are bucketed
   in the phone's time zone at import time, so re-import after moving zones.
+  An import replaces the whole history; if the one you picked covers less than
+  what is stored, the app asks before replacing it.
 - **BPM and key** show as two small pills on every track row, once you have
   filled them in from the **Audio data** card in Settings.
   `Look up (ReccoBeats)` fetches Spotify's own tempo and key for the tracks
@@ -70,12 +73,16 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
 - **Match** is the third control on a playlist. Tap a track and the list
   re-ranks around it: everything within ±6% BPM first, ordered by key relation
   (`same key`, `relative`, `+1`, `−1`, `boost`) and then by BPM distance, then
-  the rest of the tracks that have data, then the ones that have none. Each
-  row shows its relation and its ΔBPM against the seed. Tapping another row
-  moves the seed; `Clear`, or leaving Match, drops it.
+  the rest of the tracks that have data, then the ones that have none. A seed
+  with a key but no BPM ranks by key relation alone and says so. Each row
+  shows its relation and its ΔBPM against the seed. Tapping another row moves
+  the seed; `Clear`, or leaving Match, drops it — for that playlist only.
 - **Re-import once for the Crate.** An import made before the Crate shipped
   kept no month, start or skip data, so the year, month and finish-rate views
   stay empty until you import the export again; the app says so once and the
   Settings history card links straight to Import. Play counts from the old
   import keep working everywhere else in the meantime.
-- **Disconnect** in Settings removes the login and all cached data.
+- **Connect again** in Settings signs you out and back in without deleting
+  anything — the way back when a token refresh fails.
+- **Disconnect** in Settings removes the login and all cached data. So does
+  syncing while a different Spotify account is signed in, which asks first.
