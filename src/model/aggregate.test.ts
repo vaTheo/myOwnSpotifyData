@@ -7,6 +7,7 @@ import {
   findSeedRow,
   playlistRanking,
   playsFor,
+  topArtistById,
   topArtists,
   topTracks,
 } from './aggregate';
@@ -349,6 +350,12 @@ describe('top lists', () => {
       ['daft', 3, 2],
       ['nobody', 0, 0],
     ]);
+  });
+
+  it('finds a top artist by id, whether or not any track is saved', () => {
+    expect(topArtistById(model, 'nobody')?.name).toBe('Nobody');
+    expect(topArtistById(model, 'daft')?.rank).toBe(1);
+    expect(topArtistById(model, 'justice')).toBeNull();
   });
 });
 

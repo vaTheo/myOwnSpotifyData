@@ -275,6 +275,19 @@ export function topArtists(model: Model, period: Period): AnnotatedTopArtist[] {
   });
 }
 
+/**
+ * A top artist by Spotify id, across every period. The Artist screen names an
+ * artist you have saved nothing from, whose key is in no `artistsByKey`.
+ */
+export function topArtistById(model: Model, id: string): TopArtistItem | null {
+  for (const row of model.topItems.values()) {
+    if (row.type !== 'artists') continue;
+    const found = row.items.find((item) => item.id === id);
+    if (found) return found;
+  }
+  return null;
+}
+
 export interface ArtistTrack {
   track: TrackRow;
   plays: PlaysInfo | null;
