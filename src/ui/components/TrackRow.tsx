@@ -38,6 +38,11 @@ export function TrackRow(p: {
           <div class="main">{main}</div>
         )}
         <SpotifyLink href={p.spotifyUrl} />
+        {p.href && (
+          <span class="chev" aria-hidden="true">
+            ›
+          </span>
+        )}
       </div>
       {p.children}
     </li>
