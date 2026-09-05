@@ -13,12 +13,15 @@ explicitly declined extra tooling (commit hooks, Dependabot, branch
 protection, PR templates) and wants the minimum that solves the request.
 
 Design specs: `docs/superpowers/specs/2026-09-04-spotify-dj-webapp-design.md`
-(the app) and `docs/superpowers/specs/2026-09-04-crate-history-views-design.md`
-(the five Crate views).
+(the app), `docs/superpowers/specs/2026-09-04-crate-history-views-design.md`
+(the five Crate views) and
+`docs/superpowers/specs/2026-09-05-bpm-key-design.md` (BPM and key).
 Verified facts: `docs/superpowers/research/2026-09-04-spotify-platform-research.md`
-(the Spotify platform) and
+(the Spotify platform),
 `docs/superpowers/research/2026-09-04-history-export-semantics.md`
-(`reason_end`, month bucketing, thresholds).
+(`reason_end`, month bucketing, thresholds) and
+`docs/superpowers/research/2026-09-05-bpm-key-sources.md` (ReccoBeats,
+rekordbox XML, the Camelot mapping).
 
 ## Commands
 
@@ -44,10 +47,12 @@ CI (`.github/workflows/ci.yml`) runs `yarn install --frozen-lockfile`, `typechec
 
 - `auth/` PKCE helpers and the session store (`createSessionStore`), with `browser.ts` holding the app instance.
 - `spotify/` the API client (`createClient`: bearer, 401 refresh-once, 429 backoff, quota lock-out, one request in flight) and the API types.
-- `db/` `idb` schema and repository. Stores: `playlists`, `tracks`, `entries` (keyed `[playlistId, position]`), `topItems`, `plays`, `meta`.
+- `util/` holds the retry helpers (`backoffMs`, `parseRetryAfter`) shared by the Spotify and ReccoBeats clients (an execution ruling added `src/util/retry.ts` in Task 2).
+- `db/` `idb` schema and repository. Stores: `playlists`, `tracks`, `entries` (keyed `[playlistId, position]`), `topItems`, `plays`, `features` (keyed by Spotify track id), `meta`. `DB_VERSION` is 2; the `upgrade` callback creates only the stores that are missing, so a version 1 database keeps everything it holds and simply gains `features`.
 - `sync/` planner (pure diff on `snapshot_id`), item mapper, runner (commits one playlist per transaction, persists `locked`/`error` state in meta).
 - `history/` export file matching, the 30-second play rule, outcome classification (`trackdone` is finished; `fwdbtn`/`backbtn`/`endplay`/`unknown` or the `skipped` flag is skipped; everything else is neutral), per-month buckets in the device's zone, zip processing (`process.ts`, one file in memory at a time), the worker and the main-thread importer.
-- `model/` in-memory aggregation (`buildModel`), the pure Crate computations (`crate.ts`: `heavyRotation`, `forgottenGems`, `classics`, `byYear`, `finishRate`, each one pass over `PlayRow[]`) and signals (`state.ts`).
+- `features/` the two BPM and key sources behind the Settings "Audio data" card: the ReccoBeats lookup (`reccobeats.ts` maps the API, `lookup.ts` drives it — batches of 40 ids, one request per second, an ISRC second pass, `notFound` markers) and the Rekordbox Collection XML import (`rekordbox.ts` scanner, `rekordbox-match.ts` title/artist/duration matching, `rekordbox.worker.ts`, `rekordboxImport.ts`).
+- `model/` in-memory aggregation (`buildModel`), the pure Crate computations (`crate.ts`: `heavyRotation`, `forgottenGems`, `classics`, `byYear`, `finishRate`, each one pass over `PlayRow[]`), the pure BPM and key cores (`keys.ts`: Camelot, Open Key and classic names, `parseKeyText`, `keyRelation`, `bpmDeltaPct`; `features.ts`: `resolveFeature`, `featureFor`; `match.ts`: `rankMatches`) and signals (`state.ts`).
 - `ui/` one Preact component per screen plus small shared components; the five Crate views live in `ui/crate/` (`CrateView` dispatches, `shared.tsx` holds the row helpers, `selections.ts` holds the module-level selection signals); hash routes from `router.ts`.
 
 ## Conventions that are easy to get wrong
@@ -57,6 +62,7 @@ CI (`.github/workflows/ci.yml`) runs `yarn install --frozen-lockfile`, `typechec
 - **Only one setting exists**: `VITE_SPOTIFY_CLIENT_ID`, from `.env` locally and a repository secret in CI. The redirect URI is computed at runtime (`env.ts`). There is no client secret anywhere and must never be.
 - **Never open `localhost`.** Spotify rejects it as a redirect URI; use `http://127.0.0.1:5173/myOwnSpotifyData/`.
 - **Never sync on page load.** Spotify's unpublished daily quota on playlist reads locks accounts out for hours. Sync only from the Settings button or a playlist's own button.
+- **ReccoBeats lookup and Rekordbox import start only from Settings.** Neither ever runs on load: the lookup is hundreds of cross-origin requests paced at one per second, and the import reads a file the owner picks. Both write the `features` store as they go and skip what is already there, so a run that stopped resumes instead of starting over.
 - **The tab bar is Crate · Top · Playlists · Artists · Settings.** Import is not a tab: `#/import` is still a route, it highlights the Settings tab, and it is reached from the Settings history card, the Crate provenance line and every Crate empty state. The default route stays `top`, even though Crate is the leftmost tab.
 - **The Crate is gated on `historySummary.version === 2`**, never on sniffing rows. A version 2 summary also carries `zone` (the device zone that bucketed the months) and `outcomes` (`attempts`, `finished`, `skipped`); `PlayRow.months`, `attempts`, `finished` and `skipped` are optional so rows from an older import still type-check. Month keys are local-zone `YYYY-MM`, and `sum(months) === plays`.
 - **Every failure is shown.** Errors end in a state signal that Settings or a banner renders; nothing is swallowed.

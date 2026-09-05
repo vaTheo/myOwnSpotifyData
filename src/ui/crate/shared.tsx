@@ -5,6 +5,7 @@ import { MONTH_NAMES, hasMonthData, yearsWithPlays } from '../../model/crate';
 import { nameKey } from '../../model/normalize';
 import { historySummary, model } from '../../model/state';
 import { routeHref } from '../../router';
+import { FeaturePills } from '../components/FeaturePills';
 import { TrackRow } from '../components/TrackRow';
 import { artistNames, plural } from '../format';
 
@@ -90,6 +91,12 @@ export function inNoPlaylist(row: PlayRow): boolean {
 /**
  * Badge 2 is passed in already decided: the amber rule competes with `New`
  * on Heavy rotation, so the precedence belongs to each screen, not here.
+ *
+ * The feature pills are appended once, for all five views. Spec §5: the
+ * "never a third badge" rule covers the sort and context badges only, and the
+ * pills are a separate group after them. `FeaturePills` draws nothing until
+ * a lookup or a Rekordbox import has given this track a value, so an
+ * un-enriched Crate looks exactly as it does today.
  */
 export function CrateRow(p: {
   rank: number;
@@ -112,6 +119,7 @@ export function CrateRow(p: {
         <>
           {p.badge1}
           {p.badge2}
+          <FeaturePills trackId={p.row.trackId} />
         </>
       }
     >

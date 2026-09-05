@@ -1,6 +1,7 @@
 import { artistTracks } from '../model/aggregate';
 import { model } from '../model/state';
 import { routeHref } from '../router';
+import { FeaturePills } from './components/FeaturePills';
 import { PlaysBadge } from './components/PlaysBadge';
 import { SpotifyLink } from './components/SpotifyLink';
 import { TrackRow } from './components/TrackRow';
@@ -33,7 +34,12 @@ export function Artist({ artistKey }: { artistKey: string }) {
             title={t.track.name}
             subtitle={t.track.album}
             spotifyUrl={t.track.spotifyUrl}
-            badges={<PlaysBadge plays={t.plays} />}
+            badges={
+              <>
+                <PlaysBadge plays={t.plays} />
+                {t.track.id && <FeaturePills trackId={t.track.id} />}
+              </>
+            }
           >
             <ul class="sublist">
               {t.playlistIds.map((id) => (
