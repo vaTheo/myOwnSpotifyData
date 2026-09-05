@@ -3,6 +3,8 @@ import {
   DB_NAME,
   DB_VERSION,
   type AllRows,
+  type ArtistIdentityRow,
+  type ArtistReachRow,
   type DjDb,
   type EntryRow,
   type FeatureRow,
@@ -18,7 +20,8 @@ export function openDb(): Promise<IDBPDatabase<DjDb>> {
   dbPromise ??= openDB<DjDb>(DB_NAME, DB_VERSION, {
     upgrade(db) {
       // Only what is missing: a version 1 database keeps every row it holds
-      // and gains `features`.
+      // and gains `features`; a version 2 database keeps every playlist,
+      // track, play and feature row and gains the two reach stores.
       if (!db.objectStoreNames.contains('playlists'))
         db.createObjectStore('playlists', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('tracks'))
@@ -33,6 +36,10 @@ export function openDb(): Promise<IDBPDatabase<DjDb>> {
         db.createObjectStore('plays', { keyPath: 'trackId' });
       if (!db.objectStoreNames.contains('features'))
         db.createObjectStore('features', { keyPath: 'trackId' });
+      if (!db.objectStoreNames.contains('artistIdentity'))
+        db.createObjectStore('artistIdentity', { keyPath: 'artistId' });
+      if (!db.objectStoreNames.contains('artistReach'))
+        db.createObjectStore('artistReach', { keyPath: 'key' });
       if (!db.objectStoreNames.contains('meta'))
         db.createObjectStore('meta', { keyPath: 'name' });
     },
@@ -81,18 +88,39 @@ export async function getAllRows(): Promise<AllRows> {
     'topItems',
     'plays',
     'features',
+    'artistIdentity',
+    'artistReach',
   ]);
-  const [playlists, tracks, entries, topItems, plays, features] =
-    await Promise.all([
-      tx.objectStore('playlists').getAll(),
-      tx.objectStore('tracks').getAll(),
-      tx.objectStore('entries').getAll(),
-      tx.objectStore('topItems').getAll(),
-      tx.objectStore('plays').getAll(),
-      tx.objectStore('features').getAll(),
-    ]);
+  const [
+    playlists,
+    tracks,
+    entries,
+    topItems,
+    plays,
+    features,
+    artistIdentity,
+    artistReach,
+  ] = await Promise.all([
+    tx.objectStore('playlists').getAll(),
+    tx.objectStore('tracks').getAll(),
+    tx.objectStore('entries').getAll(),
+    tx.objectStore('topItems').getAll(),
+    tx.objectStore('plays').getAll(),
+    tx.objectStore('features').getAll(),
+    tx.objectStore('artistIdentity').getAll(),
+    tx.objectStore('artistReach').getAll(),
+  ]);
   await tx.done;
-  return { playlists, tracks, entries, topItems, plays, features };
+  return {
+    playlists,
+    tracks,
+    entries,
+    topItems,
+    plays,
+    features,
+    artistIdentity,
+    artistReach,
+  };
 }
 
 /** Atomically replaces one playlist's entries and upserts its tracks. */
@@ -149,6 +177,27 @@ export async function putFeatures(rows: FeatureRow[]): Promise<void> {
 export async function getFeatures(): Promise<FeatureRow[]> {
   const db = await openDb();
   return db.getAll('features');
+}
+
+/**
+ * Upserts a batch of identity rows; the reach run writes each row as it
+ * resolves, so a one-element batch is the normal call.
+ */
+export async function putIdentities(rows: ArtistIdentityRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  const db = await openDb();
+  const tx = db.transaction('artistIdentity', 'readwrite');
+  const store = tx.objectStore('artistIdentity');
+  await Promise.all([...rows.map((row) => store.put(row)), tx.done]);
+}
+
+/** Upserts a batch of reach rows, keyed `${artistId}|${source}`. */
+export async function putReach(rows: ArtistReachRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  const db = await openDb();
+  const tx = db.transaction('artistReach', 'readwrite');
+  const store = tx.objectStore('artistReach');
+  await Promise.all([...rows.map((row) => store.put(row)), tx.done]);
 }
 
 export async function getMeta<T>(name: string): Promise<T | undefined> {

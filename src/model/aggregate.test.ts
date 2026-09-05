@@ -218,6 +218,8 @@ const rows: AllRows = {
       updatedAt: 1,
     },
   ],
+  artistIdentity: [],
+  artistReach: [],
 };
 
 const model = buildModel(rows);
@@ -330,6 +332,8 @@ describe('playlistRanking', () => {
       topItems: [],
       plays: [],
       features: [],
+      artistIdentity: [],
+      artistReach: [],
     });
     expect(playlistRanking(untopped, 'p9').map((r) => r.track.key)).toEqual([
       'u2',
@@ -420,6 +424,8 @@ describe('findSeedRow', () => {
       topItems: [],
       plays: [],
       features: [],
+      artistIdentity: [],
+      artistReach: [],
     });
     const rows = playlistRanking(twice, 'p9');
     expect(rows.map((r) => r.entry.position)).toEqual([0, 1, 2]);
