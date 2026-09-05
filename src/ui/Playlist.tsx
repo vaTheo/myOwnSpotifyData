@@ -1,15 +1,22 @@
 import { signal } from '@preact/signals';
-import { playlistRanking, type RankedTrack } from '../model/aggregate';
+import {
+  findSeedRow,
+  playlistRanking,
+  type RankedTrack,
+  type SeedRef,
+} from '../model/aggregate';
 import { featureFor, type ResolvedFeature } from '../model/features';
 import { camelotNumber, formatKey } from '../model/keys';
 import { rankMatches, type MatchResult } from '../model/match';
 import {
+  historySummary,
   isSyncBusy,
   keyNotation,
   model,
   startSync,
   syncState,
 } from '../model/state';
+import { routeHref } from '../router';
 import { Badge } from './components/Badge';
 import { FeaturePills } from './components/FeaturePills';
 import { PlaysBadge } from './components/PlaysBadge';
@@ -23,10 +30,11 @@ const order = signal<'plays' | 'order' | 'match'>('plays');
 /**
  * Spec §5: one seed per playlist, so walking from one playlist to another
  * with Match on asks for a new seed instead of ranking against a track that
- * is not in this list. Keyed by `TrackRow.key`, because a local file has no
- * Spotify id. Replaced whole, so the signal actually changes.
+ * is not in this list. The seed is the row that was tapped — `TrackRow.key`
+ * (a local file has no Spotify id) *and* its position, because a playlist may
+ * hold the same track twice. Replaced whole, so the signal actually changes.
  */
-const seeds = signal<Record<string, string>>({});
+const seeds = signal<Record<string, SeedRef>>({});
 
 /**
  * Handed to `rankMatches` and used again for the badge rule, so the list and
@@ -40,13 +48,18 @@ interface ListedRow {
   match: MatchResult | null;
 }
 
-function setSeed(playlistId: string, trackKey: string): void {
-  seeds.value = { ...seeds.value, [playlistId]: trackKey };
+function setSeed(playlistId: string, row: RankedTrack): void {
+  seeds.value = {
+    ...seeds.value,
+    [playlistId]: { trackKey: row.track.key, position: row.entry.position },
+  };
 }
 
-/** `Clear`, and leaving Match mode, drop every playlist's seed. */
-function clearSeeds(): void {
-  seeds.value = {};
+/** `Clear`, and leaving Match mode, drop this playlist's seed and no other. */
+function clearSeed(playlistId: string): void {
+  const next = { ...seeds.value };
+  delete next[playlistId];
+  seeds.value = next;
 }
 
 /** '+1.6%', '−2.0%'; an exact tie reads '±0.0%' and not a signed zero. */
@@ -134,12 +147,11 @@ export function Playlist({ id }: { id: string }) {
     order.value === 'order'
       ? [...ranked].sort((a, b) => a.entry.position - b.entry.position)
       : ranked;
-  const byKey = new Map(rows.map((r) => [r.track.key, r]));
   // Ranked by position, not by track key: a playlist may hold the same track
   // twice, and two candidates sharing an id would collapse the second row.
   const byPosition = new Map(rows.map((r) => [String(r.entry.position), r]));
   const matching = order.value === 'match';
-  const seed = matching ? byKey.get(seeds.value[id]) : undefined;
+  const seed = matching ? findSeedRow(rows, seeds.value[id]) : undefined;
   const seedFeature =
     seed && seed.track.id ? featureFor(m, seed.track.id) : null;
   const seedPosition = seed?.entry.position;
@@ -168,8 +180,15 @@ export function Playlist({ id }: { id: string }) {
     <section>
       <h1>{playlist.name}</h1>
       <p class="muted">
-        {plural(ranked.length, 'track')} ·{' '}
-        <SpotifyLink href={playlist.spotifyUrl} label />
+        {seedFeature
+          ? plural(listed.length, 'other')
+          : plural(ranked.length, 'track')}
+        {playlist.spotifyUrl && (
+          <>
+            {' · '}
+            <SpotifyLink href={playlist.spotifyUrl} label />
+          </>
+        )}
       </p>
       <div class="actions">
         <button
@@ -189,9 +208,15 @@ export function Playlist({ id }: { id: string }) {
         value={order.value}
         onChange={(v) => {
           order.value = v;
-          if (v !== 'match') clearSeeds();
+          if (v !== 'match') clearSeed(id);
         }}
       />
+      {!historySummary.value && (
+        <p class="caption">
+          No play counts yet —{' '}
+          <a href={routeHref({ name: 'import' })}>import your history</a>
+        </p>
+      )}
       {matching && !seed && <p class="caption">Tap a track to match against</p>}
       {matching && seed && (
         <>
@@ -199,8 +224,11 @@ export function Playlist({ id }: { id: string }) {
           {!seedFeature && (
             <p class="muted">No BPM or key for this track yet</p>
           )}
+          {seedFeature?.bpm === null && (
+            <p class="muted">No BPM for this track — matching by key alone</p>
+          )}
           <div class="actions">
-            <button type="button" onClick={clearSeeds}>
+            <button type="button" onClick={() => clearSeed(id)}>
               Clear
             </button>
           </div>
@@ -214,7 +242,7 @@ export function Playlist({ id }: { id: string }) {
             title={r.track.name}
             subtitle={artistNames(r.track.artists)}
             spotifyUrl={r.track.spotifyUrl}
-            onClick={matching ? () => setSeed(id, r.track.key) : undefined}
+            onClick={matching ? () => setSeed(id, r) : undefined}
             badges={
               <>
                 <PlaysBadge plays={r.plays} />
