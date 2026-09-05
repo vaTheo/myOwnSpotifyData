@@ -1,3 +1,5 @@
+import { ApiError } from '../spotify/errors';
+
 export const AUTHORIZE_URL = 'https://accounts.spotify.com/authorize';
 export const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 
@@ -69,11 +71,20 @@ async function postToken(
   body: Record<string, string>,
   fetchFn: typeof fetch
 ): Promise<TokenResponse> {
-  const res = await fetchFn(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(body).toString(),
-  });
+  let res: Response;
+  try {
+    res = await fetchFn(TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(body).toString(),
+    });
+  } catch (err) {
+    // The same shape src/spotify/client.ts raises for a dead network, so a
+    // refresh that cannot reach Spotify says "Offline, showing cached data."
+    // like every other request does, instead of "Failed to fetch".
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new ApiError(0, `Network error: ${reason}`);
+  }
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
     throw new TokenError(
