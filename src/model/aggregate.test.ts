@@ -130,6 +130,21 @@ const rows: AllRows = {
         },
       ],
     },
+    {
+      key: 'artists:long_term',
+      type: 'artists',
+      period: 'long_term',
+      fetchedAt: 1,
+      items: [
+        {
+          rank: 1,
+          id: 'longtimer',
+          name: 'Longtimer',
+          imageUrl: null,
+          spotifyUrl: null,
+        },
+      ],
+    },
   ],
   plays: [
     {
@@ -356,6 +371,10 @@ describe('top lists', () => {
     expect(topArtistById(model, 'nobody')?.name).toBe('Nobody');
     expect(topArtistById(model, 'daft')?.rank).toBe(1);
     expect(topArtistById(model, 'justice')).toBeNull();
+  });
+
+  it('finds a top artist across every period, not just the first', () => {
+    expect(topArtistById(model, 'longtimer')?.name).toBe('Longtimer');
   });
 });
 
