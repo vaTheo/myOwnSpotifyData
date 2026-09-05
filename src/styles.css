@@ -332,16 +332,41 @@ button.danger {
   padding: 8px 14px;
 }
 
-/* Only while the row overflows, so a two-year history keeps a clean edge.
-   The mask sits on the scroller's own box, so the fade stays at the right
-   edge while the chips scroll under it. */
-.segmented.scroll.faded {
+/* Only on the side that still has chips beyond it, so a two-year history
+   keeps a clean edge, so does a row scrolled to its start, and so does one
+   scrolled to its end. The mask sits on the scroller's own box, so each
+   fade stays at its edge while the chips scroll under it. When both sides
+   overflow the row carries both classes and the combined rule below wins on
+   specificity, fading both edges at once. */
+.segmented.scroll.faded-left {
+  -webkit-mask-image: linear-gradient(to right, transparent, #fff 28px);
+  mask-image: linear-gradient(to right, transparent, #fff 28px);
+}
+
+.segmented.scroll.faded-right {
   -webkit-mask-image: linear-gradient(
     to right,
     #fff calc(100% - 28px),
     transparent
   );
   mask-image: linear-gradient(to right, #fff calc(100% - 28px), transparent);
+}
+
+.segmented.scroll.faded-left.faded-right {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #fff 28px,
+    #fff calc(100% - 28px),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #fff 28px,
+    #fff calc(100% - 28px),
+    transparent
+  );
 }
 
 .filter {
