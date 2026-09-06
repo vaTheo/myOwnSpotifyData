@@ -4,6 +4,7 @@ import {
   artistUrl,
   compactCount,
   formatBpm,
+  formatClock,
   formatDate,
   notCountedLine,
   plural,
@@ -98,6 +99,16 @@ describe('format helpers', () => {
     expect(compactCount(999_499)).toBe('999k');
     expect(compactCount(999_999)).toBe('1m');
     expect(compactCount(1_240_000)).toBe('1.2m');
+  });
+
+  it('formats a clock as m:ss under an hour and h:mm:ss at or above', () => {
+    expect(formatClock(0)).toBe('0:00');
+    expect(formatClock(44)).toBe('0:44');
+    expect(formatClock(704)).toBe('11:44');
+    expect(formatClock(3599)).toBe('59:59');
+    // The hour boundary switches to h:mm:ss and zero-pads both tail groups.
+    expect(formatClock(3600)).toBe('1:00:00');
+    expect(formatClock(11437)).toBe('3:10:37');
   });
 
   it('prints a BPM with one decimal and drops a trailing .0', () => {
