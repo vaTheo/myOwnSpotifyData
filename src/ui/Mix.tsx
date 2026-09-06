@@ -348,8 +348,8 @@ function Provenance(p: { view: MixView }) {
     <>
       {view.shortLink && (
         <p class="caption">
-          This is a mobile share link, so the automatic TrackId.net lookup could
-          not run for it. The player and any tracklist in the description are
+          This is a mobile share link, so the TrackId.net lookup could not be
+          confirmed for it. The player and any tracklist in the description are
           shown below — or paste a tracklist. On a computer, open the mix and
           copy its full soundcloud.com/… link for a TrackId lookup.
         </p>

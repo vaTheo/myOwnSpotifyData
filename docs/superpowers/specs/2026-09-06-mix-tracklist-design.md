@@ -266,7 +266,10 @@ export function isShortLink(input: string): boolean;
  *  permalink slug omits it, so a trailing `" by <author>"` is stripped when
  *  `author` is given (§8). null when the title slugs to nothing or the profile
  *  is not a lone user segment. Only a *candidate* — the TrackId guard confirms
- *  it, so a wrong reconstruction is a `notFound`, never a wrong mix. */
+ *  it, so a wrong reconstruction is almost always a `notFound`; the only
+ *  residual risk is a collision with a *different* mix by the same uploader
+ *  whose slug equals the reconstructed one, which the exact-match guard
+ *  cannot distinguish. */
 export function permalinkFromOembed(
   authorUrl: string,
   title: string,
@@ -590,8 +593,10 @@ followed cross-origin, so oEmbed runs **first** (SoundCloud resolves the token),
 then `permalinkFromOembed(oembed.authorUrl, oembed.title, oembed.author)`
 reconstructs a candidate (stripping the `" by <author>"` suffix oEmbed appends
 to the title — §8), and **only then** TrackId runs on that candidate — the guard
-(rowCount 1 AND exact url match) confirms it, so a wrong reconstruction is a
-`notFound`, never a wrong mix. When oEmbed fails or yields no candidate, TrackId
+(rowCount 1 AND exact url match) confirms it, so a wrong reconstruction is
+almost always a `notFound` — the only residual case is a slug collision with a
+different mix by the same uploader, which the guard cannot tell apart. When
+oEmbed fails or yields no candidate, TrackId
 is not called and its arm is `notFound`. No mix audio is ever fetched — only
 oEmbed + TrackId, exactly as for a permalink.
 
@@ -1009,7 +1014,9 @@ or resolves a gap left open by, the sections above.
   short link and the numeric player id), so the app reconstructs a permalink
   **candidate** from oEmbed (`permalinkFromOembed`) and lets the **existing
   TrackId guard confirm it** — rowCount 1 AND an exact url match, so a wrong
-  reconstruction is a `notFound`, never a wrong mix. `normalizeMixUrl` is
+  reconstruction is almost always a `notFound` (a same-uploader slug
+  collision is the one residual case the guard cannot distinguish).
+  `normalizeMixUrl` is
   unchanged (short links still fail it); the new `classifyMixInput` routes them.
   No new dependency, no audio fetch, no server. Cost if wrong: a mix whose real
   permalink slug is not title-derived reconstructs wrong and shows the
