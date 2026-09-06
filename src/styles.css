@@ -675,3 +675,24 @@ details.card > summary {
   color: var(--muted);
   border-bottom: 1px solid #2a2a2a;
 }
+
+/* Spec §6: the three Mix-screen additions. The player is built by the app
+   from the validated oEmbed src; a gap row's title reads muted-italic; the
+   `.src` provenance span rides in TrackRow's `badges` flex row and takes a
+   full basis, so it drops below the pills the way `.reach` does. */
+.mix-player {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+}
+
+.list li.gap .title {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.mix .src {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
