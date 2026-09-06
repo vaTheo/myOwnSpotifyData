@@ -221,11 +221,11 @@ Rules, each with a test in §7:
 
 - Trim; parse as a URL (return `null` if it does not parse).
 - Host must be `soundcloud.com`, `www.soundcloud.com` or `m.soundcloud.com`;
-  anything else (including `on.soundcloud.com` short links, which need a
-  redirect the app cannot follow cross-origin) → `null`. No best-effort note is
-  shown for a short link: expanding it would need a network call `normalizeMixUrl`
-  must not make, and the `error` state already tells the owner to paste the
-  mix's page link (resolved at implementation — §8).
+  anything else (including `on.soundcloud.com` short links) → `null`.
+  `normalizeMixUrl` still rejects a short link — expanding it needs a redirect
+  it must not follow — but `classifyMixInput` (below) now routes short links to
+  the oEmbed-resolved path instead of dropping them (§8, superseding the
+  original "null, no note" ruling).
 - Lowercase the **host only** — never the path. The research measured an
   upper-cased path returning `rowCount: 0`, so the path is preserved verbatim.
 - Rewrite the host to `soundcloud.com`.
@@ -233,6 +233,50 @@ Rules, each with a test in §7:
 - Strip exactly one trailing `/`.
 - Require a path of at least two segments (`/user/slug`); a bare
   `/user` profile link → `null`.
+
+**Short links (`classifyMixInput`, `permalinkFromOembed`).** Mobile "Copy link"
+always produces an `on.soundcloud.com/<token>` short link (verified 2026-09-06),
+so rejecting it made the feature unusable from the phone — the exact case the
+owner hits. The redirect it points at sends **no `access-control-allow-origin`**
+header, so the browser cannot follow it; but SoundCloud **oEmbed accepts the
+short link** and resolves it server-side, returning the uploader `author_url`
+and the `title`. TrackId, however, needs the full permalink (it rejects the
+short link and the numeric track id from the oEmbed player). So the app
+reconstructs a permalink candidate from oEmbed and lets the existing TrackId
+guard confirm it.
+
+```ts
+/** A pasted link the screen can look up. */
+export type MixInput =
+  | { kind: 'permalink'; url: string }
+  | { kind: 'shortlink'; url: string };
+
+/** Sorts a paste into permalink / shortlink / null. A normalizable permalink is
+ *  its canonical form; an `on.soundcloud.com/<token>` link keeps its path/query/
+ *  fragment verbatim (the token is the path) with the scheme forced https. */
+export function classifyMixInput(input: string): MixInput | null;
+
+/** True for an on.soundcloud.com link. */
+export function isShortLink(input: string): boolean;
+
+/** Best-effort permalink from oEmbed `author_url` (a one-segment
+ *  `soundcloud.com/<user>` profile) + a slug derived from `title`
+ *  (NFKD, drop combining marks, lowercase, non-alphanumerics → single hyphens,
+ *  trim hyphens). oEmbed appends `" by <author_name>"` to the title but the
+ *  permalink slug omits it, so a trailing `" by <author>"` is stripped when
+ *  `author` is given (§8). null when the title slugs to nothing or the profile
+ *  is not a lone user segment. Only a *candidate* — the TrackId guard confirms
+ *  it, so a wrong reconstruction is a `notFound`, never a wrong mix. */
+export function permalinkFromOembed(
+  authorUrl: string,
+  title: string,
+  author?: string
+): string | null;
+```
+
+`normalizeMixUrl` is unchanged and still owns permalink canonicalisation;
+`classifyMixInput` calls it for the permalink arm and handles the short-link
+host itself.
 
 ### 3.2 SoundCloud oEmbed (`src/features/mix/oembed.ts`)
 
@@ -253,6 +297,10 @@ export type OembedResult =
       status: 'ok';
       title: string;
       author: string;
+      /** `author_url` — the uploader profile. The one field that yields a
+       *  permalink for a short link (permalinkFromOembed joins it to the title
+       *  slug, §3.1). Empty when absent. */
+      authorUrl: string;
       description: string;
       /** The player iframe src, validated (§5.3), or null when absent/untrusted. */
       playerSrc: string | null;
@@ -268,6 +316,10 @@ export function fetchOembed(
 
 - The body is `unknown`; narrow every field (`typeof x === 'string'`) before
   use, as `reccobeats.ts` does for JSONP bodies.
+- `authorUrl` is read from `author_url` (the uploader's profile). It is inert
+  for a permalink lookup but load-bearing for a short link: `permalinkFromOembed`
+  reconstructs the permalink from it (§3.1). `oembedUrl` percent-encodes its
+  argument, so it already builds a valid request for a short link unchanged.
 - Descriptions carry raw HTML fragments and `\r\n` (research §2), so
   `description` is passed on **raw** and cleaned inside the parser (§3.4).
 - `playerSrc` is extracted from `html` (`src="…"`) and kept only if it starts
@@ -522,16 +574,43 @@ export interface MixDeps {
 export interface MixLookup {
   oembed: OembedResult;
   trackid: TrackIdResult;
+  /** The permalink TrackId was queried on: the input url for a permalink, or
+   *  the reconstructed candidate for a short link (confirmed or not); null when
+   *  a short link's oEmbed failed / yielded no candidate so TrackId never ran. */
+  resolvedUrl: string | null;
 }
-/** Runs oEmbed and TrackId in parallel; never throws — each arm carries its
- *  own error status so one failure cannot hide the other's result. */
-export function lookupMix(deps: MixDeps, normUrl: string): Promise<MixLookup>;
+/** Never throws — each arm carries its own error status so one failure cannot
+ *  hide the other's result. Takes the classified input, not a bare url. */
+export function lookupMix(deps: MixDeps, input: MixInput): Promise<MixLookup>;
 ```
+
+**Permalink flow (unchanged):** oEmbed and TrackId run in parallel on the input
+url; `resolvedUrl` is that url. **Short-link flow:** the short link cannot be
+followed cross-origin, so oEmbed runs **first** (SoundCloud resolves the token),
+then `permalinkFromOembed(oembed.authorUrl, oembed.title, oembed.author)`
+reconstructs a candidate (stripping the `" by <author>"` suffix oEmbed appends
+to the title — §8), and **only then** TrackId runs on that candidate — the guard
+(rowCount 1 AND exact url match) confirms it, so a wrong reconstruction is a
+`notFound`, never a wrong mix. When oEmbed fails or yields no candidate, TrackId
+is not called and its arm is `notFound`. No mix audio is ever fetched — only
+oEmbed + TrackId, exactly as for a permalink.
 
 The two layers are independent, so `startMixLookup` folds **both** statuses
 into the one `MixView` (§4) — this is what makes "every failure is shown" true:
 a TrackId `error` still renders beside an oEmbed `ok`, each with its own line.
 `sleep` spaces the TrackId list and detail calls politely.
+
+**Keying and the short-link note.** `startMixLookup` calls `classifyMixInput`
+(not `normalizeMixUrl`); a `null` is the same bad-URL `error` state as before.
+The saved mix is **keyed** on the confirmed permalink when TrackId confirmed a
+candidate (`resolvedUrl` present and `trackid` ok) — which for a permalink input
+is just the input url — else on the input url itself (the permalink, or the
+original short link when TrackId did not confirm it). `MixView` gains
+`shortLink: boolean`, true when the input was a short link, oEmbed resolved, and
+TrackId was **not** confirmed; the screen (§5.2) shows one honest inline note in
+that case. A confirmed short link keys on its resolved permalink, so it behaves
+exactly like any hit (no note) and, on reopen, is no longer an
+`on.soundcloud.com` url; `openMix` recomputes `shortLink` as `isShortLink(url)`.
 
 ### Signals and actions (`src/model/state.ts`)
 
@@ -918,7 +997,51 @@ touches the network.**
 **Rulings made while implementing.** Recorded here because each differs from,
 or resolves a gap left open by, the sections above.
 
-- _`on.soundcloud.com` short links resolve to `null`, with no owner note_
+- _`on.soundcloud.com` short links are now looked up, not rejected_ (§3.1, §3.2,
+  §4). **This supersedes the original "resolve to `null`, with no owner note"
+  ruling below.** It recurred immediately: mobile "Copy link" *always* produces
+  an `on.soundcloud.com` link (verified 2026-09-06), so rejecting it made the
+  feature unusable from the owner's phone — the whole point of the app. The
+  redirect the short link points at sends **no `access-control-allow-origin`**
+  header (verified), so the browser cannot follow it directly. But **SoundCloud
+  oEmbed accepts the short link and resolves it server-side**, returning
+  `author_url` and `title`; TrackId needs the full permalink (it rejects the
+  short link and the numeric player id), so the app reconstructs a permalink
+  **candidate** from oEmbed (`permalinkFromOembed`) and lets the **existing
+  TrackId guard confirm it** — rowCount 1 AND an exact url match, so a wrong
+  reconstruction is a `notFound`, never a wrong mix. `normalizeMixUrl` is
+  unchanged (short links still fail it); the new `classifyMixInput` routes them.
+  No new dependency, no audio fetch, no server. Cost if wrong: a mix whose real
+  permalink slug is not title-derived reconstructs wrong and shows the
+  short-link note instead of a tracklist (still with the player and a paste
+  box); the owner can open it on a computer and paste the full link.
+- _`permalinkFromOembed` strips a trailing `" by <author>"` from the title_
+  (§3.1, §4). **Found by the review walkthrough, 2026-09-06.** SoundCloud oEmbed
+  returns the title WITH that suffix — the real request for the owner's short
+  link `on.soundcloud.com/IPnhLSLBYZqoFYpagL` returned
+  `title: "Naone @ The Lot Radio 01-11-2025 by The Lot Radio"`, `author_name:
+  "The Lot Radio"` — but the real permalink slug is `naone-the-lot-radio-01-11-2025`
+  (no `-by-...` tail). Slugging the raw title produced
+  `naone-the-lot-radio-01-11-2025-by-the-lot-radio`, and TrackId returned
+  `rowCount 0` for it (measured), so the guard failed and the mix — which **is**
+  in the corpus (`rowCount 1`, an exact url match for the stripped permalink,
+  measured the same session) — showed the short-link note instead of its
+  tracklist. `permalinkFromOembed` gains an optional `author` and drops a
+  trailing `" by <author>"` before slugging; `lookupMix` passes `oembed.author`.
+  With the strip the candidate matches and the lookup returns 2 identified
+  tracks (22% of the mix) plus its gap rows. Cost if wrong: an uploader who
+  literally titles a mix `"… by <their own name>"` (so the real slug keeps it)
+  reconstructs one segment short and shows the note; the guard still prevents a
+  wrong mix, and the owner can paste the full link on a computer.
+- _The short-link note is gated on oEmbed `ok`_ (§4, §5.2). The brief's flag is
+  "short link AND TrackId not confirmed"; this narrows it with "AND oEmbed ok"
+  so the note — which promises "The player and any tracklist in the description
+  are shown below" — is never shown when a failed oEmbed left nothing to show.
+  A short link whose oEmbed failed prints the ordinary `oembedError` line
+  instead. Cost if wrong: a rare short-link transport failure shows the mix-page
+  error rather than the share-link note.
+- _The original ruling, now superseded:_
+  _`on.soundcloud.com` short links resolve to `null`, with no owner note_
   (§3.1). This was the design's one `(to confirm at implementation)` point. The
   host allowlist already excludes the short-link host, and expanding it would
   need a redirect `normalizeMixUrl` cannot follow cross-origin, so the lean
