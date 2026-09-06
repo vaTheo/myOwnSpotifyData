@@ -206,7 +206,7 @@ const SOURCE_LABEL: Record<ReachStep, string> = {
  * The source counts overlap on purpose, exactly as the Audio data card's do,
  * so they can add up to more than `covered`.
  */
-function reachLine(c: ReachCoverage): string {
+function reachCoverageLine(c: ReachCoverage): string {
   const artists = plural(c.artists, 'artist');
   return [
     `Reach data for ${c.covered.toLocaleString()} of ${artists}`,
@@ -248,7 +248,7 @@ function ReachCard() {
     <div class="card">
       <h2>Artist reach</h2>
       {cov && cov.artists > 0 ? (
-        <p>{reachLine(cov)}</p>
+        <p>{reachCoverageLine(cov)}</p>
       ) : (
         <p class="muted">Sync your playlists first.</p>
       )}
@@ -277,7 +277,7 @@ function ReachCard() {
       )}
       <button
         type="button"
-        disabled={busy || !m}
+        disabled={busy || !cov || cov.artists === 0}
         onClick={() => void startReach()}
       >
         {state.status === 'running' ? 'Looking up…' : 'Look up artists'}

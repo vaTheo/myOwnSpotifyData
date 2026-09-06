@@ -353,9 +353,10 @@ name is "Open in Spotify"; the Artist and Playlist headers spell the words out
 is omitted for them.
 
 - **Connect** (no session): one button, one sentence on what is read and on
-  the one thing that leaves the browser (track ids sent to ReccoBeats during a
-  BPM/key lookup), and the reason when arriving from an expired or refused
-  session.
+  the two things that leave the browser (track ids sent to ReccoBeats during a
+  BPM/key lookup; artist ids, ISRCs and article titles sent to MusicBrainz,
+  ListenBrainz, Deezer, Wikidata and Wikimedia during an artist-reach lookup),
+  and the reason when arriving from an expired or refused session.
 - **Top** (`#/top`): segmented control 4 weeks / 6 months / 1 year (maps to
   short/medium/long_term); toggle Tracks / Artists. Track row: rank, title,
   artists, badges "in N playlists" — or the amber "not in a playlist" once any

@@ -83,11 +83,18 @@ function ArtistReach(p: { m: Model; id: string | null }) {
   }
   const wiki = wikipediaUrl(identity);
   if (wiki !== null) links.push({ label: 'Wikipedia ›', href: wiki });
+  // A profile line or a link is real reach data on screen: "No reach data."
+  // must never sit beside one, so the numbers line is dropped instead of
+  // contradicting them (spec §5.4 decides `reachLine`/`profileLine`
+  // independently, but their combination still has to read as one story).
+  const showNumbers = !unresolved || (profile === null && links.length === 0);
   return (
     <>
-      <p class="reach">
-        {unresolved ? 'No reach data.' : reachLine(listeners, fans)}
-      </p>
+      {showNumbers && (
+        <p class="reach">
+          {unresolved ? 'No reach data.' : reachLine(listeners, fans)}
+        </p>
+      )}
       {profile && <p class="reach">{profile}</p>}
       {credit.length > 0 && <p class="reach">{credit.join(' · ')}</p>}
       {(unresolved || links.length > 0) && (
@@ -147,7 +154,10 @@ export function Artist({ artistKey }: { artistKey: string }) {
           </>
         )}
       </p>
-      <ArtistReach m={m} id={artistId} />
+      {/* Only a playlist artist (an `agg`) is ever a reach candidate (spec
+          §2 is `model.artists`): a top-list-only artist would never resolve,
+          so no "Look up artists" is offered for one. */}
+      <ArtistReach m={m} id={agg ? artistId : null} />
       {tracks.length === 0 && (
         <p class="empty">No saved tracks from {name} in your playlists.</p>
       )}

@@ -11,6 +11,7 @@ import { routeHref } from '../router';
 import { radarFilter, radarSort } from './artistSelections';
 import { Empty } from './components/Empty';
 import { Filter } from './components/Filter';
+import { NoMatch } from './components/NoMatch';
 import { Segmented } from './components/Segmented';
 import { TrackRow } from './components/TrackRow';
 import {
@@ -150,17 +151,12 @@ export function UnderRadar() {
       />
       {shown.length === 0 ? (
         query ? (
-          <div class="empty">
-            <p>No artists match "{radarFilter.value}".</p>
-            <button
-              type="button"
-              onClick={() => {
-                radarFilter.value = '';
-              }}
-            >
-              Clear filter
-            </button>
-          </div>
+          <NoMatch
+            query={radarFilter.value}
+            onClear={() => {
+              radarFilter.value = '';
+            }}
+          />
         ) : (
           // Every artist in the library is known by name only: none of them
           // has the Spotify id every source here is keyed on.
