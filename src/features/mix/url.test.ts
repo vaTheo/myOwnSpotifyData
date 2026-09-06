@@ -3,6 +3,7 @@ import {
   classifyMixInput,
   isShortLink,
   normalizeMixUrl,
+  permalinkCandidates,
   permalinkFromOembed,
 } from './url';
 
@@ -221,5 +222,88 @@ describe('permalinkFromOembed', () => {
     ).toBeNull();
     // Not a URL at all.
     expect(permalinkFromOembed('thelotradio', 'Some Mix')).toBeNull();
+  });
+});
+
+describe('permalinkCandidates', () => {
+  it('offers both the apostrophe-dropped and the apostrophe-as-hyphen slug', () => {
+    // SoundCloud DROPS the apostrophe (don't -> dont); the older slug turned it
+    // into a hyphen (don-t). Both spellings are tried so the guard can pick.
+    const out = permalinkCandidates('https://soundcloud.com/dj', "Don't Stop");
+    expect(out).toContain('https://soundcloud.com/dj/dont-stop');
+    expect(out).toContain('https://soundcloud.com/dj/don-t-stop');
+  });
+
+  it('transliterates ß / ø / æ the way SoundCloud does, not to a hyphen', () => {
+    // None of these decompose under NFKD, so the old slug dropped each to a
+    // hyphen; the transliteration map turns them into ss / o / ae.
+    expect(
+      permalinkCandidates('https://soundcloud.com/x', 'Große Straße Fest')[0]
+    ).toBe('https://soundcloud.com/x/grosse-strasse-fest');
+    expect(
+      permalinkCandidates('https://soundcloud.com/x', 'Øya Æther œuvre')[0]
+    ).toBe('https://soundcloud.com/x/oya-aether-oeuvre');
+  });
+
+  it('offers both the suffix-stripped and the not-stripped slug', () => {
+    const out = permalinkCandidates(
+      'https://soundcloud.com/lr',
+      'Naone @ The Lot Radio by The Lot Radio',
+      'The Lot Radio'
+    );
+    expect(out).toContain('https://soundcloud.com/lr/naone-the-lot-radio');
+    expect(out).toContain(
+      'https://soundcloud.com/lr/naone-the-lot-radio-by-the-lot-radio'
+    );
+  });
+
+  it('dedupes candidates that collapse to the same slug', () => {
+    // Rock 'n' Roll: the ' n ' run collapses to a single hyphen under BOTH the
+    // apostrophe-removed and apostrophe-as-hyphen rules, so all four variants
+    // (no author suffix here) become one candidate.
+    expect(
+      permalinkCandidates('https://soundcloud.com/dj', "Rock 'n' Roll")
+    ).toEqual(['https://soundcloud.com/dj/rock-n-roll']);
+  });
+
+  it('collapses to a single candidate when there is no apostrophe or suffix', () => {
+    expect(
+      permalinkCandidates('https://soundcloud.com/x', 'Simple Mix')
+    ).toEqual(['https://soundcloud.com/x/simple-mix']);
+  });
+
+  it('returns [] when the title slugs to nothing (empty or symbol-only)', () => {
+    expect(permalinkCandidates('https://soundcloud.com/x', '')).toEqual([]);
+    expect(permalinkCandidates('https://soundcloud.com/x', '@')).toEqual([]);
+  });
+
+  it('returns [] when author_url is not a one-segment soundcloud profile', () => {
+    // Two segments (a track permalink, not a profile).
+    expect(
+      permalinkCandidates('https://soundcloud.com/x/some-set', 'Some Mix')
+    ).toEqual([]);
+    // Foreign host.
+    expect(permalinkCandidates('https://example.com/x', 'Some Mix')).toEqual(
+      []
+    );
+    // Not a URL at all.
+    expect(permalinkCandidates('x', 'Some Mix')).toEqual([]);
+  });
+
+  it('orders suffix-stripped + apostrophe-removed first, four distinct spellings', () => {
+    // Both an intra-word apostrophe AND a " by <author>" suffix: all four
+    // variants are distinct, and the order is fixed.
+    expect(
+      permalinkCandidates(
+        'https://soundcloud.com/dj',
+        "Don't Stop by DJ X",
+        'DJ X'
+      )
+    ).toEqual([
+      'https://soundcloud.com/dj/dont-stop',
+      'https://soundcloud.com/dj/don-t-stop',
+      'https://soundcloud.com/dj/dont-stop-by-dj-x',
+      'https://soundcloud.com/dj/don-t-stop-by-dj-x',
+    ]);
   });
 });

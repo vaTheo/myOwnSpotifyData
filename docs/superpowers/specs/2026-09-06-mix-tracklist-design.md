@@ -259,17 +259,38 @@ export function classifyMixInput(input: string): MixInput | null;
 /** True for an on.soundcloud.com link. */
 export function isShortLink(input: string): boolean;
 
-/** Best-effort permalink from oEmbed `author_url` (a one-segment
- *  `soundcloud.com/<user>` profile) + a slug derived from `title`
- *  (NFKD, drop combining marks, lowercase, non-alphanumerics → single hyphens,
- *  trim hyphens). oEmbed appends `" by <author_name>"` to the title but the
- *  permalink slug omits it, so a trailing `" by <author>"` is stripped when
- *  `author` is given (§8). null when the title slugs to nothing or the profile
- *  is not a lone user segment. Only a *candidate* — the TrackId guard confirms
- *  it, so a wrong reconstruction is almost always a `notFound`; the only
- *  residual risk is a collision with a *different* mix by the same uploader
- *  whose slug equals the reconstructed one, which the exact-match guard
- *  cannot distinguish. */
+/** Up to four candidate permalinks from oEmbed `author_url` (a one-segment
+ *  `soundcloud.com/<user>` profile) + slugs derived from `title`, ordered
+ *  most-likely first, so `lookupMix` can try each behind the TrackId guard.
+ *  One slug spelling is not enough — two verified miss causes make it wrong:
+ *  (a) apostrophes, which SoundCloud DROPS (`don't` → `dont`) but a
+ *  non-alphanumerics-to-hyphen slug turns to `don-t`; (b) special letters that
+ *  do NOT decompose under NFKD (`ß`, `ø`, `æ`, `œ`, `þ`, `đ`, `ł`, …), which
+ *  SoundCloud transliterates (`ß` → `ss`, `ø` → `o`, `æ` → `ae`) but the slug
+ *  drops to a hyphen. The shared pipeline handles (b) with a transliteration
+ *  map applied before NFKD (accented latin like `é` → `e` still decomposes),
+ *  then lowercases, then applies (a) per variant. The candidates are the
+ *  cross-product of two independent uncertainties: the `" by <author>"` suffix
+ *  oEmbed appends (both stripped and not-stripped, since a real slug sometimes
+ *  keeps it) × the apostrophe rule (both removed and as-hyphen). Order:
+ *  (1) suffix-stripped + apostrophes removed, (2) suffix-stripped + apostrophes
+ *  as hyphen, (3) not-stripped + removed, (4) not-stripped + as hyphen; nulls
+ *  dropped, deduped preserving order (a title with no apostrophe and no suffix
+ *  collapses to one), capped at four. `[]` when the profile is not a lone user
+ *  segment or every variant slugs to nothing. Each is only a *candidate* — the
+ *  TrackId guard confirms it, so a wrong reconstruction is almost always a
+ *  `notFound`; the only residual risk is a collision with a *different* mix by
+ *  the same uploader whose slug equals a reconstructed one, which the
+ *  exact-match guard cannot distinguish. */
+export function permalinkCandidates(
+  authorUrl: string,
+  title: string,
+  author?: string
+): string[];
+
+/** The first (most-likely) candidate, or null — a thin wrapper over
+ *  `permalinkCandidates` kept so the public surface stays small; no longer on
+ *  the live path (`lookupMix` iterates the full list). */
 export function permalinkFromOembed(
   authorUrl: string,
   title: string,
@@ -590,15 +611,24 @@ export function lookupMix(deps: MixDeps, input: MixInput): Promise<MixLookup>;
 **Permalink flow (unchanged):** oEmbed and TrackId run in parallel on the input
 url; `resolvedUrl` is that url. **Short-link flow:** the short link cannot be
 followed cross-origin, so oEmbed runs **first** (SoundCloud resolves the token),
-then `permalinkFromOembed(oembed.authorUrl, oembed.title, oembed.author)`
-reconstructs a candidate (stripping the `" by <author>"` suffix oEmbed appends
-to the title — §8), and **only then** TrackId runs on that candidate — the guard
-(rowCount 1 AND exact url match) confirms it, so a wrong reconstruction is
-almost always a `notFound` — the only residual case is a slug collision with a
-different mix by the same uploader, which the guard cannot tell apart. When
-oEmbed fails or yields no candidate, TrackId
-is not called and its arm is `notFound`. No mix audio is ever fetched — only
-oEmbed + TrackId, exactly as for a permalink.
+then `permalinkCandidates(oembed.authorUrl, oembed.title, oembed.author)`
+reconstructs **up to four** candidate slug spellings (§3.1: the `" by <author>"`
+suffix stripped or not × the apostrophe removed or hyphenated, over a
+transliterating slug pipeline), and **only then** TrackId is probed on each in
+order until one is confirmed. The guard (rowCount 1 AND exact url match) confirms
+a candidate: the **first** that comes back `ok` wins (`resolvedUrl` becomes it)
+and the loop stops, so a wrong candidate is a `notFound` that moves on, never a
+wrong mix — the only residual case is a slug collision with a different mix by
+the same uploader, which the guard cannot tell apart. At most four guarded
+probes are made, each an ordinary `?url=` lookup, spaced by a polite
+`CANDIDATE_PROBE_GAP_MS` (1000 ms) so the extra probes stay gentle; a later `ok`
+still beats an earlier candidate. When none is confirmed, `resolvedUrl` falls
+back to the first candidate (for the note and store key) and the `trackid` arm
+surfaces the first transport `error` seen, else `notFound` — a service outage is
+shown, not disguised as "not in the corpus". When oEmbed fails or yields no
+candidate, TrackId is not called and its arm is `notFound`. It all stays
+**browser-only** — no server, no proxy, no new endpoint — and **no mix audio is
+ever fetched**, only oEmbed + TrackId, exactly as for a permalink.
 
 The two layers are independent, so `startMixLookup` folds **both** statuses
 into the one `MixView` (§4) — this is what makes "every failure is shown" true:
@@ -1040,6 +1070,28 @@ or resolves a gap left open by, the sections above.
   literally titles a mix `"… by <their own name>"` (so the real slug keeps it)
   reconstructs one segment short and shows the note; the guard still prevents a
   wrong mix, and the owner can paste the full link on a computer.
+- _`permalinkCandidates` tries several safe slug spellings, not one_ (§3.1, §4).
+  **Found while widening short-link coverage, 2026-09-06.** One reconstruction
+  missed two common, verified cases: (a) apostrophes — SoundCloud DROPS them
+  (`don't` → `dont`) while the old slug turned any non-alphanumeric run into a
+  hyphen (`don-t`); (b) special letters that do NOT decompose under NFKD (`ß`,
+  `ø`, `æ`, `œ`, `þ`, `đ`, `ł`), which SoundCloud transliterates (`ß` → `ss`,
+  `ø` → `o`, `æ` → `ae`) but the old slug dropped to a hyphen.
+  `permalinkFromOembed` becomes a thin wrapper over a new `permalinkCandidates`,
+  which shares one slug pipeline (a transliteration map applied before NFKD,
+  then lowercase, then the per-variant apostrophe rule) and returns up to four
+  spellings — the cross-product of {suffix stripped, not stripped} × {apostrophe
+  removed, as hyphen}, ordered most-likely first, deduped, capped at four.
+  `lookupMix` probes each on TrackId in order, spaced by `CANDIDATE_PROBE_GAP_MS`
+  (1000 ms), and the first guard-confirmed hit wins; none confirmed surfaces the
+  first transport error, else `notFound`. It stays browser-only (no server, no
+  proxy, no new endpoint) and the **unchanged** TrackId guard (rowCount 1 AND
+  exact url match) still makes every candidate safe. Cost if wrong: at most
+  three extra polite `?url=` probes on a short link the corpus does not hold; and
+  a same-uploader slug collision — a *different* mix by the same profile whose
+  real slug equals a reconstructed one — remains the one residual case the
+  exact-match guard cannot tell apart (unchanged in kind from the
+  single-candidate design, now over a slightly larger candidate set).
 - _The short-link note is gated on oEmbed `ok`_ (§4, §5.2). The brief's flag is
   "short link AND TrackId not confirmed"; this narrows it with "AND oEmbed ok"
   so the note — which promises "The player and any tracklist in the description

@@ -1,13 +1,18 @@
 import type { TracklistRow } from '../../db/schema';
 import { fetchOembed, type OembedResult } from './oembed';
 import { fetchTrackId, type TrackIdResult } from './trackid';
-import { permalinkFromOembed, type MixInput } from './url';
+import { permalinkCandidates, type MixInput } from './url';
 
 export interface MixDeps {
   fetchFn: typeof fetch;
   /** Spaces TrackId's two calls politely (spec §4); passed on to fetchTrackId. */
   sleep: (ms: number) => Promise<void>;
 }
+
+/** Polite gap between two candidate probes on the short-link path (spec §4).
+ *  Wider than TrackId's own 250 ms inter-call spacing because each candidate is
+ *  itself a two-call probe: a full second keeps the extra probes gentle. */
+export const CANDIDATE_PROBE_GAP_MS = 1000;
 
 export interface MixLookup {
   oembed: OembedResult;
@@ -29,12 +34,19 @@ export interface MixLookup {
  *
  * A **permalink** runs oEmbed and TrackId in parallel on the input url, exactly
  * as before. A **short link** cannot be followed cross-origin, so the app runs
- * oEmbed first (SoundCloud resolves the token server-side), reconstructs the
- * permalink from oEmbed's `author_url` + `title`, and only then queries TrackId
- * on that candidate. The TrackId guard (rowCount 1 AND an exact url match)
- * confirms the candidate: a wrong reconstruction is a `notFound`, never a wrong
- * mix. When oEmbed fails or yields no candidate, TrackId is not called and its
- * arm is `notFound`.
+ * oEmbed first (SoundCloud resolves the token server-side), reconstructs up to
+ * four candidate permalinks from oEmbed's `author_url` + `title`
+ * (`permalinkCandidates`, ordered most-likely first), and probes each on
+ * TrackId in turn until one is confirmed. The TrackId guard (rowCount 1 AND an
+ * exact url match) confirms a candidate: the FIRST that comes back `ok` wins
+ * (`resolvedUrl` becomes it) and the loop stops, so a wrong candidate is a
+ * `notFound` that simply moves on, never a wrong mix. Probes are spaced by
+ * `CANDIDATE_PROBE_GAP_MS` to stay polite. When none is confirmed, `resolvedUrl`
+ * falls back to the first candidate (for the note and store key) and the
+ * `trackid` arm surfaces the first transport `error` seen, else `notFound` — a
+ * service outage is shown, not disguised as "not in the corpus". When oEmbed
+ * fails or yields no candidate, TrackId is not called and its arm is `notFound`.
+ * No mix audio is ever fetched — only oEmbed + TrackId, as for a permalink.
  */
 export async function lookupMix(
   deps: MixDeps,
@@ -52,17 +64,33 @@ export async function lookupMix(
   let trackid: TrackIdResult = { status: 'notFound' };
   let resolvedUrl: string | null = null;
   if (oembed.status === 'ok') {
-    // oembed.author (author_name) lets permalinkFromOembed strip the " by
-    // <author>" suffix SoundCloud appends to the title before slugging it.
-    const candidate = permalinkFromOembed(
+    // oembed.author (author_name) lets permalinkCandidates strip the " by
+    // <author>" suffix SoundCloud appends to the title in one of its variants.
+    const candidates = permalinkCandidates(
       oembed.authorUrl,
       oembed.title,
       oembed.author
     );
-    if (candidate !== null) {
-      resolvedUrl = candidate;
-      trackid = await fetchTrackId(deps.fetchFn, candidate, deps.sleep);
+    resolvedUrl = candidates[0] ?? null;
+    // Probe each candidate; the first guard-confirmed hit wins. A later `ok`
+    // still beats an earlier `error`, and if nothing is confirmed the first
+    // transport error (not a mere guard miss) is surfaced so it is not hidden.
+    let firstError: TrackIdResult | null = null;
+    for (let i = 0; i < candidates.length; i += 1) {
+      if (i > 0) await deps.sleep(CANDIDATE_PROBE_GAP_MS);
+      const result = await fetchTrackId(
+        deps.fetchFn,
+        candidates[i],
+        deps.sleep
+      );
+      if (result.status === 'ok') {
+        trackid = result;
+        resolvedUrl = candidates[i];
+        break;
+      }
+      if (result.status === 'error' && firstError === null) firstError = result;
     }
+    if (trackid.status !== 'ok' && firstError !== null) trackid = firstError;
   }
   return { oembed, trackid, resolvedUrl };
 }

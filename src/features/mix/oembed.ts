@@ -11,8 +11,8 @@ export type OembedResult =
       author: string;
       /**
        * `author_url` — the uploader's SoundCloud profile. For a short link this
-       * is the one field that yields the permalink: `permalinkFromOembed`
-       * joins it to a slug derived from `title` (§3.1). Empty when absent.
+       * is the one field that yields the permalink: `permalinkCandidates`
+       * joins it to slugs derived from `title` (§3.1). Empty when absent.
        */
       authorUrl: string;
       /** Passed on RAW (HTML entities and \r\n intact); the parser cleans it. */
