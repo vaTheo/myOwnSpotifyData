@@ -1,6 +1,7 @@
 import type { TracklistRow } from '../../db/schema';
 import { fetchOembed, type OembedResult } from './oembed';
 import { fetchTrackId, type TrackIdResult } from './trackid';
+import { permalinkFromOembed, type MixInput } from './url';
 
 export interface MixDeps {
   fetchFn: typeof fetch;
@@ -11,24 +12,59 @@ export interface MixDeps {
 export interface MixLookup {
   oembed: OembedResult;
   trackid: TrackIdResult;
+  /**
+   * The permalink TrackId was queried on: the input url for a permalink, or the
+   * candidate reconstructed from oEmbed for a short link (whether or not the
+   * guard confirmed it). null when a short link's oEmbed failed or yielded no
+   * candidate, so no TrackId call was made.
+   */
+  resolvedUrl: string | null;
 }
 
 /**
- * Runs oEmbed and TrackId in parallel and folds the two into one result.
- * Never throws: both fetch functions return a typed error arm rather than
- * rejecting (spec §3), so `Promise.all` cannot reject and one layer's failure
- * cannot hide the other's rows (spec §4). This is the same discipline
+ * Runs the two layers and folds them into one result. Never throws: both fetch
+ * functions return a typed error arm rather than rejecting (spec §3), so a
+ * layer's failure cannot hide the other's rows (spec §4) — the discipline
  * `startLookup` leans on with `runLookup`.
+ *
+ * A **permalink** runs oEmbed and TrackId in parallel on the input url, exactly
+ * as before. A **short link** cannot be followed cross-origin, so the app runs
+ * oEmbed first (SoundCloud resolves the token server-side), reconstructs the
+ * permalink from oEmbed's `author_url` + `title`, and only then queries TrackId
+ * on that candidate. The TrackId guard (rowCount 1 AND an exact url match)
+ * confirms the candidate: a wrong reconstruction is a `notFound`, never a wrong
+ * mix. When oEmbed fails or yields no candidate, TrackId is not called and its
+ * arm is `notFound`.
  */
 export async function lookupMix(
   deps: MixDeps,
-  normUrl: string
+  input: MixInput
 ): Promise<MixLookup> {
-  const [oembed, trackid] = await Promise.all([
-    fetchOembed(deps.fetchFn, normUrl),
-    fetchTrackId(deps.fetchFn, normUrl, deps.sleep),
-  ]);
-  return { oembed, trackid };
+  if (input.kind === 'permalink') {
+    const [oembed, trackid] = await Promise.all([
+      fetchOembed(deps.fetchFn, input.url),
+      fetchTrackId(deps.fetchFn, input.url, deps.sleep),
+    ]);
+    return { oembed, trackid, resolvedUrl: input.url };
+  }
+  // Short link: resolve via oEmbed first, then reconstruct + guard on TrackId.
+  const oembed = await fetchOembed(deps.fetchFn, input.url);
+  let trackid: TrackIdResult = { status: 'notFound' };
+  let resolvedUrl: string | null = null;
+  if (oembed.status === 'ok') {
+    // oembed.author (author_name) lets permalinkFromOembed strip the " by
+    // <author>" suffix SoundCloud appends to the title before slugging it.
+    const candidate = permalinkFromOembed(
+      oembed.authorUrl,
+      oembed.title,
+      oembed.author
+    );
+    if (candidate !== null) {
+      resolvedUrl = candidate;
+      trackid = await fetchTrackId(deps.fetchFn, candidate, deps.sleep);
+    }
+  }
+  return { oembed, trackid, resolvedUrl };
 }
 
 /**

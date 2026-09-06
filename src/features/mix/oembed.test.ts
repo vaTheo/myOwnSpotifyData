@@ -79,10 +79,19 @@ describe('fetchOembed', () => {
       status: 'ok',
       title: 'Exclusive: Shonky - May Mix by XLR8R',
       author: 'XLR8R',
+      authorUrl: 'https://soundcloud.com/xlr8r',
       // Passed on raw: entities and \r\n intact for the parser to clean.
       description: 'A mix.\r\nMore &amp; more <b>house</b>.',
       playerSrc: PLAYER_SRC,
     });
+  });
+
+  it('reads authorUrl from author_url (the profile a short link resolves to)', async () => {
+    const { fetchArg } = once(() => json(BODY));
+    const result = await fetchOembed(fetchArg, URL);
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.authorUrl).toBe('https://soundcloud.com/xlr8r');
   });
 
   it('keeps the player src without appending show_comments', async () => {

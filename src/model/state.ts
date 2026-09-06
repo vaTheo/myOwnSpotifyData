@@ -22,7 +22,7 @@ import {
   lookupMix,
 } from '../features/mix/lookup';
 import { parseDescription, parsePasted } from '../features/mix/parse';
-import { normalizeMixUrl } from '../features/mix/url';
+import { classifyMixInput, isShortLink } from '../features/mix/url';
 import {
   PASS_BY_ID,
   candidateIds,
@@ -98,6 +98,14 @@ export interface MixView {
   /** Layer error messages to show inline; null when the layer was fine. */
   oembedError: string | null;
   trackidError: string | null;
+  /**
+   * True when the input was an on.soundcloud.com mobile share link that
+   * TrackId could not be confirmed for (oEmbed resolved it, but the guard did
+   * not confirm the reconstructed permalink). The screen (§5.2) shows one
+   * honest inline note; a confirmed short link keys on its resolved permalink
+   * and behaves like any hit (no note).
+   */
+  shortLink: boolean;
 }
 
 export type MixState =
@@ -573,23 +581,23 @@ const REPLACE_WITH_LOOKUP =
 export async function startMixLookup(pastedUrl: string): Promise<void> {
   if (mixState.value.status === 'looking') return;
   mixError.value = null;
-  const normUrl = normalizeMixUrl(pastedUrl);
-  if (normUrl === null) {
+  const input = classifyMixInput(pastedUrl);
+  if (input === null) {
     mixState.value = { status: 'error', message: MIX_NOT_A_LINK };
     return;
   }
   // Claim the looking state synchronously so a second tap cannot double-run.
   // `as MixState` keeps the signal at its declared union type, as startSync,
   // startLookup and startReach each do.
-  mixState.value = { status: 'looking', url: normUrl } as MixState;
+  mixState.value = { status: 'looking', url: input.url } as MixState;
   // lookupMix never throws, so the state can never strand on `looking`.
-  const { oembed, trackid } = await lookupMix(
+  const { oembed, trackid, resolvedUrl } = await lookupMix(
     {
       // Bare `fetch` throws "Illegal invocation" once unbound from window.
       fetchFn: (input, init) => fetch(input, init),
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     },
-    normUrl
+    input
   );
   const parsed =
     oembed.status === 'ok'
@@ -598,8 +606,14 @@ export async function startMixLookup(pastedUrl: string): Promise<void> {
   const descriptionRows = parsed.rows;
   const identified =
     trackid.status === 'ok' ? trackid.rows.filter((row) => !row.gap).length : 0;
+  // Key on the confirmed permalink when TrackId confirmed the candidate (for a
+  // permalink `resolvedUrl` is the input, so this collapses to `input.url`);
+  // otherwise the input url — the permalink, or the short link when TrackId did
+  // not confirm it — so one mix never saves twice.
+  const url =
+    trackid.status === 'ok' && resolvedUrl !== null ? resolvedUrl : input.url;
   const view: MixView = {
-    url: normUrl,
+    url,
     title: oembed.status === 'ok' ? oembed.title : null,
     author: oembed.status === 'ok' ? oembed.author : null,
     playerSrc: oembed.status === 'ok' ? oembed.playerSrc : null,
@@ -621,6 +635,15 @@ export async function startMixLookup(pastedUrl: string): Promise<void> {
         : null,
     oembedError: oembed.status === 'error' ? oembed.message : null,
     trackidError: trackid.status === 'error' ? trackid.message : null,
+    // A short link whose oEmbed resolved but whose TrackId lookup was not
+    // confirmed: the screen shows the honest "mobile share link" note. Gated on
+    // oEmbed ok so the note (which promises a player and description below) is
+    // never shown when there is nothing to show — a failed oEmbed prints its
+    // own error line instead.
+    shortLink:
+      input.kind === 'shortlink' &&
+      oembed.status === 'ok' &&
+      trackid.status !== 'ok',
   };
   mixState.value = { status: 'ready', view };
   // Seed the working list from the richest layer that answered: TrackId's rows
@@ -787,6 +810,9 @@ export function openMix(url: string): void {
         : null,
     oembedError: null,
     trackidError: null,
+    // A confirmed short link saved under its resolved permalink, so only an
+    // unconfirmed one keeps an on.soundcloud.com url and re-shows the note.
+    shortLink: isShortLink(row.url),
   };
   mixState.value = { status: 'ready', view };
 }

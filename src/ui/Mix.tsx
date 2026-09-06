@@ -337,10 +337,23 @@ function Provenance(p: { view: MixView }) {
     view.sources.description ||
     view.sources.linkOut !== null ||
     view.sources.pasted;
+  // The short-link note already tells the owner to paste or read the player, so
+  // it stands in for the "nothing found" line rather than doubling it.
   const nothingFound =
-    !foundSomething && view.trackidError === null && view.oembedError === null;
+    !foundSomething &&
+    !view.shortLink &&
+    view.trackidError === null &&
+    view.oembedError === null;
   return (
     <>
+      {view.shortLink && (
+        <p class="caption">
+          This is a mobile share link, so the automatic TrackId.net lookup could
+          not run for it. The player and any tracklist in the description are
+          shown below — or paste a tracklist. On a computer, open the mix and
+          copy its full soundcloud.com/… link for a TrackId lookup.
+        </p>
+      )}
       {tid && tid.count > 0 && (
         <p class="caption">
           From TrackId.net · {plural(tid.count, 'track')}
