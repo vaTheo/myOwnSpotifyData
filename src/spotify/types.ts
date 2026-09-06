@@ -48,6 +48,11 @@ export interface ApiPage<T> {
   next?: string | null;
 }
 
+/** `GET /search?type=track` response: `tracks.items[]` are `ApiTrack`. */
+export interface ApiSearchTracks {
+  tracks: ApiPage<ApiTrack>;
+}
+
 export interface ApiPlaylistSummary {
   id: string;
   name: string;

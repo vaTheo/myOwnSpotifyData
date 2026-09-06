@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Session } from '../../auth/session';
 import type { TracklistRow } from '../../db/schema';
+import type { Query, SpotifyClient } from '../../spotify/client';
 import type { ApiTrack } from '../../spotify/types';
-import { canCreatePlaylists, isIdentified, pickMatch } from './spotifySearch';
+import {
+  canCreatePlaylists,
+  isIdentified,
+  pickMatch,
+  searchTrack,
+} from './spotifySearch';
 
 function session(scope: string): Session {
   return {
@@ -145,5 +151,94 @@ describe('pickMatch', () => {
     const first = track({ id: 'f1', uri: 'spotify:track:f1' });
     const second = track({ id: 'f2', uri: 'spotify:track:f2' });
     expect(pickMatch(row(), [first, second])).toBe(first);
+  });
+});
+
+function mockClient(...batches: ApiTrack[][]) {
+  const queue = [...batches];
+  const get = vi.fn<(path: string, query?: Query) => Promise<unknown>>(
+    async () => ({ tracks: { items: queue.shift() ?? [] } })
+  );
+  return { client: { get } as unknown as Pick<SpotifyClient, 'get'>, get };
+}
+
+describe('searchTrack', () => {
+  it('returns the field-query hit and does not run the plain fallback', async () => {
+    const hit = track();
+    const { client, get } = mockClient([hit]);
+    const m = await searchTrack(client, row());
+    expect(m).toEqual({
+      row: row(),
+      uri: 'spotify:track:t1',
+      matchedName: 'Losing It',
+    });
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get.mock.calls[0][0]).toBe('/search');
+    expect(get.mock.calls[0][1]).toEqual({
+      q: 'artist:"Fisher" track:"Losing It"',
+      type: 'track',
+      limit: 5,
+    });
+  });
+
+  it('falls back to the plain query when the field query is empty', async () => {
+    const hit = track();
+    const { client, get } = mockClient([], [hit]);
+    const m = await searchTrack(client, row());
+    expect(m.uri).toBe('spotify:track:t1');
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(get.mock.calls[1][1]).toEqual({
+      q: 'Fisher Losing It',
+      type: 'track',
+      limit: 5,
+    });
+  });
+
+  it('is unmatched when both queries return zero results', async () => {
+    const { client, get } = mockClient([], []);
+    const m = await searchTrack(client, row());
+    expect(m).toEqual({ row: row(), uri: null, matchedName: null });
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('is unmatched when the artist is wrong across both queries', async () => {
+    const wrong = track({ artists: [{ id: 'a2', name: 'Someone Else' }] });
+    const { client, get } = mockClient([wrong], [wrong]);
+    const m = await searchTrack(client, row());
+    expect(m.uri).toBeNull();
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('strips embedded quotes from the field-query values', async () => {
+    const { client, get } = mockClient([]);
+    await searchTrack(client, row({ artist: 'A"B', title: 'C"D' }));
+    expect(get.mock.calls[0][1]).toMatchObject({
+      q: 'artist:"AB" track:"CD"',
+    });
+  });
+
+  it('does not search a gap or inert row (zero fetches)', async () => {
+    const { client: gapClient, get: gapGet } = mockClient([track()]);
+    expect(await searchTrack(gapClient, row({ gap: true }))).toEqual({
+      row: row({ gap: true }),
+      uri: null,
+      matchedName: null,
+    });
+    expect(gapGet).not.toHaveBeenCalled();
+
+    const { client: idClient, get: idGet } = mockClient([track()]);
+    expect(
+      (await searchTrack(idClient, row({ artist: 'ID', title: 'ID' }))).uri
+    ).toBeNull();
+    expect(idGet).not.toHaveBeenCalled();
+  });
+
+  it('skips a local top result and takes a real track lower down', async () => {
+    const local = track({ id: null, uri: 'spotify:local:x', is_local: true });
+    const real = track({ id: 't9', uri: 'spotify:track:t9' });
+    const { client, get } = mockClient([local, real]);
+    const m = await searchTrack(client, row());
+    expect(m.uri).toBe('spotify:track:t9');
+    expect(get).toHaveBeenCalledTimes(1);
   });
 });
