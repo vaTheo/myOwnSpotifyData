@@ -76,3 +76,10 @@ export interface ApiProfile {
   id: string;
   display_name?: string | null;
 }
+
+/** POST /me/playlists response (only the fields this feature reads). */
+export interface ApiPlaylist {
+  id: string;
+  name: string;
+  external_urls?: { spotify?: string };
+}
