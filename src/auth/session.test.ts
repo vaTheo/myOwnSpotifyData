@@ -84,6 +84,9 @@ describe('beginLogin', () => {
     );
     expect(url.searchParams.get('state')).toBe(pkce.state);
     expect(url.searchParams.get('scope')).toBe(SCOPES);
+    expect(url.searchParams.get('scope')).toBe(
+      'user-top-read playlist-read-private playlist-modify-private'
+    );
     expect(url.searchParams.get('redirect_uri')).toBe('https://x.test/app/');
     expect(url.searchParams.get('client_id')).toBe('cid');
   });
