@@ -60,13 +60,30 @@ function arr(value: unknown): unknown[] {
 }
 
 interface Span {
-  musicTrackId: string;
+  /** Merge-grouping key: the track id as a string when one was given (a
+   *  numeric id included), or a per-span-unique key when it was missing —
+   *  never a shared `''`, or every missing-id span would merge as "the same
+   *  track" (I1). */
+  mergeKey: string;
   startSec: number;
   endSec: number;
   artist: string;
   title: string;
   label: string | null;
   referenceCount: number | null;
+}
+
+/** The merge-grouping key for a span's raw `musicTrackId`: a real id (number
+ *  or non-empty string) keys by its string form so two spans of the same
+ *  track merge; a missing id (anything else) gets a key unique to this span
+ *  so distinct untagged spans never merge with one another. `index` is the
+ *  span's position in flatten order, unique per call. */
+function mergeKeyFor(rawId: unknown, index: number): string {
+  if (typeof rawId === 'number' && Number.isFinite(rawId)) {
+    return `id:${rawId}`;
+  }
+  if (typeof rawId === 'string' && rawId !== '') return `id:${rawId}`;
+  return `missing:${index}`;
 }
 
 function identifiedRow(span: Span): TracklistRow {
@@ -103,23 +120,26 @@ function gapRow(startSec: number, endSec: number): TracklistRow {
  * gap rows for the head, each between-span stretch, and the tail (only when
  * `durationSec` is known), each at least MIX_GAP_MIN_SEC long. Order is
  * flatten -> merge -> sort -> gaps. A span whose startTime or endTime does not
- * parse as a clock is dropped, not placed at zero. When nothing was identified
- * the result is [] — never one gap row spanning the whole mix — so the screen
- * can tell "known but empty" from "one gap".
+ * parse as a clock, or whose endTime is before its startTime (malformed), is
+ * dropped, not placed at zero or given a negative length. When nothing was
+ * identified the result is [] — never one gap row spanning the whole mix —
+ * so the screen can tell "known but empty" from "one gap".
  */
 export function tidSpansToRows(
   record: unknown,
   durationSec: number | null
 ): TracklistRow[] {
-  // 1. Flatten across all detection processes, keeping only parseable spans.
+  // 1. Flatten across all detection processes, keeping only parseable,
+  //    well-formed spans.
   const spans: Span[] = [];
   for (const process of arr(field(record, 'detectionProcesses'))) {
     for (const t of arr(field(process, 'detectionProcessMusicTracks'))) {
       const startSec = parseClock(str(field(t, 'startTime')));
       const endSec = parseClock(str(field(t, 'endTime')));
       if (startSec === null || endSec === null) continue;
+      if (endSec < startSec) continue; // M4: malformed span, drop it.
       spans.push({
-        musicTrackId: str(field(t, 'musicTrackId')),
+        mergeKey: mergeKeyFor(field(t, 'musicTrackId'), spans.length),
         startSec,
         endSec,
         artist: str(field(t, 'artist')),
@@ -134,12 +154,14 @@ export function tidSpansToRows(
   }
 
   // 2. Merge same-musicTrackId spans that overlap or abut (reprocess
-  //    continuation), but not a genuine replay two hours later.
+  //    continuation), but not a genuine replay two hours later. A missing id
+  //    got its own unique mergeKey above, so it never merges with another
+  //    missing-id span.
   const byTrack = new Map<string, Span[]>();
   for (const span of spans) {
-    const group = byTrack.get(span.musicTrackId);
+    const group = byTrack.get(span.mergeKey);
     if (group) group.push(span);
-    else byTrack.set(span.musicTrackId, [span]);
+    else byTrack.set(span.mergeKey, [span]);
   }
   const merged: Span[] = [];
   for (const group of byTrack.values()) {
@@ -163,21 +185,26 @@ export function tidSpansToRows(
   // A mix known to TrackId but with no identified track is [] (not one gap).
   if (merged.length === 0) return [];
 
-  // 4 + 5. Interleave identified rows with the gap rows around them.
+  // 4 + 5. Interleave identified rows with the gap rows around them. `merged`
+  // is sorted by start, not by end, so a longer earlier span can outlast a
+  // later shorter one (a crossfade) — track the running max end seen so far
+  // (M3) rather than trusting the last-by-start span's endSec, or a
+  // following gap can start too early (or a phantom tail gap can appear).
   const rows: TracklistRow[] = [];
   if (merged[0].startSec >= MIX_GAP_MIN_SEC) {
     rows.push(gapRow(0, merged[0].startSec));
   }
+  let maxEnd = merged[0].endSec;
   for (let i = 0; i < merged.length; i += 1) {
+    maxEnd = Math.max(maxEnd, merged[i].endSec);
     rows.push(identifiedRow(merged[i]));
     const next = merged[i + 1];
-    if (next && next.startSec - merged[i].endSec >= MIX_GAP_MIN_SEC) {
-      rows.push(gapRow(merged[i].endSec, next.startSec));
+    if (next && next.startSec - maxEnd >= MIX_GAP_MIN_SEC) {
+      rows.push(gapRow(maxEnd, next.startSec));
     }
   }
-  const lastEnd = merged[merged.length - 1].endSec;
-  if (durationSec !== null && durationSec - lastEnd >= MIX_GAP_MIN_SEC) {
-    rows.push(gapRow(lastEnd, durationSec));
+  if (durationSec !== null && durationSec - maxEnd >= MIX_GAP_MIN_SEC) {
+    rows.push(gapRow(maxEnd, durationSec));
   }
   return rows;
 }

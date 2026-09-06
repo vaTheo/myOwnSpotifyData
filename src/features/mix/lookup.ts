@@ -44,25 +44,41 @@ export function hasManualRows(rows: TracklistRow[]): boolean {
 
 /**
  * The per-row edit rule (spec §4). `detected` is preserved so the edit is
- * reversible and provenance survives; the `source` flips to `'manual'` only
- * when the artist or title now differs from `detected` — a label-only edit,
- * or an edit that restores the detected values, leaves the source alone. A
- * row with no `detected` (one the owner added) is already `'manual'` and
- * stays so. The label is trimmed and empties to `null`.
+ * reversible and provenance survives; the `source` flips to `'manual'` when
+ * the artist or title now differs from `detected`, or the time is genuinely
+ * changed from what the row had (there is no "detected" time to diff
+ * against, so the row's own prior `startSec` is the baseline) — a label-only
+ * edit, an edit that restores the detected values with the same time, or a
+ * patch that omits `startSec` entirely, leaves the source alone. This
+ * matters beyond provenance display: `hasManualRows` (and so the I2/§8
+ * replace-guards) key off `source === 'manual'`, so a retimed-only row must
+ * flip too, or a re-lookup could silently discard a time the owner just set.
+ * A row with no `detected` (one the owner added) is already `'manual'` and
+ * stays so. The label is trimmed and empties to `null`. `startSec` is
+ * optional (M5): omitted, the row's time is left as it was; given, it
+ * replaces it (`null` clears it — an empty time field means "no time").
  */
 export function editTracklistRow(
   row: TracklistRow,
-  edit: { artist: string; title: string; label: string }
+  edit: {
+    artist: string;
+    title: string;
+    label: string;
+    startSec?: number | null;
+  }
 ): TracklistRow {
   const label = edit.label.trim();
   const differsFromDetected =
     row.detected !== null &&
-    (edit.artist !== row.detected.artist || edit.title !== row.detected.title);
+    (edit.artist !== row.detected.artist ||
+      edit.title !== row.detected.title ||
+      (edit.startSec !== undefined && edit.startSec !== row.startSec));
   return {
     ...row,
     artist: edit.artist,
     title: edit.title,
     label: label.length > 0 ? label : null,
+    startSec: edit.startSec !== undefined ? edit.startSec : row.startSec,
     source: differsFromDetected ? 'manual' : row.source,
   };
 }

@@ -139,6 +139,10 @@ const ENTITIES: Array<[RegExp, string]> = [
   [/&quot;/gi, '"'],
   [/&#0*39;/g, "'"],
   [/&apos;/gi, "'"],
+  // Decodes to U+00A0 itself (not an ASCII space) — regex `\s` matches it
+  // too, so e.g. `1.&nbsp;Artist - Title` still parses under the
+  // index-prefix shape instead of garbling the artist (M8).
+  [/&nbsp;/gi, '\u00A0'],
 ];
 
 function htmlToLines(raw: string): string {

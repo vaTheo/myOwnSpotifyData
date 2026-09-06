@@ -562,6 +562,8 @@ const REPLACE_WITH_DESCRIPTION =
   'Replace your edited tracklist with the one from the description?';
 const REPLACE_WITH_PASTED =
   'Replace your edited tracklist with the pasted tracks?';
+const REPLACE_WITH_LOOKUP =
+  'Looking up again replaces the current tracklist, including your edits. Continue?';
 
 /**
  * Never on load: the mix lookup runs only from the Mix screen's button. It
@@ -623,7 +625,10 @@ export async function startMixLookup(pastedUrl: string): Promise<void> {
   mixState.value = { status: 'ready', view };
   // Seed the working list from the richest layer that answered: TrackId's rows
   // (which already carry their gap rows) when it identified anything, else the
-  // description's rows, else nothing.
+  // description's rows, else nothing. Guarded exactly like the paste/apply
+  // actions below (I2): a re-lookup must not silently discard curated edits.
+  // A no-op guard on a first lookup, since mixRows.value is [] then.
+  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_LOOKUP)) return;
   mixRows.value =
     trackid.status === 'ok' && trackid.rows.length > 0
       ? trackid.rows
@@ -669,10 +674,21 @@ export function applyPastedTracklist(
   return 'added';
 }
 
-/** Commits an edit to one row through the pure `editTracklistRow` rule. */
+/**
+ * Commits an edit to one row through the pure `editTracklistRow` rule.
+ * `startSec` is optional (M5): omitted, the row's time is left alone; given
+ * (a number, or `null` for "no time"), it replaces it — this is how a manual
+ * add or an edited row gets a start time, which editing previously had no
+ * field for.
+ */
 export function editMixRow(
   index: number,
-  fields: { artist: string; title: string; label: string }
+  fields: {
+    artist: string;
+    title: string;
+    label: string;
+    startSec?: number | null;
+  }
 ): void {
   const rows = mixRows.value.slice();
   const row = rows[index];
@@ -706,6 +722,7 @@ export function deleteMixRow(index: number): void {
 
 /** Reads the saved mixes newest-first; called when the Mix screen mounts. */
 export async function loadSavedMixes(): Promise<void> {
+  mixError.value = null;
   try {
     const rows = await getMixes();
     savedMixes.value = rows.sort((a, b) => b.savedAt - a.savedAt);
@@ -714,10 +731,14 @@ export async function loadSavedMixes(): Promise<void> {
   }
 }
 
-/** Saves the current mix and its working list, then refreshes the list. */
-export async function saveMix(): Promise<void> {
+/**
+ * Saves the current mix and its working list, then refreshes the list.
+ * Returns whether the save succeeded (M7): the caller must not flash
+ * "Saved ✓" on a rejected write, where `mixError` shows instead.
+ */
+export async function saveMix(): Promise<boolean> {
   const state = mixState.value;
-  if (state.status !== 'ready') return;
+  if (state.status !== 'ready') return false;
   mixError.value = null;
   const view = state.view;
   const row: MixRow = {
@@ -734,9 +755,10 @@ export async function saveMix(): Promise<void> {
     await putMix(row);
   } catch (err) {
     mixError.value = `Could not save the mix: ${storageMessage(err)}`;
-    return;
+    return false;
   }
   await loadSavedMixes();
+  return true;
 }
 
 /**
@@ -767,6 +789,18 @@ export function openMix(url: string): void {
     trackidError: null,
   };
   mixState.value = { status: 'ready', view };
+}
+
+/**
+ * Returns to the idle saved-mixes screen (M9) — no network call, and no data
+ * lost: a saved mix is already in `savedMixes`/IndexedDB, so only the
+ * in-memory working list (never persisted unless `saveMix` ran) is cleared,
+ * the same reset `openMix`/`disconnect` give a fresh screen.
+ */
+export function closeMix(): void {
+  mixState.value = { status: 'idle' };
+  mixRows.value = [];
+  mixError.value = null;
 }
 
 /**
