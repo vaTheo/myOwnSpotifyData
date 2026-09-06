@@ -72,10 +72,11 @@ export async function lookupMix(
       oembed.author
     );
     resolvedUrl = candidates[0] ?? null;
-    // Probe each candidate; the first guard-confirmed hit wins. A later `ok`
-    // still beats an earlier `error`, and if nothing is confirmed the first
-    // transport error (not a mere guard miss) is surfaced so it is not hidden.
-    let firstError: TrackIdResult | null = null;
+    // Probe each candidate; the first guard-confirmed hit wins. A transport
+    // error stops the loop and is surfaced (a different slug spelling says
+    // nothing about a rate limit or an outage, so hammering the endpoint with
+    // the remaining candidates would be rude and pointless); only a plain
+    // guard miss moves on to the next spelling.
     for (let i = 0; i < candidates.length; i += 1) {
       if (i > 0) await deps.sleep(CANDIDATE_PROBE_GAP_MS);
       const result = await fetchTrackId(
@@ -88,9 +89,11 @@ export async function lookupMix(
         resolvedUrl = candidates[i];
         break;
       }
-      if (result.status === 'error' && firstError === null) firstError = result;
+      if (result.status === 'error') {
+        trackid = result;
+        break;
+      }
     }
-    if (trackid.status !== 'ok' && firstError !== null) trackid = firstError;
   }
   return { oembed, trackid, resolvedUrl };
 }
