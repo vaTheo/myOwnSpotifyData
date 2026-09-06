@@ -23,6 +23,8 @@ import {
 } from '../features/mix/lookup';
 import { parseDescription, parsePasted } from '../features/mix/parse';
 import { classifyMixInput, isShortLink } from '../features/mix/url';
+import { runCreatePlaylist } from '../features/mix/createPlaylist';
+import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
   PASS_BY_ID,
   candidateIds,
@@ -825,6 +827,70 @@ export async function saveMix(): Promise<boolean> {
   }
   await loadSavedMixes();
   return true;
+}
+
+/**
+ * Creates a private Spotify playlist from the open mix (spec §4). Never on
+ * load: only from the Mix screen's "Create playlist from mix" tap. Not a
+ * jobsBusy() job — it writes only the one mix row and rebuilds no model, so it
+ * clobbers nothing; re-entry is guarded on its own state. Without the granted
+ * playlist-modify-private scope it saves the mix (so beginLogin's full-page
+ * navigation cannot lose it) and reveals the needScope prompt instead.
+ */
+export async function startCreatePlaylist(): Promise<void> {
+  const status = createPlaylistState.value.status;
+  if (status === 'resolving' || status === 'creating' || status === 'adding') {
+    return;
+  }
+  const state = mixState.value;
+  if (state.status !== 'ready') return;
+  const view = state.view;
+  const rows = mixRows.value;
+
+  if (!canCreatePlaylists(auth.session.value)) {
+    if (!(await saveMix())) return;
+    createPlaylistState.value = { status: 'needScope' };
+    return;
+  }
+
+  // Claim the running state synchronously so a second tap cannot double-run,
+  // with the `as CreatePlaylistState` cast the codebase uses (startSync /
+  // startMixLookup) to hold the signal at its declared union type.
+  createPlaylistState.value = {
+    status: 'resolving',
+    done: 0,
+    total: 0,
+  } as CreatePlaylistState;
+
+  const name = (
+    (view.title ?? 'Mix tracklist').trim() || 'Mix tracklist'
+  ).slice(0, 100);
+  const description = `From ${view.url} · via DJ Data`.slice(0, 300);
+
+  const outcome = await runCreatePlaylist(
+    {
+      client: api,
+      onState: (s) => {
+        createPlaylistState.value = s;
+      },
+    },
+    { name, description, rows }
+  );
+
+  // Persist whenever the playlist was created (even on a partial add failure):
+  // put the link/id on the open view, then Save carries them into the mix row
+  // (a rejected putMix shows via mixError; the link is already on screen).
+  if (outcome.playlistId !== null) {
+    mixState.value = {
+      status: 'ready',
+      view: {
+        ...view,
+        playlistUrl: outcome.url ?? undefined,
+        playlistId: outcome.playlistId,
+      },
+    };
+    await saveMix();
+  }
 }
 
 /**
