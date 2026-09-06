@@ -14,6 +14,7 @@ import type {
   TrackRow,
 } from '../db/schema';
 import { buildModel } from '../model/aggregate';
+import { isWellKnown } from '../model/reach';
 import { DEEZER_API } from './deezer';
 import { LISTENBRAINZ_STATS_URL } from './listenbrainz';
 import { MUSICBRAINZ_URL } from './musicbrainz';
@@ -663,6 +664,42 @@ describe('runReach', () => {
         resolvedAt: NOW,
       })
     );
+  });
+
+  it('resolves a pass-1 miss through pass 2 by MBID, and the artist becomes well known', async () => {
+    const { deps } = setup({
+      mb: () =>
+        json({
+          resource: 'https://open.spotify.com/artist/a1',
+          relations: [{ type: 'free streaming', artist: { id: 'mb-1' } }],
+        }),
+      // Pass 1 (P1902) misses everyone; pass 2 (P434, by the MBID the
+      // MusicBrainz phase just wrote) binds it.
+      wd: (query) =>
+        query.includes('wdt:P1902')
+          ? json({ results: { bindings: [] } })
+          : json({
+              results: {
+                bindings: [
+                  {
+                    mbid: { value: 'mb-1' },
+                    item: { value: 'http://www.wikidata.org/entity/Q42' },
+                    sitelinks: { value: '5' },
+                    en: { value: 'https://en.wikipedia.org/wiki/Hugo_LX' },
+                  },
+                ],
+              },
+            }),
+    });
+    await runReach(deps, [candidate({ isrcs: [] })], [], []);
+    const rows = await getAllRows();
+    const row = rows.artistIdentity.find((r) => r.artistId === 'a1');
+    expect(row?.mbid).toBe('mb-1');
+    expect(row?.qid).toBe('Q42');
+    expect(row?.qidStatus).toBe('ok');
+    expect(row?.sitelinks).toBe(5);
+    expect(row?.wikiTitles).toEqual({ en: 'Hugo_LX', fr: null });
+    expect(isWellKnown(row)).toBe(true);
   });
 
   it('leaves the whole Wikidata batch unchecked when a POST fails', async () => {
