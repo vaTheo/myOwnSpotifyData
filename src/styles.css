@@ -696,3 +696,22 @@ details.card > summary {
   font-size: 0.8rem;
   color: var(--muted);
 }
+
+/* Spec §5/§6: the create-playlist "not found" disclosure on the Mix screen.
+   The base `details.card > summary` rule only styles card summaries; this
+   mirrors it for the inline disclosure — a pointer cursor and a ≥44px tap
+   target — while keeping the default `list-item` display so the triangle
+   marker stays. The list reuses `.list`; its rows get a readable line-height.
+   No other new CSS: the button reuses `.primary`, and the
+   prompt/progress/error lines reuse `.muted`/`.error`. */
+.mix details > summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 10px 0;
+  color: var(--muted);
+}
+
+.mix details .list li {
+  padding: 4px 0;
+  font-size: 0.9rem;
+}

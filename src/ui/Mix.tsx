@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { auth } from '../auth/browser';
 import type { TracklistRow } from '../db/schema';
 import { parseClock } from '../features/mix/parse';
 import {
@@ -6,12 +7,13 @@ import {
   matchMixRow,
   type MixMatch,
 } from '../features/mix/match';
-import { normalize } from '../model/normalize';
+import { isIdentified } from '../features/mix/spotifySearch';
 import {
   addMixRow,
   applyDescriptionTracklist,
   applyPastedTracklist,
   closeMix,
+  createPlaylistState,
   deleteMixRow,
   editMixRow,
   loadSavedMixes,
@@ -23,25 +25,25 @@ import {
   removeMix,
   saveMix,
   savedMixes,
+  startCreatePlaylist,
   startMixLookup,
   type MixView,
 } from '../model/state';
 import { FeaturePills } from './components/FeaturePills';
+import { Progress } from './components/Progress';
+import { SpotifyLink } from './components/SpotifyLink';
 import { TrackRow } from './components/TrackRow';
 import { formatClock, formatDate, plural } from './format';
 
 /**
  * A gap row and a `?`/`ID`/`unknown` row get no Spotify search and no match.
- * `normalize` narrows `?` to '', so the empty string is inert too.
+ * The positive predicate `isIdentified` now lives in `spotifySearch.ts` (the
+ * create-playlist feature searches exactly those rows); the screen keeps one
+ * negation so the two never diverge. `normalize` there narrows `?` to '', so
+ * the empty string is inert too.
  */
-const INERT = new Set(['', 'id', 'unknown']);
-
 function isInert(row: TracklistRow): boolean {
-  return (
-    row.gap ||
-    INERT.has(normalize(row.artist)) ||
-    INERT.has(normalize(row.title))
-  );
+  return !isIdentified(row);
 }
 
 /** Spotify search, never a track page: the app holds no id for the mix track. */
@@ -290,6 +292,114 @@ function Tracklist() {
   );
 }
 
+/**
+ * Spec §5: create a private Spotify playlist from the open mix's identified
+ * rows. The button shows whenever at least one identified row exists — there is
+ * always a session inside `Mix.tsx` (app.tsx renders `<Connect/>` when
+ * `!auth.session.value`), so a session is not part of the visibility condition;
+ * the real gate is the scope, checked on tap inside `startCreatePlaylist`
+ * (which reveals the `needScope` prompt). Every failure is rendered inline
+ * through `createPlaylistState`; the screen raises no banner.
+ */
+function CreatePlaylistPanel(p: { view: MixView }) {
+  const { view } = p;
+  const cs = createPlaylistState.value;
+  // The count of rows the create job will attempt (N). Also stands in for the
+  // `total` §5's error line references, which the `error` arm does not carry:
+  // an add-batch failure happens only after every identified row resolved, so
+  // the attempted N equals this render-time count.
+  const identifiedCount = mixRows.value.filter(isIdentified).length;
+  const identified = identifiedCount > 0;
+  const running =
+    cs.status === 'resolving' ||
+    cs.status === 'creating' ||
+    cs.status === 'adding';
+  return (
+    <>
+      {identified && (
+        <button
+          type="button"
+          class="primary"
+          disabled={running}
+          onClick={() => void startCreatePlaylist()}
+        >
+          {running ? 'Creating playlist…' : 'Create playlist from mix'}
+        </button>
+      )}
+      {cs.status === 'needScope' && (
+        <>
+          <p class="muted">
+            This app cannot create playlists yet — connect again to allow it.
+            Your saved mixes stay on this phone.
+          </p>
+          <button type="button" onClick={() => auth.logout()}>
+            Connect again to allow playlists
+          </button>
+        </>
+      )}
+      {cs.status === 'resolving' && (
+        <Progress
+          label="Matching tracks"
+          done={cs.done}
+          total={cs.total}
+          unit="tracks"
+        />
+      )}
+      {cs.status === 'creating' && <p class="muted">Creating the playlist…</p>}
+      {cs.status === 'adding' && <p class="muted">Adding tracks…</p>}
+      {cs.status === 'done' && (
+        <>
+          <p>
+            Created ‘{cs.name}’ — {cs.added} of {cs.total} tracks
+            {cs.url !== null && (
+              <>
+                {' · '}
+                <SpotifyLink href={cs.url} label />
+              </>
+            )}
+          </p>
+          {cs.unmatched.length > 0 && (
+            <details>
+              <summary>{cs.unmatched.length} not found</summary>
+              <ul class="list">
+                {cs.unmatched.map((u, i) => (
+                  <li key={i}>
+                    {u.artist} – {u.title}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </>
+      )}
+      {cs.status === 'error' && (
+        <>
+          <p class="error">Could not create the playlist: {cs.message}</p>
+          {cs.url != null && (
+            <p>
+              Playlist created · <SpotifyLink href={cs.url} label />
+            </p>
+          )}
+          {/* `!== undefined`, not truthiness: a batch-1 failure reports
+              `added: 0`, and "Added 0 of N before the error." must still show —
+              the no-swallow rule protects exactly that case. */}
+          {cs.added !== undefined && (
+            <p class="muted">
+              Added {cs.added} of {identifiedCount} before the error.
+            </p>
+          )}
+        </>
+      )}
+      {view.playlistUrl != null &&
+        (cs.status === 'idle' || cs.status === 'needScope') && (
+          <p>
+            Playlist created · <SpotifyLink href={view.playlistUrl} label />
+          </p>
+        )}
+    </>
+  );
+}
+
 function PasteBox() {
   const [text, setText] = useState('');
   const [note, setNote] = useState<string | null>(null);
@@ -455,6 +565,7 @@ function Ready(p: { view: MixView }) {
         </button>
       )}
       <Tracklist />
+      <CreatePlaylistPanel view={view} />
       <PasteBox />
     </>
   );
