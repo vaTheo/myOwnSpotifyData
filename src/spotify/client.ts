@@ -20,6 +20,7 @@ export interface ClientDeps {
 
 export interface SpotifyClient {
   get<T>(path: string, query?: Query): Promise<T>;
+  post<T>(path: string, body: unknown, query?: Query): Promise<T>;
   pages<T>(
     path: string,
     query?: Query,
@@ -77,18 +78,37 @@ export function createClient(deps: ClientDeps): SpotifyClient {
     return run;
   }
 
-  async function request<T>(url: string): Promise<T> {
+  async function request<T>(
+    url: string,
+    init?: { method?: string; body?: string }
+  ): Promise<T> {
+    // POST is not idempotent: a retried create could make a second playlist the
+    // app cannot detect, and a retried add would duplicate tracks. So on a 5xx
+    // or a network error POST throws at once; only 401-refresh-once and a short
+    // 429 (both pre-mutation) are retried. GET keeps its 5xx/network backoff.
+    const isPost = init?.method === 'POST';
     let token = await deps.getAccessToken();
     let retried401 = false;
     let attempts429 = 0;
     let attempts5xx = 0;
     for (;;) {
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+      };
+      if (init?.body !== undefined)
+        headers['Content-Type'] = 'application/json';
       let res: Response;
       try {
         res = await deps.fetchFn(url, {
-          headers: { Authorization: `Bearer ${token}` },
+          method: init?.method ?? 'GET',
+          headers,
+          body: init?.body,
         });
       } catch (err) {
+        if (isPost) {
+          const reason = err instanceof Error ? err.message : String(err);
+          throw new ApiError(0, `Network error: ${reason}`);
+        }
         attempts5xx += 1;
         if (attempts5xx <= MAX_5XX_RETRIES) {
           await deps.sleep(backoffMs(attempts5xx));
@@ -125,6 +145,13 @@ export function createClient(deps: ClientDeps): SpotifyClient {
         continue;
       }
       if (res.status >= 500) {
+        if (isPost) {
+          throw new ApiError(
+            res.status,
+            `Spotify server error ${res.status}`,
+            await safeJson(res)
+          );
+        }
         attempts5xx += 1;
         if (attempts5xx <= MAX_5XX_RETRIES) {
           await deps.sleep(backoffMs(attempts5xx));
@@ -150,6 +177,15 @@ export function createClient(deps: ClientDeps): SpotifyClient {
     return enqueue(() => request<T>(buildUrl(path, query)));
   }
 
+  function post<T>(path: string, body: unknown, query?: Query): Promise<T> {
+    return enqueue(() =>
+      request<T>(buildUrl(path, query), {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+    );
+  }
+
   function pages<T>(
     path: string,
     query?: Query,
@@ -158,5 +194,5 @@ export function createClient(deps: ClientDeps): SpotifyClient {
     return paginate<T>(get, path, query, limit);
   }
 
-  return { get, pages };
+  return { get, post, pages };
 }
