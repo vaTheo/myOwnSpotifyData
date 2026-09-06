@@ -222,10 +222,10 @@ Rules, each with a test in §7:
 - Trim; parse as a URL (return `null` if it does not parse).
 - Host must be `soundcloud.com`, `www.soundcloud.com` or `m.soundcloud.com`;
   anything else (including `on.soundcloud.com` short links, which need a
-  redirect the app cannot follow cross-origin) → `null`. **`(to confirm at
-  implementation)`**: whether `on.soundcloud.com` short links are worth a
-  best-effort note to the owner ("open it once to get the full link"); the
-  research did not test them.
+  redirect the app cannot follow cross-origin) → `null`. No best-effort note is
+  shown for a short link: expanding it would need a network call `normalizeMixUrl`
+  must not make, and the `error` state already tells the owner to paste the
+  mix's page link (resolved at implementation — §8).
 - Lowercase the **host only** — never the path. The research measured an
   upper-cased path returning `rowCount: 0`, so the path is preserved verbatim.
 - Rewrite the host to `soundcloud.com`.
@@ -915,9 +915,26 @@ touches the network.**
   `/audiostreams/<id>/tracks` both return **404** — the endpoint is keyed by
   `slug`, from the validated list record.
 
-**`(to confirm at implementation)`** — the only unresolved point: whether
-`on.soundcloud.com` short links are worth a best-effort note (§3.1); everything
-else is verified or ruled.
+**Rulings made while implementing.** Recorded here because each differs from,
+or resolves a gap left open by, the sections above.
+
+- _`on.soundcloud.com` short links resolve to `null`, with no owner note_
+  (§3.1). This was the design's one `(to confirm at implementation)` point. The
+  host allowlist already excludes the short-link host, and expanding it would
+  need a redirect `normalizeMixUrl` cannot follow cross-origin, so the lean
+  rule takes the smallest thing that works: the `error` state
+  (`That is not a SoundCloud track link.`) already tells the owner to paste the
+  mix's page link. Cost if wrong: an owner who pastes a short link is told it is
+  not a track link rather than being helped to expand it; revisit only if it
+  recurs.
+- _The paste box reports its outcome so the screen can render §4's "gentle
+  inline note"_ (§4, §5.2). `applyPastedTracklist` returns
+  `'added' | 'linkOnly' | 'empty'` rather than `void`, and the Mix screen holds
+  that in local state to show a muted note beside the paste box for a link-only
+  or empty paste. A new `mixError` signal (never a `BannerMessage`, so §6 holds)
+  carries a rejected `putMix`/`deleteMix`/`getMixes`, rendered inline — the two
+  surfaces §6 did not enumerate, added so nothing is swallowed. Cost if wrong: a
+  second inline channel on one screen.
 
 **Terms and privacy.**
 

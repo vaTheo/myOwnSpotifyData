@@ -7,10 +7,12 @@ counts, and artists ranked by how many of their tracks I have saved.
 It runs entirely in the browser: login with PKCE, playlists cached in
 IndexedDB, and Spotify's _Extended streaming history_ export imported locally
 for play counts. Nothing is uploaded anywhere except the track ids the BPM and
-key lookup sends to ReccoBeats and the artist ids, ISRCs and article titles
-the artist-reach lookup sends to MusicBrainz, ListenBrainz, Deezer, Wikidata
-and Wikimedia — and only when you start one of them. No token, no playlist and
-no listening history ever leaves the browser.
+key lookup sends to ReccoBeats, the artist ids, ISRCs and article titles the
+artist-reach lookup sends to MusicBrainz, ListenBrainz, Deezer, Wikidata and
+Wikimedia, and the SoundCloud link you paste into the Mix tracklist screen,
+which goes to SoundCloud and TrackId.net (and loads the player from
+`w.soundcloud.com`) — and only when you start one of them. No token, no
+playlist and no listening history ever leaves the browser.
 
 ## Run locally
 
@@ -102,6 +104,30 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   plays are plays of the tracks you saved, not of everything the artist made.
   Artist data via MusicBrainz and ListenBrainz · Deezer · Wikidata (CC0) ·
   Wikipedia (CC BY-SA).
+- **Mix tracklist** drafts the tracklist of a SoundCloud DJ mix from a link.
+  Open the **Mix tracklist** card in Settings, paste a mix's link and tap
+  `Look up`. It reads two free public sources — TrackId.net (a corpus of
+  already-analysed mixes) and the mix's own SoundCloud description — matches
+  each row against your synced library, shows the BPM and key pills and how
+  many of your playlists hold it, and lets you correct any row or add your own.
+  There is also a box to paste a tracklist you found elsewhere (MixesDB, a
+  player comment) and the embedded player with its timed comments. Save a mix
+  to keep the working list; saved mixes live only in this browser.
+  It is a **draft with holes, not the full tracklist.** TrackId identified
+  32.6% of the one real 190-minute mix measured, and a fresh upload is often
+  not in its corpus at all (a three-day-old set came back with nothing); a
+  SoundCloud description carries a tracklist only when the uploader wrote one,
+  which is often not at all. Every stretch nothing
+  was identified shows as an `ID · unidentified` row, and unreleased promos and
+  dubplates are in no database, so expect to fill gaps by hand. The app never
+  listens to the audio — it only shows what public sources already know, so it
+  cannot identify a track no source has named.
+  **To identify every track yourself, scan the audio on your computer** with an
+  open-source tool such as Tracklistify or SongRec: they run off the phone and
+  use Shazam to recognise the audio. Or, on the phone, open Shazam and turn on
+  **Sync Shazam Library to Spotify** (Auto Shazam): a "My Shazam Tracks"
+  playlist then appears in Spotify, shows up under Playlists here, and syncs
+  like any other playlist.
 - **Re-import once for the Crate.** An import made before the Crate shipped
   kept no month, start or skip data, so the year, month and finish-rate views
   stay empty until you import the export again; the app says so once and the
