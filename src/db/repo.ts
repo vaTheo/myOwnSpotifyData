@@ -18,6 +18,11 @@ let dbPromise: Promise<IDBPDatabase<DjDb>> | null = null;
 export const DB_BLOCKED_MESSAGE =
   'Another tab of DJ Data is holding the old database open. Close the other tabs of this app (and its home-screen window), then reload.';
 
+/** Shown when the database has not opened after DB_SLOW_MS, whatever the cause. */
+export const DB_SLOW_MESSAGE =
+  'The local database is taking long to open. If this lasts, close the other tabs of DJ Data (and its home-screen window), then reload.';
+export const DB_SLOW_MS = 8000;
+
 /** Shown in the tab that handed its database over to a newer version. */
 export const DB_SUPERSEDED_MESSAGE =
   'DJ Data was updated in another tab. Reload this one to continue.';

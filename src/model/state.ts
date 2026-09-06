@@ -2,6 +2,8 @@ import { computed, signal } from '@preact/signals';
 import { auth } from '../auth/browser';
 import {
   DB_BLOCKED_MESSAGE,
+  DB_SLOW_MESSAGE,
+  DB_SLOW_MS,
   DB_SUPERSEDED_MESSAGE,
   getAllRows,
   getMeta,
@@ -145,11 +147,22 @@ setDbEvents({
   },
 });
 
+const DB_WAIT_MESSAGES: readonly string[] = [
+  DB_BLOCKED_MESSAGE,
+  DB_SLOW_MESSAGE,
+];
+
 export async function loadFromDb(): Promise<void> {
+  // Whatever keeps the database from opening, the screen says so after a
+  // few seconds instead of showing "Loading your library…" indefinitely.
+  const slow = setTimeout(() => {
+    if (!banner.value) banner.value = errorBanner(DB_SLOW_MESSAGE);
+  }, DB_SLOW_MS);
   try {
     const rows = await getAllRows();
-    // The blocked banner is stale once the other tab let the upgrade through.
-    if (banner.value?.text === DB_BLOCKED_MESSAGE) banner.value = null;
+    // Those banners are stale once the database has opened.
+    if (banner.value && DB_WAIT_MESSAGES.includes(banner.value.text))
+      banner.value = null;
     model.value = buildModel(rows);
     lastSyncAt.value = (await getMeta<number>(LAST_SYNC_META)) ?? null;
     const saved = await getMeta<SyncState>(SYNC_STATE_META);
@@ -163,6 +176,8 @@ export async function loadFromDb(): Promise<void> {
     banner.value = errorBanner(
       `Could not open local storage: ${describeError(err)}`
     );
+  } finally {
+    clearTimeout(slow);
   }
 }
 
