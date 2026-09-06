@@ -106,6 +106,10 @@ export interface MixView {
    * and behaves like any hit (no note).
    */
   shortLink: boolean;
+  /** external_urls.spotify of the playlist last created for this mix. */
+  playlistUrl?: string;
+  /** Spotify id of that playlist; the only durable handle on it. */
+  playlistId?: string;
 }
 
 export type MixState =
@@ -131,6 +135,43 @@ export const savedMixes = signal<MixRow[]>([]);
  * separate concern and lives in the screen's local state — see Task 5.)
  */
 export const mixError = signal<string | null>(null);
+
+export interface UnmatchedRow {
+  artist: string;
+  title: string;
+}
+
+/**
+ * The Mix screen's create-playlist job state (spec §4). `needScope` is the
+ * one-time re-login prompt arm; it does not count as "running" and joins no
+ * jobsBusy(). Owned here (not in the runner) so the screen imports one signal
+ * and createPlaylist.ts imports the type only (erased under
+ * verbatimModuleSyntax, so the runner never pulls in auth/browser).
+ */
+export type CreatePlaylistState =
+  | { status: 'idle' }
+  | { status: 'needScope' }
+  | { status: 'resolving'; done: number; total: number }
+  | { status: 'creating' }
+  | { status: 'adding' }
+  | {
+      status: 'done';
+      name: string;
+      url: string | null;
+      added: number;
+      total: number;
+      unmatched: UnmatchedRow[];
+    }
+  | {
+      status: 'error';
+      message: string;
+      url?: string | null;
+      added?: number;
+    };
+
+export const createPlaylistState = signal<CreatePlaylistState>({
+  status: 'idle',
+});
 
 export type KeyNotation = 'camelot' | 'open' | 'classic';
 
@@ -773,6 +814,8 @@ export async function saveMix(): Promise<boolean> {
     sources: view.sources,
     rows: mixRows.value,
     savedAt: Date.now(),
+    playlistUrl: view.playlistUrl,
+    playlistId: view.playlistId,
   };
   try {
     await putMix(row);
@@ -813,6 +856,8 @@ export function openMix(url: string): void {
     // A confirmed short link saved under its resolved permalink, so only an
     // unconfirmed one keeps an on.soundcloud.com url and re-shows the note.
     shortLink: isShortLink(row.url),
+    playlistUrl: row.playlistUrl,
+    playlistId: row.playlistId,
   };
   mixState.value = { status: 'ready', view };
 }
@@ -827,6 +872,7 @@ export function closeMix(): void {
   mixState.value = { status: 'idle' };
   mixRows.value = [];
   mixError.value = null;
+  createPlaylistState.value = { status: 'idle' };
 }
 
 /**
@@ -871,6 +917,7 @@ export async function disconnect(): Promise<void> {
   mixRows.value = [];
   savedMixes.value = [];
   mixError.value = null;
+  createPlaylistState.value = { status: 'idle' };
   lastSyncAt.value = null;
   historySummary.value = null;
   rekordboxSummary.value = null;
