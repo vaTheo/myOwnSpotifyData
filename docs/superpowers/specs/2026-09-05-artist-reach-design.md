@@ -1041,15 +1041,13 @@ different things.
   would shrink to zero as the job succeeds; and the source counts **overlap on
   purpose**, so they can add up to more than X. This follows the existing
   `coverage()` reasoning (`src/model/state.ts:227-252`) word for word.
-- Implemented as `reachCoverage(m)` in `src/model/state.ts` beside `coverage`,
+- Declared as `reachCoverage(m)` in `src/model/reach.ts` beside `isWellKnown`,
+  re-exported from `src/model/state.ts` for the reason §2 gives (the
+  `features/ → model/` dependency direction); `Settings.tsx` and
+  `UnderRadar.tsx` (§5.3's caption) both import it from `state.ts`. It is
   **memoised on the `Model` object identity** so it is not recomputed on every
-  Settings render. It is a pure function of the model and would sit equally well
-  in `model/reach.ts`; it goes next to `coverage` because the two are the same
-  helper for two cards, `Settings.tsx` already imports `coverage` from
-  `state.ts`, and splitting them would leave a reader hunting two files for one
-  pattern. §5.3's caption imports it from there too. It counts artists with
-  `id !== null` straight from `model.artists` and **must not call
-  `reachCandidates`**, whose per-artist
+  Settings render. It counts artists with `id !== null` straight from
+  `model.artists` and **must not call `reachCandidates`**, whose per-artist
   ISRC collection, dedupe and sort is job-only work and far heavier than
   `candidateIds` (`src/model/state.ts:236`, called from `Settings.tsx:116`).
 - With nothing synced: `Sync your playlists first.` in the muted colour.
