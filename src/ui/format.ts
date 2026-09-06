@@ -111,3 +111,21 @@ export function profileLine(
     ? `${line} · ${compactCount(views)} views/yr`
     : line;
 }
+
+/**
+ * Spec §6's mix-timestamp helper: `44 -> '0:44'`, `704 -> '11:44'`,
+ * `11437 -> '3:10:37'`. Under an hour it is `m:ss`; at or above it is
+ * `h:mm:ss` with both tail groups zero-padded. A negative or fractional input
+ * is floored to whole seconds from zero, so a stray value never prints a sign
+ * or a decimal.
+ */
+export function formatClock(totalSeconds: number): string {
+  const whole = Math.max(0, Math.floor(totalSeconds));
+  const seconds = whole % 60;
+  const minutes = Math.floor(whole / 60) % 60;
+  const hours = Math.floor(whole / 3600);
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(seconds)}`
+    : `${minutes}:${pad(seconds)}`;
+}
