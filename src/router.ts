@@ -17,6 +17,7 @@ export type Route =
   | { name: 'artist'; key: string }
   | { name: 'import' }
   | { name: 'settings' }
+  | { name: 'mix' }
   | { name: 'crate' }
   | { name: 'crateView'; view: CrateView; period?: string };
 
@@ -64,6 +65,8 @@ export function parseRoute(hash: string): Route {
       return { name: 'import' };
     case 'settings':
       return { name: 'settings' };
+    case 'mix':
+      return { name: 'mix' };
     default:
       return { name: 'top' };
   }

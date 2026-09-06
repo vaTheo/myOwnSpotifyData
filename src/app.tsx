@@ -11,6 +11,7 @@ import { Artists } from './ui/Artists';
 import { CrateHub } from './ui/crate/CrateHub';
 import { CrateView } from './ui/crate/CrateView';
 import { Import } from './ui/Import';
+import { Mix } from './ui/Mix';
 import { Playlist } from './ui/Playlist';
 import { Playlists } from './ui/Playlists';
 import { Top } from './ui/Top';
@@ -49,6 +50,7 @@ function tabOf(r: Route): Route['name'] {
   if (r.name === 'artist') return 'artists';
   if (r.name === 'crateView') return 'crate';
   if (r.name === 'import') return 'settings';
+  if (r.name === 'mix') return 'settings';
   return r.name;
 }
 
@@ -72,6 +74,8 @@ function Screen({ route }: { route: Route }) {
       return <Import />;
     case 'settings':
       return <Settings />;
+    case 'mix':
+      return <Mix />;
   }
 }
 

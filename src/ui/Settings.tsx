@@ -291,6 +291,26 @@ function ReachCard() {
   );
 }
 
+/**
+ * Spec §5.1: a plain link card, like the history card — no run, no state, so
+ * it reads no `jobsBusy()`. `#/mix` is always reachable (spec §2): the screen
+ * needs no import and no sync first.
+ */
+function MixCard() {
+  return (
+    <div class="card">
+      <h2>Mix tracklist</h2>
+      <p>
+        Paste a SoundCloud DJ-mix link to draft its tracklist from public
+        sources — or type your own.
+      </p>
+      <p>
+        <a href={routeHref({ name: 'mix' })}>Open mix tracklist ›</a>
+      </p>
+    </div>
+  );
+}
+
 export function Settings() {
   const state = syncState.value;
   const running = state.status === 'running';
@@ -354,6 +374,7 @@ export function Settings() {
       <HistoryCard />
       <AudioCard />
       <ReachCard />
+      <MixCard />
       <div class="card">
         <h2>Disconnect</h2>
         <p>
