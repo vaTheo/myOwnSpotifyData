@@ -86,6 +86,11 @@ export interface ArtistIdentityRow {
   mbidStatus: ResolveStatus;
   qid: string | null;
   qidStatus: ResolveStatus;
+  /**
+   * When Wikidata last answered about this artist, or null if it never has.
+   * The QID refresh reads this clock and not `resolvedAt`; see below.
+   */
+  qidCheckedAt: number | null;
   /** Wikidata `wikibase:sitelinks`, all languages; null until Wikidata answered. */
   sitelinks: number | null;
   /** Article path segments exactly as the sitelink spells them, or null. */
@@ -131,15 +136,19 @@ export interface ArtistReachRow {
 
 Two fields beyond the cache sketch in research §4.3 are load-bearing:
 `qidStatus` and `deezerStatus`, because `qid: null` and `deezerArtistId: null`
-otherwise cannot be told apart from "not asked yet". There is a single
-timestamp per identity row, `resolvedAt`, rather than one per step. The
-coupling is benign in practice: MusicBrainz is phase 1, so it always reads
-`resolvedAt` before any later phase can rewrite the row; Deezer never rewrites
-an identity row once `deezerArtistId` is `ok`, because a refreshed `nb_fan`
-goes into an `artistReach` row with its own `fetchedAt`; and an `unchecked`
-QID enters Wikidata's pass 1 whatever the stamp says. The only combination
-that loses a cycle is a stale `notFound` QID on a row MusicBrainz rewrote
-earlier in the same run, and the next run picks it up.
+otherwise cannot be told apart from "not asked yet". There are two timestamps
+on the row and no more: `resolvedAt`, which every write bumps and which the
+MBID and Deezer steps read, and `qidCheckedAt`, which only the Wikidata phase
+writes. The second one is not bookkeeping. One row carries three steps, a
+`notFound` MBID or Deezer id is rewritten every thirty days — and
+`deezerStatus: 'notFound'` is _common_, because the run writes it with no
+request at all for every artist with no single-artist ISRC — so a ninety-day
+sitelink refresh keyed on `resolvedAt` would never come due for exactly the
+artists §3.2 exists to keep reachable. `needsWikidata` reads
+`qidCheckedAt ?? 0`, so `null` means "never checked" and enters pass 1.
+`retryAfter` is deliberately _not_ split per step: that coupling costs a
+one-day delay rather than a starved refresh, and the run's own `startRows`
+snapshot (§4.2) covers the within-a-run half.
 
 `DjDb` (`src/db/schema.ts:140-148`) — the typed store map `openDB<DjDb>` is
 parameterised on — gains `artistIdentity: { key: string; value:
@@ -151,7 +160,10 @@ without them `db.createObjectStore('artistIdentity', …)` and every
 `putIdentities(rows)` and `putReach(rows)`, both shaped like the existing
 `putFeatures` (`src/db/repo.ts:141-147`). No getter is added: `getAllRows`
 already reads both stores, and §5.6 hands the run the model's own arrays
-rather than re-reading IndexedDB.
+rather than re-reading IndexedDB. That rule covers the summary too — there is
+no `getArtistReachSummary` / `putArtistReachSummary` pair. The record is read
+with `getMeta<ArtistReachSummary>(ARTIST_REACH_SUMMARY_META)` and written with
+`putMeta`, exactly as `state.ts` already reads `RekordboxSummary`.
 
 The two row types and the three unions above (`ResolveStatus`, `ReachSource`,
 `ReachStatus`) live in `db/schema.ts`.
@@ -166,10 +178,33 @@ act on every exit path, before reporting `done` or `error`.
 ```ts
 export const ARTIST_REACH_SUMMARY_META = 'artistReachSummary';
 
-export interface ArtistReachSummary {
+export interface ArtistReachSummary extends ReachCoverage {
   version: 1;
   ranAt: number;
-  /** Candidates: artists with a Spotify id in the owner's playlists at run end. */
+  /** Sources that gave up mid-run; `ReachStep` and the rule are in §4. */
+  paused: ReachStep[];
+}
+```
+
+**Every count in that record describes the whole store at `ranAt`, not the
+run's own work.** The seven counts are defined once, in the interface the
+record extends, and the Settings coverage line (§5.5) computes the very same
+seven live from the model — the same relationship the existing `Coverage`
+interface has with the Audio data card. One difference is deliberate:
+**`reachCoverage` scopes all seven to the candidates** — the artists in
+`model.artists` with a Spotify id — where the stored record keeps its
+store-wide reading for `resolved`, `wikipedia` and `wellKnown`. Scoping the
+live figure makes `covered <= artists` and `wellKnown >= wikipedia` hold by
+construction; "the source counts overlap on purpose" (§5.5) is about the
+sources overlapping each other, not about the universe.
+
+```ts
+/**
+ * The seven counts, declared once in `src/model/reach.ts`, extended by
+ * `ArtistReachSummary` above and returned by `reachCoverage(m)`.
+ */
+export interface ReachCoverage {
+  /** Candidates: artists with a Spotify id in the owner's playlists. */
   artists: number;
   /** Candidates with at least one `ok` reach row in any source. */
   covered: number;
@@ -182,24 +217,17 @@ export interface ArtistReachSummary {
   wikipedia: number;
   /** Identities for which `isWellKnown` is true (`sitelinks >= 1`). */
   wellKnown: number;
-  /** Sources that gave up mid-run; `ReachStep` and the rule are in §4. */
-  paused: ReachStep[];
 }
 ```
 
-**Every count in that record describes the whole store at `ranAt`, not the
-run's own work.** The Settings coverage line (§5.5) shows the same seven
-counts computed live from the model, using these exact definitions, through
-one type that shares the record's field list — the same relationship the
-existing `Coverage` interface has with the Audio data card:
-
-```ts
-/** `reachCoverage(m)`'s result; every field is defined exactly as above. */
-export type ReachCoverage = Omit<
-  ArtistReachSummary,
-  'version' | 'ranAt' | 'paused'
->;
-```
+The direction matters: `ArtistReachSummary extends ReachCoverage`, never the
+`Omit<ArtistReachSummary, …>` of an earlier draft. The dependency has to run
+`features/ → model/`, which it already does for `isWellKnown`; the `Omit`
+spelling would make `model/` import `features/` and cost the pure core its
+ability to type-check on its own. `reachCoverage` is implemented in
+`src/model/reach.ts` beside `isWellKnown` and **re-exported from
+`src/model/state.ts`**, so §5.3's and §5.5's import path is the one they
+give.
 
 The summary stores those numbers at `ranAt` for provenance and for the
 `as of` date, and nothing else reads them. What *this run* did is a separate,
@@ -399,13 +427,14 @@ well inside the documented 60 s of processing per 60 s per UA+IP and the
 5-parallel-queries cap.
 
 **Pass 1 input** is every candidate whose identity row is in one of three
-states, measured on `resolvedAt`:
+states, measured on `qidCheckedAt` (§2) and never on `resolvedAt`:
 
-- `qidStatus: 'unchecked'` (including an identity row that does not exist yet);
-- `qidStatus: 'notFound'` and `resolvedAt` older than `REACH_NOT_FOUND_TTL_MS`
-  (30 days);
-- `qidStatus: 'ok'` and `resolvedAt` older than `REACH_TTL_MS` (90 days) — the
-  QID is kept, only `sitelinks` and `wikiTitles` are rewritten.
+- `qidStatus: 'unchecked'` (including an identity row that does not exist yet,
+  and any row whose `qidCheckedAt` is still `null`);
+- `qidStatus: 'notFound'` and `qidCheckedAt` older than
+  `REACH_NOT_FOUND_TTL_MS` (30 days);
+- `qidStatus: 'ok'` and `qidCheckedAt` older than `REACH_TTL_MS` (90 days) —
+  the QID is kept, only `sitelinks` and `wikiTitles` are rewritten.
 
 That third case is load-bearing, not bookkeeping: §2's well-known rule is
 `sitelinks >= 1` and nothing else, so an artist who gains their first Wikipedia
@@ -440,11 +469,19 @@ sample from 10/24 to 15/24 and cut false-underground verdicts from 7 to 2
   `qidStatus: 'notFound'`. Ambiguity the app cannot resolve must not promote
   an artist out of the underground list.
 - QID from the last path segment of `item.value`
-  (`http://www.wikidata.org/entity/Q…`). `sitelinks` parsed as an integer,
-  absent → `null`. `wikiTitles.en` / `.fr` are the **last path segment of the
-  sitelink URL, kept verbatim** (percent-encoded, underscores intact) — never
-  a guessed title, and no decode/re-encode round trip, so the value drops
-  straight into the pageviews path.
+  (`http://www.wikidata.org/entity/Q…`). `wikiTitles.en` / `.fr` are
+  **everything after the first `/wiki/` in the sitelink URL, kept verbatim**
+  (percent-encoded, underscores intact) — never a guessed title, no
+  decode/re-encode round trip, and not merely the last segment, because a
+  title may contain a slash. The value drops straight into the pageviews path
+  and into the Artist screen's link.
+- `sitelinks` is `max(the bound count, the number of bound articles)`, and
+  `null` only when neither is present. The count and the two articles are
+  three separate `OPTIONAL`s, so nothing in the query stops an item binding an
+  article and no count — and §2's invariant `wellKnown >= wikipedia` would
+  break. **The stored number is therefore a floor**, and §5.3's
+  `N languages` under-reports in that rare case rather than over-reporting,
+  which is the only safe direction.
 - An id absent from both passes → `qidStatus: 'notFound'`.
 - A non-2xx or a transport failure → `qidStatus` left `unchecked` for the
   whole batch, so the next run simply asks again; it counts as one failure
@@ -656,9 +693,14 @@ just wrote, and the Wikipedia phase reads the titles phase 4 just wrote.
 Without this a first run would resolve identities and fetch nothing at all.
 The passed arrays are the run's starting point and are never re-read mid-run;
 IndexedDB is written through on every row so a stop loses nothing, and the
-model reloads exactly once, at the end (and after an error — §5.6). Freshness
-in §4.5 is judged against the maps, so a row this run already wrote is not
-asked again later in the same run.
+model reloads exactly once, at the end (and after an error — §5.6).
+**Freshness in §4.5 is judged against `startRows`, an immutable snapshot of
+the identity array the run was handed, while every _value_ — the MBID, the
+Deezer id, the QID, the titles — comes from the live map the phases update.**
+Without the snapshot a MusicBrainz write in phase 1 bumps `resolvedAt` and
+suppresses the Deezer step for that artist in phase 3 of the same run; with
+it, the cross-phase threading above is intact and a row this run already wrote
+is still not asked again for the same step.
 
 **Wake lock.** `runReach` acquires `deps.acquireWakeLock?.()` before the first
 phase and releases it in a `finally` covering every exit path — completion, a
@@ -763,12 +805,21 @@ each with a `timestamp` (`"2025090100"`) and `views`.
 ### 4.5 Refresh, retry and pausing
 
 ```ts
-export const REACH_TTL_MS = 90 * 24 * 60 * 60 * 1000;      // numbers
+// src/features/reachRun.ts
+export const REACH_TTL_MS = 90 * 24 * 60 * 60 * 1000; // numbers
 export const REACH_NOT_FOUND_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const REACH_RETRY_LATER_TTL_MS = 24 * 60 * 60 * 1000;
-export const REACH_REQUEST_TIMEOUT_MS = 15_000;
 export const MAX_SOURCE_FAILURES = 3;
+
+// src/util/retry.ts, beside MAX_5XX_RETRIES, backoffMs and parseRetryAfter
+export const REACH_REQUEST_TIMEOUT_MS = 15_000;
 ```
+
+The timeout is split off deliberately: four client modules need it and the
+runner imports all four, so declaring it in `reachRun.ts` would make every
+client import its own runner — a module cycle whose `const` can read
+`undefined` at init, and a client unit test that drags the whole run into the
+module graph. `retry.ts` already holds every other helper those clients share.
 
 Three TTLs, one table, referenced from every section that needs them. The
 clock is `fetchedAt` on an `artistReach` row and `resolvedAt` on an
@@ -1184,8 +1235,9 @@ All in Vitest's Node environment, next to their source, no DOM.
   candidate tried after a mismatch; the 3-candidate cap; no candidate →
   `notFound`; a body whose `artist.id` is not a finite number treated as a
   miss; `error.code 4` retried five times then counted as one source failure;
-  another `error` code treated as a miss; a known `deezerArtistId` skipping the
-  ISRC request.
+  another `error` code treated as a miss. _(The "known `deezerArtistId` skips
+  the ISRC request" case is the runner's decision — the client is never called
+  at all — so it is tested in `reachRun.test.ts`, below.)_
 - **`features/wikidata.test.ts`**: chunking at 150; the query contains
   `VALUES` and `wdt:P1902` and **no** `SAMPLE`; pass 1's input is the three
   categories of §3.2 — `unchecked`, `notFound` past 30 days, `ok` past 90 days
@@ -1204,7 +1256,8 @@ All in Vitest's Node environment, next to their source, no DOM.
   threading writes across phases, so a single run resolves an MBID in phase 1
   and fetches its ListenBrainz number in phase 2 from the arrays it was handed
   as empty; a second run skipping fresh rows and re-asking at the 90/30-day
-  boundaries and once `retryAfter` has passed; permanence of MBID, QID and
+  boundaries and once `retryAfter` has passed; a known `deezerArtistId`
+  skipping the ISRC request entirely; permanence of MBID, QID and
   Deezer id; three consecutive failures pausing one source while the others
   finish, with the artists that source never reached left `unchecked`; `paused`
   present on `running`, `done` and `error`; the summary's counts against §2's
@@ -1275,6 +1328,58 @@ All in Vitest's Node environment, next to their source, no DOM.
   putting all three caches inside the existing zip so a laptop run can reach
   the phone. The app has no export surface at all today and adding one is a
   separate feature, so this is out of scope rather than overlooked.
+
+**Rulings made while planning the implementation.** Recorded here because each
+one differs from, or fills a gap in, the sections above; the amendments they
+motivated are already applied.
+
+- _`ArtistIdentityRow` gains `qidCheckedAt`_ and the Wikidata refresh reads it
+  rather than `resolvedAt`, which every phase bumps (§2, §3.2). Cost if wrong:
+  one extra field.
+- _`ReachCoverage` is declared in `src/model/reach.ts` and
+  `ArtistReachSummary extends` it_, because `features/` may import `model/`
+  and never the reverse; `state.ts` re-exports `reachCoverage` so the spec's
+  import path holds (§2, §5.5). Cost if wrong: none.
+- _`reachCoverage` scopes its counts to the candidates_; the stored summary
+  keeps the store-wide reading (§2). Cost if wrong: a coverage line off by the
+  rows of artists no longer in any playlist.
+- _`REACH_REQUEST_TIMEOUT_MS` lives in `src/util/retry.ts`_ — four clients need
+  it, and declaring it in the runner would create a module cycle (§4.5). Cost
+  if wrong: none.
+- _`sitelinks` is `max(bound count, articles bound)`_, so a bound article
+  always implies at least one sitelink and `wellKnown >= wikipedia` holds; the
+  screens treat the number as a floor (§3.2, §5.3). Cost if wrong: an
+  under-reported language count in a rare case.
+- _The MBID and Deezer freshness gates are judged against the snapshot of
+  identity rows the run started with_, while the values come from the live
+  maps (§4.2). Cost if wrong: none — it is tested.
+- _The "known `deezerArtistId` skips the ISRC request" case is tested in
+  `reachRun.test.ts`_, not `deezer.test.ts` (§7). Cost if wrong: none.
+- _The pacing split is deliberate_: MusicBrainz and Deezer sleep their own
+  interval, ListenBrainz and Wikipedia are paced between artists by the
+  runner. It is pinned by a sleep-sequence test so nobody "tidies" it. Cost if
+  wrong: doubled sleeps and a run twice as long.
+- _A Deezer `notFound` written without a request_ — the common case, an artist
+  with no single-artist ISRC — is re-checked only after 30 days, per §3.3.
+  Cost if wrong: a slow pick-up of a newly saved single-artist track; revisit
+  if the owner notices.
+- _`No under-the-radar artists yet.` is suppressed while the filter is
+  narrowing the list_, and a filter that matches nothing shows the Artists
+  tab's existing `No artists match "…"` block rather than three empty
+  headings (§5.3, which rules on neither). Cost if wrong: one line of copy.
+- _With no artists at all, only the view switcher renders, not the sort
+  control_ — §5.3's last bullet asks for both, but an unsynced library must
+  read `No artists yet. Sync in Settings` rather than showing a
+  `Look up artists` button that would be the wrong instruction. The bullet's
+  stated purpose is met: the `h1` and the view `Segmented` live in
+  `Artists.tsx` and render whatever the library holds. Cost if wrong: one
+  control missing from a screen that has nothing to sort.
+- _Settings' `working` flag gates "Connect again" as well as Disconnect_ —
+  §5.5 names only Disconnect, but the two share the flag and `auth.logout()`
+  mid-run would strand `reachState` on `running`. Nothing expires a session
+  on a timer and the Sync button that would surface an auth error is disabled
+  for the duration, so the recovery is not needed until the run ends. Cost if
+  wrong: one button disabled for the length of a run.
 
 **Privacy.** What leaves the browser is Spotify artist ids, ISRCs from the
 owner's own library, and the MusicBrainz ids and Wikipedia article titles
