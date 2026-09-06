@@ -1,6 +1,16 @@
 import { computed, signal } from '@preact/signals';
 import { auth } from '../auth/browser';
-import { getAllRows, getMeta, putMeta, wipeDb } from '../db/repo';
+import {
+  DB_BLOCKED_MESSAGE,
+  DB_SLOW_MESSAGE,
+  DB_SLOW_MS,
+  DB_SUPERSEDED_MESSAGE,
+  getAllRows,
+  getMeta,
+  putMeta,
+  setDbEvents,
+  wipeDb,
+} from '../db/repo';
 import { jsonp } from '../features/jsonp';
 import {
   PASS_BY_ID,
@@ -136,9 +146,34 @@ function clearBanner(): void {
   if (banner.value?.text !== CRATE_NOTICE) banner.value = null;
 }
 
+// Both database events end in a banner: a blocked upgrade would otherwise
+// leave "Loading your library…" on screen for as long as the other tab lives.
+setDbEvents({
+  blocked: () => {
+    banner.value = errorBanner(DB_BLOCKED_MESSAGE);
+  },
+  superseded: () => {
+    banner.value = warnBanner(DB_SUPERSEDED_MESSAGE);
+  },
+});
+
+const DB_WAIT_MESSAGES: readonly string[] = [
+  DB_BLOCKED_MESSAGE,
+  DB_SLOW_MESSAGE,
+];
+
 export async function loadFromDb(): Promise<void> {
+  // Whatever keeps the database from opening, the screen says so after a
+  // few seconds instead of showing "Loading your library…" indefinitely.
+  const slow = setTimeout(() => {
+    if (!banner.value) banner.value = errorBanner(DB_SLOW_MESSAGE);
+  }, DB_SLOW_MS);
   try {
-    model.value = buildModel(await getAllRows());
+    const rows = await getAllRows();
+    // Those banners are stale once the database has opened.
+    if (banner.value && DB_WAIT_MESSAGES.includes(banner.value.text))
+      banner.value = null;
+    model.value = buildModel(rows);
     lastSyncAt.value = (await getMeta<number>(LAST_SYNC_META)) ?? null;
     const saved = await getMeta<SyncState>(SYNC_STATE_META);
     if (saved && saved.status !== 'running') syncState.value = saved;
@@ -153,6 +188,8 @@ export async function loadFromDb(): Promise<void> {
     banner.value = errorBanner(
       `Could not open local storage: ${describeError(err)}`
     );
+  } finally {
+    clearTimeout(slow);
   }
 }
 
