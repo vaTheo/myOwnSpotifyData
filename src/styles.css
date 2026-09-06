@@ -653,3 +653,25 @@ details.card > summary {
   padding: 10px 0;
   cursor: pointer;
 }
+
+/*
+ * Spec §6: the reach and public-profile lines ride in TrackRow's existing
+ * `badges` slot, a wrapping flex row, so each takes a full basis and the two
+ * stack under the subtitle without TrackRow changing at all. On the Artist
+ * screen the same class is a plain block; only the type rules apply there.
+ */
+.reach {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Group headings sit inside `ul.list`, so they scroll with their rows. */
+.list li.group {
+  padding: 14px 4px 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid #2a2a2a;
+}

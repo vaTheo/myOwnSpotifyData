@@ -7,6 +7,8 @@ import {
   formatDate,
   notCountedLine,
   plural,
+  profileLine,
+  reachLine,
 } from './format';
 
 describe('format helpers', () => {
@@ -61,6 +63,29 @@ describe('format helpers', () => {
         malformed: 0,
       })
     ).toBeNull();
+  });
+
+  it('builds a reach line from the parts that are known', () => {
+    expect(reachLine(5896, 202216)).toBe(
+      `${(5896).toLocaleString()} ListenBrainz listeners · ${(202216).toLocaleString()} Deezer fans`
+    );
+    expect(reachLine(54, null)).toBe('54 ListenBrainz listeners');
+    expect(reachLine(null, 585)).toBe('585 Deezer fans');
+    // A single listener is still one listener, and zero is a number.
+    expect(reachLine(1, 0)).toBe('1 ListenBrainz listener · 0 Deezer fans');
+    expect(reachLine(null, null)).toBe('no reach data');
+  });
+
+  it('builds a public-profile line and drops a missing view count', () => {
+    expect(profileLine(19, 288783)).toBe(
+      'Wikipedia · 19 languages · 289k views/yr'
+    );
+    // No pageviews row, or a zero one: the line keeps its language count.
+    expect(profileLine(1, null)).toBe('Wikipedia · 1 language');
+    expect(profileLine(3, 0)).toBe('Wikipedia · 3 languages');
+    // No article at all: no line, the same threshold isWellKnown applies.
+    expect(profileLine(0, 1200)).toBeNull();
+    expect(profileLine(null, null)).toBeNull();
   });
 
   it('compacts a yearly view count at every boundary', () => {
