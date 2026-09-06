@@ -83,11 +83,12 @@ function ArtistReach(p: { m: Model; id: string | null }) {
   }
   const wiki = wikipediaUrl(identity);
   if (wiki !== null) links.push({ label: 'Wikipedia ›', href: wiki });
-  // A profile line or a link is real reach data on screen: "No reach data."
-  // must never sit beside one, so the numbers line is dropped instead of
-  // contradicting them (spec §5.4 decides `reachLine`/`profileLine`
-  // independently, but their combination still has to read as one story).
-  const showNumbers = !unresolved || (profile === null && links.length === 0);
+  // A profile line is real reach data on screen, so "No reach data." must
+  // never sit above one: the numbers line is dropped instead of contradicting
+  // it. A bare link is only a page to visit, not data, so the sentence stays
+  // beside links (spec §5.4 decides `reachLine`/`profileLine` independently,
+  // but their combination still has to read as one story).
+  const showNumbers = !unresolved || profile === null;
   return (
     <>
       {showNumbers && (
