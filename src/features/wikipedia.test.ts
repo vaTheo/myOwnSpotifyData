@@ -127,6 +127,14 @@ describe('fetchPageviews', () => {
     expect(WIKIPEDIA_INTERVAL_MS).toBe(250);
   });
 
+  it('escapes a literal slash in a title so it cannot split the path', async () => {
+    const { deps, fetchFn } = setup([() => views(1)]);
+    await fetchPageviews({ en: 'AC/DC', fr: null }, deps);
+    expect(fetchFn.mock.calls.map((c) => c[0])).toEqual([
+      urlFor('en.wikipedia.org', 'AC%2FDC'),
+    ]);
+  });
+
   it('sums English and French views and keeps both parts', async () => {
     const { deps } = setup([() => views(3227), () => views(4000, 300, 31)]);
     const result = await fetchPageviews({ en: 'Anetha', fr: 'Anetha' }, deps);

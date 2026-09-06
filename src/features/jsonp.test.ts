@@ -102,8 +102,35 @@ describe('jsonp', () => {
     await expect(pending).rejects.toThrow(
       `JSONP request timed out after 10000 ms: ${DEEZER}`
     );
-    expect(globals[callbackName(scripts[0])]).toBeUndefined();
     expect(scripts[0].removed).toBe(true);
+    // Not gone yet: a response that lands late must find a harmless no-op,
+    // never a deleted name that would throw.
+    const name = callbackName(scripts[0]);
+    expect(typeof globals[name]).toBe('function');
+    // It is forgotten for good only once nothing can plausibly still call it.
+    await vi.advanceTimersByTimeAsync(JSONP_TIMEOUT_MS);
+    expect(globals[name]).toBeUndefined();
+  });
+
+  it('ignores a response that lands after the timeout, without throwing', async () => {
+    vi.useFakeTimers();
+    installDocument();
+    const pending = jsonp(DEEZER, JSONP_TIMEOUT_MS);
+    // Attached before the timer fires, exactly like the test above, so the
+    // rejection is never briefly unhandled.
+    void pending.catch(() => {});
+    const name = callbackName(scripts[0]);
+    await vi.advanceTimersByTimeAsync(JSONP_TIMEOUT_MS);
+    await expect(pending).rejects.toThrow(
+      `JSONP request timed out after ${JSONP_TIMEOUT_MS} ms: ${DEEZER}`
+    );
+    const late = globals[name] as (value: unknown) => void;
+    expect(() => late({ nb_fan: 585 })).not.toThrow();
+    // The promise already settled on the timeout; a late arrival cannot
+    // resolve it to something else.
+    await expect(pending).rejects.toThrow(
+      `JSONP request timed out after ${JSONP_TIMEOUT_MS} ms: ${DEEZER}`
+    );
   });
 
   it('leaves no timer behind once the callback has answered', async () => {

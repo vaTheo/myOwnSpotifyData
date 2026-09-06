@@ -155,8 +155,12 @@ async function fetchOne(
 
 /**
  * The en + fr view total over the last twelve complete months. Titles are the
- * stored sitelink segments and go into the path **verbatim**: they are already
- * percent-encoded, and a decode/re-encode round trip would break them.
+ * stored sitelink segments and go into the path **verbatim apart from a
+ * literal slash**: they are already percent-encoded, and a decode/re-encode
+ * round trip would corrupt that (see `wikidata.ts`'s `articleTitle`). A raw
+ * `/` is the one character a title can still carry that changes the path's
+ * shape — `AC/DC` would otherwise 404 as a two-segment path — so it alone is
+ * escaped here, at the point the URL is built.
  *
  * A 404 for one language contributes 0; a 404 for both is `notFound`. A
  * transport failure or a 5xx past its retries on either language makes the
@@ -177,8 +181,9 @@ export async function fetchPageviews(
     const title = titles[lang];
     if (title === null) continue;
     const project = WIKIPEDIA_PROJECTS[lang];
+    const path = title.replace(/\//g, '%2F');
     const url =
-      `${PAGEVIEWS_URL}/${project}/all-access/user/${title}` +
+      `${PAGEVIEWS_URL}/${project}/all-access/user/${path}` +
       `/monthly/${span.start}/${span.end}`;
     if (firstUrl === '') firstUrl = url;
     else await deps.sleep(WIKIPEDIA_INTERVAL_MS);
