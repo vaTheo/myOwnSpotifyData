@@ -148,6 +148,69 @@ describe('lookupMix (short link)', () => {
     expect(result.trackid).toEqual({ status: 'notFound' });
     expect(result.resolvedUrl).toBeNull();
   });
+
+  // An apostrophe title yields two candidates: the dropped-apostrophe spelling
+  // first, the apostrophe-as-hyphen spelling second (permalinkCandidates is the
+  // real function here — only oembed and trackid are mocked).
+  const apostropheOembed: OembedResult = {
+    status: 'ok',
+    title: "Don't Stop",
+    author: 'DJ X',
+    authorUrl: 'https://soundcloud.com/dj',
+    description: '',
+    playerSrc: null,
+  };
+  const C1 = 'https://soundcloud.com/dj/dont-stop';
+  const C2 = 'https://soundcloud.com/dj/don-t-stop';
+
+  it('probes candidates in order and resolves via the 2nd when only it matches', async () => {
+    oembedMock.mockResolvedValue(apostropheOembed);
+    // The guard only confirms the 2nd spelling; the 1st is a notFound miss.
+    trackidMock.mockImplementation((_fn, url): Promise<TrackIdResult> =>
+      Promise.resolve(url === C2 ? okTrackid : { status: 'notFound' })
+    );
+    const result = await lookupMix(deps, { kind: 'shortlink', url: SHORT });
+    expect(trackidMock).toHaveBeenCalledTimes(2);
+    expect(trackidMock.mock.calls[0][1]).toBe(C1);
+    expect(trackidMock.mock.calls[1][1]).toBe(C2);
+    expect(result.trackid).toEqual(okTrackid);
+    expect(result.resolvedUrl).toBe(C2);
+    expect(result.oembed).toEqual(apostropheOembed);
+  });
+
+  it('falls back to the first candidate when NO candidate matches the guard', async () => {
+    oembedMock.mockResolvedValue(apostropheOembed);
+    trackidMock.mockResolvedValue({ status: 'notFound' });
+    const result = await lookupMix(deps, { kind: 'shortlink', url: SHORT });
+    expect(trackidMock).toHaveBeenCalledTimes(2);
+    expect(result.trackid).toEqual({ status: 'notFound' });
+    expect(result.resolvedUrl).toBe(C1);
+    expect(result.oembed.status).toBe('ok');
+  });
+
+  it('stops after the first candidate when it is confirmed (no wasted probes)', async () => {
+    oembedMock.mockResolvedValue(apostropheOembed);
+    // Confirm only the 1st spelling: the loop must stop before probing the 2nd.
+    trackidMock.mockImplementation((_fn, url): Promise<TrackIdResult> =>
+      Promise.resolve(url === C1 ? okTrackid : { status: 'notFound' })
+    );
+    const result = await lookupMix(deps, { kind: 'shortlink', url: SHORT });
+    expect(trackidMock).toHaveBeenCalledTimes(1);
+    expect(trackidMock.mock.calls[0][1]).toBe(C1);
+    expect(result.resolvedUrl).toBe(C1);
+    expect(result.trackid).toEqual(okTrackid);
+  });
+
+  it('surfaces a transport error rather than disguising it as notFound', async () => {
+    oembedMock.mockResolvedValue(apostropheOembed);
+    // Both candidates hit a service error: the failure must be shown, not
+    // swallowed into a "not in the corpus" notFound.
+    trackidMock.mockResolvedValue({ status: 'error', message: 'HTTP 503' });
+    const result = await lookupMix(deps, { kind: 'shortlink', url: SHORT });
+    expect(trackidMock).toHaveBeenCalledTimes(2);
+    expect(result.trackid).toEqual({ status: 'error', message: 'HTTP 503' });
+    expect(result.resolvedUrl).toBe(C1);
+  });
 });
 
 describe('editTracklistRow', () => {
