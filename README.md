@@ -7,7 +7,10 @@ counts, and artists ranked by how many of their tracks I have saved.
 It runs entirely in the browser: login with PKCE, playlists cached in
 IndexedDB, and Spotify's _Extended streaming history_ export imported locally
 for play counts. Nothing is uploaded anywhere except the track ids the BPM and
-key lookup sends to ReccoBeats, and only when you start it.
+key lookup sends to ReccoBeats and the artist ids, ISRCs and article titles
+the artist-reach lookup sends to MusicBrainz, ListenBrainz, Deezer, Wikidata
+and Wikimedia — and only when you start one of them. No token, no playlist and
+no listening history ever leaves the browser.
 
 ## Run locally
 
@@ -77,6 +80,28 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   with a key but no BPM ranks by key relation alone and says so. Each row
   shows its relation and its ΔBPM against the seed. Tapping another row moves
   the seed; `Clear`, or leaving Match, drops it — for that playlist only.
+- **Under the radar** is the second view on the Artists tab: the artists in
+  your playlists with the smallest audiences, so you can tell one nobody has
+  heard of from one everybody plays. Fill it in from the **Artist reach** card
+  in Settings — `Look up artists` is one long job, roughly 45 to 50 minutes
+  for 1,000 artists, it never starts by itself, and it picks up where it
+  stopped, so you can stop it and come back. Then sort by `Most played`,
+  `Fewest listeners` or `Fewest fans`; the filter box narrows by name and the
+  ranks never renumber.
+  The two numbers are **ListenBrainz listeners** (how many ListenBrainz users
+  have ever played that artist) and **Deezer fans** (how many Deezer users
+  pressed follow). They are small platform-specific audiences, **not** Spotify
+  monthly listeners, and they disagree often enough that the app shows them
+  side by side and never sums them. A number the app does not have is shown as
+  missing, never as a zero.
+  Artists with a Wikipedia article are moved to the bottom under **Well
+  known** rather than hidden: the app subtracts the demonstrably famous, it
+  does not claim to rank the rest. `N languages` there is Wikidata's article
+  count, which is a floor rather than an exact total. Two things the view is
+  not: artists Spotify gives no id for are absent from it entirely, and the
+  plays are plays of the tracks you saved, not of everything the artist made.
+  Artist data via MusicBrainz and ListenBrainz · Deezer · Wikidata (CC0) ·
+  Wikipedia (CC BY-SA).
 - **Re-import once for the Crate.** An import made before the Crate shipped
   kept no month, start or skip data, so the year, month and finish-rate views
   stay empty until you import the export again; the app says so once and the
