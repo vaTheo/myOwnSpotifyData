@@ -14,8 +14,50 @@ import {
 
 let dbPromise: Promise<IDBPDatabase<DjDb>> | null = null;
 
+/** Shown while an older tab keeps the database at its old version. */
+export const DB_BLOCKED_MESSAGE =
+  'Another tab of DJ Data is holding the old database open. Close the other tabs of this app (and its home-screen window), then reload.';
+
+/** Shown in the tab that handed its database over to a newer version. */
+export const DB_SUPERSEDED_MESSAGE =
+  'DJ Data was updated in another tab. Reload this one to continue.';
+
+export interface DbEvents {
+  /** Another connection blocks this tab's upgrade; the open waits for it. */
+  blocked?: () => void;
+  /** A newer version opened elsewhere; this tab closed its connection. */
+  superseded?: () => void;
+}
+
+let events: DbEvents = {};
+
+/** The app registers its banners here; tests register spies. */
+export function setDbEvents(next: DbEvents): void {
+  events = next;
+}
+
 export function openDb(): Promise<IDBPDatabase<DjDb>> {
   dbPromise ??= openDB<DjDb>(DB_NAME, DB_VERSION, {
+    // An older tab (or the home-screen window) still holds the database at
+    // its previous version: the request waits until that connection closes,
+    // so the user is told to close it instead of watching a spinner.
+    blocked() {
+      events.blocked?.();
+    },
+    // The mirror image: a newer version wants to upgrade from another tab.
+    // Closing our connection lets it proceed; this tab must reload before it
+    // touches the database again, and says so.
+    blocking() {
+      const pending = dbPromise;
+      dbPromise = null;
+      void pending?.then((db) => db.close());
+      events.superseded?.();
+    },
+    // The browser closed the connection underneath us (storage cleared,
+    // process killed): the next call reopens instead of failing forever.
+    terminated() {
+      dbPromise = null;
+    },
     upgrade(db) {
       // Only what is missing: a version 1 database keeps every row it holds
       // and gains `features`.

@@ -1,6 +1,14 @@
 import { computed, signal } from '@preact/signals';
 import { auth } from '../auth/browser';
-import { getAllRows, getMeta, putMeta, wipeDb } from '../db/repo';
+import {
+  DB_BLOCKED_MESSAGE,
+  DB_SUPERSEDED_MESSAGE,
+  getAllRows,
+  getMeta,
+  putMeta,
+  setDbEvents,
+  wipeDb,
+} from '../db/repo';
 import {
   PASS_BY_ID,
   candidateIds,
@@ -126,9 +134,23 @@ function clearBanner(): void {
   if (banner.value?.text !== CRATE_NOTICE) banner.value = null;
 }
 
+// Both database events end in a banner: a blocked upgrade would otherwise
+// leave "Loading your library…" on screen for as long as the other tab lives.
+setDbEvents({
+  blocked: () => {
+    banner.value = errorBanner(DB_BLOCKED_MESSAGE);
+  },
+  superseded: () => {
+    banner.value = warnBanner(DB_SUPERSEDED_MESSAGE);
+  },
+});
+
 export async function loadFromDb(): Promise<void> {
   try {
-    model.value = buildModel(await getAllRows());
+    const rows = await getAllRows();
+    // The blocked banner is stale once the other tab let the upgrade through.
+    if (banner.value?.text === DB_BLOCKED_MESSAGE) banner.value = null;
+    model.value = buildModel(rows);
     lastSyncAt.value = (await getMeta<number>(LAST_SYNC_META)) ?? null;
     const saved = await getMeta<SyncState>(SYNC_STATE_META);
     if (saved && saved.status !== 'running') syncState.value = saved;
