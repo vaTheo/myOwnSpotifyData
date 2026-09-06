@@ -1,7 +1,8 @@
 import type { Session } from '../../auth/session';
 import type { TracklistRow } from '../../db/schema';
 import { normalize } from '../../model/normalize';
-import type { ApiTrack } from '../../spotify/types';
+import type { SpotifyClient } from '../../spotify/client';
+import type { ApiSearchTracks, ApiTrack } from '../../spotify/types';
 import { cleanTitle, primaryArtist } from '../rekordbox-match';
 
 /**
@@ -61,4 +62,47 @@ export function pickMatch(
     if (artistOk) return item;
   }
   return null;
+}
+
+/** Any embedded `"` would close a `track:"…"` filter early; drop it. */
+function stripQuotes(s: string): string {
+  return s.replace(/"/g, '');
+}
+
+/** The result of resolving one mix row against Search. */
+export interface RowMatch {
+  row: TracklistRow;
+  /** null = unmatched (nothing confident, or an inert row). */
+  uri: string | null;
+  matchedName: string | null;
+}
+
+/**
+ * Resolve one row to a real Spotify track. Runs the RAW-text field query first
+ * (`artist:"…" track:"…"`), then a plain `<artist> <title>` fallback, applying
+ * `pickMatch` to each; returns the first confident hit or an unmatched result.
+ * An inert row is never searched. Errors from `client.get` propagate.
+ */
+export async function searchTrack(
+  client: Pick<SpotifyClient, 'get'>,
+  row: TracklistRow
+): Promise<RowMatch> {
+  if (!isIdentified(row)) return { row, uri: null, matchedName: null };
+  const artist = stripQuotes(primaryArtist(row.artist));
+  const title = stripQuotes(row.title);
+  const queries = [
+    `artist:"${artist}" track:"${title}"`,
+    `${row.artist} ${row.title}`,
+  ];
+  for (const q of queries) {
+    const res = await client.get<ApiSearchTracks>('/search', {
+      q,
+      type: 'track',
+      limit: 5,
+    });
+    const items = Array.isArray(res.tracks?.items) ? res.tracks.items : [];
+    const hit = pickMatch(row, items);
+    if (hit) return { row, uri: hit.uri, matchedName: hit.name };
+  }
+  return { row, uri: null, matchedName: null };
 }
