@@ -1,12 +1,20 @@
 import { computed, signal } from '@preact/signals';
 import { auth } from '../auth/browser';
 import { getAllRows, getMeta, putMeta, wipeDb } from '../db/repo';
+import { jsonp } from '../features/jsonp';
 import {
   PASS_BY_ID,
   candidateIds,
   runLookup,
   type LookupState,
 } from '../features/lookup';
+import {
+  ARTIST_REACH_SUMMARY_META,
+  reachCandidates,
+  runReach,
+  type ArtistReachSummary,
+  type ReachState,
+} from '../features/reachRun';
 import type { LibraryTrack } from '../features/rekordbox-match';
 import {
   REKORDBOX_SUMMARY_META,
@@ -43,6 +51,8 @@ export const historySummary = signal<ImportSummary | null>(null);
 export const lookupState = signal<LookupState>({ status: 'idle' });
 export const rekordboxState = signal<RekordboxState>({ status: 'idle' });
 export const rekordboxSummary = signal<RekordboxSummary | null>(null);
+export const reachState = signal<ReachState>({ status: 'idle' });
+export const artistReachSummary = signal<ArtistReachSummary | null>(null);
 export const banner = signal<BannerMessage | null>(null);
 
 export type KeyNotation = 'camelot' | 'open' | 'classic';
@@ -136,6 +146,8 @@ export async function loadFromDb(): Promise<void> {
       (await getMeta<ImportSummary>(HISTORY_SUMMARY_META)) ?? null;
     rekordboxSummary.value =
       (await getMeta<RekordboxSummary>(REKORDBOX_SUMMARY_META)) ?? null;
+    artistReachSummary.value =
+      (await getMeta<ArtistReachSummary>(ARTIST_REACH_SUMMARY_META)) ?? null;
     if (crateStatus.value === 'reimport') await showCrateNotice();
   } catch (err) {
     banner.value = errorBanner(
@@ -158,6 +170,23 @@ export function isSyncBusy(state: SyncState, now = Date.now()): boolean {
   return (
     state.status === 'running' ||
     (state.status === 'locked' && state.retryAt > now)
+  );
+}
+
+/**
+ * True while any of the five jobs is running (spec §5.5). Every one of them
+ * ends in `loadFromDb()`, so a second job started mid-run would clobber the
+ * first one's model rebuild. It reads `syncState.status === 'running'` and
+ * deliberately not `isSyncBusy`: a Spotify quota lock-out lasting hours must
+ * not block a reach run, which touches no Spotify endpoint.
+ */
+export function jobsBusy(): boolean {
+  return (
+    syncState.value.status === 'running' ||
+    importState.value.status === 'running' ||
+    lookupState.value.status === 'running' ||
+    rekordboxState.value.status === 'running' ||
+    reachState.value.status === 'running'
   );
 }
 
@@ -290,6 +319,14 @@ export function coverage(m: Model): Coverage {
 }
 
 /**
+ * Spec §5.5 and §5.3 import the reach coverage line from here, beside
+ * `coverage`. It is implemented in `model/reach.ts`, where it can be unit
+ * tested: importing `state.ts` under Vitest pulls in `auth/browser.ts`, which
+ * touches `localStorage` at module scope.
+ */
+export { reachCoverage, type ReachCoverage } from './reach';
+
+/**
  * The Rekordbox matcher works on Spotify tracks only: a local file has no
  * id to hang a FeatureRow on. Built with a loop rather than
  * `.filter().map()` so `id` narrows from `string | null` to `string`.
@@ -377,15 +414,56 @@ export async function startRekordboxImport(file: File): Promise<void> {
   }
 }
 
+/** Never on load: the artist reach run starts only from this button. */
+export async function startReach(): Promise<void> {
+  if (reachState.value.status === 'running') return;
+  const m = model.value;
+  if (!m) return;
+  clearBanner();
+  // Claimed synchronously so a second tap cannot start a second run.
+  // `as ReachState` keeps the signal at its declared union type, as in
+  // startSync and startLookup.
+  reachState.value = {
+    status: 'running',
+    step: 'musicbrainz',
+    done: 0,
+    total: 0,
+    paused: [],
+  } as ReachState;
+  // Identities and reach rows come from the model, not from a fresh
+  // IndexedDB read: a rejected read would strand the state on `running`
+  // forever, because runReach itself never throws.
+  await runReach(
+    {
+      // Bare `fetch` throws "Illegal invocation" once unbound from window.
+      fetchFn: (input, init) => fetch(input, init),
+      // Deezer sends no CORS header at all, so its four calls go through
+      // the <script> transport; the client passes its own timeout.
+      jsonpFn: jsonp,
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      now: () => Date.now(),
+      onState: (state) => {
+        reachState.value = state;
+      },
+      acquireWakeLock: 'wakeLock' in navigator ? acquireWakeLock : undefined,
+    },
+    reachCandidates(m),
+    [...m.identities.values()],
+    [...m.reach.values()]
+  );
+  // Rows written per artist: reload even after an error, so a partial run
+  // still shows its coverage.
+  await loadFromDb();
+  const state = reachState.value;
+  if (state.status === 'error') {
+    banner.value = errorBanner(state.message, ['settings']);
+  }
+}
+
 export async function disconnect(): Promise<void> {
-  if (
-    syncState.value.status === 'running' ||
-    importState.value.status === 'running' ||
-    lookupState.value.status === 'running' ||
-    rekordboxState.value.status === 'running'
-  ) {
+  if (jobsBusy()) {
     banner.value = warnBanner(
-      'Wait for the current sync, history import, lookup or Rekordbox import to finish before disconnecting.'
+      'Wait for the current sync, history import, lookup, Rekordbox import or artist lookup to finish before disconnecting.'
     );
     return;
   }
@@ -403,9 +481,11 @@ export async function disconnect(): Promise<void> {
   importState.value = { status: 'idle' };
   lookupState.value = { status: 'idle' };
   rekordboxState.value = { status: 'idle' };
+  reachState.value = { status: 'idle' };
   lastSyncAt.value = null;
   historySummary.value = null;
   rekordboxSummary.value = null;
+  artistReachSummary.value = null;
   banner.value = null;
   // keyNotation is a display preference, not data: it survives a wipe.
 }

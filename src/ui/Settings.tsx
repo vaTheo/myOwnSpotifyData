@@ -1,25 +1,31 @@
 import { auth } from '../auth/browser';
+import type { ReachRunCounts, ReachStep } from '../features/reachRun';
 import type { RekordboxSummary } from '../features/rekordboxImport';
 import type { ImportSummary } from '../history/importer';
 import {
+  artistReachSummary,
   coverage,
   disconnect,
   historySummary,
-  importState,
   isSyncBusy,
+  jobsBusy,
   keyNotation,
   lastSyncAt,
   lookupState,
   model,
+  reachCoverage,
+  reachState,
   rekordboxState,
   rekordboxSummary,
   setKeyNotation,
   startLookup,
+  startReach,
   startRekordboxImport,
   startSync,
   syncState,
   type Coverage,
   type KeyNotation,
+  type ReachCoverage,
 } from '../model/state';
 import { routeHref } from '../router';
 import { Progress } from './components/Progress';
@@ -106,8 +112,9 @@ function AudioCard() {
   const lookup = lookupState.value;
   const rekordbox = rekordboxState.value;
   const summary = rekordboxSummary.value;
-  // Both write the same store, so neither starts while the other runs.
-  const busy = lookup.status === 'running' || rekordbox.status === 'running';
+  // Every job ends in loadFromDb(), so no two of the five ever overlap
+  // (spec §5.5): jobsBusy() gates this card as well as Disconnect.
+  const busy = jobsBusy();
   const onXml = (event: Event) => {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
@@ -186,15 +193,111 @@ function AudioCard() {
   );
 }
 
+const SOURCE_LABEL: Record<ReachStep, string> = {
+  musicbrainz: 'MusicBrainz',
+  listenbrainz: 'ListenBrainz',
+  deezer: 'Deezer',
+  wikidata: 'Wikidata',
+  wikipedia: 'Wikipedia',
+};
+
+/**
+ * Spec §5.5: "Reach data for 806 of 1,204 artists · MusicBrainz 1,151 · …".
+ * The source counts overlap on purpose, exactly as the Audio data card's do,
+ * so they can add up to more than `covered`.
+ */
+function reachLine(c: ReachCoverage): string {
+  const artists = plural(c.artists, 'artist');
+  return [
+    `Reach data for ${c.covered.toLocaleString()} of ${artists}`,
+    `MusicBrainz ${c.resolved.toLocaleString()}`,
+    `ListenBrainz ${c.listenbrainz.toLocaleString()}`,
+    `Deezer ${c.deezer.toLocaleString()}`,
+    `Wikipedia ${c.wikipedia.toLocaleString()}`,
+    `well known ${c.wellKnown.toLocaleString()}`,
+  ].join(' · ');
+}
+
+/**
+ * What this run did, never what the store holds: `lookedUp` and `written`
+ * are run-scoped, and `unresolved` is the whole-store figure the owner asks
+ * for once a run has stopped (spec §5.5).
+ */
+function reachRunLine(run: ReachRunCounts): string {
+  return [
+    `Looked up ${plural(run.lookedUp, 'artist')}`,
+    plural(run.written, 'new number'),
+    `${run.unresolved.toLocaleString()} unresolved`,
+  ].join(' · ');
+}
+
+function pausedLine(step: ReachStep): string {
+  return (
+    `${SOURCE_LABEL[step]} stopped answering after three tries; ` +
+    'the rest of this run skipped it.'
+  );
+}
+
+function ReachCard() {
+  const m = model.value;
+  const state = reachState.value;
+  const summary = artistReachSummary.value;
+  const busy = jobsBusy();
+  const cov = m ? reachCoverage(m) : null;
+  return (
+    <div class="card">
+      <h2>Artist reach</h2>
+      {cov && cov.artists > 0 ? (
+        <p>{reachLine(cov)}</p>
+      ) : (
+        <p class="muted">Sync your playlists first.</p>
+      )}
+      {state.status === 'running' && (
+        <Progress
+          label={`Resolving artists · ${SOURCE_LABEL[state.step]}`}
+          done={state.done}
+          total={state.total}
+          unit={state.step === 'wikidata' ? 'batches' : 'artists'}
+        />
+      )}
+      {state.status === 'done' && state.run.lookedUp === 0 && (
+        <p class="muted">Nothing new to look up.</p>
+      )}
+      {state.status === 'done' && state.run.lookedUp > 0 && (
+        <p class="muted">{reachRunLine(state.run)}</p>
+      )}
+      {state.status !== 'idle' &&
+        state.paused.map((step) => (
+          <p key={step} class="warn">
+            {pausedLine(step)}
+          </p>
+        ))}
+      {state.status === 'error' && (
+        <p class="error">Last error: {state.message}</p>
+      )}
+      <button
+        type="button"
+        disabled={busy || !m}
+        onClick={() => void startReach()}
+      >
+        {state.status === 'running' ? 'Looking up…' : 'Look up artists'}
+      </button>
+      {summary && <p class="muted">as of {formatDate(summary.ranAt)}</p>}
+      <p class="muted">
+        Artist data via MusicBrainz and ListenBrainz · Deezer · Wikidata (CC0) ·
+        Wikipedia (CC BY-SA)
+      </p>
+    </div>
+  );
+}
+
 export function Settings() {
   const state = syncState.value;
   const running = state.status === 'running';
   const locked = state.status === 'locked' && state.retryAt > Date.now();
-  const working =
-    running ||
-    importState.value.status === 'running' ||
-    lookupState.value.status === 'running' ||
-    rekordboxState.value.status === 'running';
+  // One predicate for all five jobs: the wipe below and the reach run must
+  // never overlap either (spec §5.5).
+  const working = jobsBusy();
   return (
     <section>
       <h1>Settings</h1>
@@ -228,7 +331,9 @@ export function Settings() {
           <button
             type="button"
             class="primary"
-            disabled={isSyncBusy(state)}
+            disabled={
+              isSyncBusy(state) || reachState.value.status === 'running'
+            }
             onClick={() => void startSync()}
           >
             {running ? 'Syncing…' : 'Sync now'}
@@ -248,6 +353,7 @@ export function Settings() {
       </div>
       <HistoryCard />
       <AudioCard />
+      <ReachCard />
       <div class="card">
         <h2>Disconnect</h2>
         <p>
