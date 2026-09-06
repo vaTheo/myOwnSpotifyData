@@ -1,5 +1,6 @@
 import type { ArtistRef, Period } from '../db/schema';
 import type { ImportCounts } from '../history/records';
+import { WELL_KNOWN_MIN_SITELINKS } from '../model/reach';
 
 export const PERIOD_LABEL: Record<Period, string> = {
   short_term: '4 weeks',
@@ -72,4 +73,41 @@ export function artistNames(artists: ArtistRef[]): string {
 /** Playlist items only carry artist ids and names; the link is derived. */
 export function artistUrl(id: string | null): string | null {
   return id ? `https://open.spotify.com/artist/${id}` : null;
+}
+
+/**
+ * Spec §5.3's reach line: `5,896 ListenBrainz listeners · 202,216 Deezer
+ * fans`, carrying only the parts that are known and the literal
+ * `no reach data` when neither is. A missing number is never printed as a
+ * zero, and the two are never summed: they count different audiences.
+ */
+export function reachLine(
+  listeners: number | null,
+  fans: number | null
+): string {
+  const parts: string[] = [];
+  if (listeners !== null) {
+    parts.push(plural(listeners, 'ListenBrainz listener'));
+  }
+  if (fans !== null) parts.push(plural(fans, 'Deezer fan'));
+  return parts.length > 0 ? parts.join(' · ') : 'no reach data';
+}
+
+/**
+ * Spec §5.3's public-profile line: `Wikipedia · 19 languages · 289k
+ * views/yr`. The language count is Wikidata's sitelink count, which is a
+ * floor rather than an exact total, so the line claims no more than
+ * "Wikipedia". The views part is dropped when there is no view count or it is
+ * 0, leaving `Wikipedia · 1 language`. Null when the artist has no article at
+ * all, which is the same threshold `isWellKnown` applies.
+ */
+export function profileLine(
+  sitelinks: number | null,
+  views: number | null
+): string | null {
+  if (sitelinks === null || sitelinks < WELL_KNOWN_MIN_SITELINKS) return null;
+  const line = `Wikipedia · ${plural(sitelinks, 'language')}`;
+  return views !== null && views > 0
+    ? `${line} · ${compactCount(views)} views/yr`
+    : line;
 }
