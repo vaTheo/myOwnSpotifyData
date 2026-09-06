@@ -418,17 +418,14 @@ Steps:
 4. **Done.** `onState({ status: 'done', name, url, added: uris.length, total,
    unmatched })`; return `{ playlistId, url }`.
 
-**The add endpoint path.** Specify **`POST /playlists/{playlist_id}/items`**
-`(confirm the path segment at implementation)`. The `/tracks` path is the
-deprecated spelling; the current one is `/items`. **Confirm** by reading the Web
-API reference page "Add Items to Playlist" and checking the request line for
-`items` vs `tracks` — one doc read, not a re-research task. There is internal
-corroboration to weigh: `spotify/types.ts` already documents the February-2026
-rename of the playlist-item field from `track` (legacy) to `item` (current) on
-`ApiPlaylistItem`, the same modernisation. **If it is wrong**, a 404 arrives
-*after* the playlist exists (step 3), so it surfaces inline **with** the playlist
-link and the added count (never swallowed), and switching the path to `/tracks`
-is a one-line change, not a redesign.
+**The add endpoint path.** The add call is
+**`POST /playlists/{playlist_id}/items`** — the `/items` spelling shipped.
+`/tracks` is the deprecated spelling; `/items` is the current one, the same
+February-2026 modernisation `spotify/types.ts` already documents on
+`ApiPlaylistItem` (the `track` legacy → `item` current field rename). A 404 from
+this call would arrive _after_ the playlist exists (step 3), so it surfaces
+inline **with** the playlist link and the added count (never swallowed); the
+strict match rule and the inline reporting hold either way.
 
 ### The wrapper `startCreatePlaylist` (in `state.ts`)
 
@@ -678,8 +675,8 @@ Every test **mocks fetch or the client**; none ever calls real Spotify.
 - **Endpoints used.** `GET /search?q=&type=track&limit=5` (bearer only, survives
   the Feb-2026 changes); `POST /me/playlists { name, public:false, description }`
   (`playlist-modify-private`); `POST /playlists/{id}/items { uris }` batches of
-  ≤100 `(confirm the `items` vs deprecated `tracks` path segment at
-  implementation — read the "Add Items to Playlist" reference)`.
+  ≤100. The `/items` spelling shipped (`/tracks` is the deprecated one), the
+  same Feb-2026 modernisation `spotify/types.ts` documents on `ApiPlaylistItem`.
 - **Non-idempotent writes are protected.** POST is never retried on a network
   error or 5xx, so a mid-flight failure can never silently create a duplicate
   playlist or duplicate tracks; it surfaces inline instead (with the playlist
@@ -696,13 +693,12 @@ Every test **mocks fetch or the client**; none ever calls real Spotify.
 
 ### Open points and the assumptions taken
 
-1. **Add-tracks path (`items` vs `tracks`).** Specified as
-   `POST /playlists/{playlist_id}/items` with an explicit
-   `(confirm at implementation)` and a named confirmation step (read the "Add
-   Items to Playlist" reference). **Assumption:** `items` is current and `tracks`
-   deprecated, corroborated by the Feb-2026 `item`/`track` field rename already
-   documented in `spotify/types.ts`. A wrong guess is a one-line, safe fix after
-   the playlist already exists.
+1. **Add-tracks path (`items` vs `tracks`) — resolved.** The add call shipped as
+   `POST /playlists/{playlist_id}/items`. `/items` is current and `/tracks` the
+   deprecated spelling, corroborated by the Feb-2026 `item`/`track` field rename
+   `spotify/types.ts` documents on `ApiPlaylistItem` (and by `ApiPlaylistSummary`
+   carrying both `items` and `tracks` totals). §4 and §8 above are settled to
+   `/items`; nothing here is left to confirm.
 2. **Playlist name/description caps (100 / 300).** Spotify's exact maxima were
    **not** probed. **Assumption:** these generous defensive trims avoid a
    rejected write without truncating real titles; adjust at implementation only
