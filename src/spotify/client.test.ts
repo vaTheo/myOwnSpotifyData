@@ -58,6 +58,10 @@ describe('createClient', () => {
     await expect(client.get('/me')).resolves.toEqual({ id: 'me' });
     expect(fetchFn.mock.calls[0][0]).toBe('https://api.spotify.com/v1/me');
     expect(authHeader(fetchFn, 0)).toBe('Bearer tok');
+    const init = fetchFn.mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe(
+      undefined
+    );
   });
 
   it('refreshes once on 401 and retries with the new token', async () => {
@@ -181,6 +185,87 @@ describe('createClient', () => {
     await expect(first).resolves.toEqual({ n: 1 });
     await expect(second).resolves.toEqual({ n: 2 });
     expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('post', () => {
+  it('sends POST with a JSON body, content-type and bearer, and returns JSON', async () => {
+    const { client, fetchFn } = setup([() => json({ id: 'p1' })]);
+    await expect(
+      client.post('/me/playlists', { name: 'Mix', public: false })
+    ).resolves.toEqual({ id: 'p1' });
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      'https://api.spotify.com/v1/me/playlists'
+    );
+    const init = fetchFn.mock.calls[0][1] as RequestInit;
+    expect(init.method).toBe('POST');
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe(
+      'application/json'
+    );
+    expect(init.body).toBe(JSON.stringify({ name: 'Mix', public: false }));
+    expect(authHeader(fetchFn, 0)).toBe('Bearer tok');
+  });
+
+  it('refreshes once on 401 and resends the same body with the fresh token', async () => {
+    const { client, fetchFn, getAccessToken } = setup([
+      () => json({}, 401),
+      () => json({ id: 'p1' }),
+    ]);
+    await expect(
+      client.post('/me/playlists', { name: 'Mix' })
+    ).resolves.toEqual({ id: 'p1' });
+    expect(getAccessToken).toHaveBeenCalledWith(true);
+    expect(authHeader(fetchFn, 1)).toBe('Bearer fresh');
+    expect((fetchFn.mock.calls[1][1] as RequestInit).body).toBe(
+      JSON.stringify({ name: 'Mix' })
+    );
+  });
+
+  it('waits a short Retry-After on a 429 and resends the body', async () => {
+    const { client, fetchFn, sleep } = setup([
+      () => json({}, 429, { 'Retry-After': '2' }),
+      () => json({ id: 'p1' }),
+    ]);
+    await expect(client.post('/x/items', { uris: ['a'] })).resolves.toEqual({
+      id: 'p1',
+    });
+    expect(sleep).toHaveBeenCalledWith(2000);
+    expect((fetchFn.mock.calls[1][1] as RequestInit).body).toBe(
+      JSON.stringify({ uris: ['a'] })
+    );
+  });
+
+  it('raises QuotaError when Retry-After exceeds five minutes', async () => {
+    const { client } = setup([() => json({}, 429, { 'Retry-After': '61389' })]);
+    const err = await client
+      .post('/me/playlists', { name: 'Mix' })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(QuotaError);
+    expect((err as QuotaError).retryAt).toBe(1_000_000 + 61_389_000);
+  });
+
+  it('does NOT retry a 5xx and throws immediately (non-idempotent)', async () => {
+    const { client, fetchFn, sleep } = setup([() => json({}, 500)]);
+    await expect(
+      client.post('/me/playlists', { name: 'Mix' })
+    ).rejects.toMatchObject({ name: 'ApiError', status: 500 });
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('does NOT retry a network error and throws immediately (non-idempotent)', async () => {
+    const { client, fetchFn, sleep } = setup([
+      () => {
+        throw new TypeError('Failed to fetch');
+      },
+    ]);
+    const err = await client
+      .post('/me/playlists', { name: 'Mix' })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(0);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
   });
 });
 
