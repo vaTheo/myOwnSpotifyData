@@ -10,3 +10,12 @@ export function parseRetryAfter(header: string | null): number | null {
   const seconds = Number(header);
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
 }
+
+/**
+ * Every reach lookup `fetch` carries
+ * `AbortSignal.timeout(REACH_REQUEST_TIMEOUT_MS)` (artist-reach spec §4.5).
+ * Without it a hung request on a flaky mobile connection strands the run on
+ * `running` with no way back; an abort is a transport failure and takes the
+ * source's backoff path.
+ */
+export const REACH_REQUEST_TIMEOUT_MS = 15_000;
