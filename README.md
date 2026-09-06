@@ -11,8 +11,11 @@ key lookup sends to ReccoBeats, the artist ids, ISRCs and article titles the
 artist-reach lookup sends to MusicBrainz, ListenBrainz, Deezer, Wikidata and
 Wikimedia, and the SoundCloud link you paste into the Mix tracklist screen,
 which goes to SoundCloud and TrackId.net (and loads the player from
-`w.soundcloud.com`) — and only when you start one of them. No token, no
-playlist and no listening history ever leaves the browser.
+`w.soundcloud.com`) — and only when you start one of them. The only thing the
+app ever writes back to Spotify is a playlist you explicitly ask for: **Create
+playlist from mix** sends a name and the matched track ids to your own Spotify
+account, on that tap alone. No token and no listening history ever leaves the
+browser.
 
 ## Run locally
 
@@ -128,6 +131,18 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   **Sync Shazam Library to Spotify** (Auto Shazam): a "My Shazam Tracks"
   playlist then appears in Spotify, shows up under Playlists here, and syncs
   like any other playlist.
+  Once the list is right, **Create playlist from mix** turns it into a private
+  Spotify playlist: it searches Spotify for each identified row, adds the tracks
+  it can match with confidence, and lists the ones it could not under a
+  "N not found" line so you can add them by hand — it never guesses a wrong
+  track onto the playlist. The first time, Spotify needs one more permission:
+  tap the button, then **Connect again → Connect Spotify** to grant it (your
+  saved mixes stay on this phone), reopen the mix and tap the button again. It
+  **never** creates a playlist on its own — only on that tap — and tapping it
+  again makes **another** new playlist rather than editing the last one. A mix
+  that has a playlist shows a **Playlist created · Open in Spotify ›** link when
+  you reopen it.
+
 - **Re-import once for the Crate.** An import made before the Crate shipped
   kept no month, start or skip data, so the year, month and finish-rate views
   stay empty until you import the export again; the app says so once and the
