@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  closeDb,
   deletePlaylists,
   getAllRows,
   getFeatures,
@@ -12,8 +13,9 @@ import {
   putMeta,
   putReach,
   putTopItems,
-  replacePlays,
   replacePlaylist,
+  replacePlays,
+  setDbEvents,
   wipeDb,
 } from './repo';
 import { DB_NAME, DB_VERSION, reachKey } from './schema';
@@ -346,6 +348,40 @@ describe('artist identity and reach', () => {
     const rows = await getAllRows();
     expect(rows.artistIdentity).toEqual([]);
     expect(rows.artistReach).toEqual([]);
+  });
+});
+
+describe('database events', () => {
+  it('reports a blocked upgrade, then opens once the old tab closes', async () => {
+    const old = await openAt(2, V2_STORES);
+    const blocked = vi.fn();
+    setDbEvents({ blocked });
+    const opening = openDb();
+    await vi.waitFor(() => expect(blocked).toHaveBeenCalledTimes(1));
+    old.close();
+    const db = await opening;
+    expect(db.version).toBe(DB_VERSION);
+    expect(db.objectStoreNames.contains('artistReach')).toBe(true);
+    setDbEvents({});
+  });
+
+  it('hands the database over when a newer version opens elsewhere', async () => {
+    const superseded = vi.fn();
+    setDbEvents({ superseded });
+    await openDb();
+    const newer = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION + 1);
+      req.onblocked = () =>
+        reject(new Error('the old connection was not closed'));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    expect(superseded).toHaveBeenCalledTimes(1);
+    expect(newer.version).toBe(DB_VERSION + 1);
+    newer.close();
+    setDbEvents({});
+    // The superseded tab must not keep a cached connection around.
+    await expect(closeDb()).resolves.toBeUndefined();
   });
 });
 
