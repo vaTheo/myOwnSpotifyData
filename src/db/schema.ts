@@ -252,6 +252,10 @@ export interface MixRow {
   };
   /** The one working list the owner curated, in play order. */
   rows: TracklistRow[];
+  /** external_urls.spotify of the playlist last created for this mix, or absent. */
+  playlistUrl?: string;
+  /** Spotify id of that playlist, or absent. Kept for provenance/debugging. */
+  playlistId?: string;
   savedAt: number;
 }
 
