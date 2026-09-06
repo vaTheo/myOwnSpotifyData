@@ -9,7 +9,8 @@ import {
   refreshTokens,
 } from './pkce';
 
-export const SCOPES = 'user-top-read playlist-read-private';
+export const SCOPES =
+  'user-top-read playlist-read-private playlist-modify-private';
 
 const SESSION_KEY = 'session';
 const PKCE_KEY = 'pkce';
