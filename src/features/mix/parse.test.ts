@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { normalize } from '../../model/normalize';
 import { parseClock, parseDescription, parseLines, parsePasted } from './parse';
 
 /** A single-line parse: minRun 1 accepts one matching line. */
@@ -165,5 +166,28 @@ describe('parseDescription', () => {
     expect(rows[0].artist).toBe('Foo & Bar');
     expect(rows[0].title).toBe('Track One');
     expect(rows[0].source).toBe('description');
+  });
+
+  it('decodes &nbsp; so an index prefix followed by it still strips (M8)', () => {
+    const raw =
+      '1.&nbsp;Foo - Track One<br>2. Baz - Qux<br>3. A - B<br>4. C - D<br>5. E - F';
+    const { rows } = parseDescription(raw);
+    expect(rows).toHaveLength(5);
+    // Without the &nbsp; decode, the index prefix does not strip and the
+    // artist garbles to "1.&nbsp;Foo".
+    expect(rows[0].artist).toBe('Foo');
+    expect(rows[0].title).toBe('Track One');
+  });
+
+  it('decodes &nbsp; inside a name to U+00A0, which normalizes like a plain space (M8)', () => {
+    // ENTITIES decodes &nbsp; to the actual U+00A0 character (regex `\s`
+    // matches it, so the parsing grammar above needs no other change), not
+    // an ASCII space — confirm that choice does not break library matching,
+    // which goes through `normalize()`, not a raw string compare.
+    const raw = 'Foo&nbsp;Bar - Track One\nA - B\nC - D\nE - F\nG - H';
+    const { rows } = parseDescription(raw);
+    expect(rows).toHaveLength(5);
+    expect(rows[0].artist).toBe('Foo\u00A0Bar');
+    expect(normalize(rows[0].artist)).toBe(normalize('Foo Bar'));
   });
 });

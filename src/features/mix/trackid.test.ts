@@ -259,6 +259,163 @@ describe('tidSpansToRows', () => {
     expect(apart.filter((r) => !r.gap)).toHaveLength(2);
     expect(MIX_MERGE_TOLERANCE_SEC).toBe(5);
   });
+
+  it('I1: does not merge two adjacent spans with different numeric musicTrackIds', () => {
+    // Real TrackId ids are numbers (idTypes: ["number"]). Before the fix,
+    // `str()` coerced every numeric id to '', so any two spans this close
+    // (abutting well within MIX_MERGE_TOLERANCE_SEC) merged into one row and
+    // silently dropped Artist B.
+    const rows = tidSpansToRows(
+      {
+        detectionProcesses: [
+          {
+            detectionProcessMusicTracks: [
+              span('unused', '0:10', '1:40', {
+                musicTrackId: 111,
+                artist: 'Artist A',
+                title: 'Track A',
+              }),
+              span('unused', '1:41', '2:00', {
+                musicTrackId: 222,
+                artist: 'Artist B',
+                title: 'Track B',
+              }),
+            ],
+          },
+        ],
+      },
+      null
+    ).filter((r) => !r.gap);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.artist)).toEqual(['Artist A', 'Artist B']);
+    expect(rows.map((r) => r.title)).toEqual(['Track A', 'Track B']);
+  });
+
+  it('I1: merges two spans that share one numeric musicTrackId and abut', () => {
+    const rows = tidSpansToRows(
+      {
+        detectionProcesses: [
+          {
+            detectionProcessMusicTracks: [
+              span('unused', '0:10', '1:40', {
+                musicTrackId: 42,
+                artist: 'Same Artist',
+                title: 'Same Track',
+              }),
+              span('unused', '1:41', '2:00', {
+                musicTrackId: 42,
+                artist: 'Same Artist',
+                title: 'Same Track',
+              }),
+            ],
+          },
+        ],
+      },
+      null
+    ).filter((r) => !r.gap);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ startSec: 10, endSec: 120 });
+  });
+
+  it('I1: never merges two spans that both lack a musicTrackId, even abutting', () => {
+    const rows = tidSpansToRows(
+      {
+        detectionProcesses: [
+          {
+            detectionProcessMusicTracks: [
+              span('', '0:10', '1:40', { artist: 'A', title: 'One' }),
+              span('', '1:41', '2:00', { artist: 'B', title: 'Two' }),
+            ],
+          },
+        ],
+      },
+      null
+    ).filter((r) => !r.gap);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.title)).toEqual(['One', 'Two']);
+  });
+
+  it('M4: drops a span whose endTime is before its startTime', () => {
+    const rows = tidSpansToRows(
+      {
+        detectionProcesses: [
+          {
+            detectionProcessMusicTracks: [
+              span('bad', '2:00', '1:00', {
+                musicTrackId: 5,
+                artist: 'Bad',
+                title: 'Reversed',
+              }),
+              span('good', '3:00', '4:00', {
+                musicTrackId: 6,
+                artist: 'Good',
+                title: 'Track',
+              }),
+            ],
+          },
+        ],
+      },
+      null
+    ).filter((r) => !r.gap);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].artist).toBe('Good');
+  });
+
+  it('M4: keeps a zero-length span (endSec === startSec)', () => {
+    const rows = tidSpansToRows(
+      {
+        detectionProcesses: [
+          {
+            detectionProcessMusicTracks: [
+              span('zero', '1:00', '1:00', { musicTrackId: 7 }),
+            ],
+          },
+        ],
+      },
+      null
+    ).filter((r) => !r.gap);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ startSec: 60, endSec: 60 });
+  });
+
+  it('M3: anchors a following gap on the running max end, not the last-by-start span', () => {
+    // A (id 1) starts first but, as a longer crossfaded track, ends LAST.
+    // B (id 2) starts after A and ends well before it — contained inside A's
+    // span. `merged` is sorted by start, so B is last-by-start even though
+    // its end (100 s) is well before A's true end (200 s).
+    const rows = tidSpansToRows(
+      {
+        detectionProcesses: [
+          {
+            detectionProcessMusicTracks: [
+              span('unused', '0:00', '3:20', {
+                musicTrackId: 1,
+                artist: 'A',
+                title: 'Long',
+              }),
+              span('unused', '0:50', '1:40', {
+                musicTrackId: 2,
+                artist: 'B',
+                title: 'Short',
+              }),
+            ],
+          },
+        ],
+      },
+      300 // 5:00 duration
+    );
+    const identified = rows.filter((r) => !r.gap);
+    expect(identified).toHaveLength(2);
+    // No phantom/mis-anchored gap between A and B: B starts inside A's span.
+    expect(rows.some((r) => r.gap && r.startSec !== 200)).toBe(false);
+    const tail = rows[rows.length - 1];
+    expect(tail.gap).toBe(true);
+    // True last end is A's 200 s, not B's last-by-start endSec of 100 s (the
+    // pre-fix value, which would wrongly claim 100-200 s as an unidentified
+    // gap even though A covers it).
+    expect(tail.startSec).toBe(200);
+    expect(tail.endSec).toBe(300);
+  });
 });
 
 describe('fetchTrackId — the guard', () => {

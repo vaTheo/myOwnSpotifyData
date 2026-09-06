@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { TracklistRow } from '../db/schema';
+import { parseClock } from '../features/mix/parse';
 import {
   libraryTitleIndex,
   matchMixRow,
@@ -10,6 +11,7 @@ import {
   addMixRow,
   applyDescriptionTracklist,
   applyPastedTracklist,
+  closeMix,
   deleteMixRow,
   editMixRow,
   loadSavedMixes,
@@ -145,12 +147,20 @@ function GapRow(p: { row: TracklistRow; onDelete: () => void }) {
 
 function EditRow(p: {
   row: TracklistRow;
-  onSave: (patch: { artist: string; title: string; label: string }) => void;
+  onSave: (patch: {
+    artist: string;
+    title: string;
+    label: string;
+    startSec: number | null;
+  }) => void;
   onCancel: () => void;
 }) {
   const [artist, setArtist] = useState(p.row.artist);
   const [title, setTitle] = useState(p.row.title);
   const [label, setLabel] = useState(p.row.label ?? '');
+  const [time, setTime] = useState(
+    p.row.startSec !== null ? formatClock(p.row.startSec) : ''
+  );
   return (
     <li>
       <input
@@ -174,11 +184,25 @@ function EditRow(p: {
         value={label}
         onInput={(e) => setLabel((e.currentTarget as HTMLInputElement).value)}
       />
+      <input
+        class="filter"
+        type="text"
+        placeholder="Time (m:ss, optional)"
+        value={time}
+        onInput={(e) => setTime((e.currentTarget as HTMLInputElement).value)}
+      />
       <div class="actions">
         <button
           type="button"
           class="primary"
-          onClick={() => p.onSave({ artist, title, label })}
+          onClick={() =>
+            p.onSave({
+              artist,
+              title,
+              label,
+              startSec: time.trim() === '' ? null : parseClock(time),
+            })
+          }
         >
           Save
         </button>
@@ -197,9 +221,12 @@ function Tracklist() {
   const [editing, setEditing] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
   const onSaveMix = (): void => {
-    void saveMix();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    void (async () => {
+      const ok = await saveMix();
+      if (!ok) return; // mixError shows inline; never flash "Saved ✓" on it.
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    })();
   };
   return (
     <>
@@ -394,6 +421,9 @@ function Ready(p: { view: MixView }) {
     !sameRows(mixRows.value, view.descriptionRows);
   return (
     <>
+      <button type="button" onClick={() => closeMix()}>
+        ‹ Mixes
+      </button>
       <Provenance view={view} />
       {view.playerSrc !== null && (
         <iframe
@@ -519,7 +549,8 @@ export function Mix() {
       >
         <input
           class="filter"
-          type="url"
+          type="text"
+          inputMode="url"
           placeholder="Paste a SoundCloud mix link"
           value={url}
           onInput={(e) => setUrl((e.currentTarget as HTMLInputElement).value)}

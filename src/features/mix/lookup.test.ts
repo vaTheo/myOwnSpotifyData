@@ -124,6 +124,60 @@ describe('editTracklistRow', () => {
     const out = editTracklistRow(added, { artist: 'X', title: 'Y', label: '' });
     expect(out.source).toBe('manual');
   });
+
+  it('leaves startSec alone when the patch omits it (M5)', () => {
+    const out = editTracklistRow(base, {
+      artist: 'Apollonia',
+      title: 'Chez Michel',
+      label: '',
+    });
+    expect(out.startSec).toBe(0);
+  });
+
+  it('sets startSec from the patch, on a row that had none (M5)', () => {
+    const untimed: TracklistRow = { ...base, startSec: null, source: 'manual' };
+    const out = editTracklistRow(untimed, {
+      artist: 'Apollonia',
+      title: 'Chez Michel',
+      label: '',
+      startSec: 90,
+    });
+    expect(out.startSec).toBe(90);
+  });
+
+  it('clears startSec when the patch passes null (an emptied time field)', () => {
+    const out = editTracklistRow(base, {
+      artist: 'Apollonia',
+      title: 'Chez Michel',
+      label: '',
+      startSec: null,
+    });
+    expect(out.startSec).toBeNull();
+  });
+
+  it('flips source to manual when only the time genuinely changes', () => {
+    // A retimed-only row must count as curated too: hasManualRows (and so
+    // the I2/§8 replace-guards) key off source === 'manual', and a
+    // time-only edit would otherwise be invisible to "Look up again".
+    const out = editTracklistRow(base, {
+      artist: 'Apollonia',
+      title: 'Chez Michel',
+      label: '',
+      startSec: 45, // base.startSec is 0: a real change.
+    });
+    expect(out.source).toBe('manual');
+    expect(hasManualRows([out])).toBe(true);
+  });
+
+  it('does not flip source when the same time is resubmitted unchanged', () => {
+    const out = editTracklistRow(base, {
+      artist: 'Apollonia',
+      title: 'Chez Michel',
+      label: '',
+      startSec: 0, // same as base.startSec: no real change.
+    });
+    expect(out.source).toBe('trackid');
+  });
 });
 
 describe('hasManualRows', () => {
