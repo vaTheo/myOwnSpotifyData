@@ -2,15 +2,18 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   closeDb,
+  deleteMix,
   deletePlaylists,
   getAllRows,
   getFeatures,
   getMeta,
+  getMixes,
   getPlaylists,
   openDb,
   putFeatures,
   putIdentities,
   putMeta,
+  putMix,
   putReach,
   putTopItems,
   replacePlaylist,
@@ -24,6 +27,7 @@ import type {
   ArtistReachRow,
   EntryRow,
   FeatureRow,
+  MixRow,
   PlaylistRow,
   ReachSource,
   TrackRow,
@@ -117,6 +121,37 @@ function reachRow(
   };
 }
 
+function mix(url: string, over: Partial<MixRow> = {}): MixRow {
+  return {
+    url,
+    title: 'Some Mix by DJ',
+    author: 'DJ',
+    playerSrc: 'https://w.soundcloud.com/player/?url=x',
+    slug: 'some-mix',
+    sources: {
+      trackid: true,
+      description: false,
+      pasted: false,
+      linkOut: null,
+    },
+    rows: [
+      {
+        startSec: 0,
+        endSec: 120,
+        artist: 'A',
+        title: 'B',
+        label: null,
+        source: 'trackid',
+        gap: false,
+        detected: { artist: 'A', title: 'B' },
+        referenceCount: 3,
+      },
+    ],
+    savedAt: 1000,
+    ...over,
+  };
+}
+
 /** The six stores of version 1, with the key paths that shipped. */
 const V1_STORES: [string, string | string[]][] = [
   ['playlists', 'id'],
@@ -131,6 +166,13 @@ const V1_STORES: [string, string | string[]][] = [
 const V2_STORES: [string, string | string[]][] = [
   ...V1_STORES,
   ['features', 'trackId'],
+];
+
+/** The nine stores of version 3: version 2 plus the two reach stores. */
+const V3_STORES: [string, string | string[]][] = [
+  ...V2_STORES,
+  ['artistIdentity', 'artistId'],
+  ['artistReach', 'key'],
 ];
 
 /** Opens the database at an old version with exactly the stores it had. */
@@ -351,6 +393,38 @@ describe('artist identity and reach', () => {
   });
 });
 
+describe('mixes', () => {
+  it('round-trips mix rows and replaces them by url', async () => {
+    await putMix(mix('https://soundcloud.com/u/one'));
+    await putMix(mix('https://soundcloud.com/u/two', { title: 'Two' }));
+    const stored = (await getMixes()).sort((a, b) =>
+      a.url.localeCompare(b.url)
+    );
+    expect(stored.map((m) => m.url)).toEqual([
+      'https://soundcloud.com/u/one',
+      'https://soundcloud.com/u/two',
+    ]);
+    expect(stored[0]).toEqual(mix('https://soundcloud.com/u/one'));
+    // A second put under the same url replaces rather than duplicates.
+    await putMix(mix('https://soundcloud.com/u/one', { title: 'One again' }));
+    const afterReplace = await getMixes();
+    expect(afterReplace).toHaveLength(2);
+    expect(
+      afterReplace.find((m) => m.url === 'https://soundcloud.com/u/one')?.title
+    ).toBe('One again');
+    // deleteMix removes only the named row.
+    await deleteMix('https://soundcloud.com/u/one');
+    const afterDelete = await getMixes();
+    expect(afterDelete.map((m) => m.url)).toEqual([
+      'https://soundcloud.com/u/two',
+    ]);
+  });
+
+  it('getMixes returns an empty array when the store is empty', async () => {
+    await expect(getMixes()).resolves.toEqual([]);
+  });
+});
+
 describe('database events', () => {
   it('reports a blocked upgrade, then opens once the old tab closes', async () => {
     const old = await openAt(2, V2_STORES);
@@ -421,5 +495,30 @@ describe('migration', () => {
     const after = await getAllRows();
     expect(after.artistIdentity).toEqual([identity('a1')]);
     expect(after.artistReach).toEqual([reachRow('a1', 'listenbrainz')]);
+  });
+
+  it('upgrades a version 3 database, keeping its rows and adding the mixes store', async () => {
+    const v3 = await openAt(3, V3_STORES);
+    await putLegacyRow(v3, 'playlists', playlist('p1'));
+    await putLegacyRow(v3, 'tracks', track('t1'));
+    await putLegacyRow(v3, 'features', feature('t1'));
+    await putLegacyRow(v3, 'artistIdentity', identity('a1'));
+    await putLegacyRow(v3, 'artistReach', reachRow('a1', 'listenbrainz'));
+    v3.close();
+    const rows = await getAllRows();
+    expect(rows.playlists).toEqual([playlist('p1')]);
+    expect(rows.tracks).toEqual([track('t1')]);
+    expect(rows.features).toEqual([feature('t1')]);
+    expect(rows.artistIdentity).toEqual([identity('a1')]);
+    expect(rows.artistReach).toEqual([reachRow('a1', 'listenbrainz')]);
+    const db = await openDb();
+    expect(db.version).toBe(DB_VERSION);
+    expect(db.objectStoreNames.contains('mixes')).toBe(true);
+    // The new store is reached through getMixes(), not getAllRows().
+    await expect(getMixes()).resolves.toEqual([]);
+    await putMix(mix('https://soundcloud.com/u/m'));
+    await expect(getMixes()).resolves.toEqual([
+      mix('https://soundcloud.com/u/m'),
+    ]);
   });
 });

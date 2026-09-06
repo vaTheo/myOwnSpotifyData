@@ -1,7 +1,7 @@
 import type { DBSchema } from 'idb';
 
 export const DB_NAME = 'spotify-dj';
-export const DB_VERSION = 3;
+export const DB_VERSION = 4; // was 3
 
 export interface ArtistRef {
   id: string | null;
@@ -194,6 +194,67 @@ export function reachKey(artistId: string, source: ReachSource): string {
   return `${artistId}|${source}`;
 }
 
+/** Where a tracklist row came from. 'manual' = the owner typed or edited it. */
+export type MixRowSource = 'trackid' | 'description' | 'pasted' | 'manual';
+
+export interface TracklistRow {
+  /** Seconds from the start of the mix, or null when the source had no time. */
+  startSec: number | null;
+  /** Seconds; TrackId is the only source with an end, else null. */
+  endSec: number | null;
+  /** Shown and edited. Seeded from `detected`; the owner may overwrite it. */
+  artist: string;
+  title: string;
+  /** MixesDB / TrackId label, or null. */
+  label: string | null;
+  source: MixRowSource;
+  /**
+   * true for an "ID · unidentified · mm:ss – mm:ss" stretch. `artist`/`title`
+   * are ignored for a gap row: it links to nothing and matches nothing.
+   */
+  gap: boolean;
+  /**
+   * The values the source produced, kept beside the edited ones so an edit is
+   * reversible and provenance survives. null for a row the owner added from
+   * scratch (source 'manual').
+   */
+  detected: { artist: string; title: string } | null;
+  /** TrackId `referenceCount` (how many corpus mixes hold the track), else null. */
+  referenceCount: number | null;
+}
+
+/** New store `mixes`, keyPath 'url'. One row per saved mix. */
+export interface MixRow {
+  /** normalizeMixUrl(pasted) — the store key, and the guard's comparand. */
+  url: string;
+  /** oEmbed `title` verbatim (it already ends "… by <author>"), or null. */
+  title: string | null;
+  /** oEmbed `author_name` verbatim, kept for provenance; not rendered beside the title. */
+  author: string | null;
+  /**
+   * The validated player iframe src, or null. Stored so reopening a saved mix
+   * restores the player with no network call — it is a derived public URL, not
+   * audio, and never carries a token.
+   */
+  playerSrc: string | null;
+  /**
+   * TrackId slug when that layer answered, so the provenance link survives a
+   * reopen; null when TrackId did not answer. Never derived from the permalink.
+   */
+  slug: string | null;
+  /** Which layers answered, for the provenance line and the saved-mixes list. */
+  sources: {
+    trackid: boolean;
+    description: boolean;
+    pasted: boolean;
+    /** A "full tracklist at <url>" link found in the description, or null. */
+    linkOut: string | null;
+  };
+  /** The one working list the owner curated, in play order. */
+  rows: TracklistRow[];
+  savedAt: number;
+}
+
 export interface MetaRow {
   name: string;
   value: unknown;
@@ -219,5 +280,6 @@ export interface DjDb extends DBSchema {
   features: { key: string; value: FeatureRow };
   artistIdentity: { key: string; value: ArtistIdentityRow };
   artistReach: { key: string; value: ArtistReachRow };
+  mixes: { key: string; value: MixRow };
   meta: { key: string; value: MetaRow };
 }

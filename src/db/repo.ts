@@ -8,6 +8,7 @@ import {
   type DjDb,
   type EntryRow,
   type FeatureRow,
+  type MixRow,
   type PlayRow,
   type PlaylistRow,
   type TopItemsRow,
@@ -68,7 +69,8 @@ export function openDb(): Promise<IDBPDatabase<DjDb>> {
     upgrade(db) {
       // Only what is missing: a version 1 database keeps every row it holds
       // and gains `features`; a version 2 database keeps every playlist,
-      // track, play and feature row and gains the two reach stores.
+      // track, play and feature row and gains the two reach stores; a version
+      // 3 database keeps every row and gains `mixes`.
       if (!db.objectStoreNames.contains('playlists'))
         db.createObjectStore('playlists', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('tracks'))
@@ -87,6 +89,8 @@ export function openDb(): Promise<IDBPDatabase<DjDb>> {
         db.createObjectStore('artistIdentity', { keyPath: 'artistId' });
       if (!db.objectStoreNames.contains('artistReach'))
         db.createObjectStore('artistReach', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('mixes'))
+        db.createObjectStore('mixes', { keyPath: 'url' });
       if (!db.objectStoreNames.contains('meta'))
         db.createObjectStore('meta', { keyPath: 'name' });
     },
@@ -245,6 +249,21 @@ export async function putReach(rows: ArtistReachRow[]): Promise<void> {
   const tx = db.transaction('artistReach', 'readwrite');
   const store = tx.objectStore('artistReach');
   await Promise.all([...rows.map((row) => store.put(row)), tx.done]);
+}
+
+export async function getMixes(): Promise<MixRow[]> {
+  const db = await openDb();
+  return db.getAll('mixes'); // newest-first ordering is applied in state.ts
+}
+
+export async function putMix(row: MixRow): Promise<void> {
+  const db = await openDb();
+  await db.put('mixes', row);
+}
+
+export async function deleteMix(url: string): Promise<void> {
+  const db = await openDb();
+  await db.delete('mixes', url);
 }
 
 export async function getMeta<T>(name: string): Promise<T | undefined> {
