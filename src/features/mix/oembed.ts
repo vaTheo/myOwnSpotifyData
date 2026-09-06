@@ -9,6 +9,12 @@ export type OembedResult =
       status: 'ok';
       title: string;
       author: string;
+      /**
+       * `author_url` — the uploader's SoundCloud profile. For a short link this
+       * is the one field that yields the permalink: `permalinkFromOembed`
+       * joins it to a slug derived from `title` (§3.1). Empty when absent.
+       */
+      authorUrl: string;
       /** Passed on RAW (HTML entities and \r\n intact); the parser cleans it. */
       description: string;
       /**
@@ -81,6 +87,7 @@ export async function fetchOembed(
     status: 'ok',
     title: str(field(body, 'title')),
     author: str(field(body, 'author_name')),
+    authorUrl: str(field(body, 'author_url')),
     description: str(field(body, 'description')),
     playerSrc: extractPlayerSrc(field(body, 'html')),
   };
