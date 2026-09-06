@@ -201,13 +201,22 @@ describe('lookupMix (short link)', () => {
     expect(result.trackid).toEqual(okTrackid);
   });
 
-  it('surfaces a transport error rather than disguising it as notFound', async () => {
+  it('surfaces a transport error and stops probing the remaining spellings', async () => {
     oembedMock.mockResolvedValue(apostropheOembed);
-    // Both candidates hit a service error: the failure must be shown, not
-    // swallowed into a "not in the corpus" notFound.
-    trackidMock.mockResolvedValue({ status: 'error', message: 'HTTP 503' });
+    // The 1st candidate hits a service error; a 2nd probe would only be a
+    // guard miss anyway. The error must be shown (not swallowed into a
+    // "not in the corpus" notFound), and the endpoint must not be hit again
+    // with a different spelling — a slug never causes a 503.
+    trackidMock.mockImplementation((_fn, url): Promise<TrackIdResult> =>
+      Promise.resolve(
+        url === C1
+          ? { status: 'error', message: 'HTTP 503' }
+          : { status: 'notFound' }
+      )
+    );
     const result = await lookupMix(deps, { kind: 'shortlink', url: SHORT });
-    expect(trackidMock).toHaveBeenCalledTimes(2);
+    expect(trackidMock).toHaveBeenCalledTimes(1);
+    expect(trackidMock.mock.calls[0][1]).toBe(C1);
     expect(result.trackid).toEqual({ status: 'error', message: 'HTTP 503' });
     expect(result.resolvedUrl).toBe(C1);
   });
