@@ -9,7 +9,9 @@ export function Connect() {
         Your most played tracks, your playlists ranked by plays, and the artists
         you have saved the most. Reads your top lists and the playlists you own.
         Nothing leaves this browser except the track ids sent to ReccoBeats when
-        you look up BPM and key.
+        you look up BPM and key, and the artist ids, ISRCs and article titles
+        sent to MusicBrainz, ListenBrainz, Deezer, Wikidata and Wikimedia when
+        you look up artists.
       </p>
       {error && <p class="error">{error}</p>}
       <button

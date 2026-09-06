@@ -6,6 +6,7 @@ import { UnderRadar } from './UnderRadar';
 import { artistView } from './artistSelections';
 import { Empty } from './components/Empty';
 import { Filter } from './components/Filter';
+import { NoMatch } from './components/NoMatch';
 import { Segmented } from './components/Segmented';
 import { TrackRow } from './components/TrackRow';
 import { artistUrl, plural } from './format';
@@ -34,17 +35,12 @@ function SavedTracks() {
         placeholder="Filter artists"
       />
       {list.length === 0 ? (
-        <div class="empty">
-          <p>No artists match "{filter.value}".</p>
-          <button
-            type="button"
-            onClick={() => {
-              filter.value = '';
-            }}
-          >
-            Clear filter
-          </button>
-        </div>
+        <NoMatch
+          query={filter.value}
+          onClear={() => {
+            filter.value = '';
+          }}
+        />
       ) : (
         <ul class="list">
           {list.map((a) => (
