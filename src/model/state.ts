@@ -897,10 +897,12 @@ export async function startCreatePlaylist(): Promise<void> {
       playlistUrl: outcome.url ?? undefined,
       playlistId: outcome.playlistId,
     };
+    let saved = true;
     try {
       await putMix(row);
     } catch (err) {
       mixError.value = `Could not save the mix: ${storageMessage(err)}`;
+      saved = false;
     }
     const open = mixState.value;
     if (open.status === 'ready' && open.view.url === view.url) {
@@ -913,7 +915,9 @@ export async function startCreatePlaylist(): Promise<void> {
         },
       };
     }
-    await loadSavedMixes();
+    // Only on success: loadSavedMixes clears mixError first, so calling it
+    // after a rejected putMix would wipe the error we just set (nothing shown).
+    if (saved) await loadSavedMixes();
   }
 }
 
