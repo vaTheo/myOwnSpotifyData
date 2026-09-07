@@ -147,6 +147,17 @@ describe('pickMatch', () => {
     expect(pickMatch(row(), [episode])).toBeNull();
   });
 
+  it('rejects a same-title wrong-artist result when the row primary artist normalises to empty', () => {
+    // "?, Fisher" passes isIdentified (normalize keeps "fisher") but its
+    // primaryArtist is "?" which normalises to '' — the artist gate must NOT
+    // be disabled by that empty; a track by someone else is never accepted.
+    const oddRow = row({ artist: '?, Fisher' });
+    const wrongArtist = track({
+      artists: [{ id: 'x', name: 'Some One Else' }],
+    });
+    expect(pickMatch(oddRow, [wrongArtist])).toBeNull();
+  });
+
   it('returns the first passing item when several pass', () => {
     const first = track({ id: 'f1', uri: 'spotify:track:f1' });
     const second = track({ id: 'f2', uri: 'spotify:track:f2' });
