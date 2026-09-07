@@ -877,19 +877,43 @@ export async function startCreatePlaylist(): Promise<void> {
     { name, description, rows }
   );
 
-  // Persist whenever the playlist was created (even on a partial add failure):
-  // put the link/id on the open view, then Save carries them into the mix row
-  // (a rejected putMix shows via mixError; the link is already on screen).
+  // Persist whenever the playlist was created (even on a partial add failure).
+  // Build the row from the CAPTURED view and rows, not the live signals: the
+  // run is async and nothing disables navigation, so `mixRows`/`mixState` may
+  // now hold another mix (or nothing, after `closeMix`). Reading them here
+  // would save an empty or wrong tracklist. `putMix` the captured row directly
+  // rather than through `saveMix` (which reads live state), then reflect the
+  // link on the open view only if this same mix is still open.
   if (outcome.playlistId !== null) {
-    mixState.value = {
-      status: 'ready',
-      view: {
-        ...view,
-        playlistUrl: outcome.url ?? undefined,
-        playlistId: outcome.playlistId,
-      },
+    const row: MixRow = {
+      url: view.url,
+      title: view.title,
+      author: view.author,
+      playerSrc: view.playerSrc,
+      slug: view.trackid?.slug ?? null,
+      sources: view.sources,
+      rows,
+      savedAt: Date.now(),
+      playlistUrl: outcome.url ?? undefined,
+      playlistId: outcome.playlistId,
     };
-    await saveMix();
+    try {
+      await putMix(row);
+    } catch (err) {
+      mixError.value = `Could not save the mix: ${storageMessage(err)}`;
+    }
+    const open = mixState.value;
+    if (open.status === 'ready' && open.view.url === view.url) {
+      mixState.value = {
+        status: 'ready',
+        view: {
+          ...open.view,
+          playlistUrl: outcome.url ?? undefined,
+          playlistId: outcome.playlistId,
+        },
+      };
+    }
+    await loadSavedMixes();
   }
 }
 

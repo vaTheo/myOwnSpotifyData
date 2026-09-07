@@ -57,6 +57,12 @@ export function pickMatch(
     // not the one a mix credits.
     const artistOk = item.artists.some((a) => {
       const n = normalize(a.name);
+      // Guard the empties first: `x.includes('')` is vacuously true, so a row
+      // whose primary artist normalises to '' (e.g. artist "?, Fisher" ->
+      // primaryArtist "?" -> "") would otherwise disable the artist check and
+      // let a wrong-artist same-title track through — breaking "never a wrong
+      // track". An empty on either side is never a match.
+      if (n === '' || rowArtist === '') return false;
       return n === rowArtist || n.includes(rowArtist) || rowArtist.includes(n);
     });
     if (artistOk) return item;
