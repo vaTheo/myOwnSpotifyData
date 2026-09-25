@@ -171,6 +171,31 @@ export type CreatePlaylistState =
       added?: number;
     };
 
+/**
+ * The Playlist screen's like-all-songs job (like-playlist spec §3). Every arm
+ * but idle names its playlist so the lines never show on another one.
+ * `liked`/`toLike` on `error` are set only when the write phase failed.
+ */
+export type LikeState =
+  | { status: 'idle' }
+  | { status: 'needScope'; playlistId: string }
+  | { status: 'checking'; playlistId: string; done: number; total: number }
+  | { status: 'liking'; playlistId: string; done: number; total: number }
+  | {
+      status: 'done';
+      playlistId: string;
+      liked: number;
+      already: number;
+      skipped: number;
+    }
+  | {
+      status: 'error';
+      playlistId: string;
+      message: string;
+      liked?: number;
+      toLike?: number;
+    };
+
 export const createPlaylistState = signal<CreatePlaylistState>({
   status: 'idle',
 });
