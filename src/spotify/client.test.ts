@@ -309,9 +309,19 @@ describe('put', () => {
 });
 
 describe('empty success bodies', () => {
-  it('resolves undefined for a GET answered 200 with no body', async () => {
+  // Only PUT /me/library answers with no body. A GET or POST that does is
+  // malformed and must still reject, so a caller reading `.id` off it fails
+  // inside its own try/catch instead of receiving `undefined`.
+  it('rejects a GET answered 200 with no body', async () => {
     const { client } = setup([() => new Response(null, { status: 200 })]);
-    await expect(client.get('/x')).resolves.toBeUndefined();
+    await expect(client.get('/x')).rejects.toBeInstanceOf(SyntaxError);
+  });
+
+  it('rejects a POST answered 201 with no body', async () => {
+    const { client } = setup([() => new Response(null, { status: 201 })]);
+    await expect(
+      client.post('/me/playlists', { name: 'Mix' })
+    ).rejects.toBeInstanceOf(SyntaxError);
   });
 });
 

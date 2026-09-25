@@ -1,6 +1,11 @@
 import { signal } from '@preact/signals';
 import { auth } from '../auth/browser';
-import { likeErrorText, likeSummary } from '../features/like/likePlaylist';
+import {
+  isLiking,
+  likeButtonLabel,
+  likeErrorText,
+  likeSummary,
+} from '../features/like/likePlaylist';
 import {
   findSeedRow,
   playlistRanking,
@@ -224,7 +229,7 @@ export function Playlist({ id }: { id: string }) {
   const sync = syncState.value;
   const busy = isSyncBusy(sync);
   const like = likeState.value;
-  const liking = like.status === 'checking' || like.status === 'liking';
+  const liking = isLiking(like);
   return (
     <section>
       <h1>{playlist.name}</h1>
@@ -252,7 +257,7 @@ export function Playlist({ id }: { id: string }) {
           disabled={liking}
           onClick={() => void startLikePlaylist(id)}
         >
-          {liking ? 'Liking…' : 'Like all songs'}
+          {likeButtonLabel(like, id)}
         </button>
       </div>
       <LikeStatus playlistId={id} />

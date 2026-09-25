@@ -120,9 +120,12 @@ export function createClient(deps: ClientDeps): SpotifyClient {
         throw new ApiError(0, `Network error: ${reason}`);
       }
       if (res.ok) {
-        // PUT /me/library answers 200 with an empty body.
+        // PUT /me/library answers 200 with an empty body. Only PUT may: an
+        // empty GET or POST still throws (JSON.parse('')), as res.json() did,
+        // so a caller reading `.id` off it fails inside its own try/catch.
         const text = await res.text();
-        return (text ? JSON.parse(text) : undefined) as T;
+        if (!text && init?.method === 'PUT') return undefined as T;
+        return JSON.parse(text) as T;
       }
       if (res.status === 401 && !retried401) {
         retried401 = true;

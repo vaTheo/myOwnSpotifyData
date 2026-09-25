@@ -207,3 +207,19 @@ export function likeErrorText(s: {
   if (s.liked === undefined || s.toLike === undefined) return s.message;
   return `Liked ${s.liked.toLocaleString()} of ${s.toLike.toLocaleString()}, then: ${s.message}`;
 }
+
+/** True while a like job holds the one run slot, on any playlist. */
+export function isLiking(s: LikeState): boolean {
+  return s.status === 'checking' || s.status === 'liking';
+}
+
+/**
+ * The button's label. The run slot is shared, so another playlist's button is
+ * disabled too — and says why, instead of claiming this playlist is liked.
+ */
+export function likeButtonLabel(s: LikeState, playlistId: string): string {
+  if (!isLiking(s)) return 'Like all songs';
+  return s.status !== 'idle' && s.playlistId === playlistId
+    ? 'Liking…'
+    : 'Liking another playlist…';
+}
