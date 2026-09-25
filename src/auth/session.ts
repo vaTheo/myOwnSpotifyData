@@ -10,7 +10,7 @@ import {
 } from './pkce';
 
 export const SCOPES =
-  'user-top-read playlist-read-private playlist-modify-private';
+  'user-top-read playlist-read-private playlist-modify-private user-library-read user-library-modify';
 
 const SESSION_KEY = 'session';
 const PKCE_KEY = 'pkce';
@@ -21,6 +21,15 @@ export interface Session {
   expiresAt: number;
   refreshToken: string;
   scope: string;
+}
+
+/**
+ * True when the granted scope carries `scope` as a whole token. Split on
+ * space, never `String.includes`, so a scope that merely contains the name
+ * (e.g. `playlist-modify-private-xyz`) can never satisfy it.
+ */
+export function hasScope(session: Session | null, scope: string): boolean {
+  return session !== null && session.scope.split(' ').includes(scope);
 }
 
 export interface StorageLike {
