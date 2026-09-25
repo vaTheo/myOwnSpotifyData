@@ -4,6 +4,7 @@ import { challengeFor } from './pkce';
 import {
   SCOPES,
   createSessionStore,
+  hasScope,
   type Session,
   type StorageLike,
 } from './session';
@@ -85,7 +86,7 @@ describe('beginLogin', () => {
     expect(url.searchParams.get('state')).toBe(pkce.state);
     expect(url.searchParams.get('scope')).toBe(SCOPES);
     expect(url.searchParams.get('scope')).toBe(
-      'user-top-read playlist-read-private playlist-modify-private'
+      'user-top-read playlist-read-private playlist-modify-private user-library-read user-library-modify'
     );
     expect(url.searchParams.get('redirect_uri')).toBe('https://x.test/app/');
     expect(url.searchParams.get('client_id')).toBe('cid');
@@ -324,5 +325,25 @@ describe('logout and clearAll', () => {
     expect(storage.getItem('pkce')).not.toBeNull();
     store.clearAll();
     expect(storage.getItem('pkce')).toBeNull();
+  });
+});
+
+describe('hasScope', () => {
+  const s = (scope: string): Session => ({
+    accessToken: 'a',
+    expiresAt: 0,
+    refreshToken: 'r',
+    scope,
+  });
+  it('matches a whole space-separated token', () => {
+    expect(hasScope(s('a user-library-read b'), 'user-library-read')).toBe(
+      true
+    );
+  });
+  it('never matches a substring', () => {
+    expect(hasScope(s('user-library-read-x'), 'user-library-read')).toBe(false);
+  });
+  it('is false without a session', () => {
+    expect(hasScope(null, 'user-library-read')).toBe(false);
   });
 });
