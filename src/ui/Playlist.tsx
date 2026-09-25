@@ -1,4 +1,6 @@
 import { signal } from '@preact/signals';
+import { auth } from '../auth/browser';
+import { likeErrorText, likeSummary } from '../features/like/likePlaylist';
 import {
   findSeedRow,
   playlistRanking,
@@ -12,7 +14,9 @@ import {
   historySummary,
   isSyncBusy,
   keyNotation,
+  likeState,
   model,
+  startLikePlaylist,
   startSync,
   syncState,
 } from '../model/state';
@@ -20,6 +24,7 @@ import { routeHref } from '../router';
 import { Badge } from './components/Badge';
 import { FeaturePills } from './components/FeaturePills';
 import { PlaysBadge } from './components/PlaysBadge';
+import { Progress } from './components/Progress';
 import { Segmented } from './components/Segmented';
 import { SpotifyLink } from './components/SpotifyLink';
 import { TrackRow } from './components/TrackRow';
@@ -130,6 +135,48 @@ function MatchBadges(p: {
   );
 }
 
+/**
+ * Like-playlist spec §3: every line of the like job, shown only on the
+ * playlist it belongs to. Every failure is printed here; no banner.
+ */
+function LikeStatus({ playlistId }: { playlistId: string }) {
+  const s = likeState.value;
+  if (s.status === 'idle' || s.playlistId !== playlistId) return null;
+  switch (s.status) {
+    case 'needScope':
+      return (
+        <>
+          <p class="muted">
+            This app cannot like songs yet — connect again to allow it. Your
+            library stays on this phone.
+          </p>
+          <div class="actions">
+            <button type="button" onClick={() => auth.logout()}>
+              Connect again to allow likes
+            </button>
+          </div>
+        </>
+      );
+    case 'checking':
+      return (
+        <Progress
+          label="Checking your Liked Songs…"
+          done={s.done}
+          total={s.total}
+          unit="songs"
+        />
+      );
+    case 'liking':
+      return (
+        <Progress label="Liking…" done={s.done} total={s.total} unit="songs" />
+      );
+    case 'done':
+      return <p class="muted">{likeSummary(s)}</p>;
+    case 'error':
+      return <p class="error">{likeErrorText(s)}</p>;
+  }
+}
+
 export function Playlist({ id }: { id: string }) {
   const m = model.value;
   const playlist = m?.playlistsById.get(id);
@@ -176,6 +223,8 @@ export function Playlist({ id }: { id: string }) {
     : rows.map((row) => ({ row, match: null }));
   const sync = syncState.value;
   const busy = isSyncBusy(sync);
+  const like = likeState.value;
+  const liking = like.status === 'checking' || like.status === 'liking';
   return (
     <section>
       <h1>{playlist.name}</h1>
@@ -198,7 +247,15 @@ export function Playlist({ id }: { id: string }) {
         >
           {busy ? 'Syncing…' : 'Sync this playlist'}
         </button>
+        <button
+          type="button"
+          disabled={liking}
+          onClick={() => void startLikePlaylist(id)}
+        >
+          {liking ? 'Liking…' : 'Like all songs'}
+        </button>
       </div>
+      <LikeStatus playlistId={id} />
       <Segmented
         options={[
           { value: 'plays', label: 'By plays' },

@@ -26,6 +26,12 @@ import { classifyMixInput, isShortLink } from '../features/mix/url';
 import { runCreatePlaylist } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
+  canLikeTracks,
+  likeCandidates,
+  likeQuestion,
+  runLikePlaylist,
+} from '../features/like/likePlaylist';
+import {
   PASS_BY_ID,
   candidateIds,
   runLookup,
@@ -195,6 +201,8 @@ export type LikeState =
       liked?: number;
       toLike?: number;
     };
+
+export const likeState = signal<LikeState>({ status: 'idle' });
 
 export const createPlaylistState = signal<CreatePlaylistState>({
   status: 'idle',
@@ -995,6 +1003,41 @@ export function closeMix(): void {
 }
 
 /**
+ * Likes every not-yet-liked song of a synced playlist (like-playlist spec).
+ * Never on load: only from the Playlist screen's button. Not a jobsBusy() job
+ * and no loadFromDb(): it writes no local store. Candidates come from the
+ * synced entries, never a playlist read (the quota rule). Without both library
+ * scopes it reveals the needScope prompt instead.
+ */
+export async function startLikePlaylist(playlistId: string): Promise<void> {
+  const status = likeState.value.status;
+  if (status === 'checking' || status === 'liking') return;
+  const m = model.value;
+  if (!m) return;
+  if (!canLikeTracks(auth.session.value)) {
+    likeState.value = { status: 'needScope', playlistId };
+    return;
+  }
+  // Claim the running state synchronously so a second tap cannot double-run.
+  likeState.value = {
+    status: 'checking',
+    playlistId,
+    done: 0,
+    total: 0,
+  } as LikeState;
+  await runLikePlaylist(
+    {
+      client: api,
+      confirm: (toLike, total) => confirm(likeQuestion(toLike, total)),
+      onState: (s) => {
+        likeState.value = s;
+      },
+    },
+    { playlistId, ...likeCandidates(m, playlistId) }
+  );
+}
+
+/**
  * Deletes a saved mix, then refreshes the list. Precondition: reached from the
  * idle saved-mixes list (spec §5.2 renders Remove there only), so no mix is
  * open and `mixState` needs no reset.
@@ -1037,6 +1080,7 @@ export async function disconnect(): Promise<void> {
   savedMixes.value = [];
   mixError.value = null;
   createPlaylistState.value = { status: 'idle' };
+  likeState.value = { status: 'idle' };
   lastSyncAt.value = null;
   historySummary.value = null;
   rekordboxSummary.value = null;
