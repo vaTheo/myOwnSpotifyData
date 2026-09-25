@@ -269,6 +269,52 @@ describe('post', () => {
   });
 });
 
+describe('put', () => {
+  function empty(status = 200): Response {
+    return new Response(null, { status });
+  }
+
+  it('sends PUT with the query, no body and no content-type', async () => {
+    const { client, fetchFn } = setup([() => empty()]);
+    await expect(
+      client.put('/me/library', { uris: 'spotify:track:a,spotify:track:b' })
+    ).resolves.toBeUndefined();
+    expect(fetchFn.mock.calls[0][0]).toBe(
+      'https://api.spotify.com/v1/me/library?uris=spotify%3Atrack%3Aa%2Cspotify%3Atrack%3Ab'
+    );
+    const init = fetchFn.mock.calls[0][1] as RequestInit;
+    expect(init.method).toBe('PUT');
+    expect(init.body).toBeUndefined();
+    expect(
+      (init.headers as Record<string, string>)['Content-Type']
+    ).toBeUndefined();
+    expect(authHeader(fetchFn, 0)).toBe('Bearer tok');
+  });
+
+  it('refreshes once on 401', async () => {
+    const { client, fetchFn } = setup([() => json({}, 401), () => empty()]);
+    await expect(client.put('/me/library')).resolves.toBeUndefined();
+    expect(authHeader(fetchFn, 1)).toBe('Bearer fresh');
+  });
+
+  it('retries a 5xx, unlike POST (saving is idempotent)', async () => {
+    const { client, fetchFn, sleep } = setup([
+      () => json({}, 503),
+      () => empty(),
+    ]);
+    await expect(client.put('/me/library')).resolves.toBeUndefined();
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('empty success bodies', () => {
+  it('resolves undefined for a GET answered 200 with no body', async () => {
+    const { client } = setup([() => new Response(null, { status: 200 })]);
+    await expect(client.get('/x')).resolves.toBeUndefined();
+  });
+});
+
 describe('paginate', () => {
   it('walks offsets until a short page', async () => {
     const calls: unknown[] = [];

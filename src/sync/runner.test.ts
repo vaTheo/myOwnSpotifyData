@@ -46,6 +46,7 @@ function fakeClient(routes: Record<string, Handler>) {
   const client: SpotifyClient = {
     get,
     post: () => Promise.reject(new Error('post is unused in these sync tests')),
+    put: () => Promise.reject(new Error('put is unused in these sync tests')),
     pages: <T>(path: string, query?: Query, limit?: number) =>
       paginate<T>(get, path, query, limit),
   };

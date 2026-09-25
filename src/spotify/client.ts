@@ -21,6 +21,7 @@ export interface ClientDeps {
 export interface SpotifyClient {
   get<T>(path: string, query?: Query): Promise<T>;
   post<T>(path: string, body: unknown, query?: Query): Promise<T>;
+  put<T = void>(path: string, query?: Query): Promise<T>;
   pages<T>(
     path: string,
     query?: Query,
@@ -85,7 +86,8 @@ export function createClient(deps: ClientDeps): SpotifyClient {
     // POST is not idempotent: a retried create could make a second playlist the
     // app cannot detect, and a retried add would duplicate tracks. So on a 5xx
     // or a network error POST throws at once; only 401-refresh-once and a short
-    // 429 (both pre-mutation) are retried. GET keeps its 5xx/network backoff.
+    // 429 (both pre-mutation) are retried. GET and PUT keep the 5xx/network
+    // backoff: PUT /me/library saves a set, and saving it twice changes nothing.
     const isPost = init?.method === 'POST';
     let token = await deps.getAccessToken();
     let retried401 = false;
@@ -117,7 +119,11 @@ export function createClient(deps: ClientDeps): SpotifyClient {
         const reason = err instanceof Error ? err.message : String(err);
         throw new ApiError(0, `Network error: ${reason}`);
       }
-      if (res.ok) return (await res.json()) as T;
+      if (res.ok) {
+        // PUT /me/library answers 200 with an empty body.
+        const text = await res.text();
+        return (text ? JSON.parse(text) : undefined) as T;
+      }
       if (res.status === 401 && !retried401) {
         retried401 = true;
         token = await deps.getAccessToken(true);
@@ -186,6 +192,10 @@ export function createClient(deps: ClientDeps): SpotifyClient {
     );
   }
 
+  function put<T = void>(path: string, query?: Query): Promise<T> {
+    return enqueue(() => request<T>(buildUrl(path, query), { method: 'PUT' }));
+  }
+
   function pages<T>(
     path: string,
     query?: Query,
@@ -194,5 +204,5 @@ export function createClient(deps: ClientDeps): SpotifyClient {
     return paginate<T>(get, path, query, limit);
   }
 
-  return { get, post, pages };
+  return { get, post, put, pages };
 }
