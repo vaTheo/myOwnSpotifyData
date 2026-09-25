@@ -27,6 +27,7 @@ import { runCreatePlaylist } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
   canLikeTracks,
+  isLiking,
   likeCandidates,
   likeQuestion,
   runLikePlaylist,
@@ -1010,8 +1011,7 @@ export function closeMix(): void {
  * scopes it reveals the needScope prompt instead.
  */
 export async function startLikePlaylist(playlistId: string): Promise<void> {
-  const status = likeState.value.status;
-  if (status === 'checking' || status === 'liking') return;
+  if (isLiking(likeState.value)) return;
   const m = model.value;
   if (!m) return;
   if (!canLikeTracks(auth.session.value)) {

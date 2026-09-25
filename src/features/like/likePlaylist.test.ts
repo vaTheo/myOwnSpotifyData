@@ -6,6 +6,7 @@ import type { Query, SpotifyClient } from '../../spotify/client';
 import { ApiError } from '../../spotify/errors';
 import {
   canLikeTracks,
+  likeButtonLabel,
   likeCandidates,
   likeErrorText,
   likeQuestion,
@@ -307,5 +308,27 @@ describe('copy', () => {
       'Liked 40 of 88, then: boom'
     );
     expect(likeErrorText({ message: 'boom' })).toBe('boom');
+  });
+});
+
+describe('likeButtonLabel', () => {
+  const running: LikeState = {
+    status: 'liking',
+    playlistId: 'A',
+    done: 0,
+    total: 3,
+  };
+  it('reads Liking… only on the playlist being liked', () => {
+    expect(likeButtonLabel(running, 'A')).toBe('Liking…');
+    expect(likeButtonLabel(running, 'B')).toBe('Liking another playlist…');
+  });
+  it('reads Like all songs when nothing runs', () => {
+    expect(likeButtonLabel({ status: 'idle' }, 'A')).toBe('Like all songs');
+    expect(
+      likeButtonLabel(
+        { status: 'done', playlistId: 'A', liked: 1, already: 0, skipped: 0 },
+        'A'
+      )
+    ).toBe('Like all songs');
   });
 });
