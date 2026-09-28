@@ -92,6 +92,7 @@ export async function searchTrack(
   const artist = stripQuotes(primaryArtist(row.artist));
   const title = stripQuotes(row.title);
   const queries = [
+    ...(row.isrc ? [`isrc:${row.isrc}`] : []),
     `artist:"${artist}" track:"${title}"`,
     `${row.artist} ${row.title}`,
   ];

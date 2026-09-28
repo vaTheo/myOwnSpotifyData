@@ -252,4 +252,32 @@ describe('searchTrack', () => {
     expect(m.uri).toBe('spotify:track:t9');
     expect(get).toHaveBeenCalledTimes(1);
   });
+
+  it('tries an isrc query first when the row carries one', async () => {
+    const hit = track();
+    const { client, get } = mockClient([hit]);
+    const m = await searchTrack(client, row({ isrc: 'DECH62001634' }));
+    expect(m.uri).toBe('spotify:track:t1');
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get.mock.calls[0][1]).toEqual({
+      q: 'isrc:DECH62001634',
+      type: 'track',
+      limit: 5,
+    });
+  });
+
+  it('falls through to the field and plain queries when the isrc hit fails pickMatch', async () => {
+    const wrongArtist = track({
+      artists: [{ id: 'a2', name: 'Someone Else' }],
+    });
+    const hit = track();
+    const { client, get } = mockClient([wrongArtist], [hit]);
+    const m = await searchTrack(client, row({ isrc: 'DECH62001634' }));
+    expect(m.uri).toBe('spotify:track:t1');
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(get.mock.calls[0][1]).toMatchObject({ q: 'isrc:DECH62001634' });
+    expect(get.mock.calls[1][1]).toMatchObject({
+      q: 'artist:"Fisher" track:"Losing It"',
+    });
+  });
 });
