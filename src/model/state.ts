@@ -22,6 +22,7 @@ import {
   lookupMix,
 } from '../features/mix/lookup';
 import { parseDescription, parsePasted } from '../features/mix/parse';
+import { parseTracklistifyJson } from '../features/mix/tracklistify';
 import { classifyMixInput, isShortLink } from '../features/mix/url';
 import { runCreatePlaylist } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
@@ -649,6 +650,8 @@ const REPLACE_WITH_PASTED =
   'Replace your edited tracklist with the pasted tracks?';
 const REPLACE_WITH_LOOKUP =
   'Looking up again replaces the current tracklist, including your edits. Continue?';
+const REPLACE_WITH_TRACKLISTIFY =
+  'Importing this file replaces the current tracklist, including your edits. Continue?';
 
 /**
  * Never on load: the mix lookup runs only from the Mix screen's button. It
@@ -733,6 +736,53 @@ export async function startMixLookup(pastedUrl: string): Promise<void> {
     trackid.status === 'ok' && trackid.rows.length > 0
       ? trackid.rows
       : descriptionRows;
+}
+
+/**
+ * Imports a Tracklistify tracklist.json as a standalone mix — no SoundCloud
+ * link exists for these, so the working list and a synthetic save key (spec
+ * §4) are built directly from the file. Never on load: only from the Mix
+ * screen's file picker. Parse/read failures go through `mixError` (the
+ * general "nothing is swallowed" channel), never `mixState`'s `error` arm,
+ * which is reserved for the one SoundCloud-link-shaped message.
+ */
+export async function startTracklistifyImport(file: File): Promise<void> {
+  mixError.value = null;
+  let text: string;
+  try {
+    text = await file.text();
+  } catch (err) {
+    mixError.value = `Could not read that file: ${storageMessage(err)}`;
+    return;
+  }
+  const parsed = parseTracklistifyJson(text);
+  if (parsed.status === 'error') {
+    mixError.value = parsed.message;
+    return;
+  }
+  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_TRACKLISTIFY)) {
+    return;
+  }
+  const view: MixView = {
+    url: parsed.url,
+    title: parsed.title,
+    author: null,
+    playerSrc: null,
+    sources: {
+      trackid: false,
+      description: false,
+      pasted: false,
+      linkOut: null,
+      tracklistify: true,
+    },
+    descriptionRows: [],
+    trackid: null,
+    oembedError: null,
+    trackidError: null,
+    shortLink: false,
+  };
+  mixState.value = { status: 'ready', view };
+  mixRows.value = parsed.rows;
 }
 
 /** Replaces the working list with the description's rows (spec §4/§5.2). */
@@ -896,10 +946,15 @@ export async function startCreatePlaylist(): Promise<void> {
     total: 0,
   } as CreatePlaylistState;
 
+  const rawTitle = (view.title ?? 'Mix tracklist').trim() || 'Mix tracklist';
   const name = (
-    (view.title ?? 'Mix tracklist').trim() || 'Mix tracklist'
+    view.sources.tracklistify ? `tracklistify/${rawTitle}` : rawTitle
   ).slice(0, 100);
-  const description = `From ${view.url} · via DJ Data`.slice(0, 300);
+  const description = (
+    view.sources.tracklistify
+      ? 'From a Tracklistify scan · via DJ Data'
+      : `From ${view.url} · via DJ Data`
+  ).slice(0, 300);
 
   const outcome = await runCreatePlaylist(
     {
