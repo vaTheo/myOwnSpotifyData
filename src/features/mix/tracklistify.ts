@@ -28,6 +28,7 @@ const SOURCE: MixRowSource = 'tracklistify';
 
 /** One track entry to a row, or null when it has no usable artist/title. */
 function toRow(track: TracklistifyTrackJson): TracklistRow | null {
+  if (typeof track !== 'object' || track === null) return null;
   const artist = typeof track.artist === 'string' ? track.artist.trim() : '';
   const title =
     typeof track.song_name === 'string' ? track.song_name.trim() : '';
@@ -70,6 +71,12 @@ export function parseTracklistifyJson(text: string): TracklistifyImport {
     json = JSON.parse(text) as TracklistifyJson;
   } catch {
     return { status: 'error', message: 'That is not a JSON file.' };
+  }
+  if (typeof json !== 'object' || json === null) {
+    return {
+      status: 'error',
+      message: "That doesn't look like a Tracklistify tracklist.json.",
+    };
   }
   const rawTitle = json.mix_info?.title;
   const audioFilename = json.mix_info?.audio_filename;

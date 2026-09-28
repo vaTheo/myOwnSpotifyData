@@ -253,10 +253,20 @@ describe('searchTrack', () => {
     expect(get).toHaveBeenCalledTimes(1);
   });
 
+  function tracklistifyRow(over: Partial<TracklistRow> = {}): TracklistRow {
+    return row({
+      source: 'tracklistify',
+      detected: { artist: 'Fisher', title: 'Losing It' },
+      isrc: 'DECH62001634',
+      confidence: 90,
+      ...over,
+    });
+  }
+
   it('tries an isrc query first when the row carries one', async () => {
     const hit = track();
     const { client, get } = mockClient([hit]);
-    const m = await searchTrack(client, row({ isrc: 'DECH62001634' }));
+    const m = await searchTrack(client, tracklistifyRow());
     expect(m.uri).toBe('spotify:track:t1');
     expect(get).toHaveBeenCalledTimes(1);
     expect(get.mock.calls[0][1]).toEqual({
@@ -272,11 +282,25 @@ describe('searchTrack', () => {
     });
     const hit = track();
     const { client, get } = mockClient([wrongArtist], [hit]);
-    const m = await searchTrack(client, row({ isrc: 'DECH62001634' }));
+    const m = await searchTrack(client, tracklistifyRow());
     expect(m.uri).toBe('spotify:track:t1');
     expect(get).toHaveBeenCalledTimes(2);
     expect(get.mock.calls[0][1]).toMatchObject({ q: 'isrc:DECH62001634' });
     expect(get.mock.calls[1][1]).toMatchObject({
+      q: 'artist:"Fisher" track:"Losing It"',
+    });
+  });
+
+  it('does not use the isrc once the row has been edited away from what Tracklistify detected', async () => {
+    // editTracklistRow flips source to 'manual' as soon as artist/title
+    // differ from `detected` — the isrc/confidence are for the ORIGINAL
+    // identification and must not outlive it (a corrected row must not have
+    // its correction silently overridden by the stale isrc).
+    const hit = track();
+    const { client, get } = mockClient([hit]);
+    const editedRow = tracklistifyRow({ source: 'manual' });
+    await searchTrack(client, editedRow);
+    expect(get.mock.calls[0][1]).toMatchObject({
       q: 'artist:"Fisher" track:"Losing It"',
     });
   });
