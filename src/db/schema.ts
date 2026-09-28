@@ -195,7 +195,12 @@ export function reachKey(artistId: string, source: ReachSource): string {
 }
 
 /** Where a tracklist row came from. 'manual' = the owner typed or edited it. */
-export type MixRowSource = 'trackid' | 'description' | 'pasted' | 'manual';
+export type MixRowSource =
+  | 'trackid'
+  | 'description'
+  | 'pasted'
+  | 'manual'
+  | 'tracklistify';
 
 export interface TracklistRow {
   /** Seconds from the start of the mix, or null when the source had no time. */
@@ -221,6 +226,13 @@ export interface TracklistRow {
   detected: { artist: string; title: string } | null;
   /** TrackId `referenceCount` (how many corpus mixes hold the track), else null. */
   referenceCount: number | null;
+  /** Tracklistify's 0-100 match confidence, or absent/null for every other
+   *  source and for rows saved before this field existed. Display only —
+   *  no threshold filters on it. */
+  confidence?: number | null;
+  /** ISRC from Tracklistify's metadata, or absent/null. Lets
+   *  spotifySearch.ts try an exact-recording Search query first. */
+  isrc?: string | null;
 }
 
 /** New store `mixes`, keyPath 'url'. One row per saved mix. */
@@ -249,6 +261,10 @@ export interface MixRow {
     pasted: boolean;
     /** A "full tracklist at <url>" link found in the description, or null. */
     linkOut: string | null;
+    /** True for a mix whose working list came from a Tracklistify import.
+     *  Absent (not false) on every row saved before this feature and on
+     *  every SoundCloud-origin mix. */
+    tracklistify?: boolean;
   };
   /** The one working list the owner curated, in play order. */
   rows: TracklistRow[];
