@@ -27,6 +27,7 @@ import {
   savedMixes,
   startCreatePlaylist,
   startMixLookup,
+  startTracklistifyImport,
   type MixView,
 } from '../model/state';
 import { FeaturePills } from './components/FeaturePills';
@@ -71,6 +72,7 @@ function sourceLabel(row: TracklistRow): string {
   if (row.source === 'trackid') return 'TrackId';
   if (row.source === 'description') return 'description';
   if (row.source === 'pasted') return 'pasted';
+  if (row.source === 'tracklistify') return 'Tracklistify';
   return row.detected === null ? 'added' : 'edited';
 }
 
@@ -89,6 +91,9 @@ function provenanceLine(row: TracklistRow, match: MixMatch | null): string {
   if (row.referenceCount !== null) {
     const n = row.referenceCount;
     parts.push(`${n.toLocaleString()} other ${n === 1 ? 'mix' : 'mixes'}`);
+  }
+  if (row.confidence != null) {
+    parts.push(`${Math.round(row.confidence)}% match`);
   }
   return parts.join(' · ');
 }
@@ -446,7 +451,8 @@ function Provenance(p: { view: MixView }) {
     tid !== null ||
     view.sources.description ||
     view.sources.linkOut !== null ||
-    view.sources.pasted;
+    view.sources.pasted ||
+    view.sources.tracklistify === true;
   // The short-link note already tells the owner to paste or read the player, so
   // it stands in for the "nothing found" line rather than doubling it.
   const nothingFound =
@@ -489,6 +495,12 @@ function Provenance(p: { view: MixView }) {
           >
             Open on TrackId.net ›
           </a>
+        </p>
+      )}
+      {view.sources.tracklistify === true && (
+        <p class="caption">
+          From Tracklistify ·{' '}
+          {plural(mixRows.value.filter((r) => !r.gap).length, 'track')}
         </p>
       )}
       {view.sources.description && (
@@ -650,16 +662,27 @@ function InfoCards() {
 export function Mix() {
   const [url, setUrl] = useState('');
   const state = mixState.value;
-  const viewUrl = state.status === 'ready' ? state.view.url : null;
+  const isTracklistifyView =
+    state.status === 'ready' && state.view.sources.tracklistify === true;
+  const viewUrl =
+    state.status === 'ready' && !isTracklistifyView ? state.view.url : null;
   // Load the saved mixes once, on mount (never on app load).
   useEffect(() => {
     void loadSavedMixes();
   }, []);
-  // Reopening a saved mix seeds the input from its url, so the always-present
-  // top button is the "Look up again" re-fetch path (spec §4, no second control).
+  // Reopening a saved SoundCloud mix seeds the input from its url, so the
+  // always-present top button is the "Look up again" re-fetch path (spec §4,
+  // no second control). A Tracklistify-origin view has no real url, so it
+  // must never be stuffed into this box.
   useEffect(() => {
     if (viewUrl !== null) setUrl(viewUrl);
   }, [viewUrl]);
+  const onJson = (event: Event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file) void startTracklistifyImport(file);
+  };
   return (
     <section class="mix">
       <h1>Mix tracklist</h1>
@@ -686,11 +709,19 @@ export function Mix() {
         >
           {state.status === 'looking'
             ? 'Looking up…'
-            : state.status === 'ready'
+            : state.status === 'ready' && !isTracklistifyView
               ? 'Look up again'
               : 'Look up'}
         </button>
       </form>
+      <label class="file">
+        <span>Or import a Tracklistify tracklist.json</span>
+        <input
+          type="file"
+          accept=".json,application/json"
+          onChange={onJson}
+        />
+      </label>
       {state.status === 'looking' && <p class="muted">Looking up the mix…</p>}
       {state.status === 'error' && (
         <p class="error">
