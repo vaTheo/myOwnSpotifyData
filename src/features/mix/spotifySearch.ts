@@ -91,8 +91,14 @@ export async function searchTrack(
   if (!isIdentified(row)) return { row, uri: null, matchedName: null };
   const artist = stripQuotes(primaryArtist(row.artist));
   const title = stripQuotes(row.title);
+  // isrc/confidence are only trustworthy while the row still reads exactly
+  // as Tracklistify detected it: editTracklistRow flips `source` away from
+  // 'tracklistify' the moment artist/title differ from `detected`, so a row
+  // the owner corrected never has its correction overridden by the stale
+  // isrc of the identification they rejected.
+  const trustDetection = row.source === 'tracklistify';
   const queries = [
-    ...(row.isrc ? [`isrc:${row.isrc}`] : []),
+    ...(trustDetection && row.isrc ? [`isrc:${row.isrc}`] : []),
     `artist:"${artist}" track:"${title}"`,
     `${row.artist} ${row.title}`,
   ];

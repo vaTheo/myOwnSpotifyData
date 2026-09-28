@@ -207,6 +207,32 @@ describe('parseTracklistifyJson', () => {
     expect(result.status).toBe('error');
   });
 
+  it('does not throw when the JSON is a bare null value', () => {
+    const result = parseTracklistifyJson('null');
+    expect(result.status).toBe('error');
+  });
+
+  it('drops a null entry in tracks rather than throwing', () => {
+    const result = parseTracklistifyJson(
+      fixture({
+        tracks: [
+          null,
+          {
+            song_name: 'Kept Track',
+            artist: 'Kept Artist',
+            time_in_mix: '00:02:00',
+            confidence: 80,
+            duration: null,
+            metadata: {},
+          },
+        ],
+      })
+    );
+    if (result.status !== 'ok') throw new Error('expected ok');
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].title).toBe('Kept Track');
+  });
+
   it('errors when mix_info.title is missing', () => {
     const result = parseTracklistifyJson(
       fixture({ mixInfo: { title: undefined } })

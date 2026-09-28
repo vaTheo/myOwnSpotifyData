@@ -196,11 +196,7 @@ export function reachKey(artistId: string, source: ReachSource): string {
 
 /** Where a tracklist row came from. 'manual' = the owner typed or edited it. */
 export type MixRowSource =
-  | 'trackid'
-  | 'description'
-  | 'pasted'
-  | 'manual'
-  | 'tracklistify';
+  'trackid' | 'description' | 'pasted' | 'manual' | 'tracklistify';
 
 export interface TracklistRow {
   /** Seconds from the start of the mix, or null when the source had no time. */

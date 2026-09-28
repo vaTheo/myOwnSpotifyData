@@ -92,7 +92,10 @@ function provenanceLine(row: TracklistRow, match: MixMatch | null): string {
     const n = row.referenceCount;
     parts.push(`${n.toLocaleString()} other ${n === 1 ? 'mix' : 'mixes'}`);
   }
-  if (row.confidence != null) {
+  // Only while the row still reads as Tracklistify detected it — once
+  // edited, `source` flips away from 'tracklistify' (see spotifySearch.ts),
+  // and a confidence score for a rejected identification would mislead.
+  if (row.source === 'tracklistify' && row.confidence != null) {
     parts.push(`${Math.round(row.confidence)}% match`);
   }
   return parts.join(' · ');
@@ -716,11 +719,7 @@ export function Mix() {
       </form>
       <label class="file">
         <span>Or import a Tracklistify tracklist.json</span>
-        <input
-          type="file"
-          accept=".json,application/json"
-          onChange={onJson}
-        />
+        <input type="file" accept=".json,application/json" onChange={onJson} />
       </label>
       {state.status === 'looking' && <p class="muted">Looking up the mix…</p>}
       {state.status === 'error' && (
