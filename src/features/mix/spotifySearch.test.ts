@@ -163,6 +163,35 @@ describe('pickMatch', () => {
     expect(pickMatch(leary, [wrong])).toBeNull();
   });
 
+  it('prefers an exact title anywhere in the results over an earlier prefix match', () => {
+    const one = row({ title: 'One' });
+    const longer = track({
+      id: 'p',
+      uri: 'spotify:track:p',
+      name: 'One More Time',
+    });
+    const others = Array.from({ length: 6 }, (_, i) =>
+      track({
+        id: `o${i}`,
+        uri: `spotify:track:o${i}`,
+        name: 'One',
+        artists: [{ id: 'x', name: 'Someone Else' }],
+      })
+    );
+    const exact = track({ id: 'e', uri: 'spotify:track:e', name: 'One' });
+    expect(pickMatch(one, [longer, ...others, exact])).toBe(exact);
+  });
+
+  it('falls back to the first prefix match when no exact title exists', () => {
+    const remix = track({ name: 'Losing It (Ted Remix)' });
+    const other = track({
+      id: 't2',
+      uri: 'spotify:track:t2',
+      name: 'Losing It (Other Remix)',
+    });
+    expect(pickMatch(row(), [remix, other])).toBe(remix);
+  });
+
   it('returns null for zero items', () => {
     expect(pickMatch(row(), [])).toBeNull();
   });

@@ -28,10 +28,12 @@ export function isIdentified(row: TracklistRow): boolean {
 }
 
 /**
- * The first search result that is confidently the row's track, else null. A
- * wrong track is never returned: the artist must match across ALL credited
- * names, the title must be equal or a prefix (never a free substring), and the
- * result must be a real `spotify:track:` recording.
+ * The search result that is confidently the row's track, else null. A wrong
+ * track is never returned: the artist must match across ALL credited names,
+ * the title must be equal or a prefix (never a free substring), and the result
+ * must be a real `spotify:track:` recording. An equal title anywhere in the
+ * results beats an earlier prefix one, so a row "One" takes "One" over a
+ * higher-ranked "One More Time" by the same artist.
  */
 export function pickMatch(
   row: TracklistRow,
@@ -39,37 +41,45 @@ export function pickMatch(
 ): ApiTrack | null {
   const rowArtist = normalize(primaryArtist(row.artist));
   const rowTitle = cleanTitle(row.title);
-  for (const item of items) {
+  const candidates = items.filter(
     // Real track only: skips episodes and `spotify:local:` results, which
     // cannot be added by URI.
-    if (!item.uri.startsWith('spotify:track:') || item.id === null) continue;
+    (item) =>
+      item.uri.startsWith('spotify:track:') &&
+      item.id !== null &&
+      artistMatches(rowArtist, item)
+  );
+  // Equality ignores spaces ('freakout' is 'freak out'); the prefix rule does
+  // not: unspaced, 'freakout' would be a prefix of 'freak outer limits'.
+  const exact = candidates.find((item) => {
     const candTitle = cleanTitle(item.name);
-    // Equality or prefix only. Prefix handles the remix case ('losing it' is a
-    // prefix of 'losing it ted remix'); the reverse is NOT allowed, so a row
-    // that asks for the remix cannot accept a bare original. Equality also
-    // ignores spaces ('freakout' is 'freak out'), but the prefix rule does not:
-    // unspaced, 'freakout' would be a prefix of 'freak outer limits'.
-    if (
-      candTitle !== rowTitle &&
-      unspaced(candTitle) !== unspaced(rowTitle) &&
-      !candTitle.startsWith(rowTitle)
-    )
-      continue;
-    // Artist across EVERY credited name: a collab's primary artist is often
-    // not the one a mix credits.
-    const artistOk = item.artists.some((a) => {
-      const n = normalize(a.name);
-      // Guard the empties first: `x.includes('')` is vacuously true, so a row
-      // whose primary artist normalises to '' (e.g. artist "?, Fisher" ->
-      // primaryArtist "?" -> "") would otherwise disable the artist check and
-      // let a wrong-artist same-title track through — breaking "never a wrong
-      // track". An empty on either side is never a match.
-      if (n === '' || rowArtist === '') return false;
-      return n === rowArtist || n.includes(rowArtist) || rowArtist.includes(n);
-    });
-    if (artistOk) return item;
-  }
-  return null;
+    return candTitle === rowTitle || unspaced(candTitle) === unspaced(rowTitle);
+  });
+  if (exact) return exact;
+  // Prefix handles the remix case ('losing it' is a prefix of 'losing it ted
+  // remix'); the reverse is NOT allowed, so a row that asks for the remix
+  // cannot accept a bare original.
+  return (
+    candidates.find((item) => cleanTitle(item.name).startsWith(rowTitle)) ??
+    null
+  );
+}
+
+/**
+ * Artist across EVERY credited name: a collab's primary artist is often not
+ * the one a mix credits.
+ */
+function artistMatches(rowArtist: string, item: ApiTrack): boolean {
+  return item.artists.some((a) => {
+    const n = normalize(a.name);
+    // Guard the empties first: `x.includes('')` is vacuously true, so a row
+    // whose primary artist normalises to '' (e.g. artist "?, Fisher" ->
+    // primaryArtist "?" -> "") would otherwise disable the artist check and
+    // let a wrong-artist same-title track through — breaking "never a wrong
+    // track". An empty on either side is never a match.
+    if (n === '' || rowArtist === '') return false;
+    return n === rowArtist || n.includes(rowArtist) || rowArtist.includes(n);
+  });
 }
 
 /** A cleaned title without its spaces, which `normalize` made from hyphens. */
