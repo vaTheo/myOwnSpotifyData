@@ -3,7 +3,12 @@ import type { TracklistRow } from '../../db/schema';
 import { normalize } from '../../model/normalize';
 import type { SpotifyClient } from '../../spotify/client';
 import type { ApiSearchTracks, ApiTrack } from '../../spotify/types';
-import { cleanTitle, isMixedCopy, primaryArtist } from '../rekordbox-match';
+import {
+  artistRuns,
+  cleanTitle,
+  isMixedCopy,
+  primaryArtist,
+} from '../rekordbox-match';
 
 /**
  * True only when the granted scope carries `playlist-modify-private`, so the
@@ -40,10 +45,16 @@ export function pickMatch(
   row: TracklistRow,
   items: ApiTrack[]
 ): ApiTrack | null {
-  const rowArtist = artistCore(primaryArtist(row.artist));
+  // Any leading run of the row's credit may be the act: "Chase" (a collab's
+  // first artist) or "Chase & Status" (one act whose name holds the "&").
+  const rowArtists = new Set(
+    artistRuns(row.artist)
+      .map(artistCore)
+      .filter((core) => core !== '')
+  );
   const rowTitle = cleanTitle(row.title);
   // A title that is only a marker ("(Mixed)") names no track at all.
-  if (rowTitle === '' || rowArtist === '') return null;
+  if (rowTitle === '' || rowArtists.size === 0) return null;
   const candidates = items.filter(
     // Real track only: skips episodes and `spotify:local:` results, which
     // cannot be added by URI. Artist across EVERY credited name: a collab's
@@ -51,7 +62,7 @@ export function pickMatch(
     (item) =>
       item.uri.startsWith('spotify:track:') &&
       item.id !== null &&
-      item.artists.some((a) => artistCore(a.name) === rowArtist)
+      item.artists.some((a) => rowArtists.has(artistCore(a.name)))
   );
   const exact = candidates.filter((item) =>
     sameTitle(cleanTitle(item.name), rowTitle)
@@ -72,10 +83,13 @@ export function pickMatch(
 /** Where a version tail may start: an opening bracket or a spaced dash. */
 const VERSION_TAIL = /\s*[([]|\s+[-–—]\s+/g;
 
+/** A tail naming another piece of the work, not a version of it. */
+const OTHER_PIECE = /^\s*(?:[([]|[-–—])\s*(?:part|pt|reprise|interlude)\b/i;
+
 /** The cleaned title before each possible version tail of a Spotify name. */
 function versionBases(name: string): string[] {
   return [...name.matchAll(VERSION_TAIL)]
-    .filter((m) => m.index > 0)
+    .filter((m) => m.index > 0 && !OTHER_PIECE.test(name.slice(m.index)))
     .map((m) => cleanTitle(name.slice(0, m.index)));
 }
 
@@ -98,7 +112,13 @@ const NAME_TAG = /\s*[([][^)\]]*[)\]]\s*$/;
  */
 function artistCore(name: string): string {
   const words = normalize(name.replace(NAME_TAG, '')).split(' ');
-  while (words.length > 1 && NAME_PREFIXES.has(words[0])) words.shift();
+  // "Mr. G" stays whole: a one-letter remainder would be some other "G".
+  while (
+    words.length > 1 &&
+    NAME_PREFIXES.has(words[0]) &&
+    !(words.length === 2 && words[1].length === 1)
+  )
+    words.shift();
   return words.join(' ');
 }
 

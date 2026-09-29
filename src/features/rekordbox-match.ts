@@ -63,6 +63,17 @@ export function stripMixMarkers(s: string): string {
     .trim();
 }
 
+/**
+ * Every leading run of a joined credit, unnormalised: "Above & Beyond feat.
+ * X" gives "Above", "Above & Beyond" and the whole string, because an act's
+ * own name may hold the "&" or "," that usually joins two artists.
+ */
+export function artistRuns(s: string): string[] {
+  const joins = new RegExp(ARTIST_SPLIT.source, 'gi');
+  const runs = [...s.matchAll(joins)].map((m) => s.slice(0, m.index).trim());
+  return [...runs, s.trim()].filter((r) => r !== '');
+}
+
 /** The first credited artist of a joined string, unnormalised. */
 export function primaryArtist(s: string): string {
   const first = s.split(ARTIST_SPLIT)[0] ?? '';

@@ -327,6 +327,39 @@ describe('pickMatch', () => {
     }
   });
 
+  it('matches an artist whose own name holds "&" or ","', () => {
+    const cases: [string, string, string][] = [
+      ['Above & Beyond', 'Sun & Moon', 'Above & Beyond'],
+      ['Chase & Status', 'Blind Faith', 'Chase & Status'],
+      ['Kraak & Smaak', 'Squeeze Me', 'Kraak & Smaak'],
+      ['Dimitri Vegas & Like Mike', 'Tremor', 'Dimitri Vegas & Like Mike'],
+      ['Earth, Wind & Fire', 'September', 'Earth, Wind & Fire'],
+      ['Tyler, The Creator', 'See You Again', 'Tyler, The Creator'],
+      ['Above & Beyond feat. Zoë Johnston', 'Sun & Moon', 'Above & Beyond'],
+      ['Man Vs Machine', 'Intro', 'Man Vs Machine'],
+    ];
+    for (const [rowArtist, title, credit] of cases) {
+      const r = row({ artist: rowArtist, title });
+      const t = track({ name: title, artists: [{ id: 'c', name: credit }] });
+      expect(pickMatch(r, [t]), rowArtist).toBe(t);
+    }
+  });
+
+  it('keeps a one-letter name whole: "Mr. G" is not "G"', () => {
+    const r = row({ artist: 'Mr. G', title: 'Intro' });
+    const t = track({ name: 'Intro', artists: [{ id: 'g', name: 'G' }] });
+    expect(pickMatch(r, [t])).toBeNull();
+  });
+
+  it('never takes another part or a reprise as a version', () => {
+    for (const name of ['One (Part 2)', 'One - Pt. 2', 'One (Reprise)']) {
+      expect(
+        pickMatch(row({ title: 'One' }), [track({ name })]),
+        name
+      ).toBeNull();
+    }
+  });
+
   it('returns null for zero items', () => {
     expect(pickMatch(row(), [])).toBeNull();
   });
