@@ -25,6 +25,8 @@ const GENERIC_GROUP =
   /[([]\s*(?:original mix|extended mix|radio edit|mixed)\s*[)\]]/gi;
 const GENERIC_TAIL =
   /\s+-\s*(?:original mix|extended mix|radio edit|mixed)\s*$/i;
+const MIXED_GROUP = /[([]\s*mixed\s*[)\]]/i;
+const MIXED_TAIL = /\s+-\s*mixed\s*$/i;
 const ARTIST_SPLIT = /,|&|\sx\s|\bfeaturing\b|\bfeat\b|\bft\b/i;
 
 /**
@@ -35,6 +37,16 @@ export function cleanTitle(s: string): string {
   return normalize(
     stripMixMarkers(s.replace(FEAT_GROUP, ' ').replace(FEAT_TAIL, ' '))
   );
+}
+
+/**
+ * True for the DJ-mix compilation copy of a track ("Title (Mixed)", "Title -
+ * Mixed"), judged after the feat. credit is dropped exactly as `cleanTitle`
+ * drops it, so "Title - Mixed (feat. X)" counts too.
+ */
+export function isMixedCopy(s: string): boolean {
+  const t = s.replace(FEAT_GROUP, ' ').replace(FEAT_TAIL, ' ').trim();
+  return MIXED_GROUP.test(t) || MIXED_TAIL.test(t);
 }
 
 /**

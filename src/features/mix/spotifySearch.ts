@@ -3,7 +3,7 @@ import type { TracklistRow } from '../../db/schema';
 import { normalize } from '../../model/normalize';
 import type { SpotifyClient } from '../../spotify/client';
 import type { ApiSearchTracks, ApiTrack } from '../../spotify/types';
-import { cleanTitle, primaryArtist } from '../rekordbox-match';
+import { cleanTitle, isMixedCopy, primaryArtist } from '../rekordbox-match';
 
 /**
  * True only when the granted scope carries `playlist-modify-private`, so the
@@ -42,6 +42,8 @@ export function pickMatch(
 ): ApiTrack | null {
   const rowArtist = normalize(primaryArtist(row.artist));
   const rowTitle = cleanTitle(row.title);
+  // A title that is only a marker ("(Mixed)") names no track at all.
+  if (rowTitle === '') return null;
   const candidates = items.filter(
     // Real track only: skips episodes and `spotify:local:` results, which
     // cannot be added by URI.
@@ -57,7 +59,7 @@ export function pickMatch(
     return candTitle === rowTitle || unspaced(candTitle) === unspaced(rowTitle);
   });
   if (exact.length > 0)
-    return exact.find((item) => !MIXED_COPY.test(item.name)) ?? exact[0];
+    return exact.find((item) => !isMixedCopy(item.name)) ?? exact[0];
   // Prefix handles the remix case ('losing it' is a prefix of 'losing it ted
   // remix'); the reverse is NOT allowed, so a row that asks for the remix
   // cannot accept a bare original. Whole words only: 'go' never takes 'gold'.
@@ -67,9 +69,6 @@ export function pickMatch(
     ) ?? null
   );
 }
-
-/** The DJ-mix compilation copy of a track: crossfaded, often cut short. */
-const MIXED_COPY = /[([]\s*mixed\s*[)\]]|\s-\s*mixed\s*$/i;
 
 /**
  * Artist across EVERY credited name: a collab's primary artist is often not
