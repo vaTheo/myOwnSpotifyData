@@ -258,6 +258,23 @@ describe('pickMatch', () => {
     expect(pickMatch(row(), [mixed])).toBe(mixed);
   });
 
+  it('never matches a row whose title is only a mix marker', () => {
+    const marker = row({ title: '(Mixed)' });
+    const blank = track({ name: '(Original Mix)' });
+    const any = track({ id: 't2', uri: 'spotify:track:t2' });
+    expect(pickMatch(marker, [blank, any])).toBeNull();
+  });
+
+  it('spots a "(Mixed)" copy even when a feat. credit follows the marker', () => {
+    const mixed = track({
+      id: 'm',
+      uri: 'spotify:track:m',
+      name: 'Losing It - Mixed (feat. X)',
+    });
+    const plain = track({ id: 'p', uri: 'spotify:track:p' });
+    expect(pickMatch(row(), [mixed, plain])).toBe(plain);
+  });
+
   it('returns null for zero items', () => {
     expect(pickMatch(row(), [])).toBeNull();
   });

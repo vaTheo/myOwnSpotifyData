@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { RbTrack } from './rekordbox';
 import {
   cleanTitle,
+  isMixedCopy,
   matchRekordbox,
   primaryArtist,
   type LibraryTrack,
@@ -46,6 +47,16 @@ describe('cleanTitle', () => {
     expect(cleanTitle('Being There (Mixed)')).toBe('being there');
     expect(cleanTitle('Being There - Mixed')).toBe('being there');
     expect(cleanTitle('Being There [Mixed]')).toBe('being there');
+  });
+
+  it('tells a DJ-mix "Mixed" copy apart, wherever the feat. credit sits', () => {
+    expect(isMixedCopy('Losing It (Mixed)')).toBe(true);
+    expect(isMixedCopy('Losing It (feat. X) - Mixed')).toBe(true);
+    expect(isMixedCopy('Losing It - Mixed (feat. X)')).toBe(true);
+    expect(isMixedCopy('Losing It - Mixed ft. X')).toBe(true);
+    expect(isMixedCopy('Losing It (Original Mix)')).toBe(false);
+    expect(isMixedCopy('Mixed Feelings')).toBe(false);
+    expect(isMixedCopy('Losing It (Mixed Up Remix)')).toBe(false);
   });
 
   it('keeps "Mixed" when it is part of the name', () => {
