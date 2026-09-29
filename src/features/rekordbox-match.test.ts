@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RbTrack } from './rekordbox';
 import {
+  artistRuns,
   cleanTitle,
   isMixedCopy,
   matchRekordbox,
@@ -80,6 +81,18 @@ describe('cleanTitle', () => {
       'don t you want me'
     );
     expect(cleanTitle('Björk')).toBe('bjork');
+  });
+});
+
+describe('artistRuns', () => {
+  it('lists every leading run of a joined credit', () => {
+    expect(artistRuns('Above & Beyond feat. Zoë Johnston')).toEqual([
+      'Above',
+      'Above & Beyond',
+      'Above & Beyond feat. Zoë Johnston',
+    ]);
+    expect(artistRuns('Fisher')).toEqual(['Fisher']);
+    expect(artistRuns('?, Fisher')).toEqual(['?', '?, Fisher']);
   });
 });
 
