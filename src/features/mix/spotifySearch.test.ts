@@ -275,6 +275,58 @@ describe('pickMatch', () => {
     expect(pickMatch(row(), [mixed, plain])).toBe(plain);
   });
 
+  it('takes a longer title only when the extra words are a version tail', () => {
+    const one = row({ title: 'One' });
+    const song = track({ name: 'One More Time' });
+    expect(pickMatch(one, [song])).toBeNull();
+    const dashed = track({ name: 'One - Ted Remix' });
+    expect(pickMatch(one, [dashed])).toBe(dashed);
+    const bracketed = track({ name: 'One [Ted Remix]' });
+    expect(pickMatch(one, [bracketed])).toBe(bracketed);
+  });
+
+  it('accepts a version tail after the remix the row asks for', () => {
+    const remixRow = row({ title: 'Losing It (Ted Remix)' });
+    const extended = track({ name: 'Losing It (Ted Remix) - Extended' });
+    expect(pickMatch(remixRow, [extended])).toBe(extended);
+  });
+
+  it('rejects a one-word credit that is only part of the row artist', () => {
+    const cases: [string, string][] = [
+      ['Four Tet', 'Four'],
+      ['Kerri Chandler', 'Chandler'],
+      ['De La Soul', 'La'],
+      ['Malcolm X', 'X'],
+      ['DJ W!ld', 'W'],
+      ['Four', 'Four Tet'],
+      ['X', 'Malcolm X'],
+    ];
+    for (const [rowArtist, credit] of cases) {
+      const r = row({ artist: rowArtist, title: 'Intro' });
+      const t = track({ name: 'Intro', artists: [{ id: 'c', name: credit }] });
+      expect(pickMatch(r, [t]), `${rowArtist} vs ${credit}`).toBeNull();
+    }
+  });
+
+  it('accepts the same artist behind a prefix word, a tag or a vs credit', () => {
+    const cases: [string, string][] = [
+      ['Fisher', 'FISHER (OZ)'],
+      ['DJ Koze', 'Koze'],
+      ['Koze', 'DJ Koze'],
+      ['Chemical Brothers', 'The Chemical Brothers'],
+      ['The Chemical Brothers', 'Chemical Brothers'],
+      ['Timothy Leary', 'Dr. Timothy Leary'],
+      ['Mr Oizo', 'Mr. Oizo'],
+      ['Artist A vs Artist B', 'Artist A'],
+      ['Artist A b2b Artist B', 'Artist A'],
+    ];
+    for (const [rowArtist, credit] of cases) {
+      const r = row({ artist: rowArtist, title: 'Intro' });
+      const t = track({ name: 'Intro', artists: [{ id: 'c', name: credit }] });
+      expect(pickMatch(r, [t]), `${rowArtist} vs ${credit}`).toBe(t);
+    }
+  });
+
   it('returns null for zero items', () => {
     expect(pickMatch(row(), [])).toBeNull();
   });
