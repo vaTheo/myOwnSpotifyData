@@ -27,7 +27,8 @@ const GENERIC_TAIL =
   /\s+-\s*(?:original mix|extended mix|radio edit|mixed)\s*$/i;
 const MIXED_GROUP = /[([]\s*mixed\s*[)\]]/i;
 const MIXED_TAIL = /\s+-\s*mixed\s*$/i;
-const ARTIST_SPLIT = /,|&|\sx\s|\bfeaturing\b|\bfeat\b|\bft\b/i;
+const ARTIST_SPLIT =
+  /,|&|\sx\s|\svs\.?\s|\sb2b\s|\bfeaturing\b|\bfeat\b|\bft\b/i;
 
 /**
  * Normalised title with the noise both sides spell differently removed. A
