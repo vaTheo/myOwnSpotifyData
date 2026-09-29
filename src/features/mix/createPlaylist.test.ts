@@ -127,6 +127,37 @@ describe('runCreatePlaylist', () => {
     ]);
   });
 
+  it('carries the time and the Shazam link of an unmatched Tracklistify row', async () => {
+    const shazamUrl = 'https://www.shazam.com/track/1/t001';
+    const detected: TracklistRow = {
+      ...id(t(1)),
+      source: 'tracklistify',
+      detected: { artist: ARTIST, title: t(1) },
+      startSec: 4500,
+      shazamUrl,
+    };
+    // Edited away from the detection: the link names the rejected ID.
+    const edited: TracklistRow = {
+      ...detected,
+      startSec: 60,
+      source: 'manual',
+    };
+    const { client } = makeClient({
+      matchable: [t(1)],
+      misses: new Set([t(1)]),
+    });
+    const { states, onState } = record();
+
+    await runCreatePlaylist({ client, onState }, input([detected, edited]));
+
+    const done = states.at(-1);
+    if (done?.status !== 'done') throw new Error('expected done');
+    expect(done.unmatched).toEqual([
+      { artist: ARTIST, title: t(1), startSec: 4500, shazamUrl },
+      { artist: ARTIST, title: t(1), startSec: 60, shazamUrl: null },
+    ]);
+  });
+
   it('collects unmatched rows in mix order and omits them from the batch', async () => {
     const rows = [id(t(0)), id(t(1)), id(t(2))];
     const { client, post } = makeClient({
@@ -139,7 +170,9 @@ describe('runCreatePlaylist', () => {
 
     const done = states.at(-1);
     if (done?.status !== 'done') throw new Error('expected done');
-    expect(done.unmatched).toEqual([{ artist: ARTIST, title: t(1) }]);
+    expect(done.unmatched).toEqual([
+      { artist: ARTIST, title: t(1), startSec: null, shazamUrl: null },
+    ]);
     expect(done.added).toBe(2);
     expect(done.total).toBe(3);
     expect(itemsBatches(post)[0]).toEqual([

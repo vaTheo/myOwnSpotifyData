@@ -229,6 +229,9 @@ export interface TracklistRow {
   /** ISRC from Tracklistify's metadata, or absent/null. Lets
    *  spotifySearch.ts try an exact-recording Search query first. */
   isrc?: string | null;
+  /** Tracklistify's `https://www.shazam.com/…` page for the identified track,
+   *  or absent/null. Shown beside a track Spotify did not find. */
+  shazamUrl?: string | null;
 }
 
 /** New store `mixes`, keyPath 'url'. One row per saved mix. */
