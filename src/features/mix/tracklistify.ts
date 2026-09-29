@@ -13,6 +13,7 @@ interface TracklistifyTrackJson {
   metadata?: {
     isrc?: unknown;
     label?: unknown;
+    links?: { shazam?: unknown };
   };
 }
 
@@ -25,6 +26,25 @@ interface TracklistifyJson {
 }
 
 const SOURCE: MixRowSource = 'tracklistify';
+
+/**
+ * The link only when it is an https page on shazam.com: it comes from a file
+ * and becomes an `href`, so anything else (a `javascript:` URL) is dropped.
+ */
+function shazamLink(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  const host = url.hostname;
+  return url.protocol === 'https:' &&
+    (host === 'shazam.com' || host === 'www.shazam.com')
+    ? url.href
+    : null;
+}
 
 /** One track entry to a row, or null when it has no usable artist/title. */
 function toRow(track: TracklistifyTrackJson): TracklistRow | null {
@@ -55,6 +75,7 @@ function toRow(track: TracklistifyTrackJson): TracklistRow | null {
     referenceCount: null,
     confidence,
     isrc,
+    shazamUrl: shazamLink(track.metadata?.links?.shazam),
   };
 }
 

@@ -33,13 +33,21 @@ const ARTIST_SPLIT = /,|&|\sx\s|\bfeaturing\b|\bfeat\b|\bft\b/i;
  */
 export function cleanTitle(s: string): string {
   return normalize(
-    s
-      .replace(FEAT_GROUP, ' ')
-      .replace(FEAT_TAIL, ' ')
-      .replace(GENERIC_GROUP, ' ')
-      .trim()
-      .replace(GENERIC_TAIL, '')
+    stripMixMarkers(s.replace(FEAT_GROUP, ' ').replace(FEAT_TAIL, ' '))
   );
+}
+
+/**
+ * The title as written, minus "Original Mix", "Extended Mix", "Radio Edit"
+ * and "Mixed" — the markers stores spell differently. Remix names stay.
+ */
+export function stripMixMarkers(s: string): string {
+  return s
+    .replace(GENERIC_GROUP, ' ')
+    .trim()
+    .replace(GENERIC_TAIL, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** The first credited artist of a joined string, unnormalised. */

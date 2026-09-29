@@ -59,7 +59,15 @@ export async function runCreatePlaylist(
       return { playlistId: null, url: null };
     }
     if (match.uri !== null) uris.push(match.uri);
-    else unmatched.push({ artist: row.artist, title: row.title });
+    else
+      unmatched.push({
+        artist: row.artist,
+        title: row.title,
+        startSec: row.startSec,
+        // An edited row names a different track from the one Shazam heard.
+        shazamUrl:
+          row.source === 'tracklistify' ? (row.shazamUrl ?? null) : null,
+      });
     onState({ status: 'resolving', done: ++done, total });
   }
 

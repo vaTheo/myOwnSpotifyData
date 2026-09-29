@@ -96,7 +96,43 @@ describe('parseTracklistifyJson', () => {
       referenceCount: null,
       confidence: 86.11812625600001,
       isrc: 'DECH62001634',
+      shazamUrl: null,
     });
+  });
+
+  it('keeps the Shazam link of the identified track', () => {
+    const result = parseTracklistifyJson(fixture());
+    if (result.status !== 'ok') throw new Error('expected ok');
+    expect(result.rows[1].shazamUrl).toBe(
+      'https://www.shazam.com/track/836945321/katerina'
+    );
+  });
+
+  it('drops a Shazam link that is not an https shazam.com URL', () => {
+    const track = (shazam: unknown) => ({
+      song_name: 'Katerina',
+      artist: 'Mixxwave',
+      metadata: { links: { shazam } },
+    });
+    const result = parseTracklistifyJson(
+      fixture({
+        tracks: [
+          track('javascript:alert(1)'),
+          track('http://www.shazam.com/track/1/x'),
+          track('https://www.shazam.com.evil.example/track/1/x'),
+          track(42),
+          track('not a url'),
+        ],
+      })
+    );
+    if (result.status !== 'ok') throw new Error('expected ok');
+    expect(result.rows.map((r) => r.shazamUrl)).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
   });
 
   it('parses time_in_mix past the first hour', () => {

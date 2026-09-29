@@ -7,6 +7,7 @@ import {
   matchMixRow,
   type MixMatch,
 } from '../features/mix/match';
+import { digRows } from '../features/mix/digLinks';
 import { isIdentified } from '../features/mix/spotifySearch';
 import {
   addMixRow,
@@ -30,6 +31,7 @@ import {
   startTracklistifyImport,
   type MixView,
 } from '../model/state';
+import { DigLinks } from './components/DigLinks';
 import { FeaturePills } from './components/FeaturePills';
 import { Progress } from './components/Progress';
 import { SpotifyLink } from './components/SpotifyLink';
@@ -370,9 +372,15 @@ function CreatePlaylistPanel(p: { view: MixView }) {
             <details>
               <summary>{cs.unmatched.length} not found</summary>
               <ul class="list">
-                {cs.unmatched.map((u, i) => (
+                {digRows(cs.unmatched).map((d, i) => (
                   <li key={i}>
-                    {u.artist} – {u.title}
+                    {d.artist} – {d.title}
+                    {d.times.length > 0 && (
+                      <div class="muted">
+                        {d.times.map(formatClock).join(' · ')}
+                      </div>
+                    )}
+                    <DigLinks links={d.links} shazamUrl={d.shazamUrl} />
                   </li>
                 ))}
               </ul>

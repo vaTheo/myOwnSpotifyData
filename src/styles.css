@@ -715,3 +715,25 @@ details.card > summary {
   padding: 4px 0;
   font-size: 0.9rem;
 }
+
+/* The not-found list's store searches: one brand icon per site, each a 44px
+   tap target like `.spotify-link`; six fit a 360px screen on one line. */
+.dig-links {
+  display: flex;
+  flex-wrap: wrap;
+  margin-left: -12px;
+}
+
+.dig-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--muted);
+}
+
+.dig-link:hover,
+.dig-link:focus-visible {
+  color: var(--text);
+}

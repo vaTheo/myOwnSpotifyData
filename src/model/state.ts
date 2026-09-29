@@ -149,6 +149,10 @@ export const mixError = signal<string | null>(null);
 export interface UnmatchedRow {
   artist: string;
   title: string;
+  /** Seconds into the mix, or null when the row has no time. */
+  startSec: number | null;
+  /** Only while the row still reads as Tracklistify detected it. */
+  shazamUrl: string | null;
 }
 
 /**
