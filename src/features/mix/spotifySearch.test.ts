@@ -192,6 +192,72 @@ describe('pickMatch', () => {
     expect(pickMatch(row(), [remix, other])).toBe(remix);
   });
 
+  it('needs a word boundary for a prefix: "Go" never takes "Gold"', () => {
+    const go = row({ artist: 'Gemini', title: 'Go' });
+    const gold = track({
+      name: 'Gold',
+      artists: [{ id: 'a1', name: 'Gemini' }],
+    });
+    expect(pickMatch(go, [gold])).toBeNull();
+  });
+
+  it('matches artists by whole words, never inside a word', () => {
+    const stay = row({ artist: 'Alex Kassian', title: 'Stay' });
+    const byX = track({ name: 'Stay', artists: [{ id: 'x', name: 'X' }] });
+    expect(pickMatch(stay, [byX])).toBeNull();
+    const byFish = track({
+      artists: [{ id: 'f', name: 'Fish' }],
+    });
+    expect(pickMatch(row(), [byFish])).toBeNull();
+    const byLonger = track({
+      artists: [{ id: 'g', name: 'Fisherman' }],
+    });
+    expect(pickMatch(row(), [byLonger])).toBeNull();
+  });
+
+  it('still accepts an artist credited with extra whole words', () => {
+    const leary = row({ artist: 'Timothy Leary', title: 'Freak-Out' });
+    const dr = track({
+      name: 'Freak-Out',
+      artists: [{ id: 'l', name: 'Dr. Timothy Leary' }],
+    });
+    expect(pickMatch(leary, [dr])).toBe(dr);
+  });
+
+  it('rejects wrong tracks ranked anywhere in a ten-result page', () => {
+    const go = row({ artist: 'Gemini', title: 'Go' });
+    const wrong = Array.from({ length: 10 }, (_, i) =>
+      track({
+        id: `w${i}`,
+        uri: `spotify:track:w${i}`,
+        name: i % 2 ? 'Gold' : 'Go',
+        artists: [{ id: 'x', name: i % 2 ? 'Gemini' : 'Geminiano' }],
+      })
+    );
+    expect(pickMatch(go, wrong)).toBeNull();
+  });
+
+  it('never merges digit runs when ignoring spaces', () => {
+    const part = row({ title: 'Part 1 2' });
+    const twelve = track({ name: 'Part 12' });
+    expect(pickMatch(part, [twelve])).toBeNull();
+  });
+
+  it('prefers the original over an equally exact "(Mixed)" compilation copy', () => {
+    const mixed = track({
+      id: 'm',
+      uri: 'spotify:track:m',
+      name: 'Losing It (Mixed)',
+    });
+    const original = track({
+      id: 'o',
+      uri: 'spotify:track:o',
+      name: 'Losing It (Original Mix)',
+    });
+    expect(pickMatch(row(), [mixed, original])).toBe(original);
+    expect(pickMatch(row(), [mixed])).toBe(mixed);
+  });
+
   it('returns null for zero items', () => {
     expect(pickMatch(row(), [])).toBeNull();
   });

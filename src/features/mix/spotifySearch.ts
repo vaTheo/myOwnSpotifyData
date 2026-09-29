@@ -33,7 +33,8 @@ export function isIdentified(row: TracklistRow): boolean {
  * the title must be equal or a prefix (never a free substring), and the result
  * must be a real `spotify:track:` recording. An equal title anywhere in the
  * results beats an earlier prefix one, so a row "One" takes "One" over a
- * higher-ranked "One More Time" by the same artist.
+ * higher-ranked "One More Time" by the same artist, and among equal titles
+ * the original beats a DJ-mix compilation's "(Mixed)" copy.
  */
 export function pickMatch(
   row: TracklistRow,
@@ -51,23 +52,29 @@ export function pickMatch(
   );
   // Equality ignores spaces ('freakout' is 'freak out'); the prefix rule does
   // not: unspaced, 'freakout' would be a prefix of 'freak outer limits'.
-  const exact = candidates.find((item) => {
+  const exact = candidates.filter((item) => {
     const candTitle = cleanTitle(item.name);
     return candTitle === rowTitle || unspaced(candTitle) === unspaced(rowTitle);
   });
-  if (exact) return exact;
+  if (exact.length > 0)
+    return exact.find((item) => !MIXED_COPY.test(item.name)) ?? exact[0];
   // Prefix handles the remix case ('losing it' is a prefix of 'losing it ted
   // remix'); the reverse is NOT allowed, so a row that asks for the remix
-  // cannot accept a bare original.
+  // cannot accept a bare original. Whole words only: 'go' never takes 'gold'.
   return (
-    candidates.find((item) => cleanTitle(item.name).startsWith(rowTitle)) ??
-    null
+    candidates.find((item) =>
+      cleanTitle(item.name).startsWith(`${rowTitle} `)
+    ) ?? null
   );
 }
 
+/** The DJ-mix compilation copy of a track: crossfaded, often cut short. */
+const MIXED_COPY = /[([]\s*mixed\s*[)\]]|\s-\s*mixed\s*$/i;
+
 /**
  * Artist across EVERY credited name: a collab's primary artist is often not
- * the one a mix credits.
+ * the one a mix credits. One name must hold the other as whole words, so
+ * "timothy leary" matches "dr timothy leary" but "x" never matches "alex".
  */
 function artistMatches(rowArtist: string, item: ApiTrack): boolean {
   return item.artists.some((a) => {
@@ -78,13 +85,19 @@ function artistMatches(rowArtist: string, item: ApiTrack): boolean {
     // let a wrong-artist same-title track through — breaking "never a wrong
     // track". An empty on either side is never a match.
     if (n === '' || rowArtist === '') return false;
-    return n === rowArtist || n.includes(rowArtist) || rowArtist.includes(n);
+    return (
+      ` ${n} `.includes(` ${rowArtist} `) || ` ${rowArtist} `.includes(` ${n} `)
+    );
   });
 }
 
-/** A cleaned title without its spaces, which `normalize` made from hyphens. */
+/**
+ * A cleaned title without the spaces between letters, which `normalize` made
+ * from hyphens ('freak out' → 'freakout'). A space beside a digit stays, so
+ * 'part 1 2' never becomes 'part 12'.
+ */
 function unspaced(s: string): string {
-  return s.replace(/ /g, '');
+  return s.replace(/(?<=\p{L}) (?=\p{L})/gu, '');
 }
 
 /** Any embedded `"` would close a `track:"…"` filter early; drop it. */

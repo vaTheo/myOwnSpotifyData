@@ -30,6 +30,7 @@ import {
   startMixLookup,
   startTracklistifyImport,
   type MixView,
+  type UnmatchedRow,
 } from '../model/state';
 import { DigLinks } from './components/DigLinks';
 import { FeaturePills } from './components/FeaturePills';
@@ -303,6 +304,35 @@ function Tracklist() {
 }
 
 /**
+ * The create result's "not found" disclosure: each missed track once, with
+ * every time it was played and where to dig for it. The count stays the row
+ * count so it adds up with "added of total"; repeats are named beside it.
+ */
+function NotFound(p: { unmatched: UnmatchedRow[] }) {
+  const rows = digRows(p.unmatched);
+  const n = p.unmatched.length;
+  return (
+    <details>
+      <summary>
+        {n} not found
+        {rows.length !== n && ` (${plural(rows.length, 'track')})`}
+      </summary>
+      <ul class="list">
+        {rows.map((d, i) => (
+          <li key={i}>
+            {d.artist} – {d.title}
+            {d.times.length > 0 && (
+              <div class="muted">{d.times.map(formatClock).join(' · ')}</div>
+            )}
+            <DigLinks links={d.links} shazamUrl={d.shazamUrl} />
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+/**
  * Spec §5: create a private Spotify playlist from the open mix's identified
  * rows. The button shows whenever at least one identified row exists — there is
  * always a session inside `Mix.tsx` (app.tsx renders `<Connect/>` when
@@ -368,24 +398,7 @@ function CreatePlaylistPanel(p: { view: MixView }) {
               </>
             )}
           </p>
-          {cs.unmatched.length > 0 && (
-            <details>
-              <summary>{cs.unmatched.length} not found</summary>
-              <ul class="list">
-                {digRows(cs.unmatched).map((d, i) => (
-                  <li key={i}>
-                    {d.artist} – {d.title}
-                    {d.times.length > 0 && (
-                      <div class="muted">
-                        {d.times.map(formatClock).join(' · ')}
-                      </div>
-                    )}
-                    <DigLinks links={d.links} shazamUrl={d.shazamUrl} />
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
+          {cs.unmatched.length > 0 && <NotFound unmatched={cs.unmatched} />}
         </>
       )}
       {cs.status === 'error' && (
