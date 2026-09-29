@@ -136,6 +136,33 @@ describe('pickMatch', () => {
     expect(pickMatch(row(), [remix])).toBe(remix);
   });
 
+  it('accepts a title that differs only in spaces or hyphens', () => {
+    const leary = row({ artist: 'Dr. Timothy Leary', title: 'Freakout' });
+    const hit = track({
+      name: 'Freak-Out',
+      artists: [{ id: 'a1', name: 'Dr. Timothy Leary' }],
+    });
+    expect(pickMatch(leary, [hit])).toBe(hit);
+  });
+
+  it('ignores spacing for equality only, never for the prefix rule', () => {
+    const leary = row({ artist: 'Dr. Timothy Leary', title: 'Freakout' });
+    const longer = track({
+      name: 'Freak Out Tonight',
+      artists: [{ id: 'a1', name: 'Dr. Timothy Leary' }],
+    });
+    expect(pickMatch(leary, [longer])).toBeNull();
+  });
+
+  it('still rejects a spacing-equal title by the wrong artist', () => {
+    const leary = row({ artist: 'Dr. Timothy Leary', title: 'Freakout' });
+    const wrong = track({
+      name: 'Freak-Out',
+      artists: [{ id: 'a2', name: 'Chic' }],
+    });
+    expect(pickMatch(leary, [wrong])).toBeNull();
+  });
+
   it('returns null for zero items', () => {
     expect(pickMatch(row(), [])).toBeNull();
   });
@@ -188,7 +215,7 @@ describe('searchTrack', () => {
     expect(get.mock.calls[0][1]).toEqual({
       q: 'artist:"Fisher" track:"Losing It"',
       type: 'track',
-      limit: 5,
+      limit: 10,
     });
   });
 
@@ -201,7 +228,7 @@ describe('searchTrack', () => {
     expect(get.mock.calls[1][1]).toEqual({
       q: 'Fisher Losing It',
       type: 'track',
-      limit: 5,
+      limit: 10,
     });
   });
 
@@ -272,7 +299,7 @@ describe('searchTrack', () => {
     expect(get.mock.calls[0][1]).toEqual({
       q: 'isrc:DECH62001634',
       type: 'track',
-      limit: 5,
+      limit: 10,
     });
   });
 

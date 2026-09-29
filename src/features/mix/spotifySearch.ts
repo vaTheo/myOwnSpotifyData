@@ -46,8 +46,15 @@ export function pickMatch(
     const candTitle = cleanTitle(item.name);
     // Equality or prefix only. Prefix handles the remix case ('losing it' is a
     // prefix of 'losing it ted remix'); the reverse is NOT allowed, so a row
-    // that asks for the remix cannot accept a bare original.
-    if (candTitle !== rowTitle && !candTitle.startsWith(rowTitle)) continue;
+    // that asks for the remix cannot accept a bare original. Equality also
+    // ignores spaces ('freakout' is 'freak out'), but the prefix rule does not:
+    // unspaced, 'freakout' would be a prefix of 'freak outer limits'.
+    if (
+      candTitle !== rowTitle &&
+      unspaced(candTitle) !== unspaced(rowTitle) &&
+      !candTitle.startsWith(rowTitle)
+    )
+      continue;
     // Artist across EVERY credited name: a collab's primary artist is often
     // not the one a mix credits.
     const artistOk = item.artists.some((a) => {
@@ -63,6 +70,11 @@ export function pickMatch(
     if (artistOk) return item;
   }
   return null;
+}
+
+/** A cleaned title without its spaces, which `normalize` made from hyphens. */
+function unspaced(s: string): string {
+  return s.replace(/ /g, '');
 }
 
 /** Any embedded `"` would close a `track:"…"` filter early; drop it. */
@@ -106,7 +118,9 @@ export async function searchTrack(
     const res = await client.get<ApiSearchTracks>('/search', {
       q,
       type: 'track',
-      limit: 5,
+      // Search's maximum. A common artist name ("Gemini") can push the right
+      // track below the first five; ten costs the same one request.
+      limit: 10,
     });
     const items = Array.isArray(res.tracks?.items) ? res.tracks.items : [];
     const hit = pickMatch(row, items);
