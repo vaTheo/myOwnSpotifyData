@@ -42,6 +42,12 @@ describe('cleanTitle', () => {
     expect(cleanTitle('Losing It ft. Anna')).toBe('losing it');
   });
 
+  it('drops a DJ-mix compilation "Mixed" marker', () => {
+    expect(cleanTitle('Being There (Mixed)')).toBe('being there');
+    expect(cleanTitle('Being There - Mixed')).toBe('being there');
+    expect(cleanTitle('Being There [Mixed]')).toBe('being there');
+  });
+
   it('keeps a remix tail, which names a different recording', () => {
     expect(cleanTitle('Losing It (Ted Remix)')).toBe('losing it ted remix');
     expect(cleanTitle('Losing It - Ted Remix')).toBe('losing it ted remix');

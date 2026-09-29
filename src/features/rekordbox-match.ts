@@ -20,9 +20,11 @@ const DURATION_TOLERANCE_MS = 2000;
 
 const FEAT_GROUP = /[([]\s*(?:featuring|feat|ft)\b[^)\]]*[)\]]/gi;
 const FEAT_TAIL = /\s+(?:-\s*)?(?:featuring|feat|ft)\b[^([]*/gi;
+// "Mixed" marks the DJ-mix compilation copy of a track, not a new recording.
 const GENERIC_GROUP =
-  /[([]\s*(?:original mix|extended mix|radio edit)\s*[)\]]/gi;
-const GENERIC_TAIL = /\s+-\s*(?:original mix|extended mix|radio edit)\s*$/i;
+  /[([]\s*(?:original mix|extended mix|radio edit|mixed)\s*[)\]]/gi;
+const GENERIC_TAIL =
+  /\s+-\s*(?:original mix|extended mix|radio edit|mixed)\s*$/i;
 const ARTIST_SPLIT = /,|&|\sx\s|\bfeaturing\b|\bfeat\b|\bft\b/i;
 
 /**
