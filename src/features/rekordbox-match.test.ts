@@ -48,6 +48,14 @@ describe('cleanTitle', () => {
     expect(cleanTitle('Being There [Mixed]')).toBe('being there');
   });
 
+  it('keeps "Mixed" when it is part of the name', () => {
+    expect(cleanTitle('Mixed Feelings')).toBe('mixed feelings');
+    expect(cleanTitle('Losing It (Mixed Up Remix)')).toBe(
+      'losing it mixed up remix'
+    );
+    expect(cleanTitle('Mixed')).toBe('mixed');
+  });
+
   it('keeps a remix tail, which names a different recording', () => {
     expect(cleanTitle('Losing It (Ted Remix)')).toBe('losing it ted remix');
     expect(cleanTitle('Losing It - Ted Remix')).toBe('losing it ted remix');

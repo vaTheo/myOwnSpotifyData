@@ -83,11 +83,14 @@ export function digLinks(artist: string, title: string): DigLink[] {
   });
 }
 
-/** Groups repeats on the normalised name, keeping the first spelling seen. */
+/**
+ * Groups repeats on the normalised name without its generic mix markers (the
+ * links would be identical), keeping the first spelling seen.
+ */
 export function digRows(unmatched: UnmatchedRow[]): DigRow[] {
   const byKey = new Map<string, DigRow>();
   for (const u of unmatched) {
-    const key = nameKey(u.artist, u.title);
+    const key = nameKey(u.artist, stripMixMarkers(u.title));
     let row = byKey.get(key);
     if (!row) {
       row = {

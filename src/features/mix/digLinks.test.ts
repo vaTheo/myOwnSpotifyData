@@ -86,6 +86,15 @@ describe('digRows', () => {
     expect(rows[0].title).toBe('Where Do I Go (1997 Mix)');
   });
 
+  it('groups a title with and without a generic mix marker', () => {
+    const rows = digRows([
+      miss('Russell G', 'Double Six (Original mix)', { startSec: 10 }),
+      miss('Russell G', 'Double Six', { startSec: 20 }),
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].times).toEqual([10, 20]);
+  });
+
   it('leaves out unknown times and keeps the first Shazam link', () => {
     const [row] = digRows([
       miss('Alegria', 'Chicachilla'),
