@@ -712,7 +712,6 @@ Every test **mocks fetch or the client**; none ever calls real Spotify.
 - [Feature inventory](../architecture/100-features.md) (F13)
 - [How the app works](../architecture/000-how-it-works.md)
 - [ADR-03](../architecture/700-adr/ADR-03-library-writes-on-tap.md)
-- Research: [2026-09-06-mix-tracklist-sources.md](../research/2026-09-06-mix-tracklist-sources.md)
 - [ADR index](../architecture/700-adr/README.md)
 - [Limits and roadmap](../architecture/800-limits-roadmap.md)
 - [Documentation map](../README.md)

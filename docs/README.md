@@ -59,7 +59,6 @@ One design document per feature round, dated. The first one is the base model; l
 
 ## Research (verified external facts)
 
-- [2026-09-06 — Tracklist of a SoundCloud DJ mix](research/2026-09-06-mix-tracklist-sources.md)
 - [2026-09-05 — Artist reach sources](research/2026-09-05-artist-reach-sources.md)
 - [2026-09-05 — BPM and key sources](research/2026-09-05-bpm-key-sources.md)
 - [2026-09-04 — Streaming history semantics](research/2026-09-04-history-export-semantics.md)
