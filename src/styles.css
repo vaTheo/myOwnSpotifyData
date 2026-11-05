@@ -737,3 +737,21 @@ details.card > summary {
 .dig-link:focus-visible {
   color: var(--text);
 }
+
+/* The server card's per-dataset table (Settings). */
+.stamps {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+  margin: 0.5em 0;
+}
+.stamps th,
+.stamps td {
+  text-align: left;
+  padding: 0.25em 0.4em 0.25em 0;
+  vertical-align: top;
+}
+.stamps th {
+  color: var(--muted, #888);
+  font-weight: normal;
+}

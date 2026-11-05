@@ -284,7 +284,7 @@ export const SERVER_STAMPS_META = 'serverStamps';
 export type ServerStamps = Partial<
   Record<
     'library' | 'history' | 'features' | 'reach',
-    { fetchedAt: number; generation: number }
+    { fetchedAt: number; generation: number; rows: number }
   >
 >;
 /** Datasets changed locally and not yet pushed; cleared after a successful push. */
@@ -294,6 +294,12 @@ export type ServerPending = Partial<
 >;
 /** The last successful push or pull, shown in Settings. */
 export const SERVER_LAST_SYNC_META = 'serverLastSync';
+/** Mixes deleted here and not yet pushed as tombstones (server sync, US2). */
+export const MIX_DELETED_META = 'mixDeleted';
+export interface MixDeletedEntry {
+  url: string;
+  deletedAt: number;
+}
 
 export interface AllRows {
   playlists: PlaylistRow[];

@@ -72,6 +72,25 @@ export const ACCOUNT_SWITCH_NOTICE =
 export const ACCOUNT_SWITCH_STOPPED =
   'Sync stopped — a different Spotify account is signed in and the local data was kept.';
 
+/**
+ * Said by the Connect flow (one `/me` call on the tap, research D11) when the
+ * account differs from the stored one; the stored id is kept and the sync
+ * job's own question decides the switch.
+ */
+export const ACCOUNT_MISMATCH_NOTICE =
+  'Signed in as a different Spotify account. Sync now to switch; local data is kept until you confirm.';
+
+export type ConnectedAccount = 'set' | 'same' | 'mismatch';
+
+/** What Connect does with the `/me` id against the stored `accountId`. */
+export function resolveConnectedAccount(
+  cached: string | undefined,
+  me: string
+): ConnectedAccount {
+  if (cached === undefined) return 'set';
+  return cached === me ? 'same' : 'mismatch';
+}
+
 export interface RunnerDeps {
   client: SpotifyClient;
   now: () => number;

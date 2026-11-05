@@ -5,16 +5,28 @@ import {
   DB_SLOW_MESSAGE,
   DB_SLOW_MS,
   DB_SUPERSEDED_MESSAGE,
+  clearMixDeleted,
   deleteMix,
   getAllRows,
   getMeta,
+  getMixDeleted,
   getMixes,
   putMeta,
   putMix,
+  replaceDataset,
   setDbEvents,
   wipeDb,
 } from '../db/repo';
-import type { MixRow, TracklistRow } from '../db/schema';
+import {
+  DB_VERSION,
+  SERVER_LAST_SYNC_META,
+  SERVER_PENDING_META,
+  SERVER_STAMPS_META,
+  type MixRow,
+  type ServerPending,
+  type ServerStamps,
+  type TracklistRow,
+} from '../db/schema';
 import { jsonp } from '../features/jsonp';
 import {
   editTracklistRow,
@@ -59,14 +71,27 @@ import {
   type ImportState,
   type ImportSummary,
 } from '../history/importer';
-import { LINK_BROWSER_MESSAGE } from '../server/client';
-import { serverAuth, serverConfigured } from '../server/browser';
-import { api } from '../spotify/api';
+import { LINK_BROWSER_MESSAGE, type ServerResult } from '../server/client';
+import { serverAuth, serverClient, serverConfigured } from '../server/browser';
+import { DATASETS } from '../server/datasets';
 import {
+  UPDATE_APP_MESSAGE,
+  runPull,
+  runPush,
+  type PushName,
+  type SyncDeps,
+} from '../server/sync';
+import type { ServerStatus } from '../server/types';
+import { api } from '../spotify/api';
+import type { ApiProfile } from '../spotify/types';
+import {
+  ACCOUNT_META,
+  ACCOUNT_MISMATCH_NOTICE,
   ACCOUNT_SWITCH_CONFIRM,
   ACCOUNT_SWITCH_NOTICE,
   LAST_SYNC_META,
   SYNC_STATE_META,
+  resolveConnectedAccount,
   runSync,
   type SyncState,
 } from '../sync/runner';
@@ -88,41 +113,12 @@ export const reachState = signal<ReachState>({ status: 'idle' });
 export const artistReachSummary = signal<ArtistReachSummary | null>(null);
 export const banner = signal<BannerMessage | null>(null);
 
-/** One line of the Settings server card's per-dataset table. */
-export interface ServerStampView {
-  name: string;
-  /** When this device fetched or imported the dataset, or null. */
-  localAt: number | null;
-  /** The server's stamp, or null when it holds nothing. */
-  serverAt: number | null;
-  rows: number | null;
-}
-
 /**
- * The owner's server (ADR-08), as the Settings server card renders it. Every
- * failure lands here with its reason; `offline` and `paused` are states, not
- * errors (no banner, pending pushes kept).
+ * The owner's server (ADR-08), as the Settings server card renders it. The
+ * types live in `server/types.ts` so the runners can report without
+ * importing this module.
  */
-export type ServerStatus =
-  | { status: 'unset' }
-  | { status: 'signedOut' }
-  | { status: 'offline'; message: string }
-  | { status: 'paused'; dashboardUrl: string }
-  | {
-      status: 'pushing' | 'pulling';
-      dataset: string;
-      done: number;
-      total: number;
-    }
-  | {
-      status: 'connected';
-      lastSyncAt: number | null;
-      usedBytes: number | null;
-      stamps: ServerStampView[];
-      /** Rows the safety check dropped on the last pull (FR-018). */
-      rejected: number;
-    }
-  | { status: 'error'; message: string };
+export type { ServerStampView, ServerStatus } from '../server/types';
 
 export const SUPABASE_DASHBOARD_URL = 'https://supabase.com/dashboard';
 
@@ -143,6 +139,180 @@ function serverBaseState(): ServerStatus {
 }
 
 export const serverState = signal<ServerStatus>(serverBaseState());
+
+/** True while a server pull rebuilds the model; part of jobsBusy(). */
+const serverPulling = signal(false);
+
+function serverDeps(): SyncDeps {
+  return {
+    client: serverClient,
+    token: () => serverAuth.getAccessToken(),
+    repo: {
+      getAllRows,
+      getMeta,
+      putMeta,
+      replaceDataset,
+      getMixes,
+      putMix,
+      deleteMix,
+      getMixDeleted,
+      clearMixDeleted,
+    },
+    now: () => Date.now(),
+    onState: (state) => {
+      serverState.value = state;
+    },
+    dbVersion: DB_VERSION,
+  };
+}
+
+/** What a failed runner result means for the card (D8): never a banner. */
+function serverFailure(
+  res: Extract<ServerResult<unknown>, { ok: false }>
+): ServerStatus {
+  switch (res.kind) {
+    case 'offline':
+      return { status: 'offline', message: res.message };
+    case 'paused':
+      return { status: 'paused', dashboardUrl: SUPABASE_DASHBOARD_URL };
+    case 'unauthorized':
+      return serverAuth.session.value
+        ? { status: 'error', message: res.message }
+        : {
+            status: 'error',
+            message: `Signed out of the server: ${res.message}`,
+          };
+    default:
+      return { status: 'error', message: res.message };
+  }
+}
+
+/** The connected card: last sync, the per-dataset table, the used share. */
+async function connectedView(rejected = 0): Promise<ServerStatus> {
+  const rows = await getAllRows();
+  const metas = {
+    lastSyncAt: await getMeta<number>(LAST_SYNC_META),
+    historySummary: await getMeta<ImportSummary>(HISTORY_SUMMARY_META),
+    artistReachSummary: await getMeta<ArtistReachSummary>(
+      ARTIST_REACH_SUMMARY_META
+    ),
+    rekordboxSummary: await getMeta<RekordboxSummary>(REKORDBOX_SUMMARY_META),
+  };
+  const seen = (await getMeta<ServerStamps>(SERVER_STAMPS_META)) ?? {};
+  const previous = serverState.value;
+  return {
+    status: 'connected',
+    lastSyncAt: (await getMeta<number>(SERVER_LAST_SYNC_META)) ?? null,
+    usedBytes: previous.status === 'connected' ? previous.usedBytes : null,
+    stamps: DATASETS.map((def) => ({
+      name: def.name,
+      localAt: def.stamp(rows, metas),
+      serverAt: seen[def.name]?.fetchedAt ?? null,
+      rows: seen[def.name]?.rows ?? null,
+    })),
+    rejected,
+  };
+}
+
+let pushRunning = false;
+let pushQueued = false;
+
+/**
+ * Flags the datasets as pending, then pushes everything pending, one push at
+ * a time (a push started while one runs waits for it). Push reads only and
+ * rebuilds no model, so it joins no jobsBusy(). A failed push keeps the
+ * flags for the next open (FR-008); the card shows why, never a banner.
+ */
+export async function queueServerPush(
+  names: readonly PushName[]
+): Promise<void> {
+  if (!serverConfigured) return;
+  if (names.length > 0) {
+    const pending = (await getMeta<ServerPending>(SERVER_PENDING_META)) ?? {};
+    for (const name of names) pending[name] = true;
+    await putMeta(SERVER_PENDING_META, pending);
+  }
+  if (!serverAuth.session.value) return;
+  if (pushRunning) {
+    pushQueued = true;
+    return;
+  }
+  pushRunning = true;
+  try {
+    do {
+      pushQueued = false;
+      const pending = (await getMeta<ServerPending>(SERVER_PENDING_META)) ?? {};
+      const list = Object.keys(pending) as PushName[];
+      if (list.length === 0) break;
+      const res = await runPush(serverDeps(), list);
+      if (!res.ok) {
+        serverState.value = serverFailure(res);
+        break;
+      }
+      serverState.value = await connectedView();
+    } while (pushQueued);
+  } finally {
+    pushRunning = false;
+  }
+}
+
+/**
+ * Pulls every dataset the server holds newer, then rebuilds the model. It
+ * joins jobsBusy() (it writes the library stores) and is skipped, not
+ * queued, while a job runs or the account notice is up. No Spotify read.
+ */
+export async function startServerPull(): Promise<void> {
+  if (!serverConfigured || !serverAuth.session.value) return;
+  if (jobsBusy()) return;
+  if (banner.value?.text === ACCOUNT_MISMATCH_NOTICE) return;
+  serverPulling.value = true;
+  try {
+    const res = await runPull(serverDeps());
+    if (!res.ok) {
+      serverState.value = serverFailure(res);
+      if (res.message === ACCOUNT_MISMATCH_NOTICE) {
+        banner.value = warnBanner(ACCOUNT_MISMATCH_NOTICE);
+      }
+      return;
+    }
+    if (res.value.pulled.length > 0) {
+      await loadFromDb();
+      await loadSavedMixes();
+    }
+    serverState.value = await connectedView(res.value.rejected);
+    if (res.value.stale.length > 0) {
+      serverState.value = { status: 'error', message: UPDATE_APP_MESSAGE };
+    }
+  } finally {
+    serverPulling.value = false;
+  }
+  // Whatever this device changed while the server was unreachable goes now.
+  void queueServerPush([]);
+}
+
+/** The card's "Sync now with server": a pull, then the pending pushes. */
+export async function startServerSync(): Promise<void> {
+  await startServerPull();
+}
+
+/**
+ * One `/me` call on the Connect tap (research D11): stores the account id
+ * when none is stored, keeps a differing one and says so. Never on load.
+ */
+export async function recordConnectedAccount(): Promise<void> {
+  try {
+    const me = await api.get<ApiProfile>('/me');
+    const cached = await getMeta<string>(ACCOUNT_META);
+    const outcome = resolveConnectedAccount(cached, me.id);
+    if (outcome === 'set') await putMeta(ACCOUNT_META, me.id);
+    if (outcome === 'mismatch')
+      banner.value = warnBanner(ACCOUNT_MISMATCH_NOTICE);
+  } catch (err) {
+    banner.value = errorBanner(
+      `Could not read the Spotify account: ${describeError(err)}`
+    );
+  }
+}
 
 /** Sends the magic link; the card then shows the generic "if this email…" line. */
 export async function startServerLink(email: string): Promise<void> {
@@ -456,6 +626,7 @@ export function isSyncBusy(state: SyncState, now = Date.now()): boolean {
  */
 export function jobsBusy(): boolean {
   return (
+    serverPulling.value ||
     syncState.value.status === 'running' ||
     importState.value.status === 'running' ||
     lookupState.value.status === 'running' ||
@@ -528,6 +699,10 @@ export async function startSync(priorityId?: string): Promise<void> {
   // card, but nothing else on screen says why the data went away. It is a
   // notice, not a failure, so it is amber and never suppressed.
   if (accountSwitched) banner.value = warnBanner(ACCOUNT_SWITCH_NOTICE);
+  // A finished or quota-locked sync wrote newer playlists: to the server.
+  if (state.status === 'idle' || state.status === 'locked') {
+    void queueServerPush(['library']);
+  }
 }
 
 export async function startImport(files: File[]): Promise<void> {
@@ -551,6 +726,7 @@ export async function startImport(files: File[]): Promise<void> {
   if (state.status === 'error') {
     banner.value = errorBanner(state.message, ['import']);
   }
+  if (state.status === 'done') void queueServerPush(['history']);
 }
 
 export interface Coverage {
@@ -659,6 +835,7 @@ export async function startLookup(): Promise<void> {
   if (state.status === 'error') {
     banner.value = errorBanner(state.message, ['settings']);
   }
+  if (state.status === 'done') void queueServerPush(['features']);
 }
 
 export async function startRekordboxImport(file: File): Promise<void> {
@@ -686,6 +863,7 @@ export async function startRekordboxImport(file: File): Promise<void> {
   if (state.status === 'error') {
     banner.value = errorBanner(state.message, ['settings']);
   }
+  if (state.status === 'done') void queueServerPush(['features']);
 }
 
 /** Never on load: the artist reach run starts only from this button. */
@@ -732,6 +910,7 @@ export async function startReach(): Promise<void> {
   if (state.status === 'error') {
     banner.value = errorBanner(state.message, ['settings']);
   }
+  if (state.status !== 'error') void queueServerPush(['reach']);
 }
 
 const MIX_NOT_A_LINK =
