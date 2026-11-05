@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-05
+> **Last updated**: 2026-11-06
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -14,7 +14,7 @@ decisions that still hold are in the [ADR index](700-adr/README.md); the rules f
 A browser-only Preact web app the owner (a DJ) uses on an Android phone, added to the home screen from Chrome. It shows their most
 played Spotify tracks, ranks their own playlists by play count, ranks artists by saved tracks, and helps prepare sets (BPM and key,
 match mode, under-the-radar artists, SoundCloud mix tracklists). Public repo `vaTheo/myOwnSpotifyData`, single `main` branch, deployed
-to GitHub Pages at `https://vatheo.github.io/myOwnSpotifyData/` by CI. No server: login is PKCE with a Client ID only
+to GitHub Pages at `https://vatheo.github.io/myOwnSpotifyData/` by CI. No server code of the owner's: login is PKCE with a Client ID only
 ([ADR-01](700-adr/ADR-01-browser-only-pkce.md)), data lives in IndexedDB, play counts come from Spotify's history export
 ([ADR-07](700-adr/ADR-07-play-counts-from-export.md)).
 
@@ -49,7 +49,8 @@ unit-tested. Tests sit next to the source as `src/**/*.test.ts`; there are no DO
 - `hasScope` splits `session.scope` on spaces, never `String.includes`, so a substring cannot satisfy it.
 - A token refresh returns the scope the **original** grant had, so it can never widen an old session: a feature that needs a new scope
   shows **Connect again → Connect Spotify** ([ADR-03](700-adr/ADR-03-library-writes-on-tap.md)).
-- The redirect URI is computed at runtime (`env.ts`). The only setting is `VITE_SPOTIFY_CLIENT_ID`; there is no client secret anywhere.
+- The redirect URI is computed at runtime (`env.ts`). The settings are `VITE_SPOTIFY_CLIENT_ID` and the two public server values
+  `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY` (§16); there is no client secret anywhere.
 
 ## 4. `spotify/`
 
@@ -228,22 +229,59 @@ One Preact component per screen plus small shared components (`ui/components/`).
 | Artist reach | `startReach` (`:604`) | Settings · Artist reach | yes |
 | Mix lookup | `startMixLookup` (`:665`), `startTracklistifyImport` (`:753`) | `#/mix` | no |
 | Create playlist | `startCreatePlaylist` (`:928`) | `#/mix` | no |
-| Like all songs | `startLikePlaylist` (`:1072`) | Playlist screen | no |
+| Like all songs | `startLikePlaylist` (`:1389`) | Playlist screen | no |
+| Server pull | `startServerPull` (`:284`) | the open (after the first paint), Settings · Server · Sync now | yes |
+| Server push | `queueServerPush` (`:246`) | the tail of the five library jobs, every mix save or delete | no |
 
 The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:314`). The mix and like
 jobs write no library store and rebuild no `Model`, so they need no exclusion; each guards its own re-entry on its state's `status`, shows
 every failure inline (never a banner, never touching the sync lock) and is reset by `disconnect` (`:1115`).
 
-Three things ask before they destroy data: Disconnect, an account switch during a sync (`ACCOUNT_SWITCH_CONFIRM`) and an import that
-covers less than the stored history (`replaceQuestion`). Like all songs asks a fourth, non-destructive question naming the exact count.
-All are plain `confirm()` calls made in `state.ts`, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
+Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
+(`ACCOUNT_SWITCH_CONFIRM`, `:714`), an import that covers less than the stored history (`replaceQuestion`, `:765`), Remove server data
+(`REMOVE_SERVER_DATA_CONFIRM`, `:337`); and Disconnect, asked by its button in `ui/Settings.tsx` (`:567`). Non-destructive, in
+`state.ts`: Like all songs' count (`:1407`) and the four "replace the working list" questions of the Mix screen (`:1051`, `:1080`,
+`:1111`, `:1133`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
 old behaviour.
 
 ## 15. Build, CI and deploy
 
 `.github/workflows/ci.yml` runs `yarn install --frozen-lockfile`, `typecheck`, `lint`, `test` on every push to `main` and every PR, then a
-`deploy` job builds with the `VITE_SPOTIFY_CLIENT_ID` secret and publishes `dist/` to GitHub Pages on pushes to `main`. Commands:
-[Contributing](../dev-guide/000-contributing.md).
+`deploy` job builds with the `VITE_SPOTIFY_CLIENT_ID` secret and the two `VITE_SUPABASE_*` repository variables, and publishes `dist/`
+to GitHub Pages on pushes to `main`. Commands: [Contributing](../dev-guide/000-contributing.md).
+
+## 16. `server/`: the owner's server
+
+One Supabase Free project, for the owner alone, that stores every dataset the app builds and never computes
+([ADR-08](700-adr/ADR-08-owner-server-free-tier.md); the round's full record is under `specs/001-backend-data-sync/`). Local rules:
+`src/server/CLAUDE.md`. Without `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY` the module is inert and the app is the browser-only app.
+
+- `client.ts` (`createServerClient`): plain `fetch` against PostgREST (`/rest/v1/<table>`, filters in the query, `Range` paging,
+  `Prefer: resolution=merge-duplicates` upserts) and GoTrue (`/auth/v1/otp`, `/auth/v1/token`, `/auth/v1/logout`); every call returns a
+  `ServerResult` (`offline`, `paused`, `unauthorized`, `tooLarge`, `error`), never throws, never retries.
+- `session.ts` (`createServerSessionStore`): the magic link in the PKCE flow. `requestLink` stores a verifier under `server-pkce` and
+  asks for a link whose `redirect_to` is the app plus `?link=server`; `main.tsx` branches on that marker (Spotify's callback is a bare
+  `?code=`), `completeLink` exchanges the code with the verifier and stores `server-session`. A refresh re-reads storage first and retries
+  once on "already used"; a 401 signs out.
+- `datasets.ts` (pure): the four datasets and their stores, each with its stamp (`library` = `lastSyncAt`; `history` =
+  `historySummary.importedAt`, version 2 only; `features` = newest `updatedAt`; `reach` = `artistReachSummary.ranAt`), `compareStamps`
+  (newer wins, never by push time), `batches` (500), `rowKey`, and `planMixes` (per row by `savedAt`, with tombstones).
+- `validate.ts` (pure): every pulled row and summary checked before it is written or rendered (keys, finite numbers, `https:` links,
+  `open.spotify.com` links, `SC_PLAYER_PREFIX`, the gate versions); a failing row is dropped and counted (security review S3).
+- `sync.ts`: `runPush` (rows in batches under a new generation, then the `datasets` stamp, then the generation before the previous
+  one is dropped, so one bad push stays recoverable), `runPull` (stamps, pages of `dataset_rows`, validation, `replaceDataset` with the
+  summary in one transaction, `serverStamps` recorded), the mixes branch (`select=*` once, filtered in the client), `runRemoveAll` (the
+  four tables, children first, then the server metas) and `readUsage` (`storage_used()`).
+- Server side: `supabase/migrations/0001_init.sql` creates `datasets`, `dataset_rows`, `mixes`, `jobs` (empty, for the worker round)
+  and `storage_used()`, enables Row Level Security on `owner_id = auth.uid()` and revokes every default privilege from `anon`.
+- Wiring in `model/state.ts`: `serverState` (rendered by the Settings server card), `recordConnectedAccount` (one `/me` on the Connect
+  tap, `:346`), `queueServerPush` (flags `serverPending` first, one push at a time), `startServerPull` (joins `jobsBusy()`, ends in
+  `loadFromDb()` and `loadSavedMixes()`), `startServerSync` (pending pushes, then the pull: the open and the card's button),
+  `startServerSignOut`, `removeServerData` (the one new `confirm()`). `offline` and `paused` set no banner and keep the pending flags.
+- Four new `meta` names and no `DB_VERSION` bump: `serverStamps`, `serverPending`, `serverLastSync`, `mixDeleted` (written by
+  `deleteMix`, cleared after the tombstones are pushed).
+- `index.html` carries a Content Security Policy listing every host the app calls; `vite.config.ts` fills the server URL into it at
+  build time and the HMR websocket on the dev server.
 
 ## Links
 

@@ -1,8 +1,8 @@
 # 100 — Feature inventory
 
 > **Status**: Living
-> **Last verified**: 2026-11-05 against `main` at `cb5e1e8`
-> **Last updated**: 2026-11-05
+> **Last verified**: 2026-11-06 against `task/general-dev`
+> **Last updated**: 2026-11-06
 
 Every feature the app has today, where it lives and what state it is in. One row per feature the owner can see. Update this page in the
 same commit as any feature change ([Contributing](../dev-guide/000-contributing.md), "One change, several files"). How each piece works:
@@ -36,6 +36,7 @@ same commit as any feature change ([Contributing](../dev-guide/000-contributing.
 | F15 | Tracklistify JSON import + ISRC-exact Search | `#/mix` | `parseTracklistifyJson` `src/features/mix/tracklistify.ts:89`, `startTracklistifyImport` `src/model/state.ts:753` | [Tracklistify import](../specs/2026-09-28-tracklistify-import-design.md) | 2026-09-28 `0fde8ed`, `8b4ba63` | ✅ | The scan itself runs off the phone (Tracklistify) |
 | F16 | Dig links for tracks Search did not find | `#/mix`, under a created playlist | `digRows` `src/features/mix/digLinks.ts:90`, `src/ui/components/DigLinks.tsx` | none (commit `db78e6a` and its tests) | 2026-09-29 `db78e6a` | ✅ | Links out only; nothing is fetched |
 | F17 | Stricter Search matching (whole-word artist runs, version tails, Mixed copies) | `#/mix` (F13) | `pickMatch`, `artistRuns`, `artistCore`, `isMixedCopy` in `src/features/mix/spotifySearch.ts` | none (commits and `spotifySearch.test.ts`); rule in [How it works](000-how-it-works.md) §10 | 2026-09-29 `175804e`…`cb5e1e8` | ✅ | Prefers "not found" to a wrong track |
+| F18 | Server sync (the owner's Supabase project, magic link, newer wins per dataset, mixes by row) | Settings · Server | `runPush`/`runPull` `src/server/sync.ts`, `startServerPull`/`queueServerPush` in `src/model/state.ts`, `ServerCard` in `src/ui/Settings.tsx` | [Backend data sync](../specs/2026-11-05-backend-data-sync-design.md) | 2026-11-06 | ⚠️ | Free project pauses after a week idle (resume from the dashboard); no backups on Free; sign-in link opens in the browser that asked |
 
 ## 2. What leaves the browser
 
@@ -45,8 +46,9 @@ same commit as any feature change ([Contributing](../dev-guide/000-contributing.
 | F8 | ReccoBeats | track ids, ISRCs | Settings · Audio data · Look up |
 | F11 | MusicBrainz, ListenBrainz, Deezer, Wikidata, Wikimedia | artist ids, ISRCs, article titles | Settings · Artist reach · Look up artists |
 | F12 | SoundCloud (oEmbed, player), TrackId.net | the pasted mix URL | `#/mix` · Look up |
+| F18 | the owner's own Supabase project | every dataset the app builds: library and playlists, play counts, BPM and key, artist reach, saved mixes; never the Spotify token | after each job and on open, when signed in to the server |
 
-No token and no listening history ever leaves the browser.
+No Spotify token ever leaves the browser; the listening history goes only to the owner's own server, when one is set up.
 
 ## 3. The two Spotify writes
 

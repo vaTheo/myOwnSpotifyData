@@ -17,7 +17,7 @@ Every page of the docs: [docs/README.md](docs/README.md). What is built and the 
 | `src/db/` (stores, `DB_VERSION`, upgrade) | `src/db/CLAUDE.md`, [ADR-05](docs/architecture/700-adr/ADR-05-additive-indexeddb.md) | a test that upgrades from the previous version |
 | `src/features/` (ReccoBeats, rekordbox, artist reach) | `src/features/CLAUDE.md`, [ADR-04](docs/architecture/700-adr/ADR-04-keyless-sources-by-id.md), the matching `docs/research/` note | the pacing test stays green |
 | `src/features/mix/` (tracklist, Search matching, create playlist) | `src/features/mix/CLAUDE.md`, how-it-works §10 | accepted **and** refused cases in `spotifySearch.test.ts` |
-| the server, sync between devices, the job queue | [ADR-08](docs/architecture/700-adr/ADR-08-owner-server-free-tier.md), `specs/001-backend-data-sync/spec.md` | no Spotify read from a server pull; Settings shows the server state |
+| `src/server/`, sync between devices, the job queue | `src/server/CLAUDE.md`, [ADR-08](docs/architecture/700-adr/ADR-08-owner-server-free-tier.md), how-it-works §16 | no Spotify read from a pull; pending flags survive a failure; every pulled row validated |
 | a Spotify scope, a write, `src/spotify/client.ts` | [ADR-03](docs/architecture/700-adr/ADR-03-library-writes-on-tap.md), how-it-works §3–§4 | inventory §3 "The two Spotify writes" |
 | sync, quota, anything that reads Spotify | [ADR-02](docs/architecture/700-adr/ADR-02-no-spotify-reads-on-load.md), how-it-works §7 | no read on load |
 | history import, Crate, play counts | [ADR-07](docs/architecture/700-adr/ADR-07-play-counts-from-export.md), how-it-works §8, §12–§13 | the summary-version gate |
@@ -59,7 +59,8 @@ enforced), `yarn build`. Details: [Contributing](docs/dev-guide/000-contributing
   `artistReachSummary.version === 1`, never on rows (ADR-07).
 - Every failure is shown: a state signal Settings renders, an inline message, or a `BannerMessage` built with `errorBanner`/`warnBanner`
   (never a string). Mix and Like failures are inline, never a banner.
-- Four `confirm()` calls only, all in `model/state.ts`: Disconnect, account switch, narrower import, Like all songs' count.
+- Every `confirm()` is listed in how-it-works §14; the destructive ones (account switch, narrower import, Remove server data) live in
+  `model/state.ts`, Disconnect's in its Settings button. A new question joins that list.
 - `moduleResolution: bundler`: relative imports carry **no** extension. Tests sit next to source; no DOM tests.
 - `typescript` stays `~6.0.3` (typescript-eslint 8.x needs TS `<6.1`); `vite` stays an explicit devDependency. No blind bumps (ADR-06).
 - Under the radar: Well known is a heading at the bottom, never a filter; listeners and fans are shown side by side, never summed, and a

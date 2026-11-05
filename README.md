@@ -14,8 +14,9 @@ which goes to SoundCloud and TrackId.net (and loads the player from
 `w.soundcloud.com`) — and only when you start one of them. The only thing the
 app ever writes back to Spotify is a playlist you explicitly ask for: **Create
 playlist from mix** sends a name and the matched track ids to your own Spotify
-account, on that tap alone. No token and no listening history ever leaves the
-browser.
+account, on that tap alone. No Spotify token ever leaves the browser. If you
+set up the optional server (below), every dataset the app builds, listening
+history included, is copied to your own Supabase project and nowhere else.
 
 ## Documentation
 
@@ -51,7 +52,9 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
    the account that will use the app. The owner needs Spotify Premium
    (Development Mode requirement).
 2. GitHub: make the repository public, set Pages → Source to _GitHub
-   Actions_, and add the repository secret `VITE_SPOTIFY_CLIENT_ID`.
+   Actions_, and add the repository secret `VITE_SPOTIFY_CLIENT_ID` (and, for
+   the optional server, the two repository **variables** of the Server
+   section below).
 3. Push to `main`. CI type-checks, lints, tests, builds and deploys to
    `https://vatheo.github.io/myOwnSpotifyData/`.
 4. On the phone, open that URL in Chrome and use "Add to Home Screen".
@@ -155,5 +158,56 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   import keep working everywhere else in the meantime.
 - **Connect again** in Settings signs you out and back in without deleting
   anything — the way back when a token refresh fails.
-- **Disconnect** in Settings removes the login and all cached data. So does
-  syncing while a different Spotify account is signed in, which asks first.
+- **Disconnect** in Settings removes the login and all cached data on this
+  browser; server data is kept. So does syncing while a different Spotify
+  account is signed in, which asks first.
+
+## Server (optional)
+
+One server, for you alone, that keeps every dataset the app builds so a new
+browser or a second device gets it all back after one sign-in. It is a
+[Supabase](https://supabase.com) Free project: a database with sign-in that
+the browser talks to directly. It stores, never computes, never sees your
+Spotify token, and the app works without it.
+
+Set it up once:
+
+1. Create a Free project on supabase.com. Note its **Project URL** and
+   **publishable key** (Project Settings → API Keys).
+2. Authentication → Sign In / Providers: Email on, **Allow new users to sign
+   up off**. Authentication → URL Configuration: Site URL
+   `https://vatheo.github.io/myOwnSpotifyData/`, and add
+   `https://vatheo.github.io/myOwnSpotifyData/?link=server` and
+   `http://127.0.0.1:5173/myOwnSpotifyData/?link=server` to Redirect URLs.
+   Authentication → Email: OTP expiry 600 seconds.
+3. Authentication → Users → Add user: your email, auto-confirm, no password.
+4. Apply the schema: paste `supabase/migrations/0001_init.sql` into SQL
+   Editor → Run (or `npx supabase@2 login`, `link --project-ref <ref>`,
+   `db push`).
+5. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` to `.env` locally and as
+   repository **variables** on GitHub (they are public values), then push.
+
+Using it:
+
+- **Settings → Server → Send me a link**: open the emailed link in the same
+  browser within 10 minutes. The browser stays signed in.
+- After every sync, import, lookup, reach run, and every mix you save or
+  delete, the app sends that data to the server. On open it fetches whatever
+  another device sent since. Newer wins, dataset by dataset, by the time the
+  data was fetched or imported; a saved mix converges row by row.
+- **Sync now with server** does both on demand; the card shows when each
+  dataset was fetched here and on the server, the rows held, and the used
+  share of the 500 MB.
+- **Sign out** keeps everything here and on the server. **Remove server data**
+  deletes everything on the server and keeps this browser's copy, after a
+  question.
+- Offline, the app works from local data and sends the pending changes on the
+  next open. A Free project **pauses after a week without traffic**: the card
+  says so, and only you can resume it, from the Supabase dashboard. Free
+  projects have no backups; your local copy is the backup of the server as
+  much as the reverse.
+
+Keep it safe: turn on MFA for your supabase.com account, never copy the
+`service_role` key anywhere, leave sign-ups off. The app checks every row it
+gets back from the server before showing it, and the page declares the hosts
+it may talk to.

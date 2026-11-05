@@ -1,7 +1,7 @@
 # 800 — Limits and roadmap
 
 > **Status**: Living
-> **Last updated**: 2026-11-05
+> **Last updated**: 2026-11-06
 
 What the app cannot do, what was decided against, and the ideas not built yet. A row moves to the
 [feature inventory](100-features.md) once it ships. The decisions that cause most of these limits are in the
@@ -27,6 +27,10 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 - Playlist name and description caps (100 / 300) are defensive guesses, not measured Spotify maxima.
 - A Tracklistify `tracklist.json` without `mix_info.audio_filename` and `.title` is refused.
 - No DOM or component tests: the UI and the `start*` wrappers in `state.ts` are checked by hand.
+- The server (F18) is a Supabase Free project: it pauses after a week without traffic and only the dashboard resumes it; 500 MB
+  of database; no automatic backups; a sign-in link only works in the browser that asked for it, within 10 minutes; the built-in
+  email service sends a few links an hour at most.
+- Server rows are stored in clear (the owner declined client-side encryption): whoever holds the supabase.com login can read them.
 
 ## 3. Out of scope, decided (not to be re-litigated without the owner)
 
@@ -41,8 +45,9 @@ Each spec has an "Out of scope" block; the main ones:
 
 ## 4. Roadmap
 
-No round is in progress (2026-11-05). New ideas are discussed with the owner first, get a dated spec under [specs](../specs/), and are
-listed here until they ship.
+The next round (decided 2026-11-05, not started): a worker on the owner's computer that polls the server's `jobs` table, fetches a
+mix's audio and identifies its tracks, then feeds the Mix screen. New ideas are discussed with the owner first, get a dated spec under
+[specs](../specs/), and are listed here until they ship.
 
 | Idea | State | Notes |
 |---|---|---|
