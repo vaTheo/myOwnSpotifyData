@@ -3,6 +3,13 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-05 — Spec Kit skills
+
+GitHub's Spec Kit (v1.3.1) is installed with `specify init --here --integration claude`: nine `/speckit-*` skills under `.claude/skills/`
+(constitution, specify, clarify, plan, tasks, analyze, checklist, implement, converge) and their scripts, templates and constitution under
+`.specify/`. Spec Kit writes its feature folders to `specs/` at the repo root and creates no branch (its git extension is not installed).
+The docs rules of [Contributing](docs/dev-guide/000-contributing.md) still apply to what a round produces. After upgrading: nothing to do.
+
 ## 2026-11-05 — Documentation organised like the Armtek repos
 
 The docs had a dense `CLAUDE.md` and unindexed specs. They now follow the Armtek layout (armtek-packager's harness rules, as applied in
