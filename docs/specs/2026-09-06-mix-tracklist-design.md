@@ -1,6 +1,9 @@
 # Mix tracklist: design
 
-Date: 2026-09-06. Status: draft for the owner to review before any code.
+> **Status**: Implemented (shipped 2026-09-06, inventory F12)
+> **Last updated**: 2026-11-05
+
+Date: 2026-09-06. Status at writing: draft for the owner to review before any code.
 Builds on `2026-09-04-spotify-dj-webapp-design.md`, the Crate specs, and the
 `2026-09-05-bpm-key-design.md` / `2026-09-05-artist-reach-design.md` features
 (this spec assumes `DB_VERSION` 3 — the two reach stores — has landed).
@@ -1146,3 +1149,13 @@ a public bundle; a Worker adds a second setting and a paid plan), MixesDB /
 1001Tracklists scraping (offline / no CORS / Turnstile — link out only). The
 honest full-audio path is the owner's own computer (§5.4), which is exactly what
 the two info cards point at.
+
+## Links
+
+- [Feature inventory](../architecture/100-features.md) (F12)
+- [How the app works](../architecture/000-how-it-works.md)
+- [ADR-04](../architecture/700-adr/ADR-04-keyless-sources-by-id.md)
+- Research: [2026-09-06-mix-tracklist-sources.md](../research/2026-09-06-mix-tracklist-sources.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [Documentation map](../README.md)

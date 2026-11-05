@@ -1,6 +1,9 @@
 # Spotify DJ web app: design
 
-Date: 2026-09-04. Status: approved in conversation, pending written review.
+> **Status**: Implemented (shipped 2026-09-04, inventory F1–F6, F10)
+> **Last updated**: 2026-11-05
+
+Date: 2026-09-04. Status at writing: approved in conversation, pending written review.
 Research behind every constraint below: `../research/2026-09-04-spotify-platform-research.md`.
 
 ## 1. Goal
@@ -473,3 +476,13 @@ both outcomes but the first live run should confirm:
 - Whether `/me/playlists` reports `items.total` or `tracks.total` (read both).
 - The real request rate Development Mode tolerates (start sequential, measure
   with the dashboard graph before adding concurrency).
+
+## Links
+
+- [Feature inventory](../architecture/100-features.md) (F1–F6, F10)
+- [How the app works](../architecture/000-how-it-works.md)
+- [ADR-01](../architecture/700-adr/ADR-01-browser-only-pkce.md)
+- Research: [2026-09-04-spotify-platform-research.md](../research/2026-09-04-spotify-platform-research.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [Documentation map](../README.md)

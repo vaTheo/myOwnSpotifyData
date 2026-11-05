@@ -1,98 +1,71 @@
-# CLAUDE.md
+# myOwnSpotifyData
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Browser-only Preact web app the owner (a DJ) uses on an Android phone: most played Spotify tracks, their playlists ranked by play
+count, artists ranked by saved tracks, and set preparation (Crate, BPM and key, Match, Under the radar, Mix tracklist). Public repo
+`vaTheo/myOwnSpotifyData`, single `main` branch, deployed to GitHub Pages at `https://vatheo.github.io/myOwnSpotifyData/`. Keep it lean:
+the owner declined commit hooks, Dependabot, branch protection, PR templates and a docs checker, and wants the minimum that solves the
+request ([ADR-06](docs/architecture/700-adr/ADR-06-lean-tooling.md)).
 
-## Project
+Every page of the docs: [docs/README.md](docs/README.md). What is built and the project state: [feature inventory](docs/architecture/100-features.md).
 
-Browser-only Preact web app the owner (a DJ) uses on an Android phone to see
-their most played Spotify tracks, rank their own playlists by play count, and
-rank artists by saved tracks. Public repo `vaTheo/myOwnSpotifyData`, single
-`main` branch, deployed to GitHub Pages at
-`https://vatheo.github.io/myOwnSpotifyData/`. Keep it lean: the owner has
-explicitly declined extra tooling (commit hooks, Dependabot, branch
-protection, PR templates) and wants the minimum that solves the request.
+## Routing
 
-Design specs: `docs/specs/2026-09-04-spotify-dj-webapp-design.md`
-(the app), `docs/specs/2026-09-04-crate-history-views-design.md`
-(the five Crate views), `docs/specs/2026-09-05-bpm-key-design.md`
-(BPM and key), `docs/specs/2026-09-05-artist-reach-design.md`
-(artist reach, the Artists tab's "Under the radar" view),
-`docs/specs/2026-09-06-mix-tracklist-design.md` (Mix tracklist —
-paste a SoundCloud link, draft a tracklist from free public sources) and
-`docs/specs/2026-09-25-like-playlist-design.md` (Like all songs —
-save a synced playlist's songs to Liked Songs, with the library endpoints it
-verified).
-Verified facts: `docs/research/2026-09-04-spotify-platform-research.md`
-(the Spotify platform),
-`docs/research/2026-09-04-history-export-semantics.md`
-(`reason_end`, month bucketing, thresholds),
-`docs/research/2026-09-05-bpm-key-sources.md` (ReccoBeats,
-rekordbox XML, the Camelot mapping) and
-`docs/research/2026-09-05-artist-reach-sources.md` (what Spotify
-stopped answering, and the five keyless sources that replace it) and
-`docs/research/2026-09-06-mix-tracklist-sources.md` (the TrackId.net
-guard, the oEmbed shape, the six-shape tracklist grammar, and why no
-browser-only path returns a full tracklist).
+| If the task touches… | Read first | Then |
+|---|---|---|
+| "what exists / what state is the project in" | [Feature inventory](docs/architecture/100-features.md), [Limits and roadmap](docs/architecture/800-limits-roadmap.md) | — |
+| any `src/` folder | [How the app works](docs/architecture/000-how-it-works.md), the section for that folder; the spec of the last round that touched it | `yarn typecheck && yarn lint && yarn test` |
+| `src/db/` (stores, `DB_VERSION`, upgrade) | `src/db/CLAUDE.md`, [ADR-05](docs/architecture/700-adr/ADR-05-additive-indexeddb.md) | a test that upgrades from the previous version |
+| `src/features/` (ReccoBeats, rekordbox, artist reach) | `src/features/CLAUDE.md`, [ADR-04](docs/architecture/700-adr/ADR-04-keyless-sources-by-id.md), the matching `docs/research/` note | the pacing test stays green |
+| `src/features/mix/` (tracklist, Search matching, create playlist) | `src/features/mix/CLAUDE.md`, how-it-works §10 | accepted **and** refused cases in `spotifySearch.test.ts` |
+| a Spotify scope, a write, `src/spotify/client.ts` | [ADR-03](docs/architecture/700-adr/ADR-03-library-writes-on-tap.md), how-it-works §3–§4 | inventory §3 "The two Spotify writes" |
+| sync, quota, anything that reads Spotify | [ADR-02](docs/architecture/700-adr/ADR-02-no-spotify-reads-on-load.md), how-it-works §7 | no read on load |
+| history import, Crate, play counts | [ADR-07](docs/architecture/700-adr/ADR-07-play-counts-from-export.md), how-it-works §8, §12–§13 | the summary-version gate |
+| a new job or `model/state.ts` | how-it-works §14 (jobs table) | decide `jobsBusy()` and `disconnect` |
+| a new feature | [Contributing](docs/dev-guide/000-contributing.md) "A feature round" and "One change, several files" | spec, inventory row, CHANGELOG |
+| a decision that outlives the round | [ADR index](docs/architecture/700-adr/README.md) | a new ADR, linked both ways |
+| any page under `docs/`, a `CLAUDE.md` | [Contributing](docs/dev-guide/000-contributing.md) "Documentation" | `docs/README.md` lists it; links answered; budgets |
+| dependencies, CI, deploy | [ADR-06](docs/architecture/700-adr/ADR-06-lean-tooling.md), how-it-works §15 | ask the owner before adding a dependency |
+
+## Reading protocol
+
+1. Read the routed page before editing. The inventory names the spec and entry file of every feature; specs are under `docs/specs/`
+   (newest first in the map), plans under `docs/plans/` are history.
+2. A feature starts with options put to the owner, who picks; the pick is then implemented in full, docs included.
+3. Replies short and direct: the answer or the action first, then the evidence (command, output, `file:line`).
+4. After any change: `yarn typecheck`, `yarn lint`, `yarn test` (CI runs the same three).
+5. A round ends with its docs: spec, inventory row, how-it-works section, README (owner's manual), CHANGELOG, an ADR when a decision lasts,
+   Limits and roadmap when a limit is found or lifted.
 
 ## Commands
 
-Node 24 (`.nvmrc`), yarn classic 1.22. Install with `yarn`.
+Node 24 (`.nvmrc`), yarn classic 1.22, install with `yarn`. `yarn dev` (open `http://127.0.0.1:5173/myOwnSpotifyData/`), `yarn test`,
+`yarn test src/router.test.ts`, `yarn test -t "name"`, `yarn vitest` (watch), `yarn typecheck`, `yarn lint`, `yarn format` (not
+enforced), `yarn build`. Details: [Contributing](docs/dev-guide/000-contributing.md).
 
-| Task                             | Command                        |
-| -------------------------------- | ------------------------------ |
-| Dev server (open via 127.0.0.1)  | `yarn dev`                     |
-| All tests                        | `yarn test`                    |
-| One test file                    | `yarn test src/router.test.ts` |
-| Tests matching a name            | `yarn test -t "throws when"`   |
-| Watch mode                       | `yarn vitest`                  |
-| Type-check (includes test files) | `yarn typecheck`               |
-| Lint                             | `yarn lint`                    |
-| Format (not enforced in CI)      | `yarn format`                  |
-| Production build to `dist/`      | `yarn build`                   |
+## Non-negotiable rules
 
-CI (`.github/workflows/ci.yml`) runs `yarn install --frozen-lockfile`, `typecheck`, `lint`, `test` on every push to `main` and every PR, then a `deploy` job builds with the `VITE_SPOTIFY_CLIENT_ID` secret and publishes `dist/` to GitHub Pages on pushes to `main`. Run the three checks locally before pushing.
+- No client secret, no server; the only setting is `VITE_SPOTIFY_CLIENT_ID` (ADR-01).
+- Never open `localhost`: Spotify rejects it as a redirect URI; use `http://127.0.0.1:5173/myOwnSpotifyData/` (ADR-01).
+- Never sync or read Spotify playlists on load: the daily quota locks the account out for hours (ADR-02).
+- Spotify writes exist in exactly two places (Create playlist from mix, Like all songs), on a tap, gated by `hasScope`; `post` is never
+  retried; a refresh never widens a scope, so a new scope means **Connect again** (ADR-03).
+- External sources: keyless, keyed on Spotify ids or ISRCs, never name search; clients never throw; long jobs start only from Settings and
+  resume; the reach pacing split is pinned by a test (ADR-04).
+- IndexedDB upgrades only add stores; optional fields need no bump; `mixes` stays out of `buildModel` (ADR-05).
+- Play counts come only from the history export; the Crate gates on `historySummary.version === 2`, Under the radar on
+  `artistReachSummary.version === 1`, never on rows (ADR-07).
+- Every failure is shown: a state signal Settings renders, an inline message, or a `BannerMessage` built with `errorBanner`/`warnBanner`
+  (never a string). Mix and Like failures are inline, never a banner.
+- Four `confirm()` calls only, all in `model/state.ts`: Disconnect, account switch, narrower import, Like all songs' count.
+- `moduleResolution: bundler`: relative imports carry **no** extension. Tests sit next to source; no DOM tests.
+- `typescript` stays `~6.0.3` (typescript-eslint 8.x needs TS `<6.1`); `vite` stays an explicit devDependency. No blind bumps (ADR-06).
+- Under the radar: Well known is a heading at the bottom, never a filter; listeners and fans are shown side by side, never summed, and a
+  missing number is never printed as zero.
+- Commits `type(scope): summary`, each compiling and green; push only with the owner's OK.
 
-## Architecture
+## References
 
-`src/` is one Vite app. Pure, unit-tested cores sit behind thin I/O edges:
-
-- `auth/` PKCE helpers and the session store (`createSessionStore`), with `browser.ts` holding the app instance.
-- `spotify/` the API client (`createClient`: bearer, 401 refresh-once, 429 backoff, quota lock-out, one request in flight) and the API types. The client has `get`, `post` and `put`; `post<T>(path, body, query?)` reuses the same enqueue / 401-refresh-once / short-429 machinery but is **never retried on a 5xx or a network error** — a `POST` is not idempotent, so a resend could create a duplicate playlist or duplicate tracks, and it throws immediately instead (only `get` and `put` keep the `MAX_5XX_RETRIES` backoff). `put<T>(path, query?)` sends no body and **is** retried on a 5xx or a network error: `PUT /me/library` saves a set, so saving it twice changes nothing. A `put` answered with an empty body (the save endpoint's 200) resolves `undefined`; an empty GET or POST success still throws, as `res.json()` did, so a caller reading `.id` off it fails inside its own try/catch.
-- `util/` holds `MAX_5XX_RETRIES`, `backoffMs` and `parseRetryAfter`, shared by the Spotify and ReccoBeats clients, plus `REACH_REQUEST_TIMEOUT_MS` — the 15 s `AbortSignal.timeout` every artist-reach `fetch` carries. **That one constant lives here rather than beside the other reach constants in `reachRun.ts` on purpose**: the runner imports all four `fetch`-based clients, so declaring it in the runner would make each of them import its own runner — a module cycle whose `const` can read `undefined` at init.
-- `db/` `idb` schema and repository. Stores: `playlists`, `tracks`, `entries` (keyed `[playlistId, position]`), `topItems`, `plays`, `features` (keyed by Spotify track id), `artistIdentity` (keyed by Spotify artist id), `artistReach` (keyed `${artistId}|${source}` — build it with `reachKey`), `mixes` (keyed by the normalised SoundCloud `url`), `meta`. `DB_VERSION` is 4; the `upgrade` callback creates only the stores that are missing (the same guarded `db.objectStoreNames.contains` shape throughout), so a version 1 database keeps everything it holds and gains `features`, a version 2 database gains the two reach stores, and a version 3 database gains `mixes`. `mixes` is deliberately **not** in `AllRows`, `getAllRows` or `buildModel` — nothing but `Mix.tsx` reads a mix — so it is reached through three dedicated repo functions (`getMixes`, `putMix`, `deleteMix`), never through the model rebuild. `MixRow` also carries two optional fields, `playlistUrl?` and `playlistId?` (the external URL and id of the last playlist created from that mix), added with **no `DB_VERSION` bump** — an optional field on the `keyPath: 'url'` store reads back `undefined` on old rows, the same pattern `PlayRow`'s optional `months`/`attempts` fields use; `TracklistRow`'s optional `confidence?`, `isrc?` and `shazamUrl?` (Tracklistify metadata) follow it too.
-- `sync/` planner (pure diff on `snapshot_id`), item mapper, runner (commits one playlist per transaction, persists `locked`/`error` state in meta).
-- `history/` export file matching, the 30-second play rule, outcome classification (`trackdone` is finished; `fwdbtn`/`backbtn`/`endplay`/`unknown` or the `skipped` flag is skipped; everything else is neutral), per-month buckets in the device's zone, zip processing (`process.ts`, one file in memory at a time), the worker and the main-thread importer.
-- `features/` the acquisition layer for the two Settings cards. "Audio data": the ReccoBeats lookup (`reccobeats.ts` maps the API, `lookup.ts` drives it — batches of 40 ids, one request per second, an ISRC second pass, `notFound` markers) and the Rekordbox Collection XML import (`rekordbox.ts` scanner, `rekordbox-match.ts` title/artist/duration matching, `rekordbox.worker.ts`, `rekordboxImport.ts`). "Artist reach": one client per source, each returning a discriminated result and never throwing — `musicbrainz.ts` (Spotify artist id → MBID by reverse URL lookup), `wikidata.ts` (a SPARQL POST over batches of 150 ids, P1902 then P434, giving the QID, the sitelink count and the article titles), `jsonp.ts` (a dependency-free `<script>` transport, because Deezer sends no CORS header at all), `deezer.ts` (single-artist ISRC → artist id → `nb_fan`), `listenbrainz.ts` (`total_user_count`) and `wikipedia.ts` (12 complete UTC months of pageviews) — plus `reachRun.ts`, the resumable five-phase job that drives them and writes the `artistReachSummary` meta record on every exit path. "Mix tracklist" lives in its own `features/mix/` folder: the two keyless public lookups behind the Mix screen — `oembed.ts` (`fetchOembed`: SoundCloud oEmbed → title, author, description and the validated player iframe src) and `trackid.ts` (`fetchTrackId`: TrackId.net's two-call list-then-detail flow behind the mandatory `result.rowCount === 1` **and** URL-equality guard, mapping the identified spans to rows with `ID · unidentified` gaps) — plus `url.ts` (`normalizeMixUrl`, the one canonical string sent to both providers, compared by the guard and used as the `mixes` key), `parse.ts` and the shared line grammar (`parseLines`, `parseClock` — six row shapes, the ≥5-line run guard, link-out detection), `match.ts` (`libraryTitleIndex`/`matchMixRow`: each row joined to the library live at render time, memoised on `Model` identity) and `lookup.ts` (`lookupMix`: runs both fetches in parallel so one layer's failure never hides the other's rows). Every fetch is a pure function behind an injected `fetchFn` and returns a discriminated result — it never throws, and nothing is swallowed. Creating a Spotify playlist from a mix adds two more files to `features/mix/`: `spotifySearch.ts` (`canCreatePlaylists`, the pure scope check; `isIdentified`; `pickMatch`, the strict artist-and-title accept rule that never returns a wrong track — a credited artist must equal a leading run of the row's credit (`artistRuns`: "Chase" or "Chase & Status", since an act's own name may hold the "&") once a trailing "(OZ)"-style tag and leading "The"/"DJ"/"Dr"/"Mr"/"MC"/"Lil" words are dropped (`artistCore`; equality, never containment, so "Four" is not "Four Tet", and "Mr. G" is not "G"), a title must be equal (ignoring spaces between letters, so "Freakout" is "Freak-Out") or the row's title plus a bracketed or " - " version tail (so "Losing It" takes "Losing It (Ted Remix)" but "One" never takes "One More Time", "One (Part 2)" or "One (Reprise)"), a title that cleans to empty matches nothing, an equal title anywhere in the up-to-10 results beats an earlier version, and an original beats a "(Mixed)" compilation copy (`isMixedCopy`); and `searchTrack`, the per-row `GET /search` that runs a field query then a plain fallback) and `createPlaylist.ts` (`runCreatePlaylist`: resolve every identified row, `POST /me/playlists`, then add the matched track URIs in batches of ≤100, driving an `onState` callback and never throwing). A track Search did not find is listed under the result by `digLinks.ts` (`digRows`: repeats grouped by name with every time in the mix, five store/preview search links — Beatport, Bandcamp, Discogs, SoundCloud, YouTube — plus Tracklistify's Shazam page, kept by the parser only when it is an https `shazam.com` URL and dropped once the row is edited), drawn as Simple Icons (CC0) brand marks by `ui/components/DigLinks.tsx`. `state.ts`'s thin `startCreatePlaylist` wires them to the Mix screen; the runner and the search are unit-tested with a mocked client, the wrapper is not (it imports the browser singletons, like the other `start*` functions). "Like all songs" lives in `features/like/likePlaylist.ts`: `canLikeTracks` (both library scopes), `likeCandidates` (the synced entries' distinct `spotify:track:` URIs in playlist order, plus a skipped count), `runLikePlaylist` (`GET /me/library/contains` then `confirm` then `PUT /me/library`, 40 URIs per request, never throwing) and the copy helpers (`likeQuestion`, `likeSummary`, `likeErrorText`, `likeButtonLabel`); `state.ts`'s thin `startLikePlaylist` wires it to the Playlist screen.
-- `model/` in-memory aggregation (`buildModel`), the banner's severity and suppression rule (`banner.ts`), the pure Crate computations (`crate.ts`: `heavyRotation`, `forgottenGems`, `classics`, `byYear`, `finishRate`, each one pass over `PlayRow[]`), the pure BPM and key cores (`keys.ts`: Camelot, Open Key and classic names, `parseKeyText`, `keyRelation`, `bpmDeltaPct`; `features.ts`: `resolveFeature`, `featureFor`; `match.ts`: `rankMatches`), the pure artist-reach core (`reach.ts`: `reachFor`, `isWellKnown`, `hasHistory`, `rankUnderTheRadar` and `reachCoverage`, the last two memoised on the `Model` object identity) and signals (`state.ts`).
-- `ui/` one Preact component per screen plus small shared components; the five Crate views live in `ui/crate/` (`CrateView` dispatches, `shared.tsx` holds the row helpers and `Strip`, `labels.ts` holds the pure history-copy helpers, `selections.ts` holds the module-level selection signals); `Artists.tsx` dispatches over two views the same way, with `UnderRadar.tsx` beside it and `artistSelections.ts` holding its signals (`artistView`, `radarSort`, `radarFilter` — the Saved tracks filter stays inside `Artists.tsx`, since only that view reads it); `Mix.tsx` is the `#/mix` screen (paste a link, the lookup, the editable tracklist, the paste-your-own box, the embedded SoundCloud player and the two off-phone info cards), reusing `TrackRow`, `FeaturePills` and `SpotifyLink` and raising no banner — every layer failure is shown inline; hash routes from `router.ts`.
-
-## Conventions that are easy to get wrong
-
-- **Bundler resolution.** `tsconfig.json` uses `moduleResolution: bundler`; relative imports carry **no** extension. Vite compiles JSX itself (`jsx: react-jsx`, `jsxImportSource: preact`); there is no framework plugin.
-- **Tests sit next to source** as `src/**/*.test.ts`, run in Vitest's Node environment. IndexedDB tests import `fake-indexeddb/auto`. No DOM or component tests.
-- **Only one setting exists**: `VITE_SPOTIFY_CLIENT_ID`, from `.env` locally and a repository secret in CI. The redirect URI is computed at runtime (`env.ts`). There is no client secret anywhere and must never be.
-- **Never open `localhost`.** Spotify rejects it as a redirect URI; use `http://127.0.0.1:5173/myOwnSpotifyData/`.
-- **Never sync on page load.** Spotify's unpublished daily quota on playlist reads locks accounts out for hours. Sync only from the Settings button or a playlist's own button.
-- **ReccoBeats lookup and Rekordbox import start only from Settings.** Neither ever runs on load: the lookup is hundreds of cross-origin requests paced at one per second, and the import reads a file the owner picks. Both write the `features` store as they go and skip what is already there, so a run that stopped resumes instead of starting over.
-- **The artist-reach run starts only from Settings too, and it is long** — 45 to 50 minutes for 1,000 artists. Five phases in a fixed order (MusicBrainz → ListenBrainz → Deezer → Wikidata → Wikipedia), every row written as it resolves, three consecutive failures pausing one source for the rest of the run while the others carry on. **The pacing split is deliberate and is pinned by a test**: MusicBrainz and Deezer sleep their own interval inside their clients, while ListenBrainz and Wikipedia are paced between artists by the runner — adding a sleep around the first two would halve those rates. Everything is keyed on the Spotify artist id, so an artist known only by name is out of the feature entirely; **name search is forbidden at every step**.
-- **"Under the radar" is gated on `artistReachSummary.version === 1`**, the same discipline the Crate uses, and `Well known` is a heading at the bottom of the list, never a filter that removes rows. The rule is one clause — Wikidata says the artist has at least one Wikipedia article — and `sitelinks` is a **floor**, not always the true count, so the `N languages` line under-reports rather than over-reports. ListenBrainz listeners and Deezer fans are small platform audiences, never Spotify monthly listeners: show them side by side, never summed, and never print a missing number as a zero.
-
-- **The Mix screen is not one of the five jobs.** `#/mix` drafts a SoundCloud mix's tracklist from two free keyless public lookups (SoundCloud oEmbed and TrackId.net) plus a paste-your-own box; it touches no Spotify quota and never runs on load — the lookup runs only from the screen's `Look up` button. **Neither the mix lookup nor the "Create playlist from mix" job is part of `jobsBusy()`**, and neither calls `loadFromDb()`: they write no library store and rebuild no `Model`, so they need no mutual exclusion with sync, history import, the ReccoBeats lookup, the Rekordbox import or the artist-reach run — and `disconnect`'s "wait for the current …" guard therefore mentions neither, though `mixState`, `mixRows`, `savedMixes` and `createPlaylistState` are all reset alongside the other signals (`closeMix` resets `createPlaylistState` too). The create job guards its own re-entry on `createPlaylistState.status` instead — a second tap is ignored while it is `resolving`/`creating`/`adding`. Library matches are never stored: a row is matched live at render time, because a resync would make a stored match stale.
-- **The app writes to the owner's Spotify library in exactly two places, both gated on a one-time re-login: creating a playlist from a mix, and "Like all songs" on a playlist.** `SCOPES` (`auth/session.ts`) requests `playlist-modify-private` so the "Create playlist from mix" button can `POST /me/playlists`. **A token refresh returns the scope the _original_ grant had, so it can never widen an old session** — an owner logged in before this shipped must authorise once more: the button reveals a prompt, then **Connect again → Connect Spotify** re-grants the widened scopes (the mix is saved first, so the full-page login navigation cannot lose it). `canCreatePlaylists(session)` gates the button through `hasScope` (`auth/session.ts`), which splits `session.scope` on spaces (never `String.includes`, so a substring cannot satisfy it). Creation fires **only** on a deliberate tap — never on load, never on a lookup, never on reopen — makes a **private** playlist of only the tracks Search matched confidently, and is **never** relabelled: tapping again makes another new playlist. Every failure (a 403 insufficient-scope, a 401 that cannot refresh, a network error, a partial add, a `QuotaError`) is shown inline on the Mix screen, never a banner, and a create-time `QuotaError` does not touch the Settings sync card's lock state.
-- **The tab bar is Crate · Top · Playlists · Artists · Settings.** Import and Mix are not tabs: `#/import` and `#/mix` are routes that highlight the Settings tab (`tabOf` in `app.tsx` maps both to `settings`). `#/import` is reached from the Settings history card, the Crate provenance line, every Crate empty state and the Playlist screen's no-play-counts caption; `#/mix` from the Settings "Mix tracklist" card. The default route stays `top`, even though Crate is the leftmost tab.
-- **The Crate is gated on `historySummary.version === 2`**, never on sniffing rows. A version 2 summary also carries `zone` (the device zone that bucketed the months) and `outcomes` (`attempts`, `finished`, `skipped`); `PlayRow.months`, `attempts`, `finished` and `skipped` are optional so rows from an older import still type-check. Month keys are local-zone `YYYY-MM`, and `sum(months) === plays`.
-- **One IndexedDB connection per tab, and it hands over.** `openDb` closes its connection when a newer version opens in another tab (`blocking`) and reports a blocked upgrade (`blocked`) through `setDbEvents`; `state.ts` turns both into banners. Without this a version bump hangs on "Loading your library…" while an old tab lives.
-- **Every failure is shown.** Errors end in a state signal that Settings or a banner renders; nothing is swallowed. `banner` is a `BannerMessage` (`model/banner.ts`), never a string: build it with `errorBanner(text, inlineOn?)` or `warnBanner(text)`, and compare with `banner.value?.text`. `inlineOn` lists the screens whose own card prints the same message, and `visibleBanner` suppresses it there so nothing is on screen twice.
-- **A new navigation scrolls to the top; back and forward do not.** `installRouter` stamps `history.state` with `djVisited` (`visitEntry` in `router.ts`) and only calls `scrollTo(0, 0)` on an unstamped entry, so `history.scrollRestoration` keeps its positions.
-- **The shell paints before anything is awaited.** `main.tsx` calls `render` before `completeLogin` and `loadFromDb`, and drives `bootPhase` (`'signin' | 'loading' | 'ready'`, declared in `app.tsx`); nothing else writes it.
-- **Three things ask before they destroy data**: Disconnect, an account switch during a sync (`confirmAccountSwitch` → `ACCOUNT_SWITCH_CONFIRM`), and an import that covers less than the stored history (`confirmReplace` → `replaceQuestion`). All three are plain `confirm()` calls made in `model/state.ts`, so the pure cores stay testable and the unit tests, which pass no confirm, keep the old behaviour.
-- **"Like all songs" (Playlist screen) checks, then asks, then writes.** `SCOPES` also carries `user-library-read user-library-modify`, and `canLikeTracks` needs both, so an older grant gets the same Connect again prompt. The candidates are the playlist's **synced** entries — never a playlist read, because of the quota — and only `spotify:track:` URIs are sent, since `/me/library` also saves episodes, albums and playlists. The run checks `GET /me/library/contains` in batches of 40, then makes a fourth `confirm()` naming the exact count (a non-destructive one: a bulk write the app cannot undo, so it is not in the list above), then likes the rest with `PUT /me/library` in batches of 40; a song already liked is never re-saved. Like the mix create job it is not in `jobsBusy()`, never calls `loadFromDb()`, guards its own re-entry on `likeState.status`, shows every failure inline under the button (never a banner, never touching the sync lock), tags its state with the playlist id so it never shows on another playlist, and is reset by `disconnect`.
-
-## Pinned dependencies (do not bump blindly)
-
-- `typescript` is pinned `~6.0.3`. `typescript-eslint` 8.x supports TS `<6.1` only; TS 7 (npm `latest`) crashes `yarn lint`.
-- `vite` is an explicit devDependency: Vitest declares it as a peer and yarn classic does not install peers, and the app build uses it directly.
-
-## Style
-
-ESLint flat config (`eslint.config.js`): `@eslint/js` recommended + `typescript-eslint` recommended + `eslint-config-prettier`. Prettier: single quotes, semicolons, ES5 trailing commas, 80 columns.
+- [Documentation map](docs/README.md) · [Feature inventory](docs/architecture/100-features.md) · [Limits and roadmap](docs/architecture/800-limits-roadmap.md)
+- [How the app works](docs/architecture/000-how-it-works.md) · [Contributing](docs/dev-guide/000-contributing.md)
+- [ADR index](docs/architecture/700-adr/README.md) · [CHANGELOG](CHANGELOG.md) · [README](README.md) (owner's manual)
+- Local rules: `src/db/CLAUDE.md`, `src/features/CLAUDE.md`, `src/features/mix/CLAUDE.md`

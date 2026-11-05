@@ -1,5 +1,8 @@
 # Like all songs of a playlist — design
 
+> **Status**: Implemented (shipped 2026-09-25, inventory F14)
+> **Last updated**: 2026-11-05
+
 Round 7, 2026-09-25. Owner request: "on each playlist I could click on a
 button that adds every song from this playlist to Liked Songs, this way I will
 have a like for each sound in the playlist."
@@ -185,3 +188,12 @@ cleared session; the error lands on a screen that no longer renders.
 - No component tests (project rule). Live verification: the button appears,
   the needScope prompt shows on the current grant, and the Connect again path
   requests both scopes. A real like needs the owner's login.
+
+## Links
+
+- [Feature inventory](../architecture/100-features.md) (F14)
+- [How the app works](../architecture/000-how-it-works.md)
+- [ADR-03](../architecture/700-adr/ADR-03-library-writes-on-tap.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [Documentation map](../README.md)

@@ -1,5 +1,8 @@
 # Spotify platform research (2026-09-04)
 
+> **Status**: Reference (verified on the date in the title; external facts may have changed since)
+> **Last updated**: 2026-11-05
+
 Raw output of two research workflows run on 2026-09-04 (17 agents, ~1,150 page reads). Each high-impact claim was re-checked by an independent fact-checker against the linked source. This file is a reference for implementation; the design spec (`../specs/2026-09-04-spotify-dj-webapp-design.md`) is the authority on what we build. Where the two disagree, the spec wins.
 
 ---
@@ -534,3 +537,10 @@ Spotify's own wording of the 30-day lead time (login-gated page); exact export f
 - Relinking / duplicate ids: ~11% of distinct track URIs in one real history were alternate ids of the same recording (relinks, market variants, re-releases), so playlist track id -> history id joins will miss some plays. Join first on exact id, then batch GET /tracks (50 ids per call) for playlist tracks and history ids to obtain linked_from.id and external_ids.isrc, and merge play counts across ids sharing an ISRC (or linked_from). Show the DJ when a playlist track's count was merged from several ids.
 - Privacy: the export contains ip_addr and conn_country for every play; process entirely client-side, never upload the raw files, and persist only the aggregated per-track counts (e.g. IndexedDB) so the raw JSON is discarded after import.
 - Onboarding copy: explain that the user must request 'Extended streaming history' (not 'Account data') on spotify.com/account/privacy, confirm the verification email within 14 days, and that the zip arrives by email typically within days but officially up to 30 days; the export is a snapshot, so provide a 're-import newer export' path that replaces the previous aggregate.
+
+## Links
+
+- Spec: [2026-09-04-spotify-dj-webapp-design.md](../specs/2026-09-04-spotify-dj-webapp-design.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Documentation map](../README.md)

@@ -1,6 +1,9 @@
 # Import a Tracklistify JSON tracklist: design
 
-Date: 2026-09-28. Status: draft for the owner to review before any code.
+> **Status**: Implemented (shipped 2026-09-28, inventory F15)
+> **Last updated**: 2026-11-05
+
+Date: 2026-09-28. Status at writing: draft for the owner to review before any code.
 Builds on `2026-09-06-mix-tracklist-design.md` (the Mix screen, the `mixes`
 store, `MixRow`/`TracklistRow`, `hasManualRows`/`editTracklistRow`) and
 `2026-09-06-mix-playlist-design.md` (`spotifySearch.ts`, `createPlaylist.ts`,
@@ -432,3 +435,12 @@ both to their empty form (§6), so neither needs a new guard.
    12-character `tracklistify/` prefix eating into it — not reprobed here; the
    mix-playlist spec already notes this cap is a defensive guess, not a
    measured Spotify maximum.
+
+## Links
+
+- [Feature inventory](../architecture/100-features.md) (F15)
+- [How the app works](../architecture/000-how-it-works.md)
+- [ADR-03](../architecture/700-adr/ADR-03-library-writes-on-tap.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [Documentation map](../README.md)
