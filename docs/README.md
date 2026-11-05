@@ -25,6 +25,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
   - [ADR-05 — Additive IndexedDB upgrades](architecture/700-adr/ADR-05-additive-indexeddb.md)
   - [ADR-06 — Lean tooling](architecture/700-adr/ADR-06-lean-tooling.md)
   - [ADR-07 — Play counts from the history export](architecture/700-adr/ADR-07-play-counts-from-export.md)
+  - [ADR-08 — One server for the owner, on a free tier](architecture/700-adr/ADR-08-owner-server-free-tier.md)
 - [800 — Limits and roadmap](architecture/800-limits-roadmap.md)
 
 ## Dev guide
