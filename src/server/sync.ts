@@ -13,15 +13,17 @@ import {
   DATASETS,
   batches,
   compareStamps,
+  planMixes,
   rowKey,
   type DatasetDef,
   type DatasetName,
   type LocalDeletion,
   type Metas,
+  type MixStamp,
   type StoreName,
 } from './datasets';
 import type { ServerStatus } from './types';
-import { validateRow, validateSummary } from './validate';
+import { validateMix, validateRow, validateSummary } from './validate';
 
 /**
  * The two runners of the server sync (research D5–D7). Both take injected
@@ -42,7 +44,7 @@ export interface RepoLike {
   ): Promise<void>;
   getMixes(): Promise<MixRow[]>;
   putMix(row: MixRow): Promise<void>;
-  deleteMix(url: string): Promise<void>;
+  deleteMix(url: string, deletedAt?: number): Promise<void>;
   getMixDeleted(): Promise<LocalDeletion[]>;
   clearMixDeleted(urls: string[]): Promise<void>;
 }
@@ -92,7 +94,137 @@ interface DataRow {
   row: unknown;
 }
 
+/** The `mixes` table row; `row` is null on a tombstone. */
+interface MixServerRow {
+  spotify_account_id: string;
+  url: string;
+  saved_at: number;
+  deleted_at: number | null;
+  row: unknown;
+}
+
+async function readMixStamps(
+  deps: SyncDeps,
+  token: string,
+  account: string
+): Promise<ServerResult<MixStamp[]>> {
+  const res = await deps.client.select<
+    Pick<MixServerRow, 'url' | 'saved_at' | 'deleted_at'>
+  >(
+    'mixes',
+    { select: 'url,saved_at,deleted_at', spotify_account_id: `eq.${account}` },
+    token
+  );
+  if (!res.ok) return res;
+  return ok(
+    res.value.rows.map((r) => ({
+      url: r.url,
+      savedAt: r.saved_at,
+      deletedAt: r.deleted_at,
+    }))
+  );
+}
+
+/** Row by row with tombstones (US2): the newer of save and deletion wins. */
+async function pushMixes(
+  deps: SyncDeps,
+  token: string,
+  account: string
+): Promise<ServerResult<boolean>> {
+  const stamps = await readMixStamps(deps, token, account);
+  if (!stamps.ok) return stamps;
+  const local = await deps.repo.getMixes();
+  const deleted = await deps.repo.getMixDeleted();
+  const plan = planMixes(local, stamps.value, deleted);
+  const rows: MixServerRow[] = [
+    ...plan.push.map((row) => ({
+      spotify_account_id: account,
+      url: row.url,
+      saved_at: row.savedAt,
+      deleted_at: null,
+      row,
+    })),
+    ...plan.tombstones.map((d) => ({
+      spotify_account_id: account,
+      url: d.url,
+      saved_at: d.deletedAt,
+      deleted_at: d.deletedAt,
+      row: null,
+    })),
+  ];
+  let done = 0;
+  deps.onState({
+    status: 'pushing',
+    dataset: 'mixes',
+    done,
+    total: rows.length,
+  });
+  for (const batch of batches(rows, MIX_BATCH)) {
+    const res = await deps.client.upsert('mixes', batch, token);
+    if (!res.ok) return res;
+    done += batch.length;
+    deps.onState({
+      status: 'pushing',
+      dataset: 'mixes',
+      done,
+      total: rows.length,
+    });
+  }
+  // Every local deletion is settled now: pushed, or superseded by the server.
+  await deps.repo.clearMixDeleted(deleted.map((d) => d.url));
+  return ok(rows.length > 0);
+}
+
+async function pullMixes(
+  deps: SyncDeps,
+  token: string,
+  account: string
+): Promise<ServerResult<{ changed: boolean; rejected: number }>> {
+  const stamps = await readMixStamps(deps, token, account);
+  if (!stamps.ok) return stamps;
+  const local = await deps.repo.getMixes();
+  const deleted = await deps.repo.getMixDeleted();
+  const plan = planMixes(local, stamps.value, deleted);
+  let rejected = 0;
+  let changed = false;
+  if (plan.pull.length > 0) {
+    // The full rows once, filtered here: never a list of urls in the query
+    // (security review S8).
+    const wanted = new Set(plan.pull);
+    const full = await deps.client.select<MixServerRow>(
+      'mixes',
+      { select: '*', spotify_account_id: `eq.${account}` },
+      token
+    );
+    if (!full.ok) return full;
+    deps.onState({
+      status: 'pulling',
+      dataset: 'mixes',
+      done: 0,
+      total: plan.pull.length,
+    });
+    for (const item of full.value.rows) {
+      if (!wanted.has(item.url) || item.deleted_at !== null) continue;
+      const checked = validateMix(item.row);
+      if (!checked.ok || checked.row.url !== item.url) {
+        rejected++;
+        continue;
+      }
+      await deps.repo.putMix(checked.row);
+      changed = true;
+    }
+  }
+  for (const url of plan.deleteLocal) {
+    const stamp = stamps.value.find((s) => s.url === url);
+    await deps.repo.deleteMix(url, stamp?.deletedAt ?? deps.now());
+    changed = true;
+  }
+  return ok({ changed, rejected });
+}
+
 export const PAGE_SIZE = 1000;
+/** A saved mix is a few KB of rows; fifty keep a body well under 1 MB. */
+export const MIX_BATCH = 50;
 export const UPDATE_APP_MESSAGE =
   'The server holds data written by a newer version of the app. Reload to update.';
 
@@ -266,7 +398,12 @@ export async function runPush(
     pushed.push(def.name);
     await clearPending(deps.repo, def.name);
   }
-  // 'mixes' is pushed row by row: see the next round of this file (US2).
+  if (names.includes('mixes')) {
+    const res = await pushMixes(deps, token.value, account);
+    if (!res.ok) return res;
+    if (res.value) pushed.push('mixes');
+    await clearPending(deps.repo, 'mixes');
+  }
   await deps.repo.putMeta(SERVER_LAST_SYNC_META, deps.now());
   return ok({ pushed });
 }
@@ -393,6 +530,10 @@ export async function runPull(
     };
     await deps.repo.putMeta(SERVER_STAMPS_META, seen);
   }
+  const mixes = await pullMixes(deps, token.value, account);
+  if (!mixes.ok) return mixes;
+  outcome.rejected += mixes.value.rejected;
+  if (mixes.value.changed) outcome.pulled.push('mixes');
   await deps.repo.putMeta(SERVER_LAST_SYNC_META, deps.now());
   return ok(outcome);
 }
