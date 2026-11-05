@@ -18,13 +18,17 @@ import {
   reachState,
   rekordboxState,
   rekordboxSummary,
+  removeServerData,
+  serverLastSyncAt,
   serverLinkSent,
   serverSession,
   serverState,
   setKeyNotation,
   startLookup,
   startServerLink,
+  startServerSignOut,
   startServerSync,
+  SERVER_FREE_BYTES,
   startReach,
   startRekordboxImport,
   startSync,
@@ -76,9 +80,17 @@ function ServerSignIn() {
   );
 }
 
+function usedShare(bytes: number): string {
+  const mb = (n: number) => (n / (1024 * 1024)).toFixed(1);
+  return `${mb(bytes)} MB of ${mb(SERVER_FREE_BYTES)} MB used on the server`;
+}
+
 function ServerCard() {
   const state = serverState.value;
   const session = serverSession.value;
+  const lastSync = serverLastSyncAt.value;
+  const working =
+    jobsBusy() || state.status === 'pushing' || state.status === 'pulling';
   if (state.status === 'unset') {
     return (
       <div class="card">
@@ -96,7 +108,8 @@ function ServerCard() {
       {state.status === 'error' && <p class="error">{state.message}</p>}
       {state.status === 'offline' && (
         <p class="warn">
-          Server offline: {state.message} Local data is in use.
+          Server offline: {state.message} Last sync{' '}
+          {lastSync ? formatDateTime(lastSync) : 'never'}. Local data is in use.
         </p>
       )}
       {state.status === 'paused' && (
@@ -147,22 +160,40 @@ function ServerCard() {
                   and left out.
                 </p>
               )}
+              {state.usedBytes !== null && (
+                <p class="muted">{usedShare(state.usedBytes)}</p>
+              )}
             </>
           )}
           <div class="actions">
             <button
               type="button"
               class="primary"
-              disabled={
-                jobsBusy() ||
-                state.status === 'pushing' ||
-                state.status === 'pulling'
-              }
+              disabled={working}
               onClick={() => void startServerSync()}
             >
               Sync now with server
             </button>
+            <button
+              type="button"
+              disabled={working}
+              onClick={() => void startServerSignOut()}
+            >
+              Sign out
+            </button>
+            <button
+              type="button"
+              class="danger"
+              disabled={working}
+              onClick={() => void removeServerData()}
+            >
+              Remove server data
+            </button>
           </div>
+          <p class="muted">
+            Sign out keeps your data here and on the server. Remove server data
+            deletes everything on the server and keeps this browser's copy.
+          </p>
           {(state.status === 'pushing' || state.status === 'pulling') && (
             <Progress
               label={`${state.status === 'pushing' ? 'Sending' : 'Fetching'} ${state.dataset}`}
@@ -525,14 +556,18 @@ export function Settings() {
         <h2>Disconnect</h2>
         <p>
           Removes the Spotify login and deletes every cached playlist and play
-          count from this browser.
+          count from this browser. Server data is kept.
         </p>
         <button
           type="button"
           class="danger"
           disabled={working}
           onClick={() => {
-            if (confirm('Disconnect and delete all local data?')) {
+            if (
+              confirm(
+                'Disconnect and delete all local data? Server data is kept.'
+              )
+            ) {
               void disconnect();
             }
           }}

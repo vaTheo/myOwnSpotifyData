@@ -5,7 +5,7 @@ import {
   completeServerLink,
   loadFromDb,
   recordConnectedAccount,
-  startServerPull,
+  startServerSync,
 } from './model/state';
 import { LINK_MARKER } from './server/session';
 import { AuthError } from './spotify/errors';
@@ -53,8 +53,9 @@ async function boot(): Promise<void> {
   }
   bootPhase.value = 'ready';
   // After the first paint and the local load: a slow or paused server never
-  // delays "Loading your library…" (US3).
-  if (auth.session.value) await startServerPull();
+  // delays "Loading your library…" (US3). Whatever this device changed while
+  // the server was unreachable goes first, then the pull.
+  if (auth.session.value) await startServerSync();
 }
 
 void boot();

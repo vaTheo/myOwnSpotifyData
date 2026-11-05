@@ -129,14 +129,14 @@ made offline reach the server on the next open.
 
 ### Tests first
 
-- [ ] T034 [P] [US3] Add to `src/server/sync.test.ts`: an `offline` result from the first request makes `runPull` return `offline` without touching the repo; `runPush` on `offline` keeps every pending flag; a `paused` result is passed through unchanged; on the next `runPush` with pending flags set, only the pending datasets are compared and pushed
-- [ ] T035 [P] [US3] Add to `src/server/client.test.ts`: the `paused` detection (5xx whose body mentions "paused", and a `TypeError` on fetch after a prior successful call in the same session is still `offline`, never `paused`)
+- [X] T034 [P] [US3] Add to `src/server/sync.test.ts`: an `offline` result from the first request makes `runPull` return `offline` without touching the repo; `runPush` on `offline` keeps every pending flag; a `paused` result is passed through unchanged; on the next `runPush` with pending flags set, only the pending datasets are compared and pushed
+- [X] T035 [P] [US3] Add to `src/server/client.test.ts`: the `paused` detection (5xx whose body mentions "paused", and a `TypeError` on fetch after a prior successful call in the same session is still `offline`, never `paused`)
 
 ### Implementation
 
-- [ ] T036 [US3] In `src/model/state.ts`, map `offline` → `serverState = { status: 'offline', message }` and `paused` → `{ status: 'paused', dashboardUrl: 'https://supabase.com/dashboard' }`; neither sets a banner; the pending flags survive; `startServerPull` on open runs once and never retries by itself; `queueServerPush` on open pushes the datasets flagged in `serverPending` before anything else
-- [ ] T037 [US3] In `src/ui/Settings.tsx` `ServerCard`: `offline` → "Server offline: <message>. Last sync <time>. Local data is in use."; `paused` → "Server paused. Resume it from the Supabase dashboard" with the link, then "Sync now with server"; `unset` keeps its one line; no other screen imports `serverState`
-- [ ] T038 [US3] In `src/main.tsx`, keep the boot order: paint, PKCE completion, magic link completion, `loadFromDb()`, then `startServerPull()` **after** `bootPhase.value = 'ready'` so a slow or paused server never delays the first paint or "Loading your library…"
+- [X] T036 [US3] In `src/model/state.ts`, map `offline` → `serverState = { status: 'offline', message }` and `paused` → `{ status: 'paused', dashboardUrl: 'https://supabase.com/dashboard' }`; neither sets a banner; the pending flags survive; `startServerPull` on open runs once and never retries by itself; `queueServerPush` on open pushes the datasets flagged in `serverPending` before anything else
+- [X] T037 [US3] In `src/ui/Settings.tsx` `ServerCard`: `offline` → "Server offline: <message>. Last sync <time>. Local data is in use."; `paused` → "Server paused. Resume it from the Supabase dashboard" with the link, then "Sync now with server"; `unset` keeps its one line; no other screen imports `serverState`
+- [X] T038 [US3] In `src/main.tsx`, keep the boot order: paint, PKCE completion, magic link completion, `loadFromDb()`, then `startServerPull()` **after** `bootPhase.value = 'ready'` so a slow or paused server never delays the first paint or "Loading your library…"
 
 **Checkpoint**: three checks green; quickstart 7, 8, 9 pass; commit `feat(server): offline and paused states, pending pushes retry on open`.
 
@@ -151,13 +151,13 @@ the used share of storage.
 
 ### Tests first
 
-- [ ] T039 [P] [US4] Add to `src/server/sync.test.ts`: `runRemoveAll` deletes from `dataset_rows`, `datasets`, `mixes` and `jobs` (in that order) for the owner and then clears `serverStamps`, `serverPending`, `serverLastSync` and `mixDeleted` metas; a failure on one table stops and reports which; `readUsage` posts to `/rest/v1/rpc/storage_used` and returns the number
+- [X] T039 [P] [US4] Add to `src/server/sync.test.ts`: `runRemoveAll` deletes from `dataset_rows`, `datasets`, `mixes` and `jobs` (in that order) for the owner and then clears `serverStamps`, `serverPending`, `serverLastSync` and `mixDeleted` metas; a failure on one table stops and reports which; `readUsage` posts to `/rest/v1/rpc/storage_used` and returns the number
 
 ### Implementation
 
-- [ ] T040 [US4] Implement `runRemoveAll(deps)` and `readUsage(deps)` in `src/server/sync.ts` per T039
-- [ ] T041 [US4] In `src/model/state.ts`: `startServerSignOut()` (revokes, clears, `serverState = signedOut`, keeps local data), `removeServerData()` with the one new `confirm('Remove all your data from the server? Local data on this browser is kept.')`, refused while `jobsBusy()`; `readUsage` called after every successful pull or push and stored in `serverState.connected.usedBytes`
-- [ ] T042 [US4] In `src/ui/Settings.tsx`: "Sign out" and "Remove server data" (`class="danger"`) buttons in `ServerCard` (connected), the used share line "x MB of 500 MB"; the Disconnect card's paragraph gains "Server data is kept." and its `confirm` text becomes `'Disconnect and delete all local data? Server data is kept.'`
+- [X] T040 [US4] Implement `runRemoveAll(deps)` and `readUsage(deps)` in `src/server/sync.ts` per T039
+- [X] T041 [US4] In `src/model/state.ts`: `startServerSignOut()` (revokes, clears, `serverState = signedOut`, keeps local data), `removeServerData()` with the one new `confirm('Remove all your data from the server? Local data on this browser is kept.')`, refused while `jobsBusy()`; `readUsage` called after every successful pull or push and stored in `serverState.connected.usedBytes`
+- [X] T042 [US4] In `src/ui/Settings.tsx`: "Sign out" and "Remove server data" (`class="danger"`) buttons in `ServerCard` (connected), the used share line "x MB of 500 MB"; the Disconnect card's paragraph gains "Server data is kept." and its `confirm` text becomes `'Disconnect and delete all local data? Server data is kept.'`
 
 **Checkpoint**: three checks green; quickstart 10 and 11 pass; commit `feat(server): sign out, remove server data, used share`.
 

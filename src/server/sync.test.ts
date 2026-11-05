@@ -2,7 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AllRows, MixRow, PlayRow, TrackRow } from '../db/schema';
 import { ACCOUNT_MISMATCH_NOTICE } from '../sync/runner';
 import type { Query, ServerClient, ServerResult } from './client';
-import { runPull, runPush, type RepoLike, type SyncDeps } from './sync';
+import {
+  readUsage,
+  runPull,
+  runPush,
+  runRemoveAll,
+  type RepoLike,
+  type SyncDeps,
+} from './sync';
 import type { ServerStatus } from './types';
 
 /* ---------- an in-memory server: datasets, dataset_rows, mixes ---------- */
@@ -141,6 +148,9 @@ function fakeRepo(
     getMeta: async <T>(name: string) => state.metas[name] as T | undefined,
     putMeta: async (name, value) => {
       state.metas[name] = value;
+    },
+    deleteMeta: async (name) => {
+      delete state.metas[name];
     },
     replaceDataset: vi.fn(async (stores, newRows, newMetas) => {
       for (const s of stores)
@@ -645,6 +655,126 @@ describe('mixes', () => {
     expect(
       fake.calls.filter((c) => c.startsWith('select mixes {"select":"*"'))
     ).toHaveLength(0);
+  });
+});
+
+/* ---------- offline, paused, pending (US3) ---------- */
+
+describe('offline and paused', () => {
+  it('a paused first request is passed through unchanged, repo untouched, flags kept', async () => {
+    const fake = seededServer();
+    fake.failSelect = {
+      ok: false,
+      kind: 'paused',
+      message: 'The server project is paused.',
+    };
+    const { repo, state } = fakeRepo(emptyRows({ tracks: [track('a')] }), {
+      accountId: 'acc',
+      lastSyncAt: 10,
+      serverPending: { library: true },
+    });
+    expect(await runPull(deps(fake, repo).d)).toEqual({
+      ok: false,
+      kind: 'paused',
+      message: 'The server project is paused.',
+    });
+    expect(await runPush(deps(fake, repo).d, ['library'])).toEqual({
+      ok: false,
+      kind: 'paused',
+      message: 'The server project is paused.',
+    });
+    expect(repo.replaceDataset).not.toHaveBeenCalled();
+    expect(state.metas.serverPending).toEqual({ library: true });
+  });
+
+  it('runPush compares and pushes only the datasets it is given', async () => {
+    const fake = fakeServer();
+    const { repo, state } = fakeRepo(
+      emptyRows({ tracks: [track('a')], plays: [play('p')] }),
+      {
+        accountId: 'acc',
+        lastSyncAt: 10,
+        historySummary: HISTORY,
+        serverPending: { history: true },
+      }
+    );
+    const res = await runPush(deps(fake, repo).d, ['history']);
+    expect(res).toEqual({ ok: true, value: { pushed: ['history'] } });
+    expect(fake.tables.datasets.map((d) => d.name)).toEqual(['history']);
+    expect(state.metas.serverPending).toEqual({});
+  });
+});
+
+/* ---------- remove all, usage (US4) ---------- */
+
+describe('runRemoveAll and readUsage', () => {
+  it('deletes the four tables in order and clears the local server metas', async () => {
+    const fake = seededServer();
+    fake.tables.mixes.push({
+      spotify_account_id: 'acc',
+      url: 'm',
+      saved_at: 1,
+      deleted_at: null,
+      row: null,
+    });
+    fake.tables.jobs.push({
+      id: 'j1',
+      owner_id: 'o',
+      kind: 'x',
+      status: 'queued',
+    });
+    const { repo, state } = fakeRepo(emptyRows(), {
+      accountId: 'acc',
+      serverStamps: { history: { fetchedAt: 1, generation: 1, rows: 1 } },
+      serverPending: { library: true },
+      serverLastSync: 5,
+      mixDeleted: [{ url: 'm', deletedAt: 1 }],
+    });
+    const res = await runRemoveAll(deps(fake, repo).d);
+    expect(res).toEqual({ ok: true, value: undefined });
+    expect(
+      fake.calls
+        .filter((c) => c.startsWith('remove'))
+        .map((c) => c.split(' ')[1])
+    ).toEqual(['dataset_rows', 'datasets', 'mixes', 'jobs']);
+    expect(fake.tables.dataset_rows).toEqual([]);
+    expect(fake.tables.datasets).toEqual([]);
+    expect(fake.tables.mixes).toEqual([]);
+    expect(fake.tables.jobs).toEqual([]);
+    expect(state.metas.serverStamps).toBeUndefined();
+    expect(state.metas.serverPending).toBeUndefined();
+    expect(state.metas.serverLastSync).toBeUndefined();
+    expect(state.metas.mixDeleted).toBeUndefined();
+    // The Spotify account id and the local data stay.
+    expect(state.metas.accountId).toBe('acc');
+  });
+
+  it('a failure on one table stops and names it; the metas are kept', async () => {
+    const fake = seededServer();
+    const failing = fake.client.remove;
+    fake.client.remove = async (table, query, token) => {
+      if (table === 'datasets')
+        return { ok: false, kind: 'offline', message: 'down' };
+      return failing(table, query, token);
+    };
+    const { repo, state } = fakeRepo(emptyRows(), {
+      accountId: 'acc',
+      serverLastSync: 5,
+    });
+    const res = await runRemoveAll(deps(fake, repo).d);
+    expect(res).toMatchObject({ ok: false, kind: 'offline' });
+    if (!res.ok) expect(res.message).toContain('datasets');
+    expect(state.metas.serverLastSync).toBe(5);
+  });
+
+  it('readUsage posts to the storage_used function and returns the bytes', async () => {
+    const fake = seededServer();
+    const { repo } = fakeRepo(emptyRows(), { accountId: 'acc' });
+    expect(await readUsage(deps(fake, repo).d)).toEqual({
+      ok: true,
+      value: 42,
+    });
+    expect(fake.client.rpc).toHaveBeenCalledWith('storage_used', 'tok');
   });
 });
 
