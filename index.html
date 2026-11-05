@@ -2,6 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!--
+      Content Security Policy (security review S6): every host the app talks
+      to, nothing else. The two placeholders at the end of connect-src are
+      filled by the plugin in vite.config.ts: the owner's server URL, and the
+      HMR websocket on the dev server only.
+      api.deezer.com is a script source because Deezer answers only over
+      JSONP; w.soundcloud.com is the one iframe the Mix screen builds.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self' https://api.spotify.com https://accounts.spotify.com https://api.reccobeats.com https://musicbrainz.org https://api.listenbrainz.org https://query.wikidata.org https://en.wikipedia.org https://fr.wikipedia.org https://wikimedia.org https://soundcloud.com https://trackid.net __CSP_SERVER__ __CSP_DEV__; script-src 'self' https://api.deezer.com; frame-src https://w.soundcloud.com; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
