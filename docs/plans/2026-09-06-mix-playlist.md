@@ -8,7 +8,7 @@
 
 **Tech Stack:** Unchanged. TypeScript `~6.0.3` (`moduleResolution: bundler`, `verbatimModuleSyntax`), Vite 8, Preact 10 + @preact/signals, idb 8, Vitest 5 + fake-indexeddb 6, ESLint 10 flat config, yarn classic 1.22, Node 24, GitHub Pages via Actions. **No new dependency:** the Search read and the two writes are plain `fetch` through the existing client.
 
-**Spec:** `docs/superpowers/specs/2026-09-06-mix-playlist-design.md` (authority). §2 scope + one-time re-login, §3 track resolution, §4 the runner + state + client `post`, §5 screens with exact copy, §6 components/styles, §7 tests, §8 policy. It builds on the shipped Mix tracklist feature (`docs/superpowers/specs/2026-09-06-mix-tracklist-design.md`) and the platform research `docs/superpowers/research/2026-09-04-spotify-platform-research.md` (Search survives the Feb-2026 changes). This plan was assembled from five task drafts and **proved green end to end** against a fresh copy of `feat/mix-playlist` `4e8d649`: every task was applied in order and `yarn typecheck && yarn lint && yarn test && yarn build` run after each; the measured cumulative counts are pinned in each task's Expected lines. Where drafts disagreed the spec won; where the spec was silent, the choice is recorded in **Decisions** below and, for deviations, in **spec_conflicts**.
+**Spec:** `docs/specs/2026-09-06-mix-playlist-design.md` (authority). §2 scope + one-time re-login, §3 track resolution, §4 the runner + state + client `post`, §5 screens with exact copy, §6 components/styles, §7 tests, §8 policy. It builds on the shipped Mix tracklist feature (`docs/specs/2026-09-06-mix-tracklist-design.md`) and the platform research `docs/research/2026-09-04-spotify-platform-research.md` (Search survives the Feb-2026 changes). This plan was assembled from five task drafts and **proved green end to end** against a fresh copy of `feat/mix-playlist` `4e8d649`: every task was applied in order and `yarn typecheck && yarn lint && yarn test && yarn build` run after each; the measured cumulative counts are pinned in each task's Expected lines. Where drafts disagreed the spec won; where the spec was silent, the choice is recorded in **Decisions** below and, for deviations, in **spec_conflicts**.
 
 ## Global Constraints
 
@@ -2379,7 +2379,7 @@ EOF
 The spec is the binding document, so it must say what was actually built. This task settles the spec's one open implementation point — the `items` vs `tracks` add-endpoint path segment (§4, §8, Open point 1) — then brings `README.md` (owner's manual) and `CLAUDE.md` (architecture map) up to date. It touches **no source file and adds no test**: a reviewer can reject a doc line while approving the runner and the screen. Docs-only — the gate must report the same numbers Task 4 left behind.
 
 **Files:**
-- Modify: `docs/superpowers/specs/2026-09-06-mix-playlist-design.md` (three replacements: §4's "The add endpoint path." paragraph, §8's "Endpoints used." bullet, and Open point 1).
+- Modify: `docs/specs/2026-09-06-mix-playlist-design.md` (three replacements: §4's "The add endpoint path." paragraph, §8's "Endpoints used." bullet, and Open point 1).
 - Modify: `README.md` (two replacements: the privacy clause, and a new "Create playlist from mix" paragraph appended to the **Mix tracklist** bullet).
 - Modify: `CLAUDE.md` (five replacements: the `spotify/`, `db/` and `features/` Architecture bullets, the "Mix screen is not one of the five jobs" Conventions bullet, and one new Conventions bullet for the scope + re-login).
 - Test: none. Nothing executable changes.
@@ -2614,7 +2614,7 @@ If any label differs from the README paragraph, the README is what changes (or, 
 - [ ] **Step 7: Commit the documents**
 
 ```bash
-git add docs/superpowers/specs/2026-09-06-mix-playlist-design.md README.md CLAUDE.md
+git add docs/specs/2026-09-06-mix-playlist-design.md README.md CLAUDE.md
 git commit -m "$(cat <<'EOF'
 docs(mix): create-playlist owner manual, architecture map, items path ruling
 

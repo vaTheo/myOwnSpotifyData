@@ -8,7 +8,7 @@
 
 **Tech Stack:** Unchanged. TypeScript 6.0.x, Vite 8, Preact 10 + @preact/signals, idb 8, fflate 0.8, Vitest 5, fake-indexeddb 6, ESLint 10 flat config, yarn classic, Node 24, GitHub Pages via Actions. No new dependency.
 
-**Spec:** `docs/superpowers/specs/2026-09-04-crate-history-views-design.md` (authority). It builds on `docs/superpowers/specs/2026-09-04-spotify-dj-webapp-design.md` and on the research file `docs/superpowers/research/2026-09-04-history-export-semantics.md`. The shipped app's plan is `docs/superpowers/plans/2026-09-04-spotify-dj-webapp.md`.
+**Spec:** `docs/specs/2026-09-04-crate-history-views-design.md` (authority). It builds on `docs/specs/2026-09-04-spotify-dj-webapp-design.md` and on the research file `docs/research/2026-09-04-history-export-semantics.md`. The shipped app's plan is `docs/plans/2026-09-04-spotify-dj-webapp.md`.
 
 ## Global Constraints
 
@@ -5392,19 +5392,19 @@ Three edits.
 First, the spec pointers. Replace these exact lines:
 
 ```markdown
-Design spec: `docs/superpowers/specs/2026-09-04-spotify-dj-webapp-design.md`.
-Verified Spotify platform facts: `docs/superpowers/research/2026-09-04-spotify-platform-research.md`.
+Design spec: `docs/specs/2026-09-04-spotify-dj-webapp-design.md`.
+Verified Spotify platform facts: `docs/research/2026-09-04-spotify-platform-research.md`.
 ```
 
 with:
 
 ```markdown
-Design specs: `docs/superpowers/specs/2026-09-04-spotify-dj-webapp-design.md`
-(the app) and `docs/superpowers/specs/2026-09-04-crate-history-views-design.md`
+Design specs: `docs/specs/2026-09-04-spotify-dj-webapp-design.md`
+(the app) and `docs/specs/2026-09-04-crate-history-views-design.md`
 (the five Crate views).
-Verified facts: `docs/superpowers/research/2026-09-04-spotify-platform-research.md`
+Verified facts: `docs/research/2026-09-04-spotify-platform-research.md`
 (the Spotify platform) and
-`docs/superpowers/research/2026-09-04-history-export-semantics.md`
+`docs/research/2026-09-04-history-export-semantics.md`
 (`reason_end`, month bucketing, thresholds).
 ```
 

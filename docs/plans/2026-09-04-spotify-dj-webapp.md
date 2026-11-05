@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 6.0.x, Vite 8, Preact 10 + @preact/signals, idb 8, fflate 0.8, Vitest 5, fake-indexeddb 6, ESLint 10 flat config, yarn classic, Node 24, GitHub Pages via Actions.
 
-**Spec:** `docs/superpowers/specs/2026-09-04-spotify-dj-webapp-design.md` (authority). Research reference: `docs/superpowers/research/2026-09-04-spotify-platform-research.md`.
+**Spec:** `docs/specs/2026-09-04-spotify-dj-webapp-design.md` (authority). Research reference: `docs/research/2026-09-04-spotify-platform-research.md`.
 
 ## Global Constraints
 
@@ -6524,8 +6524,8 @@ rank artists by saved tracks. Public repo `vaTheo/myOwnSpotifyData`, single
 explicitly declined extra tooling (commit hooks, Dependabot, branch
 protection, PR templates) and wants the minimum that solves the request.
 
-Design spec: `docs/superpowers/specs/2026-09-04-spotify-dj-webapp-design.md`.
-Verified Spotify platform facts: `docs/superpowers/research/2026-09-04-spotify-platform-research.md`.
+Design spec: `docs/specs/2026-09-04-spotify-dj-webapp-design.md`.
+Verified Spotify platform facts: `docs/research/2026-09-04-spotify-platform-research.md`.
 
 ## Commands
 

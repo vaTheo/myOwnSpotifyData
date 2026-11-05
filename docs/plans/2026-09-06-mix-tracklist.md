@@ -8,7 +8,7 @@
 
 **Tech Stack:** Unchanged. TypeScript 6.0.x, Vite 8, Preact 10 + @preact/signals, idb 8, fflate 0.8, Vitest 5, fake-indexeddb 6, ESLint 10 flat config, yarn classic, Node 24, GitHub Pages via Actions. **No new dependency:** the two network reads are plain `fetch`, everything else is pure string and DOM work.
 
-**Spec:** `docs/superpowers/specs/2026-09-06-mix-tracklist-design.md` (authority). §2 Data, §3 Sources/parsers, §4 Flow, §5 Screens, §6 Components/styles, §7 Tests and §8's rulings are this plan's requirements. Research: `docs/superpowers/research/2026-09-06-mix-tracklist-sources.md` (the TrackId guard, the confirmed spans endpoint under `result.detectionProcesses[].detectionProcessMusicTracks[]`, the oEmbed shape, the six-shape grammar). It builds on the shipped `DB_VERSION` 3 (the two artist-reach stores). The plan was assembled from six task drafts and **proved green end to end** against a fresh copy of `feat/mix-tracklist` `23efb62`: every task was applied in order and `yarn typecheck && yarn lint && yarn test && yarn build` run after each; the measured cumulative counts are pinned in each task's Expected lines. Where the drafts disagreed the spec won; where the spec was silent, the choice is recorded in Decisions below and, for the deviations, in the spec's new §8 "Rulings made while implementing." block (Task 6).
+**Spec:** `docs/specs/2026-09-06-mix-tracklist-design.md` (authority). §2 Data, §3 Sources/parsers, §4 Flow, §5 Screens, §6 Components/styles, §7 Tests and §8's rulings are this plan's requirements. Research: `docs/research/2026-09-06-mix-tracklist-sources.md` (the TrackId guard, the confirmed spans endpoint under `result.detectionProcesses[].detectionProcessMusicTracks[]`, the oEmbed shape, the six-shape grammar). It builds on the shipped `DB_VERSION` 3 (the two artist-reach stores). The plan was assembled from six task drafts and **proved green end to end** against a fresh copy of `feat/mix-tracklist` `23efb62`: every task was applied in order and `yarn typecheck && yarn lint && yarn test && yarn build` run after each; the measured cumulative counts are pinned in each task's Expected lines. Where the drafts disagreed the spec won; where the spec was silent, the choice is recorded in Decisions below and, for the deviations, in the spec's new §8 "Rulings made while implementing." block (Task 6).
 
 ## Global Constraints
 
@@ -919,9 +919,9 @@ from Task 4 onward, by the screen's Save button.
 
 ### Task 2: The line grammar, the description/paste parser, and the library match (all pure)
 
-**Spec:** `docs/superpowers/specs/2026-09-06-mix-tracklist-design.md` §3.4, §3.5, §3.6
+**Spec:** `docs/specs/2026-09-06-mix-tracklist-design.md` §3.4, §3.5, §3.6
 (and §8 for the invented constants and the `ID`/`?`/`unknown` ruling).
-**Research it argues from:** `docs/superpowers/research/2026-09-06-mix-tracklist-sources.md`
+**Research it argues from:** `docs/research/2026-09-06-mix-tracklist-sources.md`
 §4.4 (the six shapes, the three dashes, `.`/`:` separators, `ID`/`?`/`unknown`
 values, the ≥5-line run guard, and the "detect the link, show it" rule) and
 §4.3 (MixesDB's `[123] = 2h03m` minutes convention).
@@ -5172,7 +5172,7 @@ same numbers Task 5 left behind.
 
 - Create: none
 - Modify:
-  - `docs/superpowers/specs/2026-09-06-mix-tracklist-design.md` (§3.1's host
+  - `docs/specs/2026-09-06-mix-tracklist-design.md` (§3.1's host
     bullet and §8's `(to confirm at implementation)` line — two replacements)
   - `README.md` (the privacy sentence in the opening paragraph, and one new
     bullet in "Using it")
@@ -5252,7 +5252,7 @@ same numbers Task 5 left behind.
 - [ ] **Step 1: Resolve the spec's `on.soundcloud.com` open point (§3.1 and §8)**
 
 Two replacements in
-`docs/superpowers/specs/2026-09-06-mix-tracklist-design.md`. The spec is
+`docs/specs/2026-09-06-mix-tracklist-design.md`. The spec is
 `docs/`-ignored, so `yarn format` will not reflow either block.
 
 **1a — §3.1 host bullet.** Drop the `(to confirm at implementation)` marker and
@@ -5382,32 +5382,32 @@ Seven replacements.
 **3a.** The spec pointers. Replace this exact block:
 
 ````markdown
-(BPM and key) and `docs/superpowers/specs/2026-09-05-artist-reach-design.md`
+(BPM and key) and `docs/specs/2026-09-05-artist-reach-design.md`
 (artist reach, the Artists tab's "Under the radar" view).
 ````
 
 with:
 
 ````markdown
-(BPM and key), `docs/superpowers/specs/2026-09-05-artist-reach-design.md`
+(BPM and key), `docs/specs/2026-09-05-artist-reach-design.md`
 (artist reach, the Artists tab's "Under the radar" view) and
-`docs/superpowers/specs/2026-09-06-mix-tracklist-design.md` (Mix tracklist —
+`docs/specs/2026-09-06-mix-tracklist-design.md` (Mix tracklist —
 paste a SoundCloud link, draft a tracklist from free public sources).
 ````
 
 **3b.** The research pointers. Replace this exact block:
 
 ````markdown
-`docs/superpowers/research/2026-09-05-artist-reach-sources.md` (what Spotify
+`docs/research/2026-09-05-artist-reach-sources.md` (what Spotify
 stopped answering, and the five keyless sources that replace it).
 ````
 
 with:
 
 ````markdown
-`docs/superpowers/research/2026-09-05-artist-reach-sources.md` (what Spotify
+`docs/research/2026-09-05-artist-reach-sources.md` (what Spotify
 stopped answering, and the five keyless sources that replace it) and
-`docs/superpowers/research/2026-09-06-mix-tracklist-sources.md` (the TrackId.net
+`docs/research/2026-09-06-mix-tracklist-sources.md` (the TrackId.net
 guard, the oEmbed shape, the six-shape tracklist grammar, and why no
 browser-only path returns a full tracklist).
 ````
@@ -5495,7 +5495,7 @@ only changes to it, and no code block inside the spec should have been reflowed
 by Prettier.
 
 ```bash
-git add docs/superpowers/specs/2026-09-06-mix-tracklist-design.md README.md CLAUDE.md
+git add docs/specs/2026-09-06-mix-tracklist-design.md README.md CLAUDE.md
 git commit -m "docs(mix): the owner's manual, the architecture map and the spec ruling
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
