@@ -130,13 +130,19 @@ Every unknown of the plan's Technical Context, resolved. Facts checked on 2026-1
   Neither adds a dependency to `package.json`; CI does not touch the database.
 - **Rationale**: FR-015 and ADR-06; a fresh project is reproducible from the file.
 
-## D11. The Spotify account id without a Spotify read
+## D11. The Spotify account id: one `/me` call on the Connect tap (owner's pick, 2026-11-05)
 
-- **Decision**: every stamp carries `spotify_account_id`, the value the sync job stores in the `accountId` meta. On a browser with
-  no local `accountId`, a pull adopts the one account the server holds; if the server holds several, Settings lists them and the
-  owner picks before anything is pulled. The existing account-switch confirm in the sync job keeps protecting a later sync with
-  another account.
-- **Rationale**: ADR-02: a pull must not call `/me`; the owner alone normally has one account.
+- **Decision**: when the Spotify login completes (`auth.completeLogin` returns `'ok'` in `main.tsx`), the app calls `GET /me`
+  once and compares the id with the `accountId` meta: absent → store it; equal → nothing; different → keep the stored id, show the
+  notice "Signed in as a different Spotify account; Sync now to switch (local data is kept until you confirm)" and skip the pull.
+  Every stamp carries `spotify_account_id`; a pull compares it with the local `accountId` and refuses on mismatch with the same
+  notice. The sync job's account-switch confirm is unchanged and remains the only path that replaces a stored account id.
+- **Rationale**: Connect is a tap, so one read there honours ADR-02 (no read on load); it removes the "adopt the one account the
+  server holds" branch and the several-accounts screen state; the account-switch protection cannot be bypassed because Connect
+  never overwrites a differing stored id.
+- **Alternatives**: adopting the server's account on a fresh browser (the earlier design: an extra screen state when the server
+  holds two accounts, and a pull that writes data before the app knows whose it is); reading `/me` on every open (a read on load,
+  rejected by ADR-02).
 
 ## D12. Confirms
 

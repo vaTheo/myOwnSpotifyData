@@ -181,7 +181,9 @@ server data, see every other device fall back to local-only.
 - **FR-004**: After any job that builds a dataset (sync, import, reach, mix lookup, mix
   edit) finishes, the app MUST push that dataset to the server without a further tap.
 - **FR-005**: On open and on connect, the app MUST pull the datasets whose server copy is
-  newer than the local one, and MUST NOT make any Spotify read to do so.
+  newer than the local one; the pull itself makes no Spotify read. The one Spotify call
+  that tells the app which account is connected belongs to the Connect tap, not to the
+  pull (decided 2026-11-05).
 - **FR-006**: Newer wins per dataset, by the time it was fetched or imported; a removal
   done by a feature's own action propagates like an update; nothing is merged within a
   dataset.

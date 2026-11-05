@@ -108,5 +108,6 @@ type ServerStatus =
   sets `error` "update this browser's app" and pulls nothing.
 - A pull of `history` or `reach` writes the rows **and** the summary in one transaction, so the gate (ADR-07) never sees rows
   without a version.
-- `spotify_account_id` must equal the local `accountId` meta when one exists; otherwise the pull is refused with the account
-  switch message of the sync job, never a silent overwrite.
+- `spotify_account_id` must equal the local `accountId` meta, which Connect sets with one `/me` call (D11); a mismatch refuses
+  the pull with the account-switch notice, never a silent overwrite; a missing local `accountId` (Spotify not connected) skips
+  the pull.

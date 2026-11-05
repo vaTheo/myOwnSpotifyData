@@ -80,15 +80,17 @@ within a minute with no `api.spotify.com` request before a tap.
 ### Tests first
 
 - [ ] T019 [P] [US1] Write `src/server/sync.test.ts` for `runPush` with a fake client and a stub `RepoLike`: for a dataset with a local stamp newer than the server's, rows are upserted in batches of ≤ 500 under `generation = now`, each batch row `{ spotify_account_id, dataset, store, generation, key, row }`, **then** the `datasets` stamp is upserted with `fetched_at`, `schema_version = DB_VERSION`, `generation`, `summary`, `row_count`, **then** rows with `generation lt` the **previous** stamp's generation are deleted, so the previous generation survives until the next push (S9); `onState` sees `pushing` with `done`/`total`; a `same` comparison upserts nothing and clears `serverPending[name]`; a failed batch stops the push, leaves the server stamp untouched and keeps the pending flag; a `tooLarge` result is returned, never retried
-- [ ] T020 [P] [US1] Add `runPull` tests to `src/server/sync.test.ts`: one `GET datasets` read; for each stamp newer than `serverStamps[name].fetchedAt`, pages of `dataset_rows` filtered by `dataset`, `generation`, `spotify_account_id` are fetched with `Range` until `total` is reached and every row and summary passes `validate.ts` first, a failing row is dropped and counted (`rejected` in the result and in `onState`), a failing summary refuses that dataset; `replaceDataset` receives the accepted rows grouped by store plus the summary meta (history: rows **and** `historySummary` in the same call); `serverStamps` and `serverLastSync` metas are written after; a stamp with `schema_version > DB_VERSION` is skipped and the result carries `error` "update this browser's app"; when the local `accountId` meta exists and differs from the stamp's `spotify_account_id` the pull is refused with the account-switch message; when the local `accountId` is absent and the server holds exactly one account it is adopted (`putMeta('accountId', …)`); when it holds several the result lists them and nothing is pulled; no call to any Spotify URL (assert the fake fetch saw only the server base URL)
+- [ ] T020 [P] [US1] Add `runPull` tests to `src/server/sync.test.ts`: one `GET datasets` read; for each stamp newer than `serverStamps[name].fetchedAt`, pages of `dataset_rows` filtered by `dataset`, `generation`, `spotify_account_id` are fetched with `Range` until `total` is reached and every row and summary passes `validate.ts` first, a failing row is dropped and counted (`rejected` in the result and in `onState`), a failing summary refuses that dataset; `replaceDataset` receives the accepted rows grouped by store plus the summary meta (history: rows **and** `historySummary` in the same call); `serverStamps` and `serverLastSync` metas are written after; a stamp with `schema_version > DB_VERSION` is skipped and the result carries `error` "update this browser's app"; when the local `accountId` meta differs from the stamp's `spotify_account_id` the pull is refused with `ACCOUNT_MISMATCH_NOTICE`; when the local `accountId` is absent the pull is skipped (`{ ok: true, value: { pulled: [], skipped: 'noAccount' } }`); no call to any Spotify URL (assert the fake fetch saw only the server base URL)
 
 ### Implementation
 
 - [ ] T021 [US1] Implement `runPush(deps, datasets)` in `src/server/sync.ts` per T019 (`RepoLike` = `getAllRows`, `getMeta`, `putMeta`, `replaceDataset`, `getMixes`, `putMix`, `deleteMix`; token via `deps.token()`; `mixes` handled in US2, skipped here)
-- [ ] T022 [US1] Implement `runPull(deps)` in `src/server/sync.ts` per T020, including the validation of every row and summary (S3), the account rules of research D11 and the `schema_version` guard of `data-model.md` "Validation rules"
-- [ ] T023 [US1] Add to `src/model/state.ts`: `queueServerPush(names)` (sets `serverPending` in meta first, runs one push at a time, the next waits, maps the result to `serverState` and, on failure, `errorBanner` only when the failure hides data the owner expected) and `startServerPull()` (joins `jobsBusy()`: returns early with no banner while a job runs; ends in `loadFromDb()`; `loadSavedMixes()` after US2); call `startServerPull()` from `src/main.tsx` after the first `loadFromDb()` when signed in, and from `completeServerLink` after a successful link
-- [ ] T024 [US1] Call `queueServerPush` at the tail of `startSync` (`['library']`), `startImport` (`['history']`), `startLookup` and `startRekordboxImport` (`['features']`), `startReach` (`['reach']`) in `src/model/state.ts`, after each one's `loadFromDb()`, only when the job ended without error
-- [ ] T025 [US1] Extend `ServerCard` in `src/ui/Settings.tsx` (connected): last sync time (`serverLastSync`), a per-dataset table "dataset · fetched (local) · on server · rows" from `serverStamps` and the local stamps, a "Sync now with server" button (pull then push of pending) disabled while `jobsBusy()`, and `Progress` for `pushing`/`pulling`; after a pull with rejected rows, the line "n rows rejected by the safety check" (FR-018)
+- [ ] T022 [US1] Implement `runPull(deps)` in `src/server/sync.ts` per T020, including the validation of every row and summary (S3), the account rule of research D11 (local `accountId` must match, absent skips) and the `schema_version` guard of `data-model.md` "Validation rules"
+- [ ] T023 [P] [US1] Add to `src/sync/runner.test.ts`: `resolveConnectedAccount(undefined, 'a') === 'set'`, `('a', 'a') === 'same'`, `('a', 'b') === 'mismatch'`; then export `resolveConnectedAccount` and `ACCOUNT_MISMATCH_NOTICE` from `src/sync/runner.ts` (pure, beside `ACCOUNT_META`)
+- [ ] T024 [US1] Add `recordConnectedAccount()` to `src/model/state.ts` per `contracts/client-api.md`: one `api.get<ApiProfile>('/me')`, `resolveConnectedAccount`, `putMeta(ACCOUNT_META, id)` only on `set`, `warnBanner(ACCOUNT_MISMATCH_NOTICE)` on `mismatch`, `errorBanner` on a failed `/me`; call it in `src/main.tsx` right after `auth.completeLogin(params)` returns `'ok'`, before `loadFromDb()`, and make `startServerPull` skip with no banner when `ACCOUNT_META` is absent or a mismatch banner is up (D11)
+- [ ] T025 [US1] Add to `src/model/state.ts`: `queueServerPush(names)` (sets `serverPending` in meta first, runs one push at a time, the next waits, maps the result to `serverState` and, on failure, `errorBanner` only when the failure hides data the owner expected) and `startServerPull()` (joins `jobsBusy()`: returns early with no banner while a job runs; ends in `loadFromDb()`; `loadSavedMixes()` after US2); call `startServerPull()` from `src/main.tsx` after the first `loadFromDb()` when signed in, and from `completeServerLink` after a successful link
+- [ ] T026 [US1] Call `queueServerPush` at the tail of `startSync` (`['library']`), `startImport` (`['history']`), `startLookup` and `startRekordboxImport` (`['features']`), `startReach` (`['reach']`) in `src/model/state.ts`, after each one's `loadFromDb()`, only when the job ended without error
+- [ ] T027 [US1] Extend `ServerCard` in `src/ui/Settings.tsx` (connected): last sync time (`serverLastSync`), a per-dataset table "dataset · fetched (local) · on server · rows" from `serverStamps` and the local stamps, a "Sync now with server" button (pull then push of pending) disabled while `jobsBusy()`, and `Progress` for `pushing`/`pulling`; after a pull with rejected rows, the line "n rows rejected by the safety check" (FR-018)
 
 **Checkpoint**: three checks green; quickstart 3 and 4 pass; scenario 12 (publishable key alone sees no row) passes; commit
 `feat(server): push datasets after each job, pull them on open`.
@@ -104,15 +106,15 @@ mixes on A, reopen B and see both.
 
 ### Tests first
 
-- [ ] T026 [P] [US2] Add to `src/server/sync.test.ts`: a `library` stamp older locally than on the server is pulled, newer is pushed, equal is left alone (both directions through `compareStamps`); a pull never writes a dataset whose server `fetched_at` equals the local stamp
-- [ ] T027 [P] [US2] Add mixes tests to `src/server/sync.test.ts`: `runPush(['mixes'])` reads `GET mixes?select=url,saved_at,deleted_at&spotify_account_id=eq.A`, upserts local rows newer than the server's as `{ spotify_account_id, url, saved_at, deleted_at: null, row }`, and pushes a tombstone `{ url, saved_at: now, deleted_at: now, row: null }` for every url in the local `mixDeleted` list; `runPull` reads `GET mixes?select=*&spotify_account_id=eq.A` and keeps only the urls `planMixes` returns (never a url list in the query, S8), validates each with `validateMix`, calls `putMix` for each accepted row and `deleteMix` for every tombstone newer than the local `savedAt`; a mix edited on both sides keeps the newer `savedAt` whole
-- [ ] T028 [P] [US2] Add to `src/db/repo.test.ts`: `deleteMix(url)` records the url in a `mixDeleted` meta list (with `Date.now()`), and a successful push clears it
+- [ ] T028 [P] [US2] Add to `src/server/sync.test.ts`: a `library` stamp older locally than on the server is pulled, newer is pushed, equal is left alone (both directions through `compareStamps`); a pull never writes a dataset whose server `fetched_at` equals the local stamp
+- [ ] T029 [P] [US2] Add mixes tests to `src/server/sync.test.ts`: `runPush(['mixes'])` reads `GET mixes?select=url,saved_at,deleted_at&spotify_account_id=eq.A`, upserts local rows newer than the server's as `{ spotify_account_id, url, saved_at, deleted_at: null, row }`, and pushes a tombstone `{ url, saved_at: now, deleted_at: now, row: null }` for every url in the local `mixDeleted` list; `runPull` reads `GET mixes?select=*&spotify_account_id=eq.A` and keeps only the urls `planMixes` returns (never a url list in the query, S8), validates each with `validateMix`, calls `putMix` for each accepted row and `deleteMix` for every tombstone newer than the local `savedAt`; a mix edited on both sides keeps the newer `savedAt` whole
+- [ ] T030 [P] [US2] Add to `src/db/repo.test.ts`: `deleteMix(url)` records the url in a `mixDeleted` meta list (with `Date.now()`), and a successful push clears it
 
 ### Implementation
 
-- [ ] T029 [US2] Extend `runPush` and `runPull` in `src/server/sync.ts` with the `mixes` branch per T027 (`planMixes` from `src/server/datasets.ts`; tombstones; `deleteLocal`)
-- [ ] T030 [US2] In `src/db/repo.ts`, make `deleteMix` append `{ url, deletedAt }` to the `mixDeleted` meta (export `MIX_DELETED_META = 'mixDeleted'` from `src/db/schema.ts`), and add `clearMixDeleted(urls)` for the push to call
-- [ ] T031 [US2] In `src/model/state.ts`, call `queueServerPush(['mixes'])` after every `putMix` and `deleteMix` path (`startMixLookup`, `startTracklistifyImport`, the row edit and replace actions, `startCreatePlaylist` when it stores `playlistUrl`, the delete action), and make `startServerPull` end with `loadSavedMixes()` as well as `loadFromDb()`
+- [ ] T031 [US2] Extend `runPush` and `runPull` in `src/server/sync.ts` with the `mixes` branch per T029 (`planMixes` from `src/server/datasets.ts`; tombstones; `deleteLocal`)
+- [ ] T032 [US2] In `src/db/repo.ts`, make `deleteMix` append `{ url, deletedAt }` to the `mixDeleted` meta (export `MIX_DELETED_META = 'mixDeleted'` from `src/db/schema.ts`), and add `clearMixDeleted(urls)` for the push to call
+- [ ] T033 [US2] In `src/model/state.ts`, call `queueServerPush(['mixes'])` after every `putMix` and `deleteMix` path (`startMixLookup`, `startTracklistifyImport`, the row edit and replace actions, `startCreatePlaylist` when it stores `playlistUrl`, the delete action), and make `startServerPull` end with `loadSavedMixes()` as well as `loadFromDb()`
 
 **Checkpoint**: three checks green; quickstart 5 and 6 pass; commit `feat(server): newer wins both ways, mixes by row with tombstones`.
 
@@ -127,14 +129,14 @@ made offline reach the server on the next open.
 
 ### Tests first
 
-- [ ] T032 [P] [US3] Add to `src/server/sync.test.ts`: an `offline` result from the first request makes `runPull` return `offline` without touching the repo; `runPush` on `offline` keeps every pending flag; a `paused` result is passed through unchanged; on the next `runPush` with pending flags set, only the pending datasets are compared and pushed
-- [ ] T033 [P] [US3] Add to `src/server/client.test.ts`: the `paused` detection (5xx whose body mentions "paused", and a `TypeError` on fetch after a prior successful call in the same session is still `offline`, never `paused`)
+- [ ] T034 [P] [US3] Add to `src/server/sync.test.ts`: an `offline` result from the first request makes `runPull` return `offline` without touching the repo; `runPush` on `offline` keeps every pending flag; a `paused` result is passed through unchanged; on the next `runPush` with pending flags set, only the pending datasets are compared and pushed
+- [ ] T035 [P] [US3] Add to `src/server/client.test.ts`: the `paused` detection (5xx whose body mentions "paused", and a `TypeError` on fetch after a prior successful call in the same session is still `offline`, never `paused`)
 
 ### Implementation
 
-- [ ] T034 [US3] In `src/model/state.ts`, map `offline` → `serverState = { status: 'offline', message }` and `paused` → `{ status: 'paused', dashboardUrl: 'https://supabase.com/dashboard' }`; neither sets a banner; the pending flags survive; `startServerPull` on open runs once and never retries by itself; `queueServerPush` on open pushes the datasets flagged in `serverPending` before anything else
-- [ ] T035 [US3] In `src/ui/Settings.tsx` `ServerCard`: `offline` → "Server offline: <message>. Last sync <time>. Local data is in use."; `paused` → "Server paused. Resume it from the Supabase dashboard" with the link, then "Sync now with server"; `unset` keeps its one line; no other screen imports `serverState`
-- [ ] T036 [US3] In `src/main.tsx`, keep the boot order: paint, PKCE completion, magic link completion, `loadFromDb()`, then `startServerPull()` **after** `bootPhase.value = 'ready'` so a slow or paused server never delays the first paint or "Loading your library…"
+- [ ] T036 [US3] In `src/model/state.ts`, map `offline` → `serverState = { status: 'offline', message }` and `paused` → `{ status: 'paused', dashboardUrl: 'https://supabase.com/dashboard' }`; neither sets a banner; the pending flags survive; `startServerPull` on open runs once and never retries by itself; `queueServerPush` on open pushes the datasets flagged in `serverPending` before anything else
+- [ ] T037 [US3] In `src/ui/Settings.tsx` `ServerCard`: `offline` → "Server offline: <message>. Last sync <time>. Local data is in use."; `paused` → "Server paused. Resume it from the Supabase dashboard" with the link, then "Sync now with server"; `unset` keeps its one line; no other screen imports `serverState`
+- [ ] T038 [US3] In `src/main.tsx`, keep the boot order: paint, PKCE completion, magic link completion, `loadFromDb()`, then `startServerPull()` **after** `bootPhase.value = 'ready'` so a slow or paused server never delays the first paint or "Loading your library…"
 
 **Checkpoint**: three checks green; quickstart 7, 8, 9 pass; commit `feat(server): offline and paused states, pending pushes retry on open`.
 
@@ -149,13 +151,13 @@ the used share of storage.
 
 ### Tests first
 
-- [ ] T037 [P] [US4] Add to `src/server/sync.test.ts`: `runRemoveAll` deletes from `dataset_rows`, `datasets`, `mixes` and `jobs` (in that order) for the owner and then clears `serverStamps`, `serverPending`, `serverLastSync` and `mixDeleted` metas; a failure on one table stops and reports which; `readUsage` posts to `/rest/v1/rpc/storage_used` and returns the number
+- [ ] T039 [P] [US4] Add to `src/server/sync.test.ts`: `runRemoveAll` deletes from `dataset_rows`, `datasets`, `mixes` and `jobs` (in that order) for the owner and then clears `serverStamps`, `serverPending`, `serverLastSync` and `mixDeleted` metas; a failure on one table stops and reports which; `readUsage` posts to `/rest/v1/rpc/storage_used` and returns the number
 
 ### Implementation
 
-- [ ] T038 [US4] Implement `runRemoveAll(deps)` and `readUsage(deps)` in `src/server/sync.ts` per T037
-- [ ] T039 [US4] In `src/model/state.ts`: `startServerSignOut()` (revokes, clears, `serverState = signedOut`, keeps local data), `removeServerData()` with the one new `confirm('Remove all your data from the server? Local data on this browser is kept.')`, refused while `jobsBusy()`; `readUsage` called after every successful pull or push and stored in `serverState.connected.usedBytes`
-- [ ] T040 [US4] In `src/ui/Settings.tsx`: "Sign out" and "Remove server data" (`class="danger"`) buttons in `ServerCard` (connected), the used share line "x MB of 500 MB"; the Disconnect card's paragraph gains "Server data is kept." and its `confirm` text becomes `'Disconnect and delete all local data? Server data is kept.'`
+- [ ] T040 [US4] Implement `runRemoveAll(deps)` and `readUsage(deps)` in `src/server/sync.ts` per T039
+- [ ] T041 [US4] In `src/model/state.ts`: `startServerSignOut()` (revokes, clears, `serverState = signedOut`, keeps local data), `removeServerData()` with the one new `confirm('Remove all your data from the server? Local data on this browser is kept.')`, refused while `jobsBusy()`; `readUsage` called after every successful pull or push and stored in `serverState.connected.usedBytes`
+- [ ] T042 [US4] In `src/ui/Settings.tsx`: "Sign out" and "Remove server data" (`class="danger"`) buttons in `ServerCard` (connected), the used share line "x MB of 500 MB"; the Disconnect card's paragraph gains "Server data is kept." and its `confirm` text becomes `'Disconnect and delete all local data? Server data is kept.'`
 
 **Checkpoint**: three checks green; quickstart 10 and 11 pass; commit `feat(server): sign out, remove server data, used share`.
 
@@ -166,16 +168,16 @@ the used share of storage.
 **Purpose**: the documents that end a round (Contributing, "One change, several files"), the corrected `confirm()` rule, the
 quickstart run on the phone.
 
-- [ ] T041 [P] Write `docs/specs/2026-11-05-backend-data-sync-design.md` (Status Implemented, Last updated, the decisions in brief, out of scope, compatibility, links to `specs/001-backend-data-sync/` and ADR-08, `## Links` answered) and list it in `docs/README.md`
-- [ ] T042 [P] Add a row F18 "Server sync (Supabase, magic link, newer wins per dataset)" to `docs/architecture/100-features.md` §1 with entry files `src/server/sync.ts`, `startServerPull` in `src/model/state.ts`, `ServerCard` in `src/ui/Settings.tsx`; add a row to §2 "What leaves the browser": "F18 | the owner's Supabase project | every dataset the app builds (library, playlists, play counts, reach, mixes); never the Spotify token | after each job and on open, when signed in"; reword the sentence "No token and no listening history ever leaves the browser" to "No Spotify token ever leaves the browser; the listening history goes only to the owner's own server"
-- [ ] T043 [P] Add §16 "`server/`: the owner's server" to `docs/architecture/000-how-it-works.md` (client, session, datasets, sync, the five datasets table of research D6, the generation swap, the pending flags, the states), a "Server pull" row in the §14 jobs table (started from open and Settings; in `jobsBusy()`: yes) and a "Server push" row (no), update §1's "No server" sentence and §3's "the only setting" sentence, and list every `confirm()` in §14
-- [ ] T044 [P] Update `README.md` (owner's manual): the "Nothing is uploaded" paragraph gains the server; a "Server" section with quickstart §1 (project, signups off, URL configuration, the user, the SQL, the two variables), the magic-link sign-in (same browser, ten minutes), what Disconnect and Remove server data do, the pause after a week and the dashboard "Resume project", and a "Keep it safe" paragraph: MFA on supabase.com, never copy the `service_role` key, signups stay off, what the app checks on pulled rows (S4, S1, S3)
-- [ ] T045 [P] Add the `CHANGELOG.md` entry (feature, the two settings, "the database does not upgrade itself: no version bump", the one new confirm) and update `docs/architecture/800-limits-roadmap.md` (free-tier pause, 500 MB, no backups on Free, the worker as the next round)
-- [ ] T046 Correct the `confirm()` rule in `CLAUDE.md` ("Every `confirm()` is listed in How it works §14; the destructive ones live in `model/state.ts`"), in `.specify/memory/constitution.md` (same wording, PATCH bump to 2.0.1 with its Sync Impact Report), and add the server row's "Then" column: "no Spotify read from a pull; pending flags survive a failure"
-- [ ] T047 Check the docs by hand per Contributing "Checking by hand": `wc -l CLAUDE.md src/**/CLAUDE.md` (≤ 150 / ≤ 80), `find . -name AGENTS.md -not -path './node_modules/*' -exec ls -l {} +`, and every relative link of the pages touched (T041–T046) resolves both ways
-- [ ] T048 Run the security scenarios of quickstart §3: 12 (public key alone, every table and the function), 12b (a temporary second user sees nothing, then delete it), 2d (a link opened in another browser fails), 13 (a tampered `playerSrc` and a `javascript:` href are rejected and counted), 14 (every feature once with the CSP on, no violation in the console); fix the CSP host list if a feature fails; record the results in `specs/001-backend-data-sync/security.md` under a "Verified" heading
-- [ ] T049 Run `yarn typecheck && yarn lint && yarn test && yarn build`, then quickstart §3 scenarios 1–11 on the dev server and, after the owner's push, on the phone; record the measured sizes (research "Sizes") in the spec page of T041
-- [ ] T050 Commit `docs(server): spec page, inventory, how it works, manual, changelog` and hand the branch to the owner for the push (never push without the owner's OK)
+- [ ] T043 [P] Write `docs/specs/2026-11-05-backend-data-sync-design.md` (Status Implemented, Last updated, the decisions in brief, out of scope, compatibility, links to `specs/001-backend-data-sync/` and ADR-08, `## Links` answered) and list it in `docs/README.md`
+- [ ] T044 [P] Add a row F18 "Server sync (Supabase, magic link, newer wins per dataset)" to `docs/architecture/100-features.md` §1 with entry files `src/server/sync.ts`, `startServerPull` in `src/model/state.ts`, `ServerCard` in `src/ui/Settings.tsx`; add a row to §2 "What leaves the browser": "F18 | the owner's Supabase project | every dataset the app builds (library, playlists, play counts, reach, mixes); never the Spotify token | after each job and on open, when signed in"; reword the sentence "No token and no listening history ever leaves the browser" to "No Spotify token ever leaves the browser; the listening history goes only to the owner's own server"
+- [ ] T045 [P] Add §16 "`server/`: the owner's server" to `docs/architecture/000-how-it-works.md` (client, session, datasets, sync, the five datasets table of research D6, the generation swap, the pending flags, the states), a "Server pull" row in the §14 jobs table (started from open and Settings; in `jobsBusy()`: yes) and a "Server push" row (no), update §1's "No server" sentence and §3's "the only setting" sentence, and list every `confirm()` in §14
+- [ ] T046 [P] Update `README.md` (owner's manual): the "Nothing is uploaded" paragraph gains the server; a "Server" section with quickstart §1 (project, signups off, URL configuration, the user, the SQL, the two variables), the magic-link sign-in (same browser, ten minutes), what Disconnect and Remove server data do, the pause after a week and the dashboard "Resume project", and a "Keep it safe" paragraph: MFA on supabase.com, never copy the `service_role` key, signups stay off, what the app checks on pulled rows (S4, S1, S3)
+- [ ] T047 [P] Add the `CHANGELOG.md` entry (feature, the two settings, "the database does not upgrade itself: no version bump", the one new confirm) and update `docs/architecture/800-limits-roadmap.md` (free-tier pause, 500 MB, no backups on Free, the worker as the next round)
+- [ ] T048 Correct the `confirm()` rule in `CLAUDE.md` ("Every `confirm()` is listed in How it works §14; the destructive ones live in `model/state.ts`"), in `.specify/memory/constitution.md` (same wording, PATCH bump to 2.0.1 with its Sync Impact Report), and add the server row's "Then" column: "no Spotify read from a pull; pending flags survive a failure"
+- [ ] T049 Check the docs by hand per Contributing "Checking by hand": `wc -l CLAUDE.md src/**/CLAUDE.md` (≤ 150 / ≤ 80), `find . -name AGENTS.md -not -path './node_modules/*' -exec ls -l {} +`, and every relative link of the pages touched (T043–T048) resolves both ways
+- [ ] T050 Run the security scenarios of quickstart §3: 12 (public key alone, every table and the function), 12b (a temporary second user sees nothing, then delete it), 2d (a link opened in another browser fails), 13 (a tampered `playerSrc` and a `javascript:` href are rejected and counted), 14 (every feature once with the CSP on, no violation in the console); fix the CSP host list if a feature fails; record the results in `specs/001-backend-data-sync/security.md` under a "Verified" heading
+- [ ] T051 Run `yarn typecheck && yarn lint && yarn test && yarn build`, then quickstart §3 scenarios 1–11 on the dev server and, after the owner's push, on the phone; record the measured sizes (research "Sizes") in the spec page of T043
+- [ ] T052 Commit `docs(server): spec page, inventory, how it works, manual, changelog` and hand the branch to the owner for the push (never push without the owner's OK)
 
 ---
 
@@ -185,11 +187,11 @@ quickstart run on the phone.
 
 - **Setup (Phase 1)**: no dependencies; T002, T003, T004, T005 in parallel after T001 (T001 is a one-line prerequisite of nothing, it can also run in parallel; listed first for the env names)
 - **Foundational (Phase 2)**: depends on Setup; tests T006–T010 in parallel, then T011–T015 in parallel (different files), then T016 → T017 → T018 in order (state, then main, then Settings)
-- **US1 (Phase 3)**: depends on Phase 2; T019, T020 in parallel; T021 → T022 → T023 → T024 → T025
-- **US2 (Phase 4)**: depends on US1 (extends `runPush`/`runPull`); T026–T028 in parallel; T029 → T030 → T031
-- **US3 (Phase 5)**: depends on US1 (uses the pending flags and the states); independent of US2; T032, T033 in parallel; T034 → T035 → T036
-- **US4 (Phase 6)**: depends on Phase 2 only for sign-out; `runRemoveAll` touches the `mixDeleted` meta of US2, so run after US2; T037; T038 → T039 → T040
-- **Polish (Phase 7)**: after every story kept; T041–T045 in parallel; T046 → T047 → T048 → T049 → T050
+- **US1 (Phase 3)**: depends on Phase 2; T019, T020, T023 in parallel; T021 → T022 → T024 → T025 → T026 → T027
+- **US2 (Phase 4)**: depends on US1 (extends `runPush`/`runPull`); T028–T030 in parallel; T031 → T032 → T033
+- **US3 (Phase 5)**: depends on US1 (uses the pending flags and the states); independent of US2; T034, T035 in parallel; T036 → T037 → T038
+- **US4 (Phase 6)**: depends on Phase 2 only for sign-out; `runRemoveAll` touches the `mixDeleted` meta of US2, so run after US2; T039; T040 → T041 → T042
+- **Polish (Phase 7)**: after every story kept; T043–T047 in parallel; T048 → T049 → T050 → T051 → T052
 
 ### User Story Dependencies
 
@@ -208,10 +210,10 @@ quickstart run on the phone.
 
 - Phase 1: T002, T003, T004, T005
 - Phase 2: T006–T010; then T011–T015
-- Phase 3: T019, T020
-- Phase 4: T026, T027, T028
-- Phase 5: T032, T033
-- Phase 7: T041–T045
+- Phase 3: T019, T020, T023
+- Phase 4: T028, T029, T030
+- Phase 5: T034, T035
+- Phase 7: T043–T047
 
 ---
 
@@ -246,7 +248,7 @@ Task: "Write runPull tests in src/server/sync.test.ts …"   # T020  (same file:
 
 1. Phase 1 Setup (T001–T005), apply the SQL to the owner's project.
 2. Phase 2 Foundational (T006–T018): sign in by magic link on two browsers.
-3. Phase 3 US1 (T019–T025): push after a job, pull on open.
+3. Phase 3 US1 (T019–T027): push after a job, pull on open.
 4. **STOP and VALIDATE**: quickstart 1–4 and 12. Commit.
 
 ### Incremental Delivery
