@@ -97,6 +97,9 @@ src/
 │   ├── session.test.ts
 │   ├── datasets.ts             # pure: dataset defs, stamps, compareStamps, batches, planMixes, rowKey
 │   ├── datasets.test.ts
+│   ├── validate.ts             # pure: every pulled row and summary checked before it is written (S3)
+│   ├── validate.test.ts
+│   ├── browser.ts              # the singletons built from env, localStorage, fetch
 │   ├── sync.ts                 # runPush, runPull, runRemoveAll, readUsage (injected deps)
 │   └── sync.test.ts
 ├── db/
@@ -105,8 +108,10 @@ src/
 ├── model/state.ts              # + serverState, startServerSignIn/SignOut/Pull, queueServerPush, removeServerData; job tails
 └── ui/Settings.tsx             # + ServerCard; Disconnect text
 
+index.html                      # + Content-Security-Policy meta (S6)
+
 supabase/
-└── migrations/0001_init.sql    # datasets, dataset_rows, mixes, jobs, storage_used(), RLS, grants
+└── migrations/0001_init.sql    # datasets, dataset_rows, mixes, jobs, storage_used(), RLS, grants, anon revoked
 
 .github/workflows/ci.yml        # build env: VITE_SUPABASE_URL, VITE_SUPABASE_KEY from repository variables
 .env.example                    # + the two names
@@ -121,6 +126,11 @@ every other folder, and a `supabase/` folder holding the SQL the owner applies. 
 |-----------|------------|-------------------------------------|
 | A fifth `confirm()` (Remove server data), against "Four `confirm()` calls only, all in `model/state.ts`" | FR-014: removing every byte of the owner's listening history from a server is destructive and must be confirmed; the Disconnect question must also say server data is kept | Folding it into Disconnect would make Disconnect either delete server data (the spec defaults to keeping it) or ask two questions; a non-confirmed delete is a destructive tap. The rule text is also already behind the code: `state.ts` holds four mix "replace the working list" confirms and `Settings.tsx` holds the Disconnect one. The docs pass corrects the rule to "every `confirm()` is listed in How it works §14; destructive ones live in `model/state.ts`" rather than pretending to a count. |
 
+## Security review
+
+[security.md](security.md): eleven findings on the design, folded into research D13, the contracts, the quickstart (scenarios
+2d, 12, 12b, 13, 14) and the tasks. The owner declined client-side encryption (E1) and accepted the Content Security Policy (E2).
+
 ## Phase 0 and Phase 1 outputs
 
 - Phase 0: [research.md](research.md), all Technical Context unknowns resolved (D1–D12).
@@ -133,3 +143,4 @@ every other folder, and a `supabase/` folder holding the SQL the owner applies. 
 2. Sign-in by magic link (D3); email and password was declined.
 3. One Spotify account (D11); the per-account keying stays.
 4. Spec Kit files, ADR-08 and the constitution are committed before `/speckit-tasks`.
+5. Security round (2026-11-05): no client-side encryption; CSP yes; PKCE magic link; rows validated on pull.

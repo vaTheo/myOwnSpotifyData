@@ -208,6 +208,17 @@ server data, see every other device fall back to local-only.
 - **FR-014**: The owner MUST be able to remove all their data from the server from
   Settings, behind a confirmation, and see it gone from every device.
 
+**Safety of the data**
+
+- **FR-018**: Anything that comes back from the server MUST be checked before it is stored or
+  shown, so that a tampered or mistaken server row can never make the app open an arbitrary
+  page, run a link, or break a screen; rejected rows are counted and shown in Settings.
+- **FR-019**: The page MUST declare the hosts it talks to, so that a script injected into the
+  app cannot send the owner's sessions or data anywhere else; the list is checked feature by
+  feature on the phone.
+- **FR-020**: Nobody but the owner can get a session: sign-ups are off, the sign-in link only
+  works in the browser that asked for it, and the public key alone sees no row of any table.
+
 **Repository and deployment**
 
 - **FR-015**: Everything needed to create the server side (its schema, its access rules,
@@ -251,6 +262,8 @@ server data, see every other device fall back to local-only.
   none is found only in the browser console.
 - **SC-006**: Removing server data from Settings leaves the server holding nothing for the
   account, and every device reports local-only data at next open.
+- **SC-007**: With the public key alone, and with a second temporary user, every table
+  answers zero rows; a sign-in link opened in another browser does not sign in.
 
 ## Out of scope (future work on top of this server)
 

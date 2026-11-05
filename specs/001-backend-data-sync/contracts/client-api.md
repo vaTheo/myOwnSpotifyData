@@ -3,6 +3,14 @@
 Pure cores behind thin edges, as the rest of `src/` ([How it works](../../../docs/architecture/000-how-it-works.md) §2). Tests next to
 each file; no DOM tests.
 
+## `index.html` (security review S6, E2)
+
+A `<meta http-equiv="Content-Security-Policy">` with `default-src 'self'; connect-src 'self' https://api.spotify.com
+https://accounts.spotify.com %VITE_SUPABASE_URL% <every lookup host the app fetches>; script-src 'self' https://api.deezer.com;
+frame-src https://w.soundcloud.com; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self';
+form-action 'self'`. Vite replaces `%VITE_SUPABASE_URL%` at build time. The host list is built from
+`grep -rhoE 'https://[a-z0-9.-]+' src` minus the link-only hosts, and verified feature by feature.
+
 ## `src/env.ts`
 
 ```ts
@@ -19,7 +27,8 @@ export type ServerResult<T> =
   | { ok: false; kind: 'offline' | 'paused' | 'unauthorized' | 'tooLarge' | 'error'; message: string; status?: number };
 
 export interface ServerClient {
-  requestLink(email: string, redirectTo: string): Promise<ServerResult<void>>;
+  requestLink(email: string, redirectTo: string, codeChallenge: string): Promise<ServerResult<void>>;
+  exchangeCode(authCode: string, codeVerifier: string): Promise<ServerResult<ServerTokens>>;
   refresh(refreshToken: string): Promise<ServerResult<ServerTokens>>;
   signOut(accessToken: string): Promise<ServerResult<void>>;
   select<T>(table: string, query: Record<string, string>, token: string, range?: [number, number]): Promise<ServerResult<{ rows: T[]; total: number | null }>>;
@@ -38,9 +47,9 @@ Never throws; a 401 on a data call is returned as `unauthorized` and the session
 export interface ServerSession { accessToken: string; refreshToken: string; expiresAt: number; email: string }
 export interface ServerSessionStore {
   session: Signal<ServerSession | null>;
-  requestLink(email: string): Promise<ServerResult<void>>;          // POST /otp with redirectUri()
-  completeLink(hash: string): 'none' | 'ok' | 'invalid';           // pure parse of '#access_token=…'; stores the session
-  linkSent: Signal<string | null>;                                   // the email a link was sent to, for the Settings notice
+  requestLink(email: string): Promise<ServerResult<void>>;          // makes a verifier (randomString) + challenge (challengeFor), stores 'server-pkce', POST /otp with redirectUri() + '?link=server'
+  completeLink(params: URLSearchParams): Promise<'none' | 'ok' | 'invalid'>;  // needs params.get('link') === 'server' and 'code'; exchanges with the stored verifier; clears 'server-pkce'
+  linkSent: Signal<string | null>;                                   // the email a link was sent to, for the generic Settings notice
   getAccessToken(): Promise<ServerResult<string>>;   // refreshes with the same margin as auth/session.ts
   signOut(): Promise<void>;
 }
@@ -59,6 +68,20 @@ export function batches<T>(rows: T[], size?: number): T[][];                 // 
 export function planMixes(local: MixRow[], server: MixStamp[]): { push: MixRow[]; pull: string[]; deleteLocal: string[] };
 ```
 
+## `src/server/validate.ts` (pure, security review S3)
+
+```ts
+export type Rejected = { store: string; key: string; reason: string };
+export function validateRow(store: StoreName, row: unknown): { ok: true; row: AllRowsValue } | { ok: false; reason: string };
+export function validateMix(row: unknown): { ok: true; row: MixRow } | { ok: false; reason: string };
+export function validateSummary(name: DatasetName, value: unknown): boolean;
+```
+
+Rules: keys are non-empty strings; `playerSrc` is null or starts with `SC_PLAYER_PREFIX`; `spotifyUrl` is null or starts with
+`https://open.spotify.com/`; `sourceUrl`, `linkOut`, `shazamUrl`, `imageUrl`, `playlistUrl` are null/absent or `https:` URLs;
+numbers are finite; `historySummary.version === 2`, `artistReachSummary.version === 1`; unknown extra fields are kept (optional
+fields need no bump, ADR-05). A pull drops a failing row, counts it, and `serverState` reports "n rows rejected".
+
 ## `src/server/sync.ts`
 
 ```ts
@@ -69,7 +92,7 @@ export function runRemoveAll(deps: SyncDeps): Promise<ServerResult<void>>;
 export function readUsage(deps: SyncDeps): Promise<ServerResult<number>>;
 ```
 
-`RepoLike` is the handful of `db/repo.ts` functions the runners need (`getAllRows`, `getMeta`, `putMeta`, `replaceDataset`,
+`runPull` validates every row and summary with `validate.ts` before `replaceDataset`. `RepoLike` is the handful of `db/repo.ts` functions the runners need (`getAllRows`, `getMeta`, `putMeta`, `replaceDataset`,
 `getMixes`, `putMix`, `deleteMix`), injected so tests run on `fake-indexeddb` or a stub.
 
 ## `src/db/repo.ts` additions (no `DB_VERSION` bump)
@@ -88,12 +111,13 @@ server session and data.
 
 ## `src/main.tsx`
 
-Before the router starts: `if (location.hash.startsWith('#access_token=')) { serverAuth.completeLink(location.hash); history.replaceState(null, '', '#/settings'); }`.
-The Spotify PKCE callback keeps reading `location.search`; the two cannot collide.
+In `boot()`, beside the Spotify branch: `const serverLink = params.get('link') === 'server';` → `await completeServerLink(params)`,
+then `history.replaceState(history.state, '', location.pathname + '#/settings')`. The Spotify branch is `!serverLink && (params.has('code') || params.has('error'))`,
+so the two `?code=` callbacks never meet.
 
 ## `src/ui/Settings.tsx`
 
-A `ServerCard` above "Disconnect": the status line, the email field and "Send me a link" (signed out; then "Link sent to …, open it on
-this device"), per-dataset stamps and the used share
+A `ServerCard` above "Disconnect": the status line, the email field and "Send me a link" (signed out; then the generic "If this email
+has an account, a link was sent. Open it on this device, in this browser, within 10 minutes."), per-dataset stamps and the used share
 (connected), "Sync now with server", "Sign out", "Remove server data" (danger). The Disconnect paragraph gains "Server data is
 kept."

@@ -36,18 +36,21 @@ Every unknown of the plan's Technical Context, resolved. Facts checked on 2026-1
 
 - **Decision**: the owner creates the single user in the dashboard (Authentication → Users → Add user, auto-confirm, no password)
   and turns off "Allow new users to sign up". Settings has an email field and a "Send me a link" button: the app calls
-  `POST /auth/v1/otp` with `{ email, create_user: false }` and a `redirect_to` of the app's own URL (the same value
-  `redirectUri()` gives the Spotify flow). The emailed link lands on the app with the tokens in the URL **hash**
-  (`#access_token=…&refresh_token=…&expires_in=…&type=magiclink`). `main.tsx` checks that hash before the router reads it: when it
-  starts with `access_token=`, the server session store consumes it, stores the session in `localStorage` under its own key, and
-  replaces the hash with `#/settings`. The Spotify callback keeps using the query string (`?code=&state=`), so the two never meet.
+  `POST /auth/v1/otp` with `{ email, create_user: false, code_challenge, code_challenge_method: 's256' }` (the **PKCE flow**,
+  security review S2) and a `redirect_to` of the app's own URL plus `?link=server`; the verifier is kept in `localStorage`
+  (`server-pkce`). The emailed link redirects to the app with `?link=server&code=…` only; `main.tsx` branches on `link=server`
+  (never on the presence of `code`, which the Spotify callback also uses), exchanges the code with
+  `POST /auth/v1/token?grant_type=pkce` `{ auth_code, code_verifier }`, stores the session under `server-session`, and replaces
+  the URL with the app's path and `#/settings`. No token is ever in a URL; a mail scanner that opens the link cannot exchange the
+  code; the link only works in the browser that asked for it.
   Tokens are refreshed with the same margin logic as `auth/session.ts`; sign out revokes the refresh token and clears the key.
 - **Rationale**: the owner prefers no password; one link per new browser is acceptable since a browser stays signed in; the
   publishable key is public, so disabling signups and `create_user: false` are what keep strangers out.
 - **Setup it needs**: Authentication → URL Configuration: Site URL `https://vatheo.github.io/myOwnSpotifyData/`, additional redirect
   URL `http://127.0.0.1:5173/myOwnSpotifyData/`; a link opened on the phone must open in the browser that holds the app (the
   home-screen app opens links in Chrome; the quickstart checks this).
-- **Alternatives**: email and password (no redirect, one secret to remember; declined by the owner); a six-digit email code typed
+- **Alternatives**: the implicit link with tokens in the hash (rejected: tokens in URLs, consumable by link scanners, security
+  review S2); email and password (no redirect, one secret to remember; declined by the owner); a six-digit email code typed
   in the app (`/auth/v1/verify`, no redirect either; needs the email template edited to include `{{ .Token }}`, kept as the fallback
   if the hash hand-off misbehaves on the phone); Supabase's "Sign in with Spotify" provider (needs the client secret in Supabase,
   which ADR-01 forbids).
@@ -142,6 +145,20 @@ Every unknown of the plan's Technical Context, resolved. Facts checked on 2026-1
   "replace the working list" questions in `state.ts` and the Disconnect question in `Settings.tsx`), so the rule becomes "every
   `confirm()` is listed in How it works §14; destructive ones live in `model/state.ts`".
 - **Rationale**: FR-014; the rule as written does not match the code the owner has.
+
+## D13. Security (from [security.md](security.md), owner's picks of 2026-11-05)
+
+- **Decision**: the migration revokes every privilege from `anon` and fixes the default privileges (S1); the magic link uses the
+  PKCE flow (S2, D3); every pulled row passes a pure validator before it is written and rendered (S3, `src/server/validate.ts`);
+  the manual requires MFA on supabase.com and forbids pasting the `service_role` key anywhere (S4); the OTP UI shows a generic
+  "if this email has an account, a link was sent" and the dashboard's OTP expiry is set to 10 minutes (S5); a Content Security
+  Policy `<meta>` lists the hosts the app talks to, the Supabase URL injected by Vite's `%VITE_SUPABASE_URL%` (S6, E2 accepted);
+  refresh re-reads storage first and retries once on "already used" (S7); mixes are listed with `select=*` and filtered in the
+  client, never by a list of urls in the query (S8); the previous generation is kept until the next push (S9);
+  `storage_used()` sets `search_path = ''` (S10). Client-side encryption (E1) was declined by the owner and stays possible later
+  without a schema change.
+- **Rationale**: RLS is the only wall and must never fail open; the two logins must be hard to steal; server rows are a new
+  untrusted input.
 
 ## Sizes (estimate, to be measured in the quickstart)
 
