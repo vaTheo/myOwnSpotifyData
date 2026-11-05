@@ -1,7 +1,7 @@
 # ADR-01 — A browser-only static app: PKCE with a Client ID, no server, no secret
 
-> **Status**: Accepted
-> **Date**: 2026-09-04
+> **Status**: Superseded by [ADR-08](ADR-08-owner-server-free-tier.md) for "no server"; PKCE, no secret and `127.0.0.1` still hold
+> **Date**: 2026-09-04, amended 2026-11-05
 
 ## Context
 
@@ -36,6 +36,7 @@ feature needing a secret or a server is out of scope.
 - Spec: [the app](../../specs/2026-09-04-spotify-dj-webapp-design.md) §2
 - Research: [Spotify platform](../../research/2026-09-04-spotify-platform-research.md)
 - [How the app works](../000-how-it-works.md) §1, §3
+- Superseded in part by [ADR-08 — One server for the owner](ADR-08-owner-server-free-tier.md)
 - [ADR index](README.md)
 - [Limits and roadmap](../800-limits-roadmap.md)
 - [Contributing](../../dev-guide/000-contributing.md)

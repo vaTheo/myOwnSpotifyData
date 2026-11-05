@@ -32,7 +32,7 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 
 Each spec has an "Out of scope" block; the main ones:
 
-- Any server, Cloudflare Worker, paid service or second app setting ([ADR-01](700-adr/ADR-01-browser-only-pkce.md)).
+- Any server of the owner's own, Cloudflare Worker or paid service; the one exception is the owner's free-tier database with sign-in, declared by one second setting ([ADR-08](700-adr/ADR-08-owner-server-free-tier.md), which supersedes [ADR-01](700-adr/ADR-01-browser-only-pkce.md) on this point).
 - Name search for artists or tracks in the reach and lookup jobs ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)).
 - Any audio fetch, fingerprinting or recognition API; MixesDB/1001Tracklists scraping.
 - Adding to an existing playlist, editing a created playlist, public playlists, cover images.
