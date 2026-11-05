@@ -3,6 +3,17 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-06 — A server and database holding the app's data
+
+The app can now copy every dataset it builds to the owner's own Supabase Free project and get it back on any browser after a
+magic-link sign-in: library and playlists, play counts, BPM and key, artist reach, saved mixes. Newer wins per dataset by the time the
+data was fetched or imported; mixes converge row by row with tombstones. The server stores, never computes, never sees the Spotify
+token; without the two new build settings the app is exactly the previous app ([ADR-08](docs/architecture/700-adr/ADR-08-owner-server-free-tier.md),
+[spec](docs/specs/2026-11-05-backend-data-sync-design.md), the full round under `specs/001-backend-data-sync/`). A Content Security
+Policy now lists every host the page may call. The database does not upgrade itself: no `DB_VERSION` bump, four new `meta` names.
+One new question, Remove server data. After upgrading: nothing to do without a server; to set one up, the README's "Server" section
+(project, sign-ups off, redirect URLs, the SQL in `supabase/migrations/`, `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY`).
+
 ## 2026-11-05 — Spec Kit skills
 
 GitHub's Spec Kit (v1.3.1) is installed with `specify init --here --integration claude`: nine `/speckit-*` skills under `.claude/skills/`

@@ -1,7 +1,7 @@
 # Documentation
 
 > **Status**: Living
-> **Last updated**: 2026-11-05
+> **Last updated**: 2026-11-06
 
 The map of the app's documentation, kept by hand: every page is listed here, in its section. How pages are named, headed and linked:
 [Contributing](dev-guide/000-contributing.md), section "Documentation".
@@ -37,6 +37,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 One design document per feature round, dated. The first one is the base model; later ones build on it.
 
+- [2026-11-05 — A server and database holding the app's data](specs/2026-11-05-backend-data-sync-design.md) (full round under [`specs/001-backend-data-sync/`](../specs/001-backend-data-sync/spec.md))
 - [2026-09-28 — Import a Tracklistify JSON tracklist](specs/2026-09-28-tracklistify-import-design.md)
 - [2026-09-25 — Like all songs of a playlist](specs/2026-09-25-like-playlist-design.md)
 - [2026-09-06 — Create a Spotify playlist from a mix](specs/2026-09-06-mix-playlist-design.md)

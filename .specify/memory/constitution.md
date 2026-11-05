@@ -1,7 +1,7 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 2.0.0 (MAJOR: Principle I redefined, "no server" removed)
-- Modified principles: I. Browser-only, no secret, no server (ADR-01) → I. Browser-first, no secret, one owner's server (ADR-01, ADR-08)
+- Version change: 2.0.0 → 2.0.1 (PATCH: the confirm() rule now describes the code instead of a count)
+- Modified principles: none; "Technology and tooling constraints" reworded on confirm()
 - Added sections: none
 - Removed sections: none
 - Templates: plan/spec/tasks templates read this file at runtime; no template edited here
@@ -101,9 +101,9 @@ cannot report.
 - `moduleResolution: bundler`: relative imports carry no extension. Tests sit next to
   source as `src/**/*.test.ts`; IndexedDB tests import `fake-indexeddb/auto`; there are
   no DOM or component tests, so logic lives in pure functions.
-- Exactly four `confirm()` calls, all in `model/state.ts`: Disconnect, account switch,
-  narrower import, Like all songs' count. A new job decides `jobsBusy()` and
-  `disconnect` behaviour (How the app works §14).
+- Every `confirm()` is listed in How the app works §14; the destructive ones live in
+  `model/state.ts`, Disconnect's in its Settings button; a new question joins the list.
+  A new job decides `jobsBusy()` and `disconnect` behaviour (How the app works §14).
 
 ## Development workflow
 
@@ -137,4 +137,4 @@ When the two disagree, the ADR index is corrected first and this file follows.
 - Runtime guidance for agents stays in `CLAUDE.md` and the local `CLAUDE.md` files;
   this file does not duplicate their routing.
 
-**Version**: 2.0.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-05
+**Version**: 2.0.1 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-06
