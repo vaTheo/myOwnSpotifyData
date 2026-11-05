@@ -1,5 +1,8 @@
 # Getting the tracklist of a SoundCloud DJ mix from a link (2026-09-06)
 
+> **Status**: Reference (verified on the date in the title; external facts may have changed since)
+> **Last updated**: 2026-11-05
+
 Output of a research workflow (6 researchers, 5 fact-checkers with live probes, 1 synthesis). Scope: what it would actually take for the owner to paste a SoundCloud link to an hour-plus DJ mix into the app and get back every track, in order, with the time it starts — assessed for a browser-only static Preact app on GitHub Pages (no server, no secrets), with the owner's underground house and techno in mind.
 
 Everything below was probed on **2026-09-06** from France with curl and a real Chromium, and cross-checked by a second reviewer with independent probes; refuted claims are dropped or corrected in place, unverifiable ones carry **(unverified)**. **One caveat on provenance:** five of the six research areas were fact-checked; the sixth (open-source *projects* — the GitHub survey and the academic literature, `oss-projects.md`) had no second pass, so its figures are single-source and are marked *(single-source)* where they carry weight.
@@ -237,3 +240,11 @@ From Apple's Shazam User Guide ([support.apple.com/en-gb/guide/shazam/deve025522
 8. **Would the owner run one measurement before any design work?** Two cheap ones decide most of this: run oEmbed over 30–50 links they would *actually* paste (the 18% figure is query-biased and the unbiased frames read zero), and spend AudD's free 300 requests on a file POST of one mix whose tracklist they already know. Neither needs a design, a payment or an answer to the SoundCloud-fetch question.
 9. **Would they rather correct a draft by hand than chase accuracy?** An editable artist/title per row, stored beside the detected value, turns a one-third-complete scan into a usable set document — and it is cheaper to build than any accuracy improvement available here.
 10. **Is an off-app desktop step acceptable at all?** Every route that touches audio is shape 2 (laptop, then import, like the Rekordbox XML). If the answer is "phone only", the list collapses to option A plus option D, and nothing else.
+
+## Links
+
+- Spec: [2026-09-06-mix-tracklist-design.md](../specs/2026-09-06-mix-tracklist-design.md)
+- Spec: [2026-09-06-mix-playlist-design.md](../specs/2026-09-06-mix-playlist-design.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Documentation map](../README.md)

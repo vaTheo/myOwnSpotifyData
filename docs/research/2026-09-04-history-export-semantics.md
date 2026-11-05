@@ -1,5 +1,8 @@
 # Streaming history semantics for the Crate views (2026-09-04)
 
+> **Status**: Reference (verified on the date in the title; external facts may have changed since)
+> **Last updated**: 2026-11-05
+
 Research behind the Crate design spec (`../specs/2026-09-04-crate-history-views-design.md`): what each `reason_end` value means, how community tools compute skip rates, timezone handling for month buckets, storage sizing for per-month counts, and threshold defaults. One research agent with web access; sources linked per fact.
 
 ## Recommendation
@@ -69,3 +72,10 @@ CLASSIFICATION. Keep reason_end as the primary signal and use ms_played only as 
 ## Design panel
 
 Three designs (minimalist, DJ-workflow, timeline explorer) were scored by two judges; "The Crate" (DJ-workflow) won both and the synthesis grafted the judges' suggestions. The synthesis is the basis of the spec.
+
+## Links
+
+- Spec: [2026-09-04-crate-history-views-design.md](../specs/2026-09-04-crate-history-views-design.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Documentation map](../README.md)

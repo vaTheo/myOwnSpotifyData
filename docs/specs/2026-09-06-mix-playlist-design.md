@@ -1,6 +1,9 @@
 # Create a Spotify playlist from a mix: design
 
-Date: 2026-09-06. Status: draft for the owner to review before any code.
+> **Status**: Implemented (shipped 2026-09-07, inventory F13)
+> **Last updated**: 2026-11-05
+
+Date: 2026-09-06. Status at writing: draft for the owner to review before any code.
 Builds on `2026-09-06-mix-tracklist-design.md` (the Mix screen, the `mixes`
 store, `MixRow`/`TracklistRow`, `startMixLookup`/`saveMix`/`openMix`) and the
 platform research `../research/2026-09-04-spotify-platform-research.md`
@@ -703,3 +706,13 @@ Every test **mocks fetch or the client**; none ever calls real Spotify.
    **not** probed. **Assumption:** these generous defensive trims avoid a
    rejected write without truncating real titles; adjust at implementation only
    if a write is rejected for length.
+
+## Links
+
+- [Feature inventory](../architecture/100-features.md) (F13)
+- [How the app works](../architecture/000-how-it-works.md)
+- [ADR-03](../architecture/700-adr/ADR-03-library-writes-on-tap.md)
+- Research: [2026-09-06-mix-tracklist-sources.md](../research/2026-09-06-mix-tracklist-sources.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [Documentation map](../README.md)

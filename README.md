@@ -17,6 +17,11 @@ playlist from mix** sends a name and the matched track ids to your own Spotify
 account, on that tap alone. No token and no listening history ever leaves the
 browser.
 
+## Documentation
+
+The [documentation map](docs/README.md) lists every page; the [feature inventory](docs/architecture/100-features.md)
+says what is built and the project state; [CHANGELOG.md](CHANGELOG.md) says what changed when.
+
 ## Run locally
 
 ```sh

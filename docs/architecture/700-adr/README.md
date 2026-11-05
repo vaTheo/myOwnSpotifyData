@@ -1,0 +1,42 @@
+# 700 — ADR, the decisions that still hold
+
+> **Status**: Living
+> **Last updated**: 2026-11-05
+
+One decision per file, kept when it no longer holds (marked `Superseded by …`). A decision belongs here when it outlives the feature round
+that made it; the round's reasoning stays in its [spec](../../specs/). These seven were taken during the rounds of 2026-09-04 to
+2026-09-25 and written down on 2026-11-05.
+
+| ADR | Decision | Status |
+|---|---|---|
+| [ADR-01](ADR-01-browser-only-pkce.md) | Browser-only static app: PKCE with a Client ID, no server, no secret, data in IndexedDB | Accepted |
+| [ADR-02](ADR-02-no-spotify-reads-on-load.md) | Never read Spotify playlists on load; sync only from a button | Accepted |
+| [ADR-03](ADR-03-library-writes-on-tap.md) | Write to the owner's Spotify library only on a tap, behind a whole-token scope check; never retry a POST | Accepted |
+| [ADR-04](ADR-04-keyless-sources-by-id.md) | External data from free keyless sources, keyed by ids, never by name; clients never throw; long jobs start from Settings and resume | Accepted |
+| [ADR-05](ADR-05-additive-indexeddb.md) | IndexedDB upgrades only add stores; optional fields need no version bump; one connection hands over | Accepted |
+| [ADR-06](ADR-06-lean-tooling.md) | Lean tooling: no hooks, Dependabot, templates or docs checker; TypeScript pinned; no DOM tests | Accepted |
+| [ADR-07](ADR-07-play-counts-from-export.md) | Play counts come only from the history export; history views gate on a versioned summary | Accepted |
+
+## Skeleton
+
+```markdown
+# ADR-NN — <decision in one line>
+
+> **Status**: Accepted | Proposed | Superseded by [ADR-NN](…)
+> **Date**: YYYY-MM-DD
+
+## Context
+## Options considered   (a table: Option | Description | For | Against; the chosen one marked *(chosen)*)
+## Decision
+## Consequences         (**Positive:** … **Negative / watch for:** …)
+## Links                (the specs, the code, this index)
+```
+
+## Links
+
+- [How the app works](../000-how-it-works.md)
+- [Feature inventory](../100-features.md)
+- [Limits and roadmap](../800-limits-roadmap.md)
+- [Specs](../../specs/) · [Research](../../research/)
+- [Contributing](../../dev-guide/000-contributing.md)
+- [Documentation map](../../README.md)

@@ -1,5 +1,8 @@
 # Artist reach ("how well known is this artist") sources for the DJ app (2026-09-05)
 
+> **Status**: Reference (verified on the date in the title; external facts may have changed since)
+> **Last updated**: 2026-11-05
+
 Output of a research workflow (5 researchers, 5 fact-checkers with live probes, 1 synthesis). Scope: free sources of an artist-level *reach* number — followers, fans, listeners, DJ support, chart or gig presence — for the artists in the owner's Spotify playlists, usable from a browser-only static Preact app on GitHub Pages (no server, no secrets), underground house/techno first.
 
 Everything below was probed on 2026-09-05 from France with curl and cross-checked by a second reviewer; refuted claims are dropped or corrected in place, unverifiable ones carry **(unverified)**. Six headline claims were re-probed a third time during synthesis (`raw/synthesis/`). Reference material for an "emerging artists" feature; the design spec, once written, is the authority.
@@ -189,3 +192,10 @@ Same shape as the existing history import and playlist sync — **manual, resuma
 5. **Two numbers or one?** The recommendation is to show ListenBrainz listeners and Deezer fans side by side and never blend them. If the owner wants a single sort order, they must pick which platform's audience they trust for their scene, knowing the two disagree on a fifth of all pairs.
 6. **What does the real library look like?** Everything here is measured on a deliberately underground-weighted sample of 24. The Wikidata resolution rate (15/24), **how many artists actually have a track credited to them alone** (which is what decides whether Deezer is a primary source or a partial one), and the number of distinct artists across 50–200 playlists are all one experiment away once the job can read the library — and they decide whether this feature is worth its ~40 minutes of lookups.
 7. **Does the owner already have an RA, Beatport or SoundCloud account they would rather read by hand?** The three best metrics in this study are all reachable to a human in a browser and to no static web app. A "paste the number" affordance, or a manual note per artist, is a legitimate design and costs nothing in terms risk.
+
+## Links
+
+- Spec: [2026-09-05-artist-reach-design.md](../specs/2026-09-05-artist-reach-design.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Documentation map](../README.md)

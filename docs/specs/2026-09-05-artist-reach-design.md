@@ -1,6 +1,9 @@
 # Artist reach: design
 
-Date: 2026-09-05. Status: owner authorised a first version, to be tried
+> **Status**: Implemented (shipped 2026-09-06, inventory F11)
+> **Last updated**: 2026-11-05
+
+Date: 2026-09-05. Status at writing: owner authorised a first version, to be tried
 before any merge. Builds on `2026-09-04-spotify-dj-webapp-design.md`,
 `2026-09-04-crate-history-views-design.md` and `2026-09-05-bpm-key-design.md`
 (this spec assumes that feature's `DB_VERSION` 2 has landed).
@@ -1426,3 +1429,13 @@ rather than reach), kworb and Bandsintown (no CORS header at all), Last.fm
 HuggingFace and Kaggle — the BPM research's "do not use or re-host" ruling on
 that corpus stands. Research §5 records each in one line so none of them is
 researched again.
+
+## Links
+
+- [Feature inventory](../architecture/100-features.md) (F11)
+- [How the app works](../architecture/000-how-it-works.md)
+- [ADR-04](../architecture/700-adr/ADR-04-keyless-sources-by-id.md)
+- Research: [2026-09-05-artist-reach-sources.md](../research/2026-09-05-artist-reach-sources.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [Documentation map](../README.md)

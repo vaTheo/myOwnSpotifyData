@@ -1,6 +1,9 @@
 # BPM and key: design
 
-Date: 2026-09-05. Status: owner authorised a first version on branch
+> **Status**: Implemented (shipped 2026-09-05, inventory F8, F9)
+> **Last updated**: 2026-11-05
+
+Date: 2026-09-05. Status at writing: owner authorised a first version on branch
 `feat/bpm-key`, to be tried before any merge. Builds on
 `2026-09-04-spotify-dj-webapp-design.md` and `2026-09-04-crate-history-views-design.md`.
 Research: `../research/2026-09-05-bpm-key-sources.md`.
@@ -302,3 +305,13 @@ ReccoBeats relays Spotify's numbers; the app caches values only for the
 owner's own library and shows the ReccoBeats attribution. Rekordbox data is
 the owner's own. No data leaves the browser except the lookup requests, which
 the Connect screen now names.
+
+## Links
+
+- [Feature inventory](../architecture/100-features.md) (F8, F9)
+- [How the app works](../architecture/000-how-it-works.md)
+- [ADR-04](../architecture/700-adr/ADR-04-keyless-sources-by-id.md)
+- Research: [2026-09-05-bpm-key-sources.md](../research/2026-09-05-bpm-key-sources.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [Documentation map](../README.md)

@@ -1,5 +1,8 @@
 # BPM and key sources for the DJ app (2026-09-05)
 
+> **Status**: Reference (verified on the date in the title; external facts may have changed since)
+> **Last updated**: 2026-11-05
+
 Raw output of a research workflow (4 researchers, 4 skeptics with live probes, 1 synthesis). The synthesis is first; verdicts and per-source details follow. Reference material for the BPM/key feature; the design spec, once written, is the authority.
 
 ---
@@ -827,3 +830,10 @@ Open questions:
 - Has essentia.js master (last push 2025-12-10, Emscripten update issue #133 closed 2024-01) got a newer, faster or SIMD-enabled build than npm 0.1.3 (2021)? Building from master could shrink the 2 MB wasm to only the needed algorithms (configure_bindings.py supports include lists).
 - Can byte-slice decoding be made to work for FLAC (prepend STREAMINFO header) and M4A (needs moov atom), or must those files be decoded in full? Untested.
 - Should Camelot-compatibility filtering use key strength / firstToSecondRelativeStrength thresholds to hide low-confidence keys, and how will manual overrides by the DJ be stored alongside computed values?
+
+## Links
+
+- Spec: [2026-09-05-bpm-key-design.md](../specs/2026-09-05-bpm-key-design.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Documentation map](../README.md)

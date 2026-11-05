@@ -1,6 +1,9 @@
 # The Crate: five history views. Design
 
-Date: 2026-09-04. Status: approved by the owner on the mockup
+> **Status**: Implemented (shipped 2026-09-04, inventory F7)
+> **Last updated**: 2026-11-05
+
+Date: 2026-09-04. Status at writing: approved by the owner on the mockup
 (https://claude.ai/code/artifact/fc923187-a063-4686-90fe-adb3a6c3f069).
 Builds on the shipped app described in `2026-09-04-spotify-dj-webapp-design.md`.
 Research: `../research/2026-09-04-history-export-semantics.md`.
@@ -391,3 +394,13 @@ beyond it, and recomputed on scroll and on resize (§6 amended).
 The research recommended a `DB_VERSION` bump; the design keeps version 1
 (reasons in §5). The research suggested optional per-year storage; years
 are folded from months at read time.
+
+## Links
+
+- [Feature inventory](../architecture/100-features.md) (F7)
+- [How the app works](../architecture/000-how-it-works.md)
+- [ADR-07](../architecture/700-adr/ADR-07-play-counts-from-export.md)
+- Research: [2026-09-04-history-export-semantics.md](../research/2026-09-04-history-export-semantics.md)
+- [ADR index](../architecture/700-adr/README.md)
+- [Limits and roadmap](../architecture/800-limits-roadmap.md)
+- [Documentation map](../README.md)
