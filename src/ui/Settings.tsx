@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { auth } from '../auth/browser';
 import type { ReachRunCounts, ReachStep } from '../features/reachRun';
 import type { RekordboxSummary } from '../features/rekordboxImport';
@@ -17,8 +18,12 @@ import {
   reachState,
   rekordboxState,
   rekordboxSummary,
+  serverLinkSent,
+  serverSession,
+  serverState,
   setKeyNotation,
   startLookup,
+  startServerLink,
   startReach,
   startRekordboxImport,
   startSync,
@@ -31,6 +36,101 @@ import { routeHref } from '../router';
 import { Progress } from './components/Progress';
 import { Segmented } from './components/Segmented';
 import { formatDate, formatDateTime, plural } from './format';
+
+/** The sign-in form of the server card: an email, a magic link (research D3). */
+function ServerSignIn() {
+  const [email, setEmail] = useState('');
+  const sent = serverLinkSent.value;
+  return (
+    <>
+      <p class="muted">
+        Sign in to your server with a link sent to your email. Open the link in
+        this browser, within 10 minutes.
+      </p>
+      <input
+        class="filter"
+        type="email"
+        placeholder="Email"
+        autocomplete="email"
+        value={email}
+        onInput={(e) => setEmail((e.currentTarget as HTMLInputElement).value)}
+      />
+      <div class="actions">
+        <button
+          type="button"
+          class="primary"
+          disabled={email.trim() === ''}
+          onClick={() => void startServerLink(email)}
+        >
+          Send me a link
+        </button>
+      </div>
+      {sent !== null && (
+        <p class="muted">
+          If this email has an account, a link was sent to {sent}. Open it in
+          this browser within 10 minutes.
+        </p>
+      )}
+    </>
+  );
+}
+
+function ServerCard() {
+  const state = serverState.value;
+  const session = serverSession.value;
+  if (state.status === 'unset') {
+    return (
+      <div class="card">
+        <h2>Server</h2>
+        <p class="muted">
+          No server set up. This browser keeps its own data. To share it across
+          your devices, set the two server values described in the README.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div class="card">
+      <h2>Server</h2>
+      {state.status === 'error' && <p class="error">{state.message}</p>}
+      {state.status === 'offline' && (
+        <p class="warn">
+          Server offline: {state.message} Local data is in use.
+        </p>
+      )}
+      {state.status === 'paused' && (
+        <p class="warn">
+          Server paused. Resume it from the{' '}
+          <a href={state.dashboardUrl} target="_blank" rel="noopener">
+            Supabase dashboard
+          </a>
+          , then open the app again. Local data is in use.
+        </p>
+      )}
+      {session === null ? (
+        <ServerSignIn />
+      ) : (
+        <>
+          <p>Connected as {session.email || 'the owner'}.</p>
+          {state.status === 'connected' && (
+            <p class="muted">
+              Last sync with the server:{' '}
+              {state.lastSyncAt ? formatDateTime(state.lastSyncAt) : 'never'}
+            </p>
+          )}
+          {(state.status === 'pushing' || state.status === 'pulling') && (
+            <Progress
+              label={`${state.status === 'pushing' ? 'Sending' : 'Fetching'} ${state.dataset}`}
+              done={state.done}
+              total={state.total}
+              unit="rows"
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 function historyLine(summary: ImportSummary, zoneAtImport?: string): string {
   const parts = [
@@ -375,6 +475,7 @@ export function Settings() {
       <AudioCard />
       <ReachCard />
       <MixCard />
+      <ServerCard />
       <div class="card">
         <h2>Disconnect</h2>
         <p>

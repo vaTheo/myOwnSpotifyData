@@ -1,0 +1,171 @@
+import type { AllRows, MixRow } from '../db/schema';
+import { SC_PLAYER_PREFIX } from '../features/mix/oembed';
+import type { DatasetName, StoreName } from './datasets';
+
+/**
+ * Every row that comes back from the server is untrusted input (security
+ * review S3): it is rendered as links and one iframe. These checks run before
+ * a pulled row is written or shown. A failing row is dropped and counted,
+ * never fixed up; unknown extra fields are kept (optional fields need no
+ * bump, ADR-05).
+ */
+
+export type Valid<T> = { ok: true; row: T } | { ok: false; reason: string };
+
+type Row = Record<string, unknown>;
+
+const SPOTIFY_PREFIX = 'https://open.spotify.com/';
+
+function obj(v: unknown): v is Row {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function nonEmpty(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0;
+}
+
+function finite(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v);
+}
+
+function isHttps(v: unknown): boolean {
+  if (typeof v !== 'string') return false;
+  try {
+    return new URL(v).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/** Absent, null, or an https URL. */
+function optHttps(v: unknown): boolean {
+  return v === undefined || v === null || isHttps(v);
+}
+
+function optSpotify(v: unknown): boolean {
+  return (
+    v === undefined ||
+    v === null ||
+    (typeof v === 'string' && v.startsWith(SPOTIFY_PREFIX))
+  );
+}
+
+function optFinite(v: unknown): boolean {
+  return v === undefined || v === null || finite(v);
+}
+
+function fail(reason: string): Valid<never> {
+  return { ok: false, reason };
+}
+
+function checkRow(store: StoreName, r: Row): string | null {
+  switch (store) {
+    case 'playlists':
+      if (!nonEmpty(r.id)) return 'id';
+      if (typeof r.name !== 'string') return 'name';
+      if (!optHttps(r.imageUrl)) return 'imageUrl';
+      if (!optSpotify(r.spotifyUrl)) return 'spotifyUrl';
+      if (!finite(r.syncedAt)) return 'syncedAt';
+      return null;
+    case 'tracks':
+      if (!nonEmpty(r.key)) return 'key';
+      if (typeof r.uri !== 'string') return 'uri';
+      if (typeof r.name !== 'string') return 'name';
+      if (!Array.isArray(r.artists)) return 'artists';
+      if (!finite(r.durationMs)) return 'durationMs';
+      if (!optSpotify(r.spotifyUrl)) return 'spotifyUrl';
+      return null;
+    case 'entries':
+      if (!nonEmpty(r.playlistId)) return 'playlistId';
+      if (!finite(r.position)) return 'position';
+      if (!nonEmpty(r.trackKey)) return 'trackKey';
+      return null;
+    case 'topItems': {
+      if (!nonEmpty(r.key)) return 'key';
+      if (!Array.isArray(r.items)) return 'items';
+      if (!finite(r.fetchedAt)) return 'fetchedAt';
+      for (const item of r.items) {
+        if (!obj(item)) return 'item';
+        if (!optHttps(item.imageUrl)) return 'item.imageUrl';
+        if (!optSpotify(item.spotifyUrl)) return 'item.spotifyUrl';
+      }
+      return null;
+    }
+    case 'plays':
+      if (!nonEmpty(r.trackId)) return 'trackId';
+      if (!finite(r.plays)) return 'plays';
+      if (!finite(r.msPlayed)) return 'msPlayed';
+      return null;
+    case 'features':
+      if (!nonEmpty(r.trackId)) return 'trackId';
+      if (!finite(r.updatedAt)) return 'updatedAt';
+      return null;
+    case 'artistIdentity':
+      if (!nonEmpty(r.artistId)) return 'artistId';
+      if (typeof r.name !== 'string') return 'name';
+      return null;
+    case 'artistReach':
+      if (!nonEmpty(r.key)) return 'key';
+      if (!nonEmpty(r.artistId)) return 'artistId';
+      if (!nonEmpty(r.source)) return 'source';
+      if (!isHttps(r.sourceUrl)) return 'sourceUrl';
+      if (!optFinite(r.value)) return 'value';
+      if (!finite(r.fetchedAt)) return 'fetchedAt';
+      return null;
+  }
+}
+
+export function validateRow<S extends StoreName>(
+  store: S,
+  row: unknown
+): Valid<AllRows[S][number]> {
+  if (!obj(row)) return fail('not an object');
+  const bad = checkRow(store, row);
+  if (bad) return fail(`${store}.${bad}`);
+  return { ok: true, row: row as AllRows[S][number] };
+}
+
+export function validateMix(row: unknown): Valid<MixRow> {
+  if (!obj(row)) return fail('not an object');
+  if (!nonEmpty(row.url)) return fail('mixes.url');
+  if (!finite(row.savedAt)) return fail('mixes.savedAt');
+  if (row.playerSrc !== null && row.playerSrc !== undefined) {
+    if (
+      typeof row.playerSrc !== 'string' ||
+      !row.playerSrc.startsWith(SC_PLAYER_PREFIX)
+    ) {
+      return fail('mixes.playerSrc');
+    }
+  }
+  if (!obj(row.sources)) return fail('mixes.sources');
+  if (!optHttps(row.sources.linkOut)) return fail('mixes.sources.linkOut');
+  if (!optSpotify(row.playlistUrl)) return fail('mixes.playlistUrl');
+  if (!Array.isArray(row.rows)) return fail('mixes.rows');
+  for (const t of row.rows) {
+    if (!obj(t)) return fail('mixes.row');
+    if (typeof t.artist !== 'string' || typeof t.title !== 'string')
+      return fail('mixes.row.text');
+    if (!optFinite(t.startSec) || !optFinite(t.endSec))
+      return fail('mixes.row.time');
+    if (!optHttps(t.shazamUrl)) return fail('mixes.row.shazamUrl');
+  }
+  return { ok: true, row: row as unknown as MixRow };
+}
+
+/** The summary a dataset's stamp carries, as the screens' gates expect it. */
+export function validateSummary(name: DatasetName, value: unknown): boolean {
+  switch (name) {
+    case 'history':
+      return obj(value) && value.version === 2 && finite(value.importedAt);
+    case 'reach':
+      return obj(value) && value.version === 1 && finite(value.ranAt);
+    case 'features':
+      return (
+        value === null ||
+        value === undefined ||
+        (obj(value) && finite(value.importedAt))
+      );
+    case 'library':
+      return value === null || value === undefined;
+  }
+}

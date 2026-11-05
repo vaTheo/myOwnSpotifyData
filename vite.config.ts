@@ -16,7 +16,8 @@ function csp(): Plugin {
     name: 'csp-placeholders',
     configResolved(config) {
       serve = config.command === 'serve';
-      server = loadEnv(config.mode, process.cwd(), 'VITE_').VITE_SUPABASE_URL ?? '';
+      server =
+        loadEnv(config.mode, process.cwd(), 'VITE_').VITE_SUPABASE_URL ?? '';
     },
     transformIndexHtml: {
       order: 'pre',

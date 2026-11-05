@@ -59,6 +59,8 @@ import {
   type ImportState,
   type ImportSummary,
 } from '../history/importer';
+import { LINK_BROWSER_MESSAGE } from '../server/client';
+import { serverAuth, serverConfigured } from '../server/browser';
 import { api } from '../spotify/api';
 import {
   ACCOUNT_SWITCH_CONFIRM,
@@ -85,6 +87,92 @@ export const rekordboxSummary = signal<RekordboxSummary | null>(null);
 export const reachState = signal<ReachState>({ status: 'idle' });
 export const artistReachSummary = signal<ArtistReachSummary | null>(null);
 export const banner = signal<BannerMessage | null>(null);
+
+/** One line of the Settings server card's per-dataset table. */
+export interface ServerStampView {
+  name: string;
+  /** When this device fetched or imported the dataset, or null. */
+  localAt: number | null;
+  /** The server's stamp, or null when it holds nothing. */
+  serverAt: number | null;
+  rows: number | null;
+}
+
+/**
+ * The owner's server (ADR-08), as the Settings server card renders it. Every
+ * failure lands here with its reason; `offline` and `paused` are states, not
+ * errors (no banner, pending pushes kept).
+ */
+export type ServerStatus =
+  | { status: 'unset' }
+  | { status: 'signedOut' }
+  | { status: 'offline'; message: string }
+  | { status: 'paused'; dashboardUrl: string }
+  | {
+      status: 'pushing' | 'pulling';
+      dataset: string;
+      done: number;
+      total: number;
+    }
+  | {
+      status: 'connected';
+      lastSyncAt: number | null;
+      usedBytes: number | null;
+      stamps: ServerStampView[];
+      /** Rows the safety check dropped on the last pull (FR-018). */
+      rejected: number;
+    }
+  | { status: 'error'; message: string };
+
+export const SUPABASE_DASHBOARD_URL = 'https://supabase.com/dashboard';
+
+/** The server session and the "link sent" notice, for the Settings card. */
+export const serverSession = serverAuth.session;
+export const serverLinkSent = serverAuth.linkSent;
+
+function serverBaseState(): ServerStatus {
+  if (!serverConfigured) return { status: 'unset' };
+  if (!serverAuth.session.value) return { status: 'signedOut' };
+  return {
+    status: 'connected',
+    lastSyncAt: null,
+    usedBytes: null,
+    stamps: [],
+    rejected: 0,
+  };
+}
+
+export const serverState = signal<ServerStatus>(serverBaseState());
+
+/** Sends the magic link; the card then shows the generic "if this email…" line. */
+export async function startServerLink(email: string): Promise<void> {
+  if (!serverConfigured) return;
+  const res = await serverAuth.requestLink(email.trim());
+  if (res.ok) return;
+  serverState.value =
+    res.kind === 'paused'
+      ? { status: 'paused', dashboardUrl: SUPABASE_DASHBOARD_URL }
+      : { status: 'offline', message: res.message };
+}
+
+/**
+ * Finishes the magic link when the app opens on `?link=server&code=…`
+ * (main.tsx). An invalid link leaves the owner signed out with the one
+ * message they can act on.
+ */
+export async function completeServerLink(
+  params: URLSearchParams
+): Promise<'none' | 'ok' | 'invalid'> {
+  const result = await serverAuth.completeLink(params);
+  if (result === 'ok') serverState.value = serverBaseState();
+  if (result === 'invalid') {
+    serverState.value = {
+      status: 'error',
+      message: serverAuth.lastError.value ?? LINK_BROWSER_MESSAGE,
+    };
+  }
+  return result;
+}
 
 export interface MixView {
   url: string;
@@ -1145,5 +1233,8 @@ export async function disconnect(): Promise<void> {
   rekordboxSummary.value = null;
   artistReachSummary.value = null;
   banner.value = null;
+  // The server session and the server's data are kept: Disconnect is about
+  // this browser. Only the card's transient state goes back to its base.
+  serverState.value = serverBaseState();
   // keyNotation is a display preference, not data: it survives a wipe.
 }

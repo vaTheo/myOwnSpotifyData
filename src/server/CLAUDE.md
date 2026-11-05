@@ -5,15 +5,15 @@ project reached with plain `fetch`. The server stores and never computes; it nev
 
 ## Required inputs
 
-| Type | File | Why |
-|---|---|---|
-| Decision | `../../docs/architecture/700-adr/ADR-08-owner-server-free-tier.md` | what the server is and is not |
-| Contract | `../../specs/001-backend-data-sync/contracts/client-api.md` | every interface in this folder, the state and Settings additions |
-| Contract | `../../specs/001-backend-data-sync/contracts/server-schema.md` | tables, policies, the requests, the error mapping |
-| Review | `../../specs/001-backend-data-sync/security.md` | the eleven findings every change here must keep closed |
-| Shape | `../spotify/client.ts` | the client this folder copies: injected `fetchFn`, results instead of throws |
-| Rules | `../db/CLAUDE.md` | `replaceDataset` and the meta names live beside the other repo functions |
-| Tests | `*.test.ts` next to each file | a fake `fetchFn` for the client, `fake-indexeddb/auto` for the repo |
+| Type     | File                                                               | Why                                                                          |
+| -------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Decision | `../../docs/architecture/700-adr/ADR-08-owner-server-free-tier.md` | what the server is and is not                                                |
+| Contract | `../../specs/001-backend-data-sync/contracts/client-api.md`        | every interface in this folder, the state and Settings additions             |
+| Contract | `../../specs/001-backend-data-sync/contracts/server-schema.md`     | tables, policies, the requests, the error mapping                            |
+| Review   | `../../specs/001-backend-data-sync/security.md`                    | the eleven findings every change here must keep closed                       |
+| Shape    | `../spotify/client.ts`                                             | the client this folder copies: injected `fetchFn`, results instead of throws |
+| Rules    | `../db/CLAUDE.md`                                                  | `replaceDataset` and the meta names live beside the other repo functions     |
+| Tests    | `*.test.ts` next to each file                                      | a fake `fetchFn` for the client, `fake-indexeddb/auto` for the repo          |
 
 ## Expected outputs
 
