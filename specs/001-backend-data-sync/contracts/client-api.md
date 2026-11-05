@@ -102,7 +102,21 @@ export async function replaceDataset(name: DatasetName, rows: Partial<AllRows>, 
 // one readwrite transaction over the dataset's stores + meta: clear, put all, put summaries
 ```
 
+## `src/sync/runner.ts` addition (pure)
+
+```ts
+export type ConnectedAccount = 'set' | 'same' | 'mismatch';
+export function resolveConnectedAccount(cached: string | undefined, me: string): ConnectedAccount;
+export const ACCOUNT_MISMATCH_NOTICE: string;   // "Signed in as a different Spotify account. Sync now to switch; local data is kept until you confirm."
+```
+
 ## `src/model/state.ts` additions
+
+`recordConnectedAccount()`: `api.get<ApiProfile>('/me')` once, then `resolveConnectedAccount(await getMeta(ACCOUNT_META), me.id)`:
+`set` → `putMeta(ACCOUNT_META, me.id)`; `same` → nothing; `mismatch` → `banner = warnBanner(ACCOUNT_MISMATCH_NOTICE)` and no pull.
+A failed `/me` (offline, 401) is shown as a banner and the pull is skipped; nothing else changes. Called from `main.tsx` right after
+`auth.completeLogin(params)` returns `'ok'`, before `loadFromDb()`.
+
 
 `serverState` signal; `startServerLink` (sends the email), `startServerSignOut`, `startServerPull` (joins `jobsBusy()`), `queueServerPush`
 (flags `serverPending`, runs one push at a time, never joins `jobsBusy()`), `removeServerData` (the one new `confirm()`); the five
