@@ -24,6 +24,7 @@ import {
   setKeyNotation,
   startLookup,
   startServerLink,
+  startServerSync,
   startReach,
   startRekordboxImport,
   startSync,
@@ -113,11 +114,55 @@ function ServerCard() {
         <>
           <p>Connected as {session.email || 'the owner'}.</p>
           {state.status === 'connected' && (
-            <p class="muted">
-              Last sync with the server:{' '}
-              {state.lastSyncAt ? formatDateTime(state.lastSyncAt) : 'never'}
-            </p>
+            <>
+              <p class="muted">
+                Last sync with the server:{' '}
+                {state.lastSyncAt ? formatDateTime(state.lastSyncAt) : 'never'}
+              </p>
+              <table class="stamps">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Here</th>
+                    <th>Server</th>
+                    <th>Rows</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.stamps.map((row) => (
+                    <tr key={row.name}>
+                      <td>{row.name}</td>
+                      <td>{row.localAt ? formatDateTime(row.localAt) : '—'}</td>
+                      <td>
+                        {row.serverAt ? formatDateTime(row.serverAt) : '—'}
+                      </td>
+                      <td>{row.rows ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {state.rejected > 0 && (
+                <p class="warn">
+                  {plural(state.rejected, 'row')} rejected by the safety check
+                  and left out.
+                </p>
+              )}
+            </>
           )}
+          <div class="actions">
+            <button
+              type="button"
+              class="primary"
+              disabled={
+                jobsBusy() ||
+                state.status === 'pushing' ||
+                state.status === 'pulling'
+              }
+              onClick={() => void startServerSync()}
+            >
+              Sync now with server
+            </button>
+          </div>
           {(state.status === 'pushing' || state.status === 'pulling') && (
             <Progress
               label={`${state.status === 'pushing' ? 'Sending' : 'Fetching'} ${state.dataset}`}

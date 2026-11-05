@@ -16,6 +16,8 @@ import {
   putMix,
   putReach,
   putTopItems,
+  clearMixDeleted,
+  getMixDeleted,
   replaceDataset,
   replacePlaylist,
   replacePlays,
@@ -628,5 +630,32 @@ describe('replaceDataset', () => {
 
   it('needs no database version bump', () => {
     expect(DB_VERSION).toBe(4);
+  });
+});
+
+describe('deleteMix tombstones', () => {
+  it('records the url and the time of a local deletion; a push clears it', async () => {
+    await putMix(mix('https://soundcloud.com/a/one'));
+    await putMix(mix('https://soundcloud.com/a/two'));
+    await deleteMix('https://soundcloud.com/a/one', 1234);
+    expect((await getMixes()).map((m) => m.url)).toEqual([
+      'https://soundcloud.com/a/two',
+    ]);
+    expect(await getMixDeleted()).toEqual([
+      { url: 'https://soundcloud.com/a/one', deletedAt: 1234 },
+    ]);
+    await deleteMix('https://soundcloud.com/a/two', 1300);
+    await clearMixDeleted(['https://soundcloud.com/a/one']);
+    expect(await getMixDeleted()).toEqual([
+      { url: 'https://soundcloud.com/a/two', deletedAt: 1300 },
+    ]);
+  });
+
+  it('deleting the same url twice keeps the newer time', async () => {
+    await deleteMix('https://soundcloud.com/a/one', 10);
+    await deleteMix('https://soundcloud.com/a/one', 20);
+    expect(await getMixDeleted()).toEqual([
+      { url: 'https://soundcloud.com/a/one', deletedAt: 20 },
+    ]);
   });
 });

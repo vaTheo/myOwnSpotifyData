@@ -1,7 +1,12 @@
 import { render } from 'preact';
 import { App, bootPhase, installRouter } from './app';
 import { auth } from './auth/browser';
-import { completeServerLink, loadFromDb } from './model/state';
+import {
+  completeServerLink,
+  loadFromDb,
+  recordConnectedAccount,
+  startServerPull,
+} from './model/state';
 import { LINK_MARKER } from './server/session';
 import { AuthError } from './spotify/errors';
 import './styles.css';
@@ -23,7 +28,10 @@ async function boot(): Promise<void> {
   render(<App />, document.getElementById('app')!);
   if (returning) {
     try {
-      await auth.completeLogin(params);
+      // One `/me` call on the Connect tap, never on load (research D11).
+      if ((await auth.completeLogin(params)) === 'ok') {
+        await recordConnectedAccount();
+      }
     } catch (err) {
       auth.lastAuthError.value =
         err instanceof AuthError
@@ -44,6 +52,9 @@ async function boot(): Promise<void> {
     await loadFromDb();
   }
   bootPhase.value = 'ready';
+  // After the first paint and the local load: a slow or paused server never
+  // delays "Loading your library…" (US3).
+  if (auth.session.value) await startServerPull();
 }
 
 void boot();

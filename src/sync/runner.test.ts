@@ -13,6 +13,7 @@ import type { ApiPlaylistItem, ApiPlaylistSummary } from '../spotify/types';
 import {
   ACCOUNT_SWITCH_STOPPED,
   SYNC_STATE_META,
+  resolveConnectedAccount,
   runSync,
   type SyncState,
 } from './runner';
@@ -434,5 +435,13 @@ describe('runSync resilience', () => {
     await run(routes, { acquireWakeLock });
     expect(acquireWakeLock).toHaveBeenCalledTimes(1);
     expect(release).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('resolveConnectedAccount', () => {
+  it('sets a first account, keeps the same one, flags a different one', () => {
+    expect(resolveConnectedAccount(undefined, 'a')).toBe('set');
+    expect(resolveConnectedAccount('a', 'a')).toBe('same');
+    expect(resolveConnectedAccount('a', 'b')).toBe('mismatch');
   });
 });

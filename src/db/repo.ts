@@ -2,12 +2,14 @@ import { deleteDB, openDB, type IDBPDatabase } from 'idb';
 import {
   DB_NAME,
   DB_VERSION,
+  MIX_DELETED_META,
   type AllRows,
   type ArtistIdentityRow,
   type ArtistReachRow,
   type DjDb,
   type EntryRow,
   type FeatureRow,
+  type MixDeletedEntry,
   type MixRow,
   type PlayRow,
   type PlaylistRow,
@@ -261,9 +263,42 @@ export async function putMix(row: MixRow): Promise<void> {
   await db.put('mixes', row);
 }
 
-export async function deleteMix(url: string): Promise<void> {
+/**
+ * Deletes a saved mix and records the deletion, so the server sync can push
+ * a tombstone that removes it on the other devices too (US2). One
+ * transaction: the row and its record go together.
+ */
+export async function deleteMix(
+  url: string,
+  deletedAt = Date.now()
+): Promise<void> {
   const db = await openDb();
-  await db.delete('mixes', url);
+  const tx = db.transaction(['mixes', 'meta'], 'readwrite');
+  const meta = tx.objectStore('meta');
+  const current = (await meta.get(MIX_DELETED_META))?.value as
+    MixDeletedEntry[] | undefined;
+  const kept = (current ?? []).filter((d) => d.url !== url);
+  const previous = (current ?? []).find((d) => d.url === url);
+  kept.push({ url, deletedAt: Math.max(deletedAt, previous?.deletedAt ?? 0) });
+  await Promise.all([
+    tx.objectStore('mixes').delete(url),
+    meta.put({ name: MIX_DELETED_META, value: kept }),
+    tx.done,
+  ]);
+}
+
+export async function getMixDeleted(): Promise<MixDeletedEntry[]> {
+  return (await getMeta<MixDeletedEntry[]>(MIX_DELETED_META)) ?? [];
+}
+
+/** Called after the tombstones reached the server. */
+export async function clearMixDeleted(urls: string[]): Promise<void> {
+  if (urls.length === 0) return;
+  const current = await getMixDeleted();
+  await putMeta(
+    MIX_DELETED_META,
+    current.filter((d) => !urls.includes(d.url))
+  );
 }
 
 export async function getMeta<T>(name: string): Promise<T | undefined> {
