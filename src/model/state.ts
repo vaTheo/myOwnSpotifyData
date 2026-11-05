@@ -1181,6 +1181,7 @@ export async function saveMix(): Promise<boolean> {
     return false;
   }
   await loadSavedMixes();
+  void queueServerPush(['mixes']);
   return true;
 }
 
@@ -1277,7 +1278,10 @@ export async function startCreatePlaylist(): Promise<void> {
     }
     // Only on success: loadSavedMixes clears mixError first, so calling it
     // after a rejected putMix would wipe the error we just set (nothing shown).
-    if (saved) await loadSavedMixes();
+    if (saved) {
+      await loadSavedMixes();
+      void queueServerPush(['mixes']);
+    }
   }
 }
 
@@ -1377,6 +1381,7 @@ export async function removeMix(url: string): Promise<void> {
     return;
   }
   await loadSavedMixes();
+  void queueServerPush(['mixes']);
 }
 
 export async function disconnect(): Promise<void> {

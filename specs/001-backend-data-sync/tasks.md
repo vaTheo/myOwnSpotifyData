@@ -106,15 +106,15 @@ mixes on A, reopen B and see both.
 
 ### Tests first
 
-- [ ] T028 [P] [US2] Add to `src/server/sync.test.ts`: a `library` stamp older locally than on the server is pulled, newer is pushed, equal is left alone (both directions through `compareStamps`); a pull never writes a dataset whose server `fetched_at` equals the local stamp
-- [ ] T029 [P] [US2] Add mixes tests to `src/server/sync.test.ts`: `runPush(['mixes'])` reads `GET mixes?select=url,saved_at,deleted_at&spotify_account_id=eq.A`, upserts local rows newer than the server's as `{ spotify_account_id, url, saved_at, deleted_at: null, row }`, and pushes a tombstone `{ url, saved_at: now, deleted_at: now, row: null }` for every url in the local `mixDeleted` list; `runPull` reads `GET mixes?select=*&spotify_account_id=eq.A` and keeps only the urls `planMixes` returns (never a url list in the query, S8), validates each with `validateMix`, calls `putMix` for each accepted row and `deleteMix` for every tombstone newer than the local `savedAt`; a mix edited on both sides keeps the newer `savedAt` whole
+- [X] T028 [P] [US2] Add to `src/server/sync.test.ts`: a `library` stamp older locally than on the server is pulled, newer is pushed, equal is left alone (both directions through `compareStamps`); a pull never writes a dataset whose server `fetched_at` equals the local stamp
+- [X] T029 [P] [US2] Add mixes tests to `src/server/sync.test.ts`: `runPush(['mixes'])` reads `GET mixes?select=url,saved_at,deleted_at&spotify_account_id=eq.A`, upserts local rows newer than the server's as `{ spotify_account_id, url, saved_at, deleted_at: null, row }`, and pushes a tombstone `{ url, saved_at: now, deleted_at: now, row: null }` for every url in the local `mixDeleted` list; `runPull` reads `GET mixes?select=*&spotify_account_id=eq.A` and keeps only the urls `planMixes` returns (never a url list in the query, S8), validates each with `validateMix`, calls `putMix` for each accepted row and `deleteMix` for every tombstone newer than the local `savedAt`; a mix edited on both sides keeps the newer `savedAt` whole
 - [X] T030 [P] [US2] Add to `src/db/repo.test.ts`: `deleteMix(url)` records the url in a `mixDeleted` meta list (with `Date.now()`), and a successful push clears it
 
 ### Implementation
 
 - [X] T031 [US2] Extend `runPush` and `runPull` in `src/server/sync.ts` with the `mixes` branch per T029 (`planMixes` from `src/server/datasets.ts`; tombstones; `deleteLocal`)
-- [ ] T032 [US2] In `src/db/repo.ts`, make `deleteMix` append `{ url, deletedAt }` to the `mixDeleted` meta (export `MIX_DELETED_META = 'mixDeleted'` from `src/db/schema.ts`), and add `clearMixDeleted(urls)` for the push to call
-- [ ] T033 [US2] In `src/model/state.ts`, call `queueServerPush(['mixes'])` after every `putMix` and `deleteMix` path (`startMixLookup`, `startTracklistifyImport`, the row edit and replace actions, `startCreatePlaylist` when it stores `playlistUrl`, the delete action), and make `startServerPull` end with `loadSavedMixes()` as well as `loadFromDb()`
+- [X] T032 [US2] In `src/db/repo.ts`, make `deleteMix` append `{ url, deletedAt }` to the `mixDeleted` meta (export `MIX_DELETED_META = 'mixDeleted'` from `src/db/schema.ts`), and add `clearMixDeleted(urls)` for the push to call
+- [X] T033 [US2] In `src/model/state.ts`, call `queueServerPush(['mixes'])` after every `putMix` and `deleteMix` path (`startMixLookup`, `startTracklistifyImport`, the row edit and replace actions, `startCreatePlaylist` when it stores `playlistUrl`, the delete action), and make `startServerPull` end with `loadSavedMixes()` as well as `loadFromDb()`
 
 **Checkpoint**: three checks green; quickstart 5 and 6 pass; commit `feat(server): newer wins both ways, mixes by row with tombstones`.
 
