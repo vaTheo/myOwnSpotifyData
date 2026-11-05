@@ -7,7 +7,6 @@ Date: 2026-09-06. Status at writing: draft for the owner to review before any co
 Builds on `2026-09-04-spotify-dj-webapp-design.md`, the Crate specs, and the
 `2026-09-05-bpm-key-design.md` / `2026-09-05-artist-reach-design.md` features
 (this spec assumes `DB_VERSION` 3 — the two reach stores — has landed).
-Research: `../research/2026-09-06-mix-tracklist-sources.md`.
 Live probe: this spec's author re-ran the two endpoints on **2026-09-06** from
 the app's own origin; the exact responses are quoted in §3 and §8, and where
 they refine the research they win.
@@ -1155,7 +1154,6 @@ the two info cards point at.
 - [Feature inventory](../architecture/100-features.md) (F12)
 - [How the app works](../architecture/000-how-it-works.md)
 - [ADR-04](../architecture/700-adr/ADR-04-keyless-sources-by-id.md)
-- Research: [2026-09-06-mix-tracklist-sources.md](../research/2026-09-06-mix-tracklist-sources.md)
 - [ADR index](../architecture/700-adr/README.md)
 - [Limits and roadmap](../architecture/800-limits-roadmap.md)
 - [Documentation map](../README.md)

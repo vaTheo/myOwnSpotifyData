@@ -35,8 +35,7 @@ so a stopped run resumes. Each source is paced to its published limit; the reach
 - Specs: [BPM and key](../../specs/2026-09-05-bpm-key-design.md), [Artist reach](../../specs/2026-09-05-artist-reach-design.md),
   [Mix tracklist](../../specs/2026-09-06-mix-tracklist-design.md)
 - Research: [BPM and key sources](../../research/2026-09-05-bpm-key-sources.md),
-  [artist reach sources](../../research/2026-09-05-artist-reach-sources.md),
-  [mix tracklist sources](../../research/2026-09-06-mix-tracklist-sources.md)
+  [artist reach sources](../../research/2026-09-05-artist-reach-sources.md)
 - [How the app works](../000-how-it-works.md) §9, §10
 - [ADR index](README.md)
 - [Limits and roadmap](../800-limits-roadmap.md)

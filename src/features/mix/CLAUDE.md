@@ -10,7 +10,6 @@ import), library matching, Create playlist from mix, and dig links.
 | Reference | `../../../docs/architecture/000-how-it-works.md` §10 | every file here, and the full `pickMatch` accept rule |
 | Decision | `../../../docs/architecture/700-adr/ADR-03-library-writes-on-tap.md` | the playlist write: tap only, scope gate, POST never retried |
 | Spec | `../../../docs/specs/2026-09-06-mix-tracklist-design.md`, `../../../docs/specs/2026-09-06-mix-playlist-design.md`, `../../../docs/specs/2026-09-28-tracklistify-import-design.md` | the rulings and the out-of-scope lists |
-| Research | `../../../docs/research/2026-09-06-mix-tracklist-sources.md` | the TrackId guard, the oEmbed shape, the six-shape grammar |
 | Tests | `spotifySearch.test.ts` | every accepted and refused match; add a case for each new rule |
 
 ## Expected outputs

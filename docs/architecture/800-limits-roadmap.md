@@ -16,7 +16,7 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 | Development Mode: owner listed in User Management, Premium | Spotify app mode | [README](../../README.md) "One-time setup" |
 | No Spotify audio features, artist followers or popularity for new apps | Spotify stopped answering them | [BPM research](../research/2026-09-05-bpm-key-sources.md), [reach research](../research/2026-09-05-artist-reach-sources.md) |
 | A token refresh never widens the scope | OAuth: the refresh keeps the original grant | [ADR-03](700-adr/ADR-03-library-writes-on-tap.md) |
-| No browser-only path returns a full mix tracklist | public sources only know already-identified mixes | [mix research](../research/2026-09-06-mix-tracklist-sources.md) |
+| No browser-only path returns a full mix tracklist | public sources only know already-identified mixes | [Mix tracklist spec](../specs/2026-09-06-mix-tracklist-design.md) |
 | Real Spotify playlist folders | not in the API | [Tracklistify spec](../specs/2026-09-28-tracklistify-import-design.md) |
 
 ## 2. Known limits of what is built
