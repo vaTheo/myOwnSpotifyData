@@ -92,6 +92,9 @@ and a look at every relative link of the pages you touched.
 
 1. Discuss with the owner; the choice is theirs (options with a recommendation, then implement what was picked).
 2. Write the spec under `docs/specs/` (decisions, out of scope, compatibility), then the plan under `docs/plans/`.
+   The `/speckit-*` skills (GitHub Spec Kit, `.claude/skills/`, state under `.specify/`) can drive steps 1–3: `/speckit-specify`,
+   `/speckit-plan`, `/speckit-tasks`, `/speckit-implement`. They write to `specs/<nnn-name>/` at the repo root; the round still ends with
+   the documents listed in "One change, several files".
 3. Implement test-first; keep `yarn typecheck`, `yarn lint` and `yarn test` green.
 4. Documentation pass: the list in "One change, several files".
 5. Commit `type(scope): summary`; the owner pushes or approves the push to `main`.
