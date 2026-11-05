@@ -1,4 +1,5 @@
 import {
+  MIX_DELETED_META,
   SERVER_LAST_SYNC_META,
   SERVER_PENDING_META,
   SERVER_STAMPS_META,
@@ -37,6 +38,7 @@ export interface RepoLike {
   getAllRows(): Promise<AllRows>;
   getMeta<T>(name: string): Promise<T | undefined>;
   putMeta(name: string, value: unknown): Promise<void>;
+  deleteMeta(name: string): Promise<void>;
   replaceDataset(
     stores: readonly StoreName[],
     rows: Partial<AllRows>,
@@ -536,4 +538,50 @@ export async function runPull(
   if (mixes.value.changed) outcome.pulled.push('mixes');
   await deps.repo.putMeta(SERVER_LAST_SYNC_META, deps.now());
   return ok(outcome);
+}
+
+/** The four tables, children first; a filter every visible row matches. */
+const REMOVE_ORDER = ['dataset_rows', 'datasets', 'mixes', 'jobs'] as const;
+const SERVER_METAS = [
+  SERVER_STAMPS_META,
+  SERVER_PENDING_META,
+  SERVER_LAST_SYNC_META,
+  MIX_DELETED_META,
+] as const;
+
+/**
+ * Removes every byte of the owner's data from the server (FR-014), then
+ * forgets what this device knew about the server. Local data and the
+ * Spotify account id stay. Row Level Security limits the deletes to the
+ * owner; the filter only satisfies PostgREST's "no unfiltered delete" rule.
+ */
+export async function runRemoveAll(
+  deps: SyncDeps
+): Promise<ServerResult<void>> {
+  const token = await deps.token();
+  if (!token.ok) return token;
+  for (const table of REMOVE_ORDER) {
+    const res = await deps.client.remove(
+      table,
+      { owner_id: 'not.is.null' },
+      token.value
+    );
+    if (!res.ok) {
+      return { ...res, message: `Could not clear ${table}: ${res.message}` };
+    }
+  }
+  for (const name of SERVER_METAS) await deps.repo.deleteMeta(name);
+  return ok(undefined);
+}
+
+/** `storage_used()`: the database size in bytes, for the Settings share. */
+export async function readUsage(deps: SyncDeps): Promise<ServerResult<number>> {
+  const token = await deps.token();
+  if (!token.ok) return token;
+  const res = await deps.client.rpc<unknown>('storage_used', token.value);
+  if (!res.ok) return res;
+  const n = Number(res.value);
+  return Number.isFinite(n)
+    ? ok(n)
+    : { ok: false, kind: 'error', message: 'storage_used() gave no number.' };
 }

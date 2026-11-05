@@ -312,6 +312,11 @@ export async function putMeta(name: string, value: unknown): Promise<void> {
   await db.put('meta', { name, value });
 }
 
+export async function deleteMeta(name: string): Promise<void> {
+  const db = await openDb();
+  await db.delete('meta', name);
+}
+
 /**
  * Replaces whole stores and their metas in one readwrite transaction: the
  * server pull writes a dataset's rows and the summary its screens gate on

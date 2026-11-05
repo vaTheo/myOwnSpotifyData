@@ -268,6 +268,20 @@ describe('error mapping', () => {
     });
   });
 
+  it('a thrown fetch after a successful call is still offline, never paused', async () => {
+    let n = 0;
+    const { c } = client(() => {
+      n++;
+      if (n === 1) return json([], 200, { 'Content-Range': '*/0' });
+      throw new TypeError('Failed to fetch');
+    });
+    expect((await c.select('datasets', {}, 'tok')).ok).toBe(true);
+    expect(await c.select('datasets', {}, 'tok')).toMatchObject({
+      ok: false,
+      kind: 'offline',
+    });
+  });
+
   it('a 401 is unauthorized, a 413 is tooLarge', async () => {
     const u = client(() => json({ message: 'JWT expired' }, 401));
     expect(await u.c.select('datasets', {}, 'tok')).toMatchObject({

@@ -6,6 +6,7 @@ import {
   DB_SLOW_MS,
   DB_SUPERSEDED_MESSAGE,
   clearMixDeleted,
+  deleteMeta,
   deleteMix,
   getAllRows,
   getMeta,
@@ -76,8 +77,10 @@ import { serverAuth, serverClient, serverConfigured } from '../server/browser';
 import { DATASETS } from '../server/datasets';
 import {
   UPDATE_APP_MESSAGE,
+  readUsage,
   runPull,
   runPush,
+  runRemoveAll,
   type PushName,
   type SyncDeps,
 } from '../server/sync';
@@ -143,6 +146,15 @@ export const serverState = signal<ServerStatus>(serverBaseState());
 /** True while a server pull rebuilds the model; part of jobsBusy(). */
 const serverPulling = signal(false);
 
+/** The last successful push or pull, for the card in every state. */
+export const serverLastSyncAt = signal<number | null>(null);
+
+/** The Free plan's database allowance, for the used share (SC-004). */
+export const SERVER_FREE_BYTES = 500 * 1024 * 1024;
+
+export const REMOVE_SERVER_DATA_CONFIRM =
+  'Remove all your data from the server? Local data on this browser is kept.';
+
 function serverDeps(): SyncDeps {
   return {
     client: serverClient,
@@ -151,6 +163,7 @@ function serverDeps(): SyncDeps {
       getAllRows,
       getMeta,
       putMeta,
+      deleteMeta,
       replaceDataset,
       getMixes,
       putMix,
@@ -200,10 +213,17 @@ async function connectedView(rejected = 0): Promise<ServerStatus> {
   };
   const seen = (await getMeta<ServerStamps>(SERVER_STAMPS_META)) ?? {};
   const previous = serverState.value;
+  const usage = await readUsage(serverDeps());
+  serverLastSyncAt.value =
+    (await getMeta<number>(SERVER_LAST_SYNC_META)) ?? null;
   return {
     status: 'connected',
-    lastSyncAt: (await getMeta<number>(SERVER_LAST_SYNC_META)) ?? null,
-    usedBytes: previous.status === 'connected' ? previous.usedBytes : null,
+    lastSyncAt: serverLastSyncAt.value,
+    usedBytes: usage.ok
+      ? usage.value
+      : previous.status === 'connected'
+        ? previous.usedBytes
+        : null,
     stamps: DATASETS.map((def) => ({
       name: def.name,
       localAt: def.stamp(rows, metas),
@@ -290,9 +310,33 @@ export async function startServerPull(): Promise<void> {
   void queueServerPush([]);
 }
 
-/** The card's "Sync now with server": a pull, then the pending pushes. */
+/** The card's "Sync now with server", and the open: pending pushes, then a pull. */
 export async function startServerSync(): Promise<void> {
+  await queueServerPush([]);
   await startServerPull();
+}
+
+/** Signs out of the server on this browser; local and server data stay. */
+export async function startServerSignOut(): Promise<void> {
+  await serverAuth.signOut();
+  serverState.value = serverBaseState();
+}
+
+/**
+ * Removes every byte of the owner's data from the server, behind the one
+ * new confirm (FR-014). Refused while a job runs, like Disconnect.
+ */
+export async function removeServerData(): Promise<void> {
+  if (!serverConfigured || !serverAuth.session.value) return;
+  if (jobsBusy()) {
+    banner.value = warnBanner(
+      'Wait for the current job to finish before removing server data.'
+    );
+    return;
+  }
+  if (!confirm(REMOVE_SERVER_DATA_CONFIRM)) return;
+  const res = await runRemoveAll(serverDeps());
+  serverState.value = res.ok ? await connectedView() : serverFailure(res);
 }
 
 /**
@@ -590,6 +634,8 @@ export async function loadFromDb(): Promise<void> {
       (await getMeta<RekordboxSummary>(REKORDBOX_SUMMARY_META)) ?? null;
     artistReachSummary.value =
       (await getMeta<ArtistReachSummary>(ARTIST_REACH_SUMMARY_META)) ?? null;
+    serverLastSyncAt.value =
+      (await getMeta<number>(SERVER_LAST_SYNC_META)) ?? null;
     if (crateStatus.value === 'reimport') await showCrateNotice();
   } catch (err) {
     banner.value = errorBanner(
@@ -1420,5 +1466,6 @@ export async function disconnect(): Promise<void> {
   // The server session and the server's data are kept: Disconnect is about
   // this browser. Only the card's transient state goes back to its base.
   serverState.value = serverBaseState();
+  serverLastSyncAt.value = null;
   // keyNotation is a display preference, not data: it survives a wipe.
 }
