@@ -126,3 +126,18 @@ closes S4 and most of S3's remote-tamper case (a tampered ciphertext fails authe
 
 Cheap to add, but it must be verified feature by feature on the phone: every host the app calls has to be listed, and the Deezer
 and SoundCloud player exceptions kept. If a host is missed, that feature silently fails until the policy is fixed. Recommended.
+
+## Verified (2026-11-06, against the owner's project, public key alone)
+
+| Check | Result |
+|---|---|
+| Auth settings | `disable_signup: true`, anonymous sign-in off, no third-party provider |
+| `GET /rest/v1/<table>?select=*` for `datasets`, `dataset_rows`, `mixes`, `jobs` | 401, `permission denied` (S1: `anon` holds no grant, not even an empty list) |
+| `POST /rest/v1/rpc/storage_used` | 401, `permission denied for function` (S10) |
+| `POST /rest/v1/jobs` (an insert) | 401, `permission denied` |
+| `POST /auth/v1/signup` with a valid-looking address | 422, `Signups not allowed for this instance` |
+| `POST /auth/v1/otp` with `create_user: false` for an unknown address | 422, `Signups not allowed for otp` (S5) |
+| OpenAPI listing with the public key | nothing exposed |
+
+Still to run by the owner in a browser: 12b (a temporary second user sees nothing), 2d (a link opened in another browser fails),
+13 (a tampered row is rejected and counted), 14 (every feature once with the policy on, no console violation).
