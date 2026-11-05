@@ -16,6 +16,7 @@ import {
   putMix,
   putReach,
   putTopItems,
+  replaceDataset,
   replacePlaylist,
   replacePlays,
   setDbEvents,
@@ -28,6 +29,7 @@ import type {
   EntryRow,
   FeatureRow,
   MixRow,
+  PlayRow,
   PlaylistRow,
   ReachSource,
   TrackRow,
@@ -520,5 +522,111 @@ describe('migration', () => {
     await expect(getMixes()).resolves.toEqual([
       mix('https://soundcloud.com/u/m'),
     ]);
+  });
+});
+
+describe('replaceDataset', () => {
+  it('clears the stores, writes the rows and the metas in one transaction', async () => {
+    await replacePlays([
+      {
+        trackId: 'old',
+        plays: 1,
+        msPlayed: 1,
+        firstTs: 'a',
+        lastTs: 'b',
+        trackName: null,
+        artistName: null,
+      },
+    ]);
+    await putMeta('historySummary', { version: 1, importedAt: 1 });
+    await replaceDataset(
+      ['plays'],
+      {
+        plays: [
+          {
+            trackId: 'new',
+            plays: 2,
+            msPlayed: 2,
+            firstTs: 'a',
+            lastTs: 'b',
+            trackName: null,
+            artistName: null,
+          },
+        ],
+      },
+      { historySummary: { version: 2, importedAt: 99 } }
+    );
+    const rows = await getAllRows();
+    expect(rows.plays.map((r) => r.trackId)).toEqual(['new']);
+    expect(await getMeta('historySummary')).toEqual({
+      version: 2,
+      importedAt: 99,
+    });
+  });
+
+  it('covers the four library stores', async () => {
+    await replacePlaylist(
+      playlist('p-old'),
+      [track('t-old')],
+      entries('p-old', ['t-old'])
+    );
+    await replaceDataset(
+      ['playlists', 'tracks', 'entries', 'topItems'],
+      {
+        playlists: [playlist('p-new')],
+        tracks: [track('t-new')],
+        entries: entries('p-new', ['t-new']),
+        topItems: [
+          {
+            key: 'tracks:short_term',
+            type: 'tracks',
+            period: 'short_term',
+            fetchedAt: 1,
+            items: [],
+          },
+        ],
+      },
+      { lastSyncAt: 123 }
+    );
+    const rows = await getAllRows();
+    expect(rows.playlists.map((p) => p.id)).toEqual(['p-new']);
+    expect(rows.tracks.map((t) => t.key)).toEqual(['t-new']);
+    expect(rows.entries.map((e) => e.playlistId)).toEqual(['p-new']);
+    expect(rows.topItems.map((t) => t.key)).toEqual(['tracks:short_term']);
+    expect(await getMeta('lastSyncAt')).toBe(123);
+  });
+
+  it('a failing row leaves the old rows and the old meta in place', async () => {
+    await replacePlays([
+      {
+        trackId: 'old',
+        plays: 1,
+        msPlayed: 1,
+        firstTs: 'a',
+        lastTs: 'b',
+        trackName: null,
+        artistName: null,
+      },
+    ]);
+    await putMeta('historySummary', { version: 2, importedAt: 1 });
+    await expect(
+      replaceDataset(
+        ['plays'],
+        // A row without its key path cannot be stored: the put rejects and the
+        // whole transaction aborts.
+        { plays: [{ plays: 2 } as unknown as PlayRow] },
+        { historySummary: { version: 2, importedAt: 99 } }
+      )
+    ).rejects.toBeTruthy();
+    const rows = await getAllRows();
+    expect(rows.plays.map((r) => r.trackId)).toEqual(['old']);
+    expect(await getMeta('historySummary')).toEqual({
+      version: 2,
+      importedAt: 1,
+    });
+  });
+
+  it('needs no database version bump', () => {
+    expect(DB_VERSION).toBe(4);
   });
 });

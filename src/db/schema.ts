@@ -279,6 +279,22 @@ export interface MetaRow {
   value: unknown;
 }
 
+/** What this device last saw on the server, per dataset (server sync, ADR-08). */
+export const SERVER_STAMPS_META = 'serverStamps';
+export type ServerStamps = Partial<
+  Record<
+    'library' | 'history' | 'features' | 'reach',
+    { fetchedAt: number; generation: number }
+  >
+>;
+/** Datasets changed locally and not yet pushed; cleared after a successful push. */
+export const SERVER_PENDING_META = 'serverPending';
+export type ServerPending = Partial<
+  Record<'library' | 'history' | 'features' | 'reach' | 'mixes', true>
+>;
+/** The last successful push or pull, shown in Settings. */
+export const SERVER_LAST_SYNC_META = 'serverLastSync';
+
 export interface AllRows {
   playlists: PlaylistRow[];
   tracks: TrackRow[];

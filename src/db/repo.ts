@@ -277,6 +277,47 @@ export async function putMeta(name: string, value: unknown): Promise<void> {
   await db.put('meta', { name, value });
 }
 
+/**
+ * Replaces whole stores and their metas in one readwrite transaction: the
+ * server pull writes a dataset's rows and the summary its screens gate on
+ * together, so a gate never sees rows without a version (ADR-07). A rejected
+ * put aborts the whole transaction and leaves every old row and meta.
+ */
+export async function replaceDataset(
+  stores: readonly (keyof AllRows)[],
+  rows: Partial<AllRows>,
+  metas: Record<string, unknown>
+): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction([...stores, 'meta'], 'readwrite');
+  try {
+    const writes: Promise<unknown>[] = [];
+    for (const name of stores) {
+      const store = tx.objectStore(name);
+      writes.push(store.clear());
+      for (const row of rows[name] ?? []) {
+        // A row without its key path makes `put` throw synchronously (a
+        // DataError); the catch below aborts so the clear never commits.
+        writes.push(
+          (store as { put(value: unknown): Promise<unknown> }).put(row)
+        );
+      }
+    }
+    const meta = tx.objectStore('meta');
+    for (const [name, value] of Object.entries(metas)) {
+      writes.push(meta.put({ name, value }));
+    }
+    await Promise.all([...writes, tx.done]);
+  } catch (err) {
+    try {
+      tx.abort();
+    } catch {
+      // Already aborted by the failed request.
+    }
+    throw err;
+  }
+}
+
 export async function getPlaylists(): Promise<PlaylistRow[]> {
   const db = await openDb();
   return db.getAll('playlists');
