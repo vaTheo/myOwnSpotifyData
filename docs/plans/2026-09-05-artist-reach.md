@@ -8,7 +8,7 @@
 
 **Tech Stack:** Unchanged. TypeScript 6.0.x, Vite 8, Preact 10 + @preact/signals, idb 8, fflate 0.8, Vitest 5, fake-indexeddb 6, ESLint 10 flat config, yarn classic, Node 24, GitHub Pages via Actions. **No new dependency:** four sources are plain `fetch`, Deezer is a twenty-line `<script>` injection, and the SPARQL query is a template string.
 
-**Spec:** `docs/superpowers/specs/2026-09-05-artist-reach-design.md` (authority). §2 Data, §3 Identity resolution, §4 Reach lookup job, §5 Screens, §6 Components and styles, §7 Tests and §8's rulings are this plan's requirements. Research: `docs/superpowers/research/2026-09-05-artist-reach-sources.md`. It builds on `docs/superpowers/specs/2026-09-05-bpm-key-design.md` (whose `DB_VERSION` 2 has landed) and the two 2026-09-04 specs; the shipped app's plans are `docs/superpowers/plans/2026-09-04-spotify-dj-webapp.md`, `2026-09-04-crate-history-views.md`, `2026-09-05-bpm-key.md` and `2026-09-05-ux-polish.md`. The ledger of pre-execution rulings is `.superpowers/sdd/2026-09-05-artist-reach/progress.md`; **Task 7 amends the spec so it says what was actually built**, and until that task lands the spec and this plan disagree in the eight places the Decisions below name.
+**Spec:** `docs/specs/2026-09-05-artist-reach-design.md` (authority). §2 Data, §3 Identity resolution, §4 Reach lookup job, §5 Screens, §6 Components and styles, §7 Tests and §8's rulings are this plan's requirements. Research: `docs/research/2026-09-05-artist-reach-sources.md`. It builds on `docs/specs/2026-09-05-bpm-key-design.md` (whose `DB_VERSION` 2 has landed) and the two 2026-09-04 specs; the shipped app's plans are `docs/plans/2026-09-04-spotify-dj-webapp.md`, `2026-09-04-crate-history-views.md`, `2026-09-05-bpm-key.md` and `2026-09-05-ux-polish.md`. The ledger of pre-execution rulings is `.superpowers/sdd/2026-09-05-artist-reach/progress.md`; **Task 7 amends the spec so it says what was actually built**, and until that task lands the spec and this plan disagree in the eight places the Decisions below name.
 
 ## Global Constraints
 
@@ -185,7 +185,7 @@ Modified files:
 | `src/ui/Artists.tsx` | 6 | The whole file: a dispatcher, with today's screen kept intact as a module-private `SavedTracks` |
 | `src/ui/Artist.tsx` | 6 | The import block; `wikipediaUrl` and `ArtistReach`; two lines in the body |
 | `src/styles.css` | 6 | Spec §6's `.reach` and `.list li.group`, appended |
-| `docs/superpowers/specs/2026-09-05-artist-reach-design.md` | 7 | The eight amendments and the §8 rulings block |
+| `docs/specs/2026-09-05-artist-reach-design.md` | 7 | The eight amendments and the §8 rulings block |
 | `README.md` | 7 | The privacy sentence and one bullet in "Using it" |
 | `CLAUDE.md` | 7 | The spec/research pointers, five Architecture bullets (`util/`, `db/`, `features/`, `model/`, `ui/`), two Conventions bullets |
 
@@ -8316,7 +8316,7 @@ function is the only way to guarantee that. Every number they print comes from
     two lines in the body)
   - `src/styles.css` (spec §6's `.reach` and `.list li.group`, appended)
 - Not this task's, and not to be edited here:
-  `docs/superpowers/specs/2026-09-05-artist-reach-design.md`, `README.md` and
+  `docs/specs/2026-09-05-artist-reach-design.md`, `README.md` and
   `CLAUDE.md` are Task 7's (decision 24)
 - Test: `src/ui/format.test.ts` only. No component test — the project has
   none, and `vitest.config` runs in Node with no DOM.
@@ -9360,7 +9360,7 @@ and the amendments correct §2, §3.2, §4.2, §4.5 and §7 — sections **Tasks
 
 - Create: none
 - Modify:
-  - `docs/superpowers/specs/2026-09-05-artist-reach-design.md` (eleven
+  - `docs/specs/2026-09-05-artist-reach-design.md` (eleven
     replacements in nine places for the eight amendments, plus one new block
     in §8)
   - `README.md` (the privacy sentence in the opening paragraph, and one bullet
@@ -9405,7 +9405,7 @@ and the amendments correct §2, §3.2, §4.2, §4.5 and §7 — sections **Tasks
 - [ ] **Step 1: Apply the eight spec amendments**
 
 The eight rulings in `scratchpad/reach-plan/spec-amendments.md`, applied to
-`docs/superpowers/specs/2026-09-05-artist-reach-design.md` as eleven
+`docs/specs/2026-09-05-artist-reach-design.md` as eleven
 replacements in nine places: amendments 1, 2 and 7 each touch more than one
 passage, and amendments 2 and 3 both land in the paragraph 1d rewrites.
 The spec is the binding document, so it has to say what was actually built.
@@ -9877,33 +9877,33 @@ Six edits.
 **4a.** The spec and research pointers. Replace these exact lines:
 
 ```markdown
-Design specs: `docs/superpowers/specs/2026-09-04-spotify-dj-webapp-design.md`
-(the app), `docs/superpowers/specs/2026-09-04-crate-history-views-design.md`
+Design specs: `docs/specs/2026-09-04-spotify-dj-webapp-design.md`
+(the app), `docs/specs/2026-09-04-crate-history-views-design.md`
 (the five Crate views) and
-`docs/superpowers/specs/2026-09-05-bpm-key-design.md` (BPM and key).
-Verified facts: `docs/superpowers/research/2026-09-04-spotify-platform-research.md`
+`docs/specs/2026-09-05-bpm-key-design.md` (BPM and key).
+Verified facts: `docs/research/2026-09-04-spotify-platform-research.md`
 (the Spotify platform),
-`docs/superpowers/research/2026-09-04-history-export-semantics.md`
+`docs/research/2026-09-04-history-export-semantics.md`
 (`reason_end`, month bucketing, thresholds) and
-`docs/superpowers/research/2026-09-05-bpm-key-sources.md` (ReccoBeats,
+`docs/research/2026-09-05-bpm-key-sources.md` (ReccoBeats,
 rekordbox XML, the Camelot mapping).
 ```
 
 with:
 
 ```markdown
-Design specs: `docs/superpowers/specs/2026-09-04-spotify-dj-webapp-design.md`
-(the app), `docs/superpowers/specs/2026-09-04-crate-history-views-design.md`
-(the five Crate views), `docs/superpowers/specs/2026-09-05-bpm-key-design.md`
-(BPM and key) and `docs/superpowers/specs/2026-09-05-artist-reach-design.md`
+Design specs: `docs/specs/2026-09-04-spotify-dj-webapp-design.md`
+(the app), `docs/specs/2026-09-04-crate-history-views-design.md`
+(the five Crate views), `docs/specs/2026-09-05-bpm-key-design.md`
+(BPM and key) and `docs/specs/2026-09-05-artist-reach-design.md`
 (artist reach, the Artists tab's "Under the radar" view).
-Verified facts: `docs/superpowers/research/2026-09-04-spotify-platform-research.md`
+Verified facts: `docs/research/2026-09-04-spotify-platform-research.md`
 (the Spotify platform),
-`docs/superpowers/research/2026-09-04-history-export-semantics.md`
+`docs/research/2026-09-04-history-export-semantics.md`
 (`reason_end`, month bucketing, thresholds),
-`docs/superpowers/research/2026-09-05-bpm-key-sources.md` (ReccoBeats,
+`docs/research/2026-09-05-bpm-key-sources.md` (ReccoBeats,
 rekordbox XML, the Camelot mapping) and
-`docs/superpowers/research/2026-09-05-artist-reach-sources.md` (what Spotify
+`docs/research/2026-09-05-artist-reach-sources.md` (what Spotify
 stopped answering, and the five keyless sources that replace it).
 ```
 
@@ -9994,7 +9994,7 @@ the only changes to it, and no code block inside the spec should have been
 reflowed by Prettier.
 
 ```bash
-git add docs/superpowers/specs/2026-09-05-artist-reach-design.md README.md CLAUDE.md
+git add docs/specs/2026-09-05-artist-reach-design.md README.md CLAUDE.md
 git commit -m "docs(reach): the spec amendments, the owner's manual and the conventions
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

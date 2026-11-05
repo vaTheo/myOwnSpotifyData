@@ -8,7 +8,7 @@
 
 **Tech Stack:** Preact + `@preact/signals`, TypeScript ~6.0.3, Vitest (Node environment, no DOM), yarn classic.
 
-**Spec:** `docs/superpowers/specs/2026-09-28-tracklistify-import-design.md`
+**Spec:** `docs/specs/2026-09-28-tracklistify-import-design.md`
 
 ## Global Constraints
 

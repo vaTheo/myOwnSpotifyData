@@ -8,7 +8,7 @@
 
 **Tech Stack:** Preact + @preact/signals, TypeScript 6.0, Vitest (Node env), yarn classic.
 
-**Spec:** `docs/superpowers/specs/2026-09-25-like-playlist-design.md`
+**Spec:** `docs/specs/2026-09-25-like-playlist-design.md`
 
 ## Global Constraints
 
@@ -912,7 +912,7 @@ git commit -m "feat(like): Like all songs button and status on the Playlist scre
   - The "Creating a playlist is the app's only write" bullet: now two writes — creating a playlist from a mix and liking a playlist's songs — both gated on a one-time re-login (`SCOPES` also carries `user-library-read user-library-modify`; `hasScope` is the whole-token check).
   - New conventions bullet: "Like all songs" (Playlist screen) — check (`GET /me/library/contains`) → `confirm()` with the exact count → `PUT /me/library`, 40 URIs per request, only `spotify:track:` URIs, candidates from the synced entries (never a playlist read), not in `jobsBusy()`, re-entry guarded on `likeState.status`, inline errors only, reset by `disconnect`.
   - After the "Three things ask before they destroy data" bullet add: the like confirm is a fourth `confirm()` but non-destructive — a bulk write the app cannot undo.
-  - Specs list: add `docs/superpowers/specs/2026-09-25-like-playlist-design.md`.
+  - Specs list: add `docs/specs/2026-09-25-like-playlist-design.md`.
 
 - [ ] **Step 2: Full local checks**
 

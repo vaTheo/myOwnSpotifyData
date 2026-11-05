@@ -12,25 +12,25 @@ rank artists by saved tracks. Public repo `vaTheo/myOwnSpotifyData`, single
 explicitly declined extra tooling (commit hooks, Dependabot, branch
 protection, PR templates) and wants the minimum that solves the request.
 
-Design specs: `docs/superpowers/specs/2026-09-04-spotify-dj-webapp-design.md`
-(the app), `docs/superpowers/specs/2026-09-04-crate-history-views-design.md`
-(the five Crate views), `docs/superpowers/specs/2026-09-05-bpm-key-design.md`
-(BPM and key), `docs/superpowers/specs/2026-09-05-artist-reach-design.md`
+Design specs: `docs/specs/2026-09-04-spotify-dj-webapp-design.md`
+(the app), `docs/specs/2026-09-04-crate-history-views-design.md`
+(the five Crate views), `docs/specs/2026-09-05-bpm-key-design.md`
+(BPM and key), `docs/specs/2026-09-05-artist-reach-design.md`
 (artist reach, the Artists tab's "Under the radar" view),
-`docs/superpowers/specs/2026-09-06-mix-tracklist-design.md` (Mix tracklist —
+`docs/specs/2026-09-06-mix-tracklist-design.md` (Mix tracklist —
 paste a SoundCloud link, draft a tracklist from free public sources) and
-`docs/superpowers/specs/2026-09-25-like-playlist-design.md` (Like all songs —
+`docs/specs/2026-09-25-like-playlist-design.md` (Like all songs —
 save a synced playlist's songs to Liked Songs, with the library endpoints it
 verified).
-Verified facts: `docs/superpowers/research/2026-09-04-spotify-platform-research.md`
+Verified facts: `docs/research/2026-09-04-spotify-platform-research.md`
 (the Spotify platform),
-`docs/superpowers/research/2026-09-04-history-export-semantics.md`
+`docs/research/2026-09-04-history-export-semantics.md`
 (`reason_end`, month bucketing, thresholds),
-`docs/superpowers/research/2026-09-05-bpm-key-sources.md` (ReccoBeats,
+`docs/research/2026-09-05-bpm-key-sources.md` (ReccoBeats,
 rekordbox XML, the Camelot mapping) and
-`docs/superpowers/research/2026-09-05-artist-reach-sources.md` (what Spotify
+`docs/research/2026-09-05-artist-reach-sources.md` (what Spotify
 stopped answering, and the five keyless sources that replace it) and
-`docs/superpowers/research/2026-09-06-mix-tracklist-sources.md` (the TrackId.net
+`docs/research/2026-09-06-mix-tracklist-sources.md` (the TrackId.net
 guard, the oEmbed shape, the six-shape tracklist grammar, and why no
 browser-only path returns a full tracklist).
 
