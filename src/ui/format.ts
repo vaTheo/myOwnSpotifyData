@@ -8,6 +8,13 @@ export const PERIOD_LABEL: Record<Period, string> = {
   long_term: '1 year',
 };
 
+/** The Top screen's wording: Spotify's long term has no fixed length. */
+export const TOP_PERIOD_LABEL: Record<Period, string> = {
+  short_term: '4 weeks',
+  medium_term: '6 months',
+  long_term: 'All time',
+};
+
 export function formatTime(ms: number): string {
   return new Date(ms).toLocaleTimeString([], {
     hour: '2-digit',

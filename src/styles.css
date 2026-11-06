@@ -1044,8 +1044,8 @@ a.btn {
 .screen {
   flex: 1;
   width: 100%;
-  /* Until the tables of US2 arrive, the old row lists stay at a readable
-     width; the cap goes when they can use the whole window (FR-005). */
+  /* The old row lists stay at a readable width; a screen with a table uses
+     the whole window (FR-005), see `.screen:has(.dt-wrap)` below. */
   max-width: 960px;
   padding: 8px var(--app-margin)
     calc(var(--app-nav-bar) + env(safe-area-inset-bottom) + 16px);
@@ -1417,4 +1417,400 @@ a {
 
 .connect-card button.primary {
   margin-top: 8px;
+}
+
+/* ---- Data tables (spec 003, FR-015–FR-018, FR-022, FR-023) ---- */
+
+/* A screen with a table uses the whole window (FR-005). */
+.screen:has(.dt-wrap) {
+  max-width: none;
+}
+
+.dt-wrap {
+  container: dt / inline-size;
+}
+
+.dt {
+  --dt-pad: 8px;
+  min-width: 0;
+}
+
+.dt-row {
+  display: grid;
+  grid-template-columns: var(--dt-cols-1);
+  align-items: center;
+  min-height: var(--app-row);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  padding: 0 calc(var(--dt-pad) * 2) 0 var(--dt-pad);
+  cursor: default;
+}
+
+.dt-header-row {
+  min-height: var(--app-target);
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: var(--md-sys-shape-corner-medium)
+    var(--md-sys-shape-corner-medium) 0 0;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-label-large);
+  cursor: auto;
+}
+
+.dt-body .dt-row {
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface);
+}
+
+.dt-body .dt-row:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.dt-row[aria-selected='true'],
+.dt-item[aria-selected='true'] {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.dt-row:focus-visible,
+.dt-item:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+/* A cell fills its track, whatever its content. Columns of a lower
+   priority than the window allows are removed from view with a zero track
+   and no padding, so the others keep their places. */
+.dt-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 var(--dt-pad);
+}
+
+.dt-cell.end {
+  justify-content: flex-end;
+  text-align: end;
+}
+
+.dt-cell.p2,
+.dt-cell.p3,
+.dt-cell.p4 {
+  visibility: hidden;
+  padding: 0;
+}
+
+@container dt (min-width: 720px) {
+  .dt-row {
+    grid-template-columns: var(--dt-cols-2);
+  }
+  .dt-cell.p2 {
+    visibility: visible;
+    padding: 0 var(--dt-pad);
+  }
+}
+
+@container dt (min-width: 960px) {
+  .dt-row {
+    grid-template-columns: var(--dt-cols-3);
+  }
+  .dt-cell.p3 {
+    visibility: visible;
+    padding: 0 var(--dt-pad);
+  }
+}
+
+@container dt (min-width: 1200px) {
+  .dt-row {
+    grid-template-columns: var(--dt-cols-4);
+  }
+  .dt-cell.p4 {
+    visibility: visible;
+    padding: 0 var(--dt-pad);
+  }
+}
+
+.dt-sort {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: var(--app-target);
+  gap: 4px;
+  min-height: var(--app-target);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dt-cell.end .dt-sort {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+.toolbar .segmented button {
+  white-space: nowrap;
+}
+
+.dt-sort:hover:not(:disabled) {
+  background: none;
+  color: var(--md-sys-color-on-surface);
+}
+
+.dt-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dt-link {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--app-target);
+  color: inherit;
+  text-decoration: none;
+}
+
+.dt-link:hover .dt-text {
+  text-decoration: underline;
+}
+
+.dt-rank {
+  color: var(--md-sys-color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-cover {
+  display: block;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  object-fit: cover;
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+.dt-cover.round {
+  border-radius: var(--md-sys-shape-corner-full);
+}
+
+.dt-plays {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-note {
+  display: inline-flex;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.dt-flags {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dt-unit {
+  display: none;
+}
+
+.dt-group {
+  display: block;
+  padding: 16px var(--dt-pad) 4px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  font: var(--md-sys-typescale-title-small);
+  min-height: 0;
+}
+
+.dt-expansion {
+  display: block;
+  min-height: 0;
+  padding: 0 var(--dt-pad);
+  background: var(--md-sys-color-surface-container-low);
+}
+
+.dt-expansion .sublist {
+  margin-left: 56px;
+}
+
+.dt-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px var(--dt-pad);
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.dt-footer p {
+  margin: 0;
+}
+
+/* Compact windows: a two-line item. */
+.dt.compact .dt-body {
+  display: block;
+}
+
+.dt-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: var(--app-row-two-line);
+  padding: 8px 4px 8px var(--app-margin);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.dt-item-lead {
+  grid-column: 1;
+  margin-right: 12px;
+}
+
+.dt-item-lead:empty,
+.dt-item-trail:empty {
+  display: none;
+}
+
+.dt-item-main {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.dt-item-trail {
+  grid-column: 3;
+}
+
+.dt-item-title {
+  display: flex;
+  min-width: 0;
+  font: var(--md-sys-typescale-body-large);
+}
+
+.dt-item-sub {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.dt-item-part {
+  flex: none;
+}
+
+.dt-item-part:first-child {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-item-part + .dt-item-part::before {
+  content: '·';
+  margin: 0 6px;
+}
+
+.dt-item-part:empty {
+  display: none;
+}
+
+.dt-item .dt-unit {
+  display: inline;
+  margin-left: 0.25em;
+}
+
+.dt-item .dt-plays {
+  gap: 0;
+}
+
+/* ---- Top: toolbar and compare ---- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.toolbar .segmented {
+  margin: 0;
+}
+
+.compare {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--app-gap);
+}
+
+.compare-col h2 {
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-title-medium);
+}
+
+.compare-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.compare-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--app-row);
+  padding: 0 8px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-small);
+  color: inherit;
+  text-decoration: none;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+}
+
+.compare-item:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+}
+
+.compare-item.same {
+  outline: 2px solid var(--md-sys-color-primary);
+  background: var(--md-sys-color-primary-container);
+}
+
+.compare-rank {
+  flex: none;
+  width: 28px;
+  text-align: end;
+  color: var(--md-sys-color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.compare-text .dt-text {
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.compare-text .dt-text + .dt-text {
+  font: var(--md-sys-typescale-body-small);
+  color: var(--md-sys-color-on-surface-variant);
 }

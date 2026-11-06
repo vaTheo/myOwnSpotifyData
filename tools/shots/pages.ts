@@ -73,6 +73,15 @@ export const PAGES: ShotPage[] = [
   // Listening: Top
   { id: 'top-tracks', hash: '#/top' },
   { id: 'top-artists', hash: '#/top', setup: (page) => tab(page, 'Artists') },
+  {
+    id: 'top-compare',
+    hash: '#/top',
+    // The toggle exists on large windows only; at 390 the page is the table.
+    setup: async (page) => {
+      const toggle = page.getByRole('button', { name: 'Compare periods' });
+      if (await toggle.count()) await toggle.click();
+    },
+  },
   { id: 'top-empty', variant: 'empty', hash: '#/top' },
 
   // Listening: Crate

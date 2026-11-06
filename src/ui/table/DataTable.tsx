@@ -37,7 +37,7 @@ export interface Column<Row> {
   compact?: 'lead' | 'title' | 'subtitle' | 'meta' | 'trail' | 'hidden';
 }
 
-const LEVEL_WIDTHS = [0, 480, 720, 960];
+const LEVEL_WIDTHS = [0, 720, 960, 1200];
 
 /** The grid template at each priority level: hidden columns get 0 px. */
 function templates<Row>(columns: Column<Row>[]): Record<string, string> {
@@ -236,7 +236,7 @@ export function DataTable<Row>(p: {
                 data-align={c.align ?? 'start'}
                 aria-sort={ariaSort(c as Column<unknown>, p.sort)}
               >
-                {c.sortValue || c.rank ? (
+                {(c.sortValue || c.rank) && !compact ? (
                   <button
                     type="button"
                     class="dt-sort"
