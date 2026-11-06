@@ -57,7 +57,7 @@ export function YearMonthGrid({
         <caption class="visually-hidden">Plays per month and per year</caption>
         <thead>
           <tr>
-            <td />
+            <td class="ym-corner" />
             {SEASONS.map(({ season, span }) => {
               const plays = periodTotal(totals, seasonYear, season);
               return (
@@ -78,7 +78,7 @@ export function YearMonthGrid({
             <td />
           </tr>
           <tr>
-            <td />
+            <td class="ym-corner" />
             {MONTH_NAMES.map((name) => (
               <th key={name} scope="col" class="ym-month">
                 {name}
