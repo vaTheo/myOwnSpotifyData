@@ -139,6 +139,8 @@ Only the first two are required.
 | `WORKER_PROBE_SECONDS` | 12 | the length of each probe sent to Shazam, 2 to 12 (Shazam fingerprints 12 s at most; 10 s matched 71 % against 94 %) |
 | `WORKER_COOLDOWN_SECONDS` | 1.9 | the pause before every recognition call, plus a random 0–30 % (`WORKER_COOLDOWN_SPREAD_PERCENT`): 1.9 to 2.47 s; a network retry is spread the same; not slowed after a refusal |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 180 | the pause after a "rate limited" answer, the same each time, plus a random 0–40 % (`WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`): 3:00 to 4:12 |
+| `WORKER_REFUSAL_WARN_CALLS` | 150 | two refusals closer than this many calls: warn once (a VPN or a shared network?); 0 = never |
+| `WORKER_RESUME_DAYS` | 7 | Ask again on a stopped set continues it within this many days; 0 = always start over |
 | `WORKER_RATE_LIMIT_PAUSES` | 8 | pauses allowed per set; one more refusal stops the scan, and the tracks found are sent ("stopped early") |
 | `WORKER_SHAZAM_DEVICE` | android | the phone Shazam sees; `iphone` is the library's own default and was refused after three calls in testing |
 | `WORKER_MAX_SKEW` | 0.1 | rejects a match more than 10 % off in pitch or speed; a DJ pitches tracks a few %, so keep it well above that; 0 disables |
@@ -162,6 +164,16 @@ Only the first two are required.
   under the **GPL v3**, shipped unmodified through the `imageio-ffmpeg` package (BSD-2-Clause). The worker and the app are MIT.
 
 ## Troubleshooting
+
+- **Don't run the worker on a VPN.** Shazam counts calls per address, and a VPN's address is shared with many people. On the
+  test day of 6 November 2026, on a VPN Shazam refused every 24 to 380 calls whatever the pace; on home Wi-Fi without it, once
+  in 282 calls, and a 2 h 10 set finished in 54 minutes with no refusal. When two refusals come less than 150 calls apart
+  (`WORKER_REFUSAL_WARN_CALLS`), the log and the phone say "Shazam refuses often: a VPN or a shared network?".
+- **Stop, Cancel, Move to top** on the phone need migration `supabase/migrations/0003_job_control.sql` applied (as 0002);
+  without it the worker logs "progress · not sent … is migration 0003 applied?" once per set and works as before.
+- **Ask again continues a stopped set** (Stop, Ctrl-C, too many refusals) when it is the same link, on the same computer, with
+  the same probe settings, within `WORKER_RESUME_DAYS` (7): the log says "resuming at 01:15:00 · 300 probes kept". A set that
+  finished normally is scanned afresh.
 
 - **"not signed in"**: `mix-worker login`, then click the mail's link on this computer within ten minutes.
 - **"could not listen on port 5173"**: stop `yarn dev` (or whatever holds the port) and run `login` again.

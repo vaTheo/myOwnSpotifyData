@@ -3,6 +3,14 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-06 — See, steer and trust the worker's scans (worker 0.4.0)
+
+Each heard track shows how many 12-second clips matched it and its best score ("heard 3× · best 91 %"), sortable, with a
+"heard once" view; nothing is removed automatically. The Requests card shows a running scan's progress and has Cancel, Move
+to top and Stop; Ask again continues a stopped set; Shazam refusing often raises a VPN warning; the second pass tries ×1
+everywhere first. Needs `supabase/migrations/0003_job_control.sql` (the app and the worker work without it, minus these
+controls). Spec: `specs/004-worker-progress-control/`. No `DB_VERSION` bump.
+
 ## 2026-11-06 — Fill the gaps of a scan (worker 0.3.0)
 
 Where the first listen found nothing, the worker listens again (7 s later, at normal speed, then 4 % slower, then 4 % faster)
