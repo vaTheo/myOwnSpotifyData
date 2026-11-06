@@ -5,3 +5,8 @@ coverage/
 *.log
 .DS_Store
 .claude/worktrees/
+worker/.env
+worker/.venv/
+worker/build/
+worker/dist/
+.tracklistify/
