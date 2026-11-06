@@ -352,7 +352,21 @@ def parser() -> argparse.ArgumentParser:
     return p
 
 
+def _tolerant_console() -> None:
+    """A Windows console or a redirected output may use a code page without
+    every character of a set title (Japanese, "⧸"…): replace those instead of
+    crashing on a log line."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(errors="replace")
+            except (ValueError, OSError):  # pragma: no cover - a closed or odd stream
+                pass
+
+
 def main(argv: list[str] | None = None, deps: CliDeps | None = None) -> int:
+    _tolerant_console()
     deps = deps or CliDeps()
     args = parser().parse_args(argv)
     if args.version:

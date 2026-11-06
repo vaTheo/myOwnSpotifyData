@@ -85,7 +85,7 @@ class Options(unittest.TestCase):
     def test_cookies_when_set(self):
         FakeYdl.instances.clear()
         download("https://x.y/z", DEST, settings(ytdlp_cookies=Path("/c.txt")), ydl_factory=factory(INFO), match_filter=lambda *a: None)
-        self.assertEqual(FakeYdl.instances[0].opts["cookiefile"], "/c.txt")
+        self.assertEqual(FakeYdl.instances[0].opts["cookiefile"], str(Path("/c.txt")))
 
     def test_uploader_fallbacks_and_missing_duration(self):
         info = dict(INFO, uploader=None, channel="Chan", duration=None)
