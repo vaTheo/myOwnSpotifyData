@@ -28,6 +28,11 @@ export interface Column<Row> {
   /** A CSS grid track: `56px`, `minmax(0, 2fr)`. */
   width: string;
   sortValue?: (row: Row) => SortValue;
+  /**
+   * In a `presorted` table, the header is a sort button though the table
+   * never sorts by it: the click is reported, the screen re-ranks.
+   */
+  sortable?: boolean;
   firstDirection?: SortDirection;
   /** The rank column: sorting by it restores the screen's own ranking. */
   rank?: boolean;
@@ -246,7 +251,8 @@ export function DataTable<Row>(p: {
                 data-align={c.align ?? 'start'}
                 aria-sort={ariaSort(c as Column<unknown>, p.sort)}
               >
-                {(c.sortValue || c.rank) && !compact ? (
+                {(c.sortValue || c.rank || (p.presorted && c.sortable)) &&
+                !compact ? (
                   <button
                     type="button"
                     class="dt-sort"

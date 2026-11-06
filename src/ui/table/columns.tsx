@@ -338,6 +338,11 @@ export function topFlagsColumn<Row>(
         ))}
       </span>
     ),
+    // A flag cut at the column's edge is named whole in the tooltip.
+    title: (row) =>
+      periodsOf(row)
+        .map((p) => `Top ${PERIOD_LABEL[p]}`)
+        .join(', ') || undefined,
     compact: 'hidden',
     ...over,
   };

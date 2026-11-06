@@ -72,7 +72,8 @@ function sortColumn(sort: ReachSort, history: boolean): string {
  * summed, and a missing number is `NoData`, never 0.
  */
 function radarColumns(history: boolean): Column<UnderRadarRow>[] {
-  const sortable = { sortValue: () => 0 };
+  // The table is presorted: these headers report a click, the ranking sorts.
+  const sortable = { sortable: true, sortValue: undefined };
   const fixed = { sortValue: undefined };
   return [
     rankColumn({ rank: false }),
@@ -134,10 +135,11 @@ function radarColumns(history: boolean): Column<UnderRadarRow>[] {
       // else.
       cell: (r) => {
         const line = profileLine(r.sitelinks, r.views);
-        return line ? <span class="dt-text">{line}</span> : null;
+        return line ? <span class="dt-text radar-wiki">{line}</span> : null;
       },
       title: (r) => profileLine(r.sitelinks, r.views) ?? undefined,
-      compact: 'hidden',
+      // On a phone the figures take their own line under listeners and fans.
+      compact: 'meta',
     },
     spotifyLinkColumn((r) => artistUrl(r.artistId)),
   ];

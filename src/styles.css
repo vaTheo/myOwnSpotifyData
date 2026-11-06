@@ -847,6 +847,12 @@ a.btn {
   min-height: var(--app-target);
   padding: 0 24px;
   border-radius: var(--md-sys-shape-corner-full);
+}
+
+/* A link styled as a button is tonal unless it names a variant; the
+   `:where` keeps `.btn-outlined` and the others in charge of their own
+   colours (spec 003 §10: the Artist reach links are outlined). */
+a.btn:where(:not(.btn-filled, .btn-outlined, .btn-text, .btn-danger)) {
   background: var(--md-sys-color-secondary-container);
   color: var(--md-sys-color-on-secondary-container);
 }
@@ -1538,7 +1544,9 @@ a {
   }
 }
 
-@container dt (min-width: 1200px) {
+/* About 1120 px: the table a 1440 window leaves beside the rail (FR-018,
+   US2: album, length and added show at 1440). */
+@container dt (min-width: 1120px) {
   .dt-row {
     grid-template-columns: var(--dt-cols-4);
   }
@@ -1652,6 +1660,12 @@ a {
   gap: 4px;
   min-width: 0;
   overflow: hidden;
+}
+
+/* A flag never wraps inside itself, which would grow the row. */
+.dt-flags .flag {
+  flex: none;
+  white-space: nowrap;
 }
 
 .dt-unit {
@@ -1773,6 +1787,13 @@ a {
 .dt-item-meta .dt-item-part {
   flex: none;
   white-space: nowrap;
+}
+
+/* Under the radar on a phone: a Well known row's Wikipedia figures get a
+   line of their own under listeners and fans. */
+.dt-item-meta .dt-item-part:has(.radar-wiki) {
+  flex-basis: 100%;
+  white-space: normal;
 }
 
 .dt-item-part:has(.flag-todo) {
@@ -1934,30 +1955,40 @@ a {
   margin-bottom: 12px;
 }
 
-/* Large windows: the playlist's header and controls beside its table, so
-   the rows start under the top bar (SC-001: 15 rows at 1440 × 900). */
-.playlist-layout {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: var(--app-gap);
-  align-items: start;
-}
-
-.playlist-side {
-  position: sticky;
-  top: calc(var(--app-top-bar) + 8px);
+/* Medium and larger windows: the playlist's meta line, its gates and the
+   order control on one strip above the table; the top bar names the
+   playlist (spec 003 §8, SC-001). */
+.playlist-strip {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-bottom: 8px;
 }
 
-.playlist-side .detail-head,
-.playlist-side .toolbar {
+.playlist-strip .caption {
   margin: 0;
 }
 
-.playlist-main {
-  min-width: 0;
+.playlist-strip .segmented {
+  margin: 0 0 0 auto;
+}
+
+.playlist-strip .segmented button {
+  white-space: nowrap;
+}
+
+/* With the strip above it, a 900 px tall window holds 15 rows of 48 px, not
+   of 52 (SC-001). Large windows only; a row keeps its 48 px target. */
+.playlist-dense {
+  --app-row: 48px;
+}
+
+/* The separator is drawn inside the 48 px, as the header's is, so a row
+   holding a 48 px link stays 48 px tall. */
+.playlist-dense .dt-body .dt-row {
+  border-bottom: 0;
+  box-shadow: inset 0 -1px 0 var(--md-sys-color-outline-variant);
 }
 
 .like-status {
@@ -1966,12 +1997,6 @@ a {
   align-items: center;
   gap: 8px 12px;
   margin-bottom: 12px;
-}
-
-.playlist-side .like-status,
-.playlist-side .seed-bar,
-.playlist-side .caption {
-  margin: 0;
 }
 
 .like-status .status,
