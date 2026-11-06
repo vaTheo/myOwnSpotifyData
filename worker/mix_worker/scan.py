@@ -432,7 +432,7 @@ def run_scan(
     say(
         f"  scan · ffmpeg {ffmpeg} · one {settings.probe_seconds} s probe every {settings.probe_step_seconds} s"
         f" · {len(probe_times(duration, settings.probe_step_seconds)) if duration else '?'} probes"
-        f" · as {settings.shazam_device} · cooldown {settings.cooldown_seconds} s (+0-50 %) · up to {settings.rate_limit_pauses} pauses"
+        f" · as {settings.shazam_device} · cooldown {settings.cooldown_seconds} s (±50 %) · up to {settings.rate_limit_pauses} pauses"
     )
 
     async def go() -> list[dict[str, Any]]:
@@ -458,7 +458,7 @@ def run_scan(
                 classify=default_classify,
                 line=say,
                 max_pauses=settings.rate_limit_pauses,
-                jitter=lambda cooldown: random.uniform(0.0, cooldown / 2),  # noqa: S311 - pacing, not crypto
+                jitter=lambda cooldown: random.uniform(-cooldown / 2, cooldown / 2),  # noqa: S311 - pacing, not crypto
             )
         finally:
             # The library only closes a client it created itself; ours is
