@@ -234,6 +234,8 @@ function ArtistPane(p: { m: Model; selected: string }) {
         id: a.key,
         title: a.name,
         subtitle: plural(a.trackKeys.size, 'track'),
+        // No artist picture in the model: the slot keeps its place.
+        imageUrl: null,
         href: routeHref({ name: 'artist', key: a.key }),
       }))}
     />

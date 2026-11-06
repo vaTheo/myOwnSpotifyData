@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { TrackRow } from '../components/TrackRow';
 import { moveIndex } from '../table/keyboard';
-import { pushEscapeLayer } from './escape';
+import { ESCAPE_RANK, pushEscapeLayer } from './escape';
 import { focusWhenReady } from './focus';
 import { windowClass, type WindowClass } from './windowClass';
 
@@ -10,18 +10,14 @@ import { windowClass, type WindowClass } from './windowClass';
  * Where the list goes (contracts/components.md, research D6): beside the
  * detail on expanded and large windows, away on compact and medium ones,
  * where the detail is a full screen with the top bar's back arrow. Without
- * a selection the list has the whole width. `splitFrom: 'large'` keeps a
- * wide detail (the Playlist table, Match's columns) full screen on expanded
- * windows, where 360 px of list would leave it under 520 px.
+ * a selection the list has the whole width.
  */
 export function listDetailLayout(
   size: WindowClass,
-  selected: boolean,
-  splitFrom: 'expanded' | 'large' = 'expanded'
+  selected: boolean
 ): 'list' | 'split' | 'detail' {
   if (!selected) return 'list';
-  if (size === 'large') return 'split';
-  return size === 'expanded' && splitFrom === 'expanded' ? 'split' : 'detail';
+  return size === 'expanded' || size === 'large' ? 'split' : 'detail';
 }
 
 /**
@@ -40,14 +36,8 @@ export function ListDetail(p: {
   selectedId: string | null;
   /** Leaves the detail: the address of the list alone. */
   onClose: () => void;
-  /** The smallest window class that shows the list beside the detail. */
-  splitFrom?: 'expanded' | 'large';
 }) {
-  const layout = listDetailLayout(
-    windowClass.value,
-    p.detail !== null,
-    p.splitFrom
-  );
+  const layout = listDetailLayout(windowClass.value, p.detail !== null);
   const split = layout === 'split';
   const selectedId = useRef(p.selectedId);
   selectedId.current = p.selectedId;
@@ -67,8 +57,24 @@ export function ListDetail(p: {
           false
         );
       }
-    });
+    }, ESCAPE_RANK.pane);
   }, [split]);
+
+  // Opening an item from the full-width list unmounts the row that had the
+  // focus: the pane's open item takes it, so the keyboard keeps its place
+  // (FR-043). Only on that change: a page loaded on a detail, or focus
+  // elsewhere (a link in the detail, the top bar), is left alone.
+  const before = useRef(layout);
+  useEffect(() => {
+    const from = before.current;
+    before.current = layout;
+    if (layout !== 'split' || from !== 'list') return;
+    requestAnimationFrame(() => {
+      const at = document.activeElement;
+      if (at && at !== document.body) return;
+      focusWhenReady('.list-detail-pane [aria-current="page"]', true);
+    });
+  }, [layout]);
 
   return (
     <div class={`list-detail ${layout}`}>

@@ -2075,6 +2075,18 @@ a {
   display: none;
 }
 
+/* Below large, a playlist in Match folds the pane too: Relation and ΔBPM
+   need the width (S04 fix 1, ruling R1). */
+@media (max-width: 1199.98px) {
+  .list-detail.split:has([data-matching]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .list-detail.split:has([data-matching]) > .list-detail-pane {
+    display: none;
+  }
+}
+
 .list-detail-detail {
   min-width: 0;
 }

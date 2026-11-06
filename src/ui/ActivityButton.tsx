@@ -12,7 +12,7 @@ import {
 } from '../model/state';
 import { activeJobs, type ActiveJob } from './jobs';
 import { ProgressBar } from './components/ProgressBar';
-import { pushEscapeLayer } from './layout/escape';
+import { ESCAPE_RANK, pushEscapeLayer } from './layout/escape';
 
 /** A circle that fills with the first job's progress, or spins without one. */
 function Ring(p: { job: ActiveJob }) {
@@ -65,7 +65,7 @@ export function ActivityButton() {
     const pop = pushEscapeLayer(() => {
       setOpen(false);
       box.current?.querySelector<HTMLElement>('.activity-button')?.focus();
-    });
+    }, ESCAPE_RANK.activity);
     const close = (e: MouseEvent) => {
       if (box.current?.contains(e.target as Node)) return;
       setOpen(false);

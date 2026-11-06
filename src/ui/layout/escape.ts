@@ -1,12 +1,21 @@
 /**
  * Escape closes one layer at a time (spec 003, FR-043): the Activity panel,
  * the details sheet, the detail pane of a list–detail screen. Each layer
- * registers while it is open; one document listener closes only the
- * topmost, the one opened last. A key pressed in a text field is the
+ * registers while it is open with a rank; one document listener closes only
+ * the topmost: the highest rank, the one opened last among equals. Ranks,
+ * not the order of registration, because a screen rendered from an address
+ * (a reload, Back, a shared link) mounts the sheet and the pane together,
+ * and Preact runs the child's effect, the sheet's, first. A key pressed in a text field is the
  * field's (a search field clears itself on Escape), so it closes nothing.
  */
 
-export type EscapeLayer = () => void;
+/** Activity panel over the details sheet over the list–detail pane. */
+export const ESCAPE_RANK = { pane: 1, sheet: 2, activity: 3 } as const;
+
+export interface EscapeLayer {
+  close: () => void;
+  rank: number;
+}
 
 /** What `isEditable` reads of an element; a DOM element has all of it. */
 export interface EditableLike {
@@ -49,33 +58,36 @@ export function layerToClose(
   target: EditableLike | null | undefined
 ): EscapeLayer | null {
   if (key !== 'Escape' || defaultPrevented || isEditable(target)) return null;
-  return layers.length > 0 ? layers[layers.length - 1] : null;
+  let top: EscapeLayer | null = null;
+  // Later registrations win ties, so `>=`.
+  for (const layer of layers) if (!top || layer.rank >= top.rank) top = layer;
+  return top;
 }
 
 const layers: EscapeLayer[] = [];
 let installed = false;
 
 function onKey(e: KeyboardEvent): void {
-  const close = layerToClose(
+  const top = layerToClose(
     layers,
     e.key,
     e.defaultPrevented,
     e.target as EditableLike | null
   );
-  if (!close) return;
+  if (!top) return;
   e.preventDefault();
-  close();
+  top.close();
 }
 
 /** Registers an open layer; the returned function unregisters it. */
-export function pushEscapeLayer(close: EscapeLayer): () => void {
+export function pushEscapeLayer(close: () => void, rank: number): () => void {
   if (!installed && typeof document !== 'undefined') {
     document.addEventListener('keydown', onKey);
     installed = true;
   }
-  // A wrapper per registration, so the same function pushed twice is
+  // An object per registration, so the same function pushed twice is
   // removed once per pop.
-  const layer: EscapeLayer = () => close();
+  const layer: EscapeLayer = { close, rank };
   layers.push(layer);
   return () => {
     const at = layers.lastIndexOf(layer);

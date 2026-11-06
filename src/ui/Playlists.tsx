@@ -115,8 +115,9 @@ function NoPlaylistMatch() {
 /**
  * Library · Playlists (spec 003 §7, FR-020, US3). Without a selection, a
  * full-width table; with one (`#/playlist/<id>`), the list narrows to a
- * pane and the playlist opens beside it on large windows; below 1,200 px
- * the playlist table needs the width, so it opens full screen with back.
+ * pane and the playlist opens beside it from expanded windows, or full
+ * screen on a phone. Below large, Match folds the pane (CSS): its two
+ * columns need the width (ruling R1, S04 fix 1).
  * `detail` is the playlist's open track (`?d=`).
  */
 export function Playlists(p: { selected?: string; detail?: string }) {
@@ -179,7 +180,6 @@ export function Playlists(p: { selected?: string; detail?: string }) {
   return (
     <ListDetail
       list={list}
-      splitFrom="large"
       selectedId={selected}
       detail={
         selected === null ? null : <Playlist id={selected} detail={p.detail} />
