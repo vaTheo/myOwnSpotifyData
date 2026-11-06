@@ -383,6 +383,21 @@ export const PAGES: ShotPage[] = [
     since: 'US3',
   },
 
+  // The chart blocks (S05) on a dev-only page, until S06 places them
+  {
+    id: 'charts',
+    hash: '#/dev/charts',
+    setup: async (page) => {
+      // The first month chart, focused and moved one month back: the
+      // tooltip a keyboard user reads.
+      await page
+        .getByRole('img', { name: /^Plays per month/ })
+        .first()
+        .focus();
+      await page.keyboard.press('ArrowLeft');
+    },
+  },
+
   // Screens of later stories
   { id: 'overview', hash: '#/', since: 'US8' },
   { id: 'overview-empty', variant: 'empty', hash: '#/', since: 'US8' },

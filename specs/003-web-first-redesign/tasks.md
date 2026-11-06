@@ -326,18 +326,18 @@ first/last play, finished/skipped, playlists, link; the list keeps its scroll; E
 **Independent Test**: with the `full` demo, every month-by-month figure that was text is a chart with exact values on hover, focus and
 for screen readers; with `old-import`, the hub shows the re-import card.
 
-- [ ] T063 [P] [US4] Write the failing test `src/ui/charts/series.test.ts`:
+- [X] T063 [P] [US4] Write the failing test `src/ui/charts/series.test.ts`:
   - `monthSeries`: "`value` is null for a month outside the imported history's range (drawn as a gap), and 0 for a month inside it with no plays";
   - `barHeights`: "scales to the series' own peak, keeps a minimum of 1 px for any value above 0, and gives 0 for 0";
   - `heatLevel`: "0 for no plays, and 1–4 for quartiles of the owner's busiest month";
   - `yearMonthTotals(rows, range)`: twelve totals and the year's total per year, over the span `spanYears` uses.
-- [ ] T064 [P] [US4] Implement `monthSeries`, `barHeights`, `heatLevel` and `yearMonthTotals` in `src/ui/charts/series.ts`. Make T063 pass.
-- [ ] T065 [P] [US4] Create `src/ui/charts/MonthBars.tsx`:
+- [X] T064 [P] [US4] Implement `monthSeries`, `barHeights`, `heatLevel` and `yearMonthTotals` in `src/ui/charts/series.ts`. Make T063 pass.
+- [X] T065 [P] [US4] Create `src/ui/charts/MonthBars.tsx`:
   - an SVG with bars in `primary`, a baseline tick for 0, and a gap for null;
   - `role="img"` and an `aria-label` listing the values ("Plays per month: Jun 4, Jul 0, …");
   - a tooltip on hover and on focus.
-- [ ] T066 [P] [US4] Create `src/ui/charts/Meter.tsx`: a 0–100% bar in the band colour (`rateBand`: `--app-color-band-high`, `on-surface-variant`, or `error`) with the percentage written beside it.
-- [ ] T067 [P] [US4] Create `src/ui/charts/YearMonthGrid.tsx`:
+- [X] T066 [P] [US4] Create `src/ui/charts/Meter.tsx`: a 0–100% bar in the band colour (`rateBand`: `--app-color-band-high`, `on-surface-variant`, or `error`) with the percentage written beside it.
+- [X] T067 [P] [US4] Create `src/ui/charts/YearMonthGrid.tsx`:
   - one row per year with twelve cells and a total, shaded by `heatLevel`;
   - the cells, the year totals and the season headers are buttons labelled "Aug 2026, 143 plays";
   - the selection is outlined in `primary`;

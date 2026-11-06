@@ -1,13 +1,14 @@
 import type { ComponentChildren } from 'preact';
 import type { PlayRow } from '../../db/schema';
 import type { Model } from '../../model/aggregate';
-import { hasMonthData, yearsWithPlays } from '../../model/crate';
+import { hasMonthData } from '../../model/crate';
 import { nameKey } from '../../model/normalize';
 import { historySummary, model } from '../../model/state';
 import { FeaturePills } from '../components/FeaturePills';
 import { TrackRow } from '../components/TrackRow';
 import { openDetail } from '../details/navigate';
 import { TrackSheet } from '../details/TrackDetails';
+import { yearSpan } from '../charts/series';
 import { artistNames } from '../format';
 
 // The details' shared pieces, re-exported for the Crate views.
@@ -27,25 +28,17 @@ export function useCrateRows(): CrateRowData[] {
   return m ? m.plays.filter(hasMonthData) : [];
 }
 
-function yearOf(iso: string | undefined): number | null {
-  if (!iso) return null;
-  const year = new Date(iso).getFullYear();
-  return Number.isFinite(year) ? year : null;
-}
-
 /**
  * Every year the export covers, gaps included: Classics prints a dash for a
  * year without plays, so the span comes from the import range and not from the
  * years that happen to have rows. Both `of N years` phrases count from it.
  */
 export function spanYears(rows: PlayRow[]): number[] {
-  const range = historySummary.value?.range;
-  const played = yearsWithPlays(rows);
-  const first = yearOf(range?.first) ?? played[0] ?? new Date().getFullYear();
-  const last = yearOf(range?.last) ?? played[played.length - 1] ?? first;
-  const years: number[] = [];
-  for (let y = first; y <= last; y += 1) years.push(y);
-  return years.length > 0 ? years : [first];
+  return yearSpan(
+    rows,
+    historySummary.value?.range ?? null,
+    new Date().getFullYear()
+  );
 }
 
 /**
