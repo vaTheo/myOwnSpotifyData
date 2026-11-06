@@ -34,7 +34,7 @@ Primary key `(owner_id, spotify_account_id, name)`.
 | `dataset` | text | the dataset name |
 | `store` | text | the local store the row belongs to (`playlists`, `tracks`, `entries`, `topItems`, `plays`, `features`, `artistIdentity`, `artistReach`) |
 | `generation` | bigint | the push that wrote it |
-| `key` | text | the local keyPath value, serialised (`entries`: `playlistId\u0000position`) |
+| `key` | text | the local keyPath value, serialised (`entries`: `playlistId#position`) |
 | `row` | jsonb | the local row verbatim |
 
 Primary key `(owner_id, spotify_account_id, dataset, generation, store, key)`; index on `(owner_id, spotify_account_id, dataset, generation)`.
