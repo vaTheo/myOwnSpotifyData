@@ -300,7 +300,8 @@ One Supabase Free project, for the owner alone, that stores every dataset the ap
 ## 17. `worker/`: the owner's-computer worker
 
 A Python `uv` project (3.11–3.13; `yt-dlp`, `shazamio`, `imageio-ffmpeg`; tests with the standard library's `unittest`, run by CI)
-and one PyInstaller executable per system built by `.github/workflows/worker-release.yml` on a `worker-v*` tag
+and one PyInstaller executable per system built by `.github/workflows/worker-release.yml` and released as `worker-v<version>` on the first push to `main` carrying a new
+version in `worker/pyproject.toml`
 ([ADR-09](700-adr/ADR-09-mix-identification-on-the-owners-computer.md); the round's record under `specs/002-mix-analysis-worker/`;
 the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never calls a Spotify host.
 

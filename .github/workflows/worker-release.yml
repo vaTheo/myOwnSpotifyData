@@ -1,13 +1,53 @@
 name: Worker release
 
-# One executable per system from one tag, attached to one GitHub release
-# (specs/002-mix-analysis-worker, research D9). Tag: worker-v<major>.<minor>.<patch>.
+# One executable per system, attached to one GitHub release per worker version
+# (specs/002-mix-analysis-worker, research D9). Every push to main that touches
+# the worker reads the version in worker/pyproject.toml; when no release
+# `worker-v<version>` exists yet, it builds, tests and publishes one (the tag is
+# created by the release). Same version again → nothing is built. To ship a
+# change: bump the version (pyproject.toml, mix_worker/__init__.py, `uv lock`).
 on:
   push:
-    tags: ['worker-v*']
+    branches: [main]
+    paths: ['worker/**', '.github/workflows/worker-release.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: worker-release
+  cancel-in-progress: false
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.read.outputs.tag }}
+      exists: ${{ steps.read.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Read the version and look for its release
+        id: read
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(python3 -c "import tomllib;print(tomllib.load(open('worker/pyproject.toml','rb'))['project']['version'])")
+          code=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' worker/mix_worker/__init__.py)
+          if [ "$version" != "$code" ]; then
+            echo "::error::pyproject.toml says $version, mix_worker/__init__.py says $code"
+            exit 1
+          fi
+          tag="worker-v$version"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "$tag is already released; nothing to build."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "$tag is new; building it."
+          fi
+
   build:
+    needs: version
+    if: needs.version.outputs.exists == 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -51,7 +91,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: build
+    needs: [version, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -64,7 +104,8 @@ jobs:
       - name: Create the release with every executable
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
         run: |
           ls -la assets
-          gh release create "$GITHUB_REF_NAME" assets/mix-worker-* --title "$GITHUB_REF_NAME" --generate-notes \
-            --notes-file worker/RELEASE_NOTES.md
+          gh release create "$TAG" assets/mix-worker-* --target "$GITHUB_SHA" --title "$TAG" --latest \
+            --notes-file worker/RELEASE_NOTES.md --generate-notes

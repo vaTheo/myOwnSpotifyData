@@ -118,3 +118,15 @@ class Template(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Version(unittest.TestCase):
+    def test_pyproject_and_package_agree(self):
+        # The release workflow tags `worker-v<pyproject version>` and refuses a mismatch.
+        import tomllib
+
+        from mix_worker import __version__
+
+        root = Path(__file__).resolve().parent.parent
+        with open(root / "pyproject.toml", "rb") as f:
+            self.assertEqual(tomllib.load(f)["project"]["version"], __version__)
