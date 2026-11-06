@@ -26,6 +26,16 @@ everything external injected in tests, no Spotify host, no key.
   speed (the first pass already steps every 15 s with 12 s probes, 3 s apart: a shift adds little); a replay at 0 % (the same
   probe again: Shazam answered no already).
 
+## R1b. Fewer calls (owner, 2026-11-06, from the Artaphine run)
+
+- **Evidence**: on Artaphine (1 h, 241 probes, 28 tracks on the first pass) the second pass made 75 calls before its third
+  refusal: ×1 49 calls → 4 new tracks, ×0.96 18 → 3, ×1.04 8 → 0; 34 calls only re-found a track already known. Shazam refused
+  at about 150, 100 and 100 calls apart whether the calls were 5 s or 10 s apart: a count over a window, not the spacing.
+- **Decision**: (1) `inside_known` drops a run of misses with the same track just before and after it within the merge gap
+  (180 s): replayed on the Artaphine log, places fall from 75 to 47 and all 7 new tracks are kept; (2) a planned break of
+  `WORKER_BREAK_SECONDS` (180 ± 40 %) after every `WORKER_BREAK_EVERY_CALLS` (80) calls, a rate-limit pause resetting the
+  count. ×1 and both speeds stay (owner).
+
 ## R2. Speed correction with the packaged ffmpeg
 
 - **Decision**: a replay at factor `f` (1.04 or 0.96) cuts `probe_seconds × f` seconds from the probe's start and filters
