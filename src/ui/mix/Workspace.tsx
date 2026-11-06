@@ -10,6 +10,7 @@ import {
 import { routeHref } from '../../router';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
+import { ESCAPE_RANK, pushEscapeLayer } from '../layout/escape';
 import { focusWhenReady } from '../layout/focus';
 import { ListDetail } from '../layout/ListDetail';
 import { windowClass } from '../layout/windowClass';
@@ -20,11 +21,13 @@ import {
   JsonImport,
   LinkForm,
   LookupLines,
+  MixesList,
   MixListPane,
-  RequestsCard,
-  SavedMixes,
   WorkerHelp,
 } from './MixListPane';
+
+/** From this width the Mixes pane stays beside an open mix (styles.css). */
+const PANE_ALWAYS = '(min-width: 1600px)';
 
 function currentOpenUrl(): string | null {
   const s = mixState.peek();
@@ -39,9 +42,9 @@ function focusAfterClose(url: string | null): void {
   const saved = savedMixes.peek();
   const selector =
     url !== null && saved.some((m) => m.url === url)
-      ? `.mix-saved [data-row-id="${CSS.escape(url)}"]`
+      ? `.mix-list [data-row-id="${CSS.escape(url)}"]`
       : saved.length > 0
-        ? '.mix-saved a.main'
+        ? '.mix-list a.main'
         : '.mix-link-form input';
   focusWhenReady(selector, false);
 }
@@ -102,7 +105,13 @@ export function Workspace(p: { mixKey?: string }) {
       setMissing(nowMissing ? (key ?? null) : null);
       holding = nowMissing || (action === 'missing' && readFailed);
       if (action === 'open' && key !== undefined) openMix(key);
-      if (action === 'close') closeMix();
+      if (action === 'close') {
+        // Back or Forward closed it: the same reset and focus as Close.
+        const was = currentOpenUrl();
+        closeMix();
+        setPaneShown(false);
+        focusAfterClose(was);
+      }
     }
     if (!loaded) return;
     const now = currentOpenUrl();
@@ -127,12 +136,29 @@ export function Workspace(p: { mixKey?: string }) {
 
   const size = windowClass.value;
   const stacked = size === 'compact' || size === 'medium';
+
+  // The pane brought back over an open mix folds on the first Escape; the
+  // second closes the mix (ListDetail's own layer, ranked below).
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  useEffect(() => {
+    if (!paneShown || open === null || stacked) return;
+    return pushEscapeLayer(() => {
+      if (matchMedia(PANE_ALWAYS).matches) {
+        closeRef.current(); // From 1,600 px the pane never folds.
+        return;
+      }
+      setPaneShown(false);
+      focusWhenReady('.mix-pane-toggle', false);
+    }, ESCAPE_RANK.fold);
+  }, [paneShown, open, stacked]);
   const paneButton = stacked ? undefined : (
     <Button
       variant="text"
       icon="queue_music"
       class="mix-pane-toggle"
-      aria-pressed={paneShown}
+      aria-expanded={paneShown}
+      aria-controls="mix-pane"
       onClick={() => setPaneShown(!paneShown)}
     >
       Mixes
@@ -166,8 +192,7 @@ export function Workspace(p: { mixKey?: string }) {
         <IdentifyRequest />
         <LookupLines />
         <JsonImport />
-        <SavedMixes />
-        <RequestsCard />
+        <MixesList />
         <WorkerHelp />
       </section>
     );

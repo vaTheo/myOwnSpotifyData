@@ -410,7 +410,9 @@ export interface RequestListItem {
 export function shortLink(key: string): string {
   try {
     const u = new URL(key);
-    const last = u.pathname.split('/').filter(Boolean).pop();
+    // A YouTube watch link is named by its video id, not "watch".
+    const last =
+      u.searchParams.get('v') ?? u.pathname.split('/').filter(Boolean).pop();
     const host = u.hostname.replace(/^www\./, '');
     return last ? `${host} · ${decodeURIComponent(last)}` : host;
   } catch {

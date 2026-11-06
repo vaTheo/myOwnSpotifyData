@@ -381,9 +381,23 @@ export function TracklistTable() {
   const index = m ? libraryTitleIndex(m) : null;
   const [editing, setEditing] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
-  const [saveFailed, setSaveFailed] = useState(false);
-  const [sort, setSort] = useState<RowSort>('time');
-  const [heardOnce, setHeardOnce] = useState(false);
+  // The save's own failure, kept apart from `mixError` (which other
+  // actions also set) and cleared by the next action on the table.
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [sort, setSortState] = useState<RowSort>('time');
+  const [heardOnce, setHeardOnceState] = useState(false);
+  const setSort = (v: RowSort): void => {
+    setSaveError(null);
+    setSortState(v);
+  };
+  const setHeardOnce = (v: boolean): void => {
+    setSaveError(null);
+    setHeardOnceState(v);
+  };
+  const edit = (i: number | null): void => {
+    setSaveError(null);
+    setEditing(i);
+  };
   const counted = rows.some((r) => r.hits !== undefined);
   const order = counted
     ? viewRows(rows, sort, heardOnce)
@@ -395,22 +409,22 @@ export function TracklistTable() {
   }));
   const remove = (i: number): void => {
     deleteMixRow(i);
-    setEditing(null);
+    edit(null);
   };
 
   const onSaveMix = (): void => {
     void (async () => {
-      setSaveFailed(false);
+      setSaveError(null);
       const ok = await saveMix();
       if (!ok) {
-        setSaveFailed(true); // mixError says why, here; never "Saved ✓".
+        // mixError says why, here; never "Saved ✓".
+        setSaveError(mixError.peek());
         return;
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     })();
   };
-  const saveError = saveFailed ? mixError.value : null;
 
   return (
     <div class="mix-tracklist">
@@ -425,7 +439,7 @@ export function TracklistTable() {
       )}
       <DataTable
         label="Tracklist"
-        columns={columns({ edit: setEditing, remove })}
+        columns={columns({ edit, remove })}
         rows={lines}
         rowKey={(l) => keyOf(l.index, editing)}
         sort={NO_SORT.value}
@@ -440,9 +454,9 @@ export function TracklistTable() {
                 row={l.row}
                 onSave={(patch) => {
                   editMixRow(l.index, patch);
-                  setEditing(null);
+                  edit(null);
                 }}
-                onCancel={() => setEditing(null)}
+                onCancel={() => edit(null)}
               />
             );
           }
@@ -459,7 +473,7 @@ export function TracklistTable() {
             addMixRow();
             // A new row has no clip count: show it whatever the view.
             setHeardOnce(false);
-            setEditing(mixRows.value.length - 1);
+            edit(mixRows.value.length - 1);
           }}
         >
           Add track

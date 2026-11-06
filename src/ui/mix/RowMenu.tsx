@@ -12,8 +12,8 @@ export interface RowMenuItem {
  * A row's "More" menu: one 48 px `more_vert` button, its items in a list
  * fixed to the viewport, so a table cell's clipping never hides it. Closes
  * on Escape (focus back on the button), a tap outside, a scroll that moves
- * the row, and when
- * the focus leaves it.
+ * the row, and when the focus leaves it. Up and Down move between the
+ * items (wrapping), Home and End to the first and the last.
  */
 export function RowMenu(p: { label: string; items: RowMenuItem[] }) {
   const [at, setAt] = useState<{ top: number; right: number } | null>(null);
@@ -63,7 +63,35 @@ export function RowMenu(p: { label: string; items: RowMenuItem[] }) {
           e.stopPropagation();
           setAt(null);
           box.current?.querySelector<HTMLElement>('.icon-btn')?.focus();
+          return;
         }
+        // The menu pattern: arrows move between the items, wrapping; Home
+        // and End go to the first and the last.
+        if (!open) return;
+        const items = [
+          ...(box.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ??
+            []),
+        ];
+        if (items.length === 0) return;
+        const at = items.indexOf(document.activeElement as HTMLElement);
+        const last = items.length - 1;
+        const next =
+          e.key === 'ArrowDown'
+            ? at < 0 || at === last
+              ? 0
+              : at + 1
+            : e.key === 'ArrowUp'
+              ? at <= 0
+                ? last
+                : at - 1
+              : e.key === 'Home'
+                ? 0
+                : e.key === 'End'
+                  ? last
+                  : null;
+        if (next === null) return;
+        e.preventDefault();
+        items[next].focus();
       }}
       onFocusOut={(e) => {
         if (!box.current?.contains(e.relatedTarget as Node | null)) {
