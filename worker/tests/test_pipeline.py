@@ -174,7 +174,7 @@ class Failures(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             settings, deps, log = make(tmp, max_duration=100)
             run_one(job(), settings, "tok", deps)
-            self.assertEqual(self.failed_body(deps), "Set longer than 4 hours")
+            self.assertEqual(self.failed_body(deps), "Set too long (2 h 01 min; the limit is 1 min 40 s, setting WORKER_MAX_DURATION_SECONDS)")
 
     def test_unexpected_exception(self):
         with tempfile.TemporaryDirectory() as tmp:

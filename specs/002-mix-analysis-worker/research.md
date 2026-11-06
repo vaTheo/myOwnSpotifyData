@@ -201,7 +201,7 @@ needs only `song_name`, `artist`, `mix_info.title`, `mix_info.audio_filename`; e
 ## D10. The stale limit and the loop
 
 - **Decision**: `WORKER_STALE_SECONDS` default **21600** (6 h: a slow download plus a 4-hour set at one probe a minute is under
-  three hours); `WORKER_MAX_DURATION_SECONDS` default 14400 (a longer set fails with "Set longer than 4 hours"); `run --once`
+  three hours); `WORKER_MAX_DURATION_SECONDS` default 28800 since 2026-11-06 (was 14400; the owner's all-night Miscellania set runs 4 h 55 min), checked on yt-dlp's metadata before any audio is fetched (`extract_info(download=False)`, then `process_ie_result`), the reason naming the length and the limit; `run --once`
   claims until `claim_job` returns `[]`, `run --watch` then sleeps `WORKER_POLL_SECONDS` (default 60) and claims again; Ctrl-C
   during a request sets the row back to `queued` (best effort, 3 s timeout) and exits 130; a paused or unreachable server ends
   the run (exit 3 / 2), never a loop.
