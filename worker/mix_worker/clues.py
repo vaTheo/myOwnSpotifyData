@@ -16,6 +16,7 @@ import json
 import re
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
@@ -31,6 +32,7 @@ MARGIN_SECONDS = 30
 TRACKLIST_MIN = 3
 DESCRIPTION_MIN_RUN = 5  # the app's MIX_DESCRIPTION_MIN_RUN: prose is never read as tracks
 PACE = {"deezer": 0.2, "musicbrainz": 1.1, "discogs": 2.5}
+BUSY_WAITS = (2.0, 4.0)  # after a 503/429, then the clue is given up
 FETCH_TIMEOUT = 15
 
 # -- one line: the app's rules (src/features/mix/parse.ts) ---------------------
@@ -377,11 +379,21 @@ class Lookups:
         self.used = 0
 
     def _get(self, host: str, url: str) -> Any:
-        wait = PACE[host] - (self.clock() - self.last.get(host, -1e9))
-        if wait > 0:
-            self.sleep(wait)
-        self.last[host] = self.clock()
-        return self.fetch(url)
+        """One paced call; a 503 or 429 (MusicBrainz answers 503 now and then
+        even at 1 call a second, measured 2026-11-06) waits `BUSY_WAITS` and
+        tries again; anything else is raised to `candidate`."""
+        for attempt in range(len(BUSY_WAITS) + 1):
+            wait = PACE[host] - (self.clock() - self.last.get(host, -1e9))
+            if wait > 0:
+                self.sleep(wait)
+            self.last[host] = self.clock()
+            try:
+                return self.fetch(url)
+            except urllib.error.HTTPError as err:
+                if err.code not in (429, 503) or attempt == len(BUSY_WAITS):
+                    raise
+                self.sleep(BUSY_WAITS[attempt])
+        raise AssertionError("unreachable")
 
     def _deezer(self, artist: str, title: str) -> Candidate | None:
         q = urllib.parse.urlencode({"q": f"{artist} {title}", "limit": 10})
