@@ -7,7 +7,7 @@ import { artistView } from './artistSelections';
 import { Empty } from './components/Empty';
 import { Filter } from './components/Filter';
 import { NoMatch } from './components/NoMatch';
-import { Segmented } from './components/Segmented';
+import { SegmentedButtons } from './components/SegmentedButtons';
 import { TrackRow } from './components/TrackRow';
 import { artistUrl, plural } from './format';
 
@@ -68,7 +68,7 @@ export function Artists() {
   return (
     <section>
       <h1>Artists</h1>
-      <Segmented
+      <SegmentedButtons
         options={[
           { value: 'saved', label: 'Saved tracks' },
           { value: 'radar', label: 'Under the radar' },

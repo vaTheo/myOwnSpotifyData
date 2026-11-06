@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { Icon } from '../icons';
 
-export function Segmented<T extends string>(p: {
+/**
+ * Material 3 segmented buttons (spec 003): the selected segment carries a
+ * check and the secondary-container fill; every segment is 48 px tall. The
+ * scrolling behaviour is the old `Segmented`'s, unchanged.
+ */
+export function SegmentedButtons<T extends string>(p: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
@@ -54,18 +60,22 @@ export function Segmented<T extends string>(p: {
     .join(' ');
   return (
     <div ref={row} class={classes} role="tablist">
-      {p.options.map((o) => (
-        <button
-          type="button"
-          key={o.value}
-          role="tab"
-          aria-selected={o.value === p.value}
-          class={o.value === p.value ? 'active' : ''}
-          onClick={() => p.onChange(o.value)}
-        >
-          {o.label}
-        </button>
-      ))}
+      {p.options.map((o) => {
+        const selected = o.value === p.value;
+        return (
+          <button
+            type="button"
+            key={o.value}
+            role="tab"
+            aria-selected={selected}
+            class={selected ? 'active' : ''}
+            onClick={() => p.onChange(o.value)}
+          >
+            {selected && !p.scroll && <Icon name="check" size={18} />}
+            <span>{o.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -40,7 +40,7 @@ import {
 } from '../model/state';
 import { DigLinks } from './components/DigLinks';
 import { FeaturePills } from './components/FeaturePills';
-import { Progress } from './components/Progress';
+import { ProgressBar } from './components/ProgressBar';
 import { SpotifyLink } from './components/SpotifyLink';
 import { TrackRow } from './components/TrackRow';
 import { formatClock, formatDate, plural } from './format';
@@ -384,7 +384,7 @@ function CreatePlaylistPanel(p: { view: MixView }) {
         </>
       )}
       {cs.status === 'resolving' && (
-        <Progress
+        <ProgressBar
           label="Matching tracks"
           done={cs.done}
           total={cs.total}

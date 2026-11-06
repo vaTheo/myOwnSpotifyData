@@ -1,8 +1,13 @@
+import { EmptyState } from './EmptyState';
+
+/** "No playlists yet." with the one action that fixes it: a sync. */
 export function Empty(p: { what: string }) {
   return (
-    <div class="empty">
+    <EmptyState
+      icon="sync"
+      action={{ label: 'Sync in Settings', href: '#/settings' }}
+    >
       <p>No {p.what} yet.</p>
-      <a href="#/settings">Sync in Settings</a>
-    </div>
+    </EmptyState>
   );
 }

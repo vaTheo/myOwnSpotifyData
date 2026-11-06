@@ -1,6 +1,6 @@
 import type { ImportSummary } from '../history/importer';
 import { historySummary, importState, startImport } from '../model/state';
-import { Progress } from './components/Progress';
+import { ProgressBar } from './components/ProgressBar';
 import { formatDate, formatDateTime, notCountedLine, plural } from './format';
 
 /** "214,908 starts, 61% played through"; the clause is dropped at zero. */
@@ -109,7 +109,7 @@ export function Import() {
           />
         </label>
         {state.status === 'running' && (
-          <Progress
+          <ProgressBar
             label={state.file}
             done={state.index}
             total={state.total}

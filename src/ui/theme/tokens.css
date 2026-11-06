@@ -1,0 +1,145 @@
+/*
+ * Design tokens (spec 003, contracts/design-tokens.md). Material Design 3
+ * system tokens, dark only, generated from the seed #7FFF00 (chartreuse) in
+ * the fidelity variant, with the primary roles mapped to the seed itself
+ * (research D2). Components read these tokens and nothing else. The
+ * contrast test (contrast.test.ts) reads this file: every colour is a plain
+ * hex value on its own line.
+ */
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/roboto-latin-wght.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Colour: Material 3 roles */
+  --md-sys-color-primary: #7fff00;
+  --md-sys-color-on-primary: #173800;
+  --md-sys-color-primary-container: #245100;
+  --md-sys-color-on-primary-container: #7fff00;
+  --md-sys-color-secondary: #8eda58;
+  --md-sys-color-on-secondary: #173800;
+  --md-sys-color-secondary-container: #245100;
+  --md-sys-color-on-secondary-container: #a8f771;
+  --md-sys-color-tertiary: #dcbce3;
+  --md-sys-color-on-tertiary: #3f2846;
+  --md-sys-color-tertiary-container: #573e5e;
+  --md-sys-color-on-tertiary-container: #f9d8ff;
+  --md-sys-color-error: #ffb4ab;
+  --md-sys-color-on-error: #690005;
+  --md-sys-color-error-container: #93000a;
+  --md-sys-color-on-error-container: #ffdad6;
+  --md-sys-color-surface: #0e1509;
+  --md-sys-color-background: #0e1509;
+  --md-sys-color-surface-container-lowest: #091005;
+  --md-sys-color-surface-container-low: #161e10;
+  --md-sys-color-surface-container: #1a2214;
+  --md-sys-color-surface-container-high: #242c1e;
+  --md-sys-color-surface-container-highest: #2f3728;
+  --md-sys-color-surface-bright: #333c2c;
+  --md-sys-color-on-surface: #dde6d0;
+  --md-sys-color-on-surface-variant: #bdcbae;
+  --md-sys-color-outline: #88957b;
+  --md-sys-color-outline-variant: #3e4a34;
+  --md-sys-color-inverse-surface: #dde6d0;
+  --md-sys-color-inverse-on-surface: #2b3324;
+  --md-sys-color-inverse-primary: #326b00;
+  --md-sys-color-scrim: rgb(0 0 0 / 32%);
+
+  /* Colour: roles outside Material's set (research D3) */
+  --app-color-warning: #ffb95c;
+  --app-color-warning-container: #4a2800;
+  --app-color-on-warning-container: #ffddb7;
+  --app-color-band-high: #7ee2a3;
+
+  /* Camelot key hues, 1 to 12; the same twelve as before the redesign */
+  --app-key-1: #e68989;
+  --app-key-2: #e6b889;
+  --app-key-3: #e6e689;
+  --app-key-4: #b8e689;
+  --app-key-5: #89e689;
+  --app-key-6: #89e6b8;
+  --app-key-7: #89e6e6;
+  --app-key-8: #89b8e6;
+  --app-key-9: #8989e6;
+  --app-key-10: #b889e6;
+  --app-key-11: #e689e6;
+  --app-key-12: #e689b8;
+
+  /* State layers: Material's hover, focus and press opacities */
+  --md-sys-state-hover: 8%;
+  --md-sys-state-focus: 10%;
+  --md-sys-state-pressed: 10%;
+
+  /* Type: Roboto, Material 3 type scale (size / line height / weight) */
+  --md-ref-typeface-plain:
+    'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --md-sys-typescale-headline-small: 400 24px / 32px
+    var(--md-ref-typeface-plain);
+  --md-sys-typescale-title-large: 400 22px / 28px var(--md-ref-typeface-plain);
+  --md-sys-typescale-title-medium: 500 16px / 24px var(--md-ref-typeface-plain);
+  --md-sys-typescale-title-small: 500 14px / 20px var(--md-ref-typeface-plain);
+  --md-sys-typescale-body-large: 400 16px / 24px var(--md-ref-typeface-plain);
+  --md-sys-typescale-body-medium: 400 14px / 20px var(--md-ref-typeface-plain);
+  --md-sys-typescale-body-small: 400 12px / 16px var(--md-ref-typeface-plain);
+  --md-sys-typescale-label-large: 500 14px / 20px var(--md-ref-typeface-plain);
+  --md-sys-typescale-label-medium: 500 12px / 16px var(--md-ref-typeface-plain);
+  --md-sys-typescale-label-small: 500 11px / 16px var(--md-ref-typeface-plain);
+
+  /* Shape */
+  --md-sys-shape-corner-extra-small: 4px;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-full: 9999px;
+
+  /* Elevation: tonal first; shadows only for floating surfaces */
+  --md-sys-elevation-2:
+    0 1px 2px rgb(0 0 0 / 30%), 0 2px 6px 2px rgb(0 0 0 / 15%);
+  --md-sys-elevation-3:
+    0 1px 3px rgb(0 0 0 / 30%), 0 4px 8px 3px rgb(0 0 0 / 15%);
+
+  /* Motion */
+  --md-sys-motion-duration-short: 150ms;
+  --md-sys-motion-duration-medium: 250ms;
+  --md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Sizes (contracts/design-tokens.md, "Sizes") */
+  --app-target: 48px;
+  --app-top-bar: 64px;
+  --app-nav-bar: 80px;
+  --app-nav-rail: 80px;
+  --app-nav-rail-expanded: 220px;
+  --app-row: 52px;
+  --app-row-two-line: 72px;
+  --app-list-pane: 360px;
+  --app-side-sheet: 400px;
+  --app-focus-ring: 3px;
+  --app-margin: 16px;
+  --app-gap: 24px;
+  --app-prose: 80ch;
+}
+
+@media (min-width: 600px) {
+  :root {
+    --app-margin: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --md-sys-motion-duration-short: 0ms;
+    --md-sys-motion-duration-medium: 0ms;
+  }
+}

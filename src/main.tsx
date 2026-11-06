@@ -14,6 +14,7 @@ import {
 import { installAutoSync } from './server/autoSync';
 import { LINK_MARKER } from './server/session';
 import { AuthError } from './spotify/errors';
+import './ui/theme/tokens.css';
 import './styles.css';
 
 /**

@@ -6,8 +6,8 @@ import {
   classics,
   monthKey,
 } from '../../model/crate';
-import { Badge } from '../components/Badge';
-import { Segmented } from '../components/Segmented';
+import { Flag } from '../components/Flag';
+import { SegmentedButtons } from '../components/SegmentedButtons';
 import { formatDate, plural } from '../format';
 import { classicSort } from './selections';
 import {
@@ -39,7 +39,7 @@ export function Classics() {
     plural(items.length, 'track');
   return (
     <>
-      <Segmented
+      <SegmentedButtons
         options={[
           { value: 'years', label: 'Most years' },
           { value: 'plays', label: 'Most plays' },
@@ -72,15 +72,15 @@ export function Classics() {
                       : item.row.trackId;
                 }}
                 badge1={
-                  <Badge kind="top">
+                  <Flag kind="top">
                     {item.yearsActive} of {span.length} years
-                  </Badge>
+                  </Flag>
                 }
                 badge2={
                   inNoPlaylist(item.row) ? (
-                    <Badge kind="todo">not in a playlist</Badge>
+                    <Flag kind="todo">not in a playlist</Flag>
                   ) : (
-                    <Badge kind="plays">{plural(item.row.plays, 'play')}</Badge>
+                    <Flag kind="plays">{plural(item.row.plays, 'play')}</Flag>
                   )
                 }
               >

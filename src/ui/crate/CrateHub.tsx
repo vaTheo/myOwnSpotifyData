@@ -13,7 +13,7 @@ import {
 } from '../../model/crate';
 import { crateStatus, historySummary, model } from '../../model/state';
 import { routeHref, type CrateView } from '../../router';
-import { Badge } from '../components/Badge';
+import { Flag } from '../components/Flag';
 import { formatDate, plural } from '../format';
 import { CrateEmpty } from './CrateEmpty';
 import {
@@ -172,8 +172,8 @@ export function CrateHub() {
             <span class="name">{row.name}</span>
             <span class="sub">{row.top}</span>
             <span class="badges">
-              <Badge kind="plays">{plural(row.count, 'track')}</Badge>
-              <Badge>{row.setting}</Badge>
+              <Flag kind="plays">{plural(row.count, 'track')}</Flag>
+              <Flag>{row.setting}</Flag>
             </span>
           </span>
           <span class="chev">›</span>

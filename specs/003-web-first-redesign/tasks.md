@@ -95,57 +95,57 @@ listed.
 
 **Purpose**: the look and the building blocks every story uses. **⚠️ No story starts before this phase is done.**
 
-- [ ] T012 [P] Write the failing test `src/ui/theme/contrast.test.ts`.
+- [X] T012 [P] Write the failing test `src/ui/theme/contrast.test.ts`.
   - `contrastRatio('#7FFF00', '#0e1509')` is about 14.3, and `contrastRatio('#FFFFFF', '#7FFF00')` is about 1.3.
   - It reads `src/ui/theme/tokens.css` with `node:fs`, parses `--name: #hex;` declarations, and asserts every pair in the table "Contrast pairs the test enforces" of `contracts/design-tokens.md`: 4.5 for text, 3.0 for `outline`.
-- [ ] T013 Implement `contrastRatio(fg, bg)` (WCAG relative luminance) and `parseTokens(css)` in `src/ui/theme/contrast.ts`.
-- [ ] T014 Write `src/ui/theme/tokens.css`:
+- [X] T013 Implement `contrastRatio(fg, bg)` (WCAG relative luminance) and `parseTokens(css)` in `src/ui/theme/contrast.ts`.
+- [X] T014 Write `src/ui/theme/tokens.css`:
   - every token of `contracts/design-tokens.md`: the `--md-sys-color-*` roles with chartreuse `#7FFF00` as `primary` and `#173800` as `on-primary`, the `--app-color-*` custom roles, `--app-key-1` … `--app-key-12` (today's hues from `src/styles.css`), the type scale, shape, motion, the sizes, and `@media (prefers-reduced-motion: reduce)` zeroing the durations;
   - `:root { color-scheme: dark }`;
   - import it before `styles.css` in `src/main.tsx`.
 
   Make T012 pass.
-- [ ] T015 [P] Add Roboto:
+- [X] T015 [P] Add Roboto:
   - download `https://fonts.gstatic.com/s/roboto/v51/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBA.woff2` (43,136 bytes, latin, weights 400–700) to `public/fonts/roboto-latin-wght.woff2`;
   - put the SIL OFL 1.1 text from `github.com/google/fonts/blob/main/ofl/roboto/OFL.txt` in `public/fonts/OFL.txt`;
   - add an `@font-face` (weights 400 to 700, `font-display: swap`) in `tokens.css`, and `<link rel="preload" as="font" type="font/woff2" crossorigin>` in `index.html`.
 
   The content security policy stays unchanged: `font-src` falls back to `'self'`.
-- [ ] T016 [P] Create `src/ui/icons.tsx`:
+- [X] T016 [P] Create `src/ui/icons.tsx`:
   - an `Icon({ name, filled?, size? })` drawing an inline SVG with `aria-hidden="true"` and `fill="currentColor"`;
   - the path data for every icon listed in `contracts/components.md`, from Material Symbols Rounded (weight 400, grade 0, 24 px; the `fill1` variant for `filled`; source `github.com/google/material-design-icons`, `symbols/web/<name>/materialsymbolsrounded/`);
   - the Apache 2.0 notice in the file header.
-- [ ] T017 [P] Set the browser's colours to the dark scheme:
+- [X] T017 [P] Set the browser's colours to the dark scheme:
   - `index.html`: `theme-color` `#0e1509` and `<meta name="color-scheme" content="dark">`;
   - `public/manifest.webmanifest`: `background_color` and `theme_color` `#0e1509`.
-- [ ] T018 Restyle `src/styles.css` onto the tokens **without changing the layout** (the 720 px column and the bottom tabs stay until US1):
+- [X] T018 Restyle `src/styles.css` onto the tokens **without changing the layout** (the 720 px column and the bottom tabs stay until US1):
   - map `--bg`, `--surface`, `--accent`, `--danger` and `--warn` to `--md-sys-color-*` and `--app-*`;
   - set the body font to Roboto with the fallback `system-ui, -apple-system, 'Segoe UI', sans-serif`;
   - use `font-variant-numeric: tabular-nums` on numbers;
   - draw the focus ring as a 3 px `primary` outline offset 2 px;
   - colour key pills from `--app-key-n`.
-- [ ] T019 [P] Write the failing test `src/ui/layout/windowClass.test.ts`, with the boundaries "600, 840 and 1200 (lower bound inclusive)": 599 → compact, 600 → medium, 839 → medium, 840 → expanded, 1199 → expanded, 1200 → large.
-- [ ] T020 [P] Implement `windowClassOf(width)` and the `windowClass` signal, fed by `matchMedia('(min-width: 600px)')`, 840 and 1200 listeners, in `src/ui/layout/windowClass.ts`. Make T019 pass.
-- [ ] T021 [P] Create `src/ui/components/Button.tsx` (variants `filled`, `tonal`, `outlined`, `text`, plus `danger` outlined in `error`) and `src/ui/components/IconButton.tsx` (`label` is required and used for `aria-label` and the tooltip; the hit area is at least 48 × 48), per `contracts/components.md`.
-- [ ] T022 [P] Create `src/ui/components/SegmentedButtons.tsx` with the same props as `src/ui/components/Segmented.tsx`. Keep its `scroll` behaviour: centre the selection by adjusting the row's own `scrollLeft`, never with `scrollIntoView`, and fade only the edges that hide chips. Move the long comment along with it.
-- [ ] T023 [P] Create `src/ui/components/Card.tsx`, `src/ui/components/StatusLine.tsx` (kinds `info`, `warning` and `error`, each with its icon, per FR-012) and `src/ui/components/EmptyState.tsx` (icon, one-line reason, one action).
-- [ ] T024 [P] Create:
+- [X] T019 [P] Write the failing test `src/ui/layout/windowClass.test.ts`, with the boundaries "600, 840 and 1200 (lower bound inclusive)": 599 → compact, 600 → medium, 839 → medium, 840 → expanded, 1199 → expanded, 1200 → large.
+- [X] T020 [P] Implement `windowClassOf(width)` and the `windowClass` signal, fed by `matchMedia('(min-width: 600px)')`, 840 and 1200 listeners, in `src/ui/layout/windowClass.ts`. Make T019 pass.
+- [X] T021 [P] Create `src/ui/components/Button.tsx` (variants `filled`, `tonal`, `outlined`, `text`, plus `danger` outlined in `error`) and `src/ui/components/IconButton.tsx` (`label` is required and used for `aria-label` and the tooltip; the hit area is at least 48 × 48), per `contracts/components.md`.
+- [X] T022 [P] Create `src/ui/components/SegmentedButtons.tsx` with the same props as `src/ui/components/Segmented.tsx`. Keep its `scroll` behaviour: centre the selection by adjusting the row's own `scrollLeft`, never with `scrollIntoView`, and fade only the edges that hide chips. Move the long comment along with it.
+- [X] T023 [P] Create `src/ui/components/Card.tsx`, `src/ui/components/StatusLine.tsx` (kinds `info`, `warning` and `error`, each with its icon, per FR-012) and `src/ui/components/EmptyState.tsx` (icon, one-line reason, one action).
+- [X] T024 [P] Create:
   - `src/ui/components/Flag.tsx` (kinds `todo` in the warning colour with an icon for "not in a playlist", `new`, `top` in tertiary, and `pending`);
   - `src/ui/components/KeyPill.tsx` (Camelot hue from `camelotNumber`, outline for minor and fill for major, text from `formatKey(key, major, keyNotation.value)`);
   - `src/ui/components/BpmText.tsx` (`formatBpm`, tabular);
   - `src/ui/components/NoData.tsx` (renders `—` with `aria-label="no data"`; never 0, per FR-021).
-- [ ] T025 [P] Create:
+- [X] T025 [P] Create:
   - `src/ui/components/ProgressBar.tsx`, with the same props as `Progress` (`label`, `done`, `total`, `unit`);
   - `src/ui/components/TextField.tsx`, an outlined text field;
   - `src/ui/components/FileDrop.tsx`, a file input that also accepts a dropped file, with `accept`, `onFile` and a drop hint shown only on medium windows and wider.
-- [ ] T026 Swap the old components for the new ones across `src/ui/**`:
+- [X] T026 Swap the old components for the new ones across `src/ui/**`:
   - `Segmented` → `SegmentedButtons`, `Progress` → `ProgressBar`, `Badge` → `Flag` or plain cells, the pills in `FeaturePills` → `KeyPill` and `BpmText`, `Empty` → `EmptyState` (same wording);
   - restyle `src/ui/components/Banner.tsx` as a Material banner (icon, `error-container` or warning container, dismiss `IconButton`);
   - restyle `src/ui/components/SpotifyLink.tsx` as an `IconButton` with `open_in_new`;
   - delete `src/ui/components/Segmented.tsx`, `Progress.tsx` and `Badge.tsx`.
 
   Every visible text stays the same.
-- [ ] T027 Run the visual loop over every page. The owner approves the look (colour, type, components) from the contact sheet. No baselines yet, because the layout changes next. Commit as `feat(ui): Material 3 tokens, Roboto, icons and shared components`.
+- [X] T027 Run the visual loop over every page. The owner approves the look (colour, type, components) from the contact sheet. No baselines yet, because the layout changes next. Commit as `feat(ui): Material 3 tokens, Roboto, icons and shared components`.
 
 **Checkpoint**: the whole app is dark Material 3 in chartreuse, every check that does not depend on layout passes, and every
 feature works as before.

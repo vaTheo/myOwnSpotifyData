@@ -1,13 +1,19 @@
+/*
+ * Spec 003: every colour, font and ring below reads the Material 3 tokens of
+ * ui/theme/tokens.css. The short names are kept as aliases while the screens
+ * move to the new components; nothing here holds a raw colour any more,
+ * except inside the aliases.
+ */
 :root {
-  color-scheme: dark;
-  --bg: #121212;
-  --surface: #1e1e1e;
-  --surface-2: #2a2a2a;
-  --text: #f5f5f5;
-  --muted: #a0a0a0;
-  --accent: #1db954;
-  --danger: #e5484d;
-  --warn: #f5a623;
+  --bg: var(--md-sys-color-surface);
+  --surface: var(--md-sys-color-surface-container);
+  --surface-2: var(--md-sys-color-surface-container-highest);
+  --text: var(--md-sys-color-on-surface);
+  --muted: var(--md-sys-color-on-surface-variant);
+  --accent: var(--md-sys-color-primary);
+  --danger: var(--md-sys-color-error);
+  --warn: var(--app-color-warning);
+  --line: var(--md-sys-color-outline-variant);
   --tab-height: 56px;
 }
 
@@ -20,12 +26,22 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font:
-    16px/1.4 system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font: 400 16px/1.4 var(--md-ref-typeface-plain);
+}
+
+/* FR-042: one visible 3 px chartreuse ring on every control. */
+:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+/* A link inside a line of text is underlined: colour alone is not enough. */
+p a,
+li a,
+.caption a,
+.provenance a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .app {
@@ -62,7 +78,7 @@ a {
   height: calc(var(--tab-height) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--surface);
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--line);
 }
 
 .tab {
@@ -84,38 +100,72 @@ a {
   font-weight: 600;
 }
 
+/* Material 3 tonal button by default; .primary is the filled one. */
 button {
-  font: inherit;
+  font: var(--md-sys-typescale-label-large);
   border: 0;
-  border-radius: 8px;
-  padding: 12px 16px;
-  min-height: 48px;
-  background: var(--surface-2);
-  color: var(--text);
+  border-radius: var(--md-sys-shape-corner-full);
+  padding: 0 24px;
+  min-height: var(--app-target);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
   cursor: pointer;
+  transition: background-color var(--md-sys-motion-duration-short)
+    var(--md-sys-motion-easing-standard);
+}
+
+button:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-secondary-container),
+    var(--md-sys-color-on-secondary-container) var(--md-sys-state-hover)
+  );
 }
 
 button:disabled {
-  opacity: 0.5;
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 12%,
+    transparent
+  );
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
   cursor: default;
 }
 
 button.primary {
-  background: var(--accent);
-  color: #000;
-  font-weight: 600;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
 }
 
+button.primary:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary),
+    var(--md-sys-color-on-primary) var(--md-sys-state-hover)
+  );
+}
+
+/* Destructive: outlined in the error colour, never white on red. */
 button.danger {
-  background: var(--danger);
-  color: #fff;
+  background: transparent;
+  color: var(--md-sys-color-error);
+  border: 1px solid var(--md-sys-color-error);
 }
 
 .card {
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 14px;
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 16px;
   margin-bottom: 12px;
+}
+
+.card > h2 {
+  font: var(--md-sys-typescale-title-medium);
+}
+
+.card-description {
+  color: var(--muted);
+  margin-top: -4px;
 }
 
 .card ol {
@@ -143,38 +193,74 @@ button.danger {
   top: 0;
   z-index: 2;
   display: flex;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
-  background: #3a2a00;
-  color: #ffd27a;
+  font: var(--md-sys-typescale-body-medium);
+  background: var(--app-color-warning-container);
+  color: var(--app-color-on-warning-container);
   padding: 10px 12px;
 }
 
 .banner.error {
-  background: #3d1416;
-  color: #f0a0a2;
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
 }
 
-.banner button {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 4px 10px;
-  background: transparent;
+.banner .banner-text {
+  flex: 1;
+}
+
+.banner .icon-btn {
   color: inherit;
-  margin-left: auto;
+}
+
+/* Material 3 linear progress indicator. */
+.progress-label {
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.progress-count {
+  font: var(--md-sys-typescale-body-small);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-bar {
-  height: 6px;
-  background: var(--surface-2);
-  border-radius: 3px;
+  height: 4px;
+  background: var(--md-sys-color-surface-container-highest);
+  border-radius: var(--md-sys-shape-corner-full);
   overflow: hidden;
-  margin: 6px 0;
+  margin: 8px 0;
 }
 
 .progress-bar div {
   height: 100%;
-  background: var(--accent);
+  background: var(--md-sys-color-primary);
+  border-radius: inherit;
+  transition: width var(--md-sys-motion-duration-medium)
+    var(--md-sys-motion-easing-standard);
+}
+
+.progress-bar.indeterminate div {
+  width: 30%;
+  animation: progress-slide 1.4s var(--md-sys-motion-easing-standard) infinite;
+}
+
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(350%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar.indeterminate div {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
 }
 
 .actions {
@@ -195,7 +281,7 @@ button.danger {
   align-items: center;
   min-height: 56px;
   padding: 8px 4px;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--line);
 }
 
 .row .rank {
@@ -249,80 +335,100 @@ button.danger {
   margin-top: 4px;
 }
 
-.badge {
-  font-size: 0.75rem;
+/* A small non-interactive chip: what the badge was (components.md Flag). */
+.flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--md-sys-typescale-label-medium);
+  font-variant-numeric: tabular-nums;
   padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--surface-2);
+  border-radius: var(--md-sys-shape-corner-small);
+  background: var(--md-sys-color-surface-container-highest);
   color: var(--muted);
 }
 
-.badge.plays {
-  background: #143d24;
-  color: #7ee2a3;
+/* Finish rate 65% and up: the high band's mint, with its words beside it. */
+.flag-high {
+  background: var(--md-sys-color-surface-container-highest);
+  color: var(--app-color-band-high);
 }
 
-.badge.top {
-  background: #1f2a44;
-  color: #9cc0ff;
+/* A play count is a plain figure: neutral, so green keeps meaning "match". */
+.flag-plays {
+  background: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-on-surface);
 }
 
-.badge.todo {
-  background: #3a2a00;
-  color: #ffd27a;
+.flag-top {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
 }
 
-.badge.skip {
-  background: #3d1416;
-  color: #f0a0a2;
+.flag-todo {
+  background: var(--app-color-warning-container);
+  color: var(--app-color-on-warning-container);
+}
+
+.flag-skip {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
 }
 
 .spotify-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   flex: none;
-  min-width: 44px;
-  min-height: 44px;
-  color: var(--accent);
-  text-decoration: none;
 }
 
 .spotify-link-text {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  gap: 4px;
+  min-height: var(--app-target);
   padding: 0 4px;
-  color: var(--accent);
+  color: var(--md-sys-color-primary);
   text-decoration: none;
   white-space: nowrap;
 }
 
+/* Material 3 segmented buttons: an outlined pill, the selected segment
+   filled in secondary-container with a check. */
 .segmented {
   display: flex;
-  background: var(--surface);
-  border-radius: 10px;
-  padding: 3px;
-  margin-bottom: 10px;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-full);
+  overflow: hidden;
+  margin-bottom: 12px;
 }
 
 .segmented button {
   flex: 1;
-  min-height: 40px;
-  padding: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--app-target);
+  padding: 0 12px;
   background: transparent;
-  color: var(--muted);
-  border-radius: 8px;
+  color: var(--md-sys-color-on-surface);
+  border-radius: 0;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--md-sys-color-outline);
 }
 
 .segmented button.active {
-  background: var(--surface-2);
-  color: var(--text);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
 }
 
+/* A scrolling row (years, periods) reads as filter chips. */
 .segmented.scroll {
   overflow-x: auto;
   scrollbar-width: none;
+  border: 0;
+  border-radius: 0;
+  gap: 8px;
 }
 
 .segmented.scroll::-webkit-scrollbar {
@@ -331,8 +437,18 @@ button.danger {
 
 .segmented.scroll button {
   flex: none;
-  min-height: 44px;
-  padding: 8px 14px;
+  min-height: var(--app-target);
+  padding: 0 16px;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-small);
+}
+
+.segmented.scroll button + button {
+  border-left: 1px solid var(--md-sys-color-outline);
+}
+
+.segmented.scroll button.active {
+  border-color: transparent;
 }
 
 /* Only on the side that still has chips beyond it, so a two-year history
@@ -377,7 +493,7 @@ button.danger {
   font: inherit;
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid #333;
+  border: 1px solid var(--md-sys-color-outline);
   background: var(--surface);
   color: var(--text);
   margin-bottom: 10px;
@@ -479,10 +595,6 @@ label.file input {
   margin: 0 0 10px;
 }
 
-.provenance a {
-  text-decoration: none;
-}
-
 .caption {
   color: var(--muted);
   font-size: 0.85rem;
@@ -523,7 +635,7 @@ label.file input {
   min-height: 64px;
   padding: 10px 4px;
   border: 0;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--line);
   border-radius: 0;
   background: none;
   color: inherit;
@@ -583,7 +695,7 @@ label.file input {
 .pill.minor {
   background: var(--hue);
   border-color: var(--hue);
-  color: #14181f;
+  color: var(--md-sys-color-surface);
 }
 
 .pill.major {
@@ -593,56 +705,56 @@ label.file input {
 }
 
 .pill.key-1 {
-  --hue: #e68989;
+  --hue: var(--app-key-1);
 }
 
 .pill.key-2 {
-  --hue: #e6b889;
+  --hue: var(--app-key-2);
 }
 
 .pill.key-3 {
-  --hue: #e6e689;
+  --hue: var(--app-key-3);
 }
 
 .pill.key-4 {
-  --hue: #b8e689;
+  --hue: var(--app-key-4);
 }
 
 .pill.key-5 {
-  --hue: #89e689;
+  --hue: var(--app-key-5);
 }
 
 .pill.key-6 {
-  --hue: #89e6b8;
+  --hue: var(--app-key-6);
 }
 
 .pill.key-7 {
-  --hue: #89e6e6;
+  --hue: var(--app-key-7);
 }
 
 .pill.key-8 {
-  --hue: #89b8e6;
+  --hue: var(--app-key-8);
 }
 
 .pill.key-9 {
-  --hue: #8989e6;
+  --hue: var(--app-key-9);
 }
 
 .pill.key-10 {
-  --hue: #b889e6;
+  --hue: var(--app-key-10);
 }
 
 .pill.key-11 {
-  --hue: #e689e6;
+  --hue: var(--app-key-11);
 }
 
 .pill.key-12 {
-  --hue: #e689b8;
+  --hue: var(--app-key-12);
 }
 
-.badge.relation {
-  background: #1c3a6e;
-  color: #cfe0ff;
+.flag-relation {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
 }
 
 .card button + label.file {
@@ -676,7 +788,7 @@ details.card > summary {
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--muted);
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--line);
 }
 
 /* Spec §6: the three Mix-screen additions. The player is built by the app
@@ -755,7 +867,7 @@ details.card > summary {
   vertical-align: top;
 }
 .stamps th {
-  color: var(--muted, #888);
+  color: var(--muted);
   font-weight: normal;
 }
 
@@ -769,4 +881,223 @@ details.card > summary {
 .mix .identify ul {
   margin: 0.25rem 0 0;
   padding-left: 1.25rem;
+}
+
+/* ---------- Spec 003 shared components (contracts/components.md) ---------- */
+
+.icon {
+  flex: none;
+  vertical-align: middle;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.no-data {
+  color: var(--muted);
+}
+
+/* Buttons as a component; a raw <button> carries the same look. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+a.btn {
+  font: var(--md-sys-typescale-label-large);
+  min-height: var(--app-target);
+  padding: 0 24px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.btn-filled {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.btn-outlined,
+.btn-text,
+.btn-danger {
+  background: transparent;
+}
+
+.btn-outlined {
+  border: 1px solid var(--md-sys-color-outline);
+  color: var(--md-sys-color-primary);
+}
+
+.btn-text {
+  color: var(--md-sys-color-primary);
+  padding: 0 12px;
+}
+
+.btn-danger {
+  border: 1px solid var(--md-sys-color-error);
+  color: var(--md-sys-color-error);
+}
+
+/* Material 3 standard icon button: 48 x 48 target, round state layer. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--app-target);
+  height: var(--app-target);
+  min-height: var(--app-target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+  color: var(--md-sys-color-on-surface);
+}
+
+/* A line of status with its icon. */
+.status {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 8px 0;
+}
+
+.status .icon {
+  margin-top: 1px;
+}
+
+.status-info {
+  color: var(--muted);
+}
+
+.status-warning {
+  color: var(--app-color-warning);
+}
+
+.status-error {
+  color: var(--md-sys-color-error);
+}
+
+.status-success {
+  color: var(--md-sys-color-primary);
+}
+
+/* Why a screen is empty, and the one action. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-state-text p {
+  margin: 0;
+  font: var(--md-sys-typescale-body-large);
+}
+
+/* Material 3 outlined text field. */
+.text-field {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+  background: transparent;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+.text-field:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: -2px;
+}
+
+.text-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: var(--md-sys-typescale-body-small);
+  color: var(--muted);
+}
+
+/* A file picker that also takes a dropped file. */
+.file-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 96px;
+  padding: 16px;
+  border: 1px dashed var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-medium);
+  color: var(--md-sys-color-on-surface);
+  text-align: center;
+  cursor: pointer;
+}
+
+.file-drop:hover,
+.file-drop.over {
+  border-color: var(--md-sys-color-primary);
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.file-drop:focus-within {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.file-drop.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.file-drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.file-drop-hint {
+  display: none;
+  font: var(--md-sys-typescale-body-small);
+  color: var(--muted);
+}
+
+@media (min-width: 600px) {
+  .file-drop-hint {
+    display: block;
+  }
 }

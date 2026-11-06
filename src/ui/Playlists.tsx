@@ -2,7 +2,7 @@ import { signal } from '@preact/signals';
 import { normalize } from '../model/normalize';
 import { model, syncState } from '../model/state';
 import { routeHref } from '../router';
-import { Badge } from './components/Badge';
+import { Flag } from './components/Flag';
 import { Empty } from './components/Empty';
 import { Filter } from './components/Filter';
 import { TrackRow } from './components/TrackRow';
@@ -56,7 +56,7 @@ export function Playlists() {
               )}
               href={routeHref({ name: 'playlist', id: p.id })}
               spotifyUrl={p.spotifyUrl}
-              badges={pending.has(p.id) ? <Badge>pending</Badge> : undefined}
+              badges={pending.has(p.id) ? <Flag>pending</Flag> : undefined}
             />
           ))}
         </ul>

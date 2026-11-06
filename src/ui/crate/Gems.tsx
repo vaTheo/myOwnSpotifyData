@@ -8,8 +8,8 @@ import {
   hasMonthData,
   monthKey,
 } from '../../model/crate';
-import { Badge } from '../components/Badge';
-import { Segmented } from '../components/Segmented';
+import { Flag } from '../components/Flag';
+import { SegmentedButtons } from '../components/SegmentedButtons';
 import { formatDate, plural } from '../format';
 import { gemMonths } from './selections';
 import {
@@ -66,7 +66,7 @@ export function Gems() {
   const since = monthLabel(cutoffMonth(now, months));
   return (
     <>
-      <Segmented
+      <SegmentedButtons
         options={OPTIONS}
         value={String(months)}
         onChange={(v) => {
@@ -109,13 +109,13 @@ export function Gems() {
                   rank={i + 1}
                   row={item.row}
                   badge1={
-                    <Badge kind="plays">{plural(item.row.plays, 'play')}</Badge>
+                    <Flag kind="plays">{plural(item.row.plays, 'play')}</Flag>
                   }
                   badge2={
                     inNoPlaylist(item.row) ? (
-                      <Badge kind="todo">not in a playlist</Badge>
+                      <Flag kind="todo">not in a playlist</Flag>
                     ) : (
-                      <Badge>last {monthLabel(month)}</Badge>
+                      <Flag>last {monthLabel(month)}</Flag>
                     )
                   }
                   expanded={expanded.value === id}

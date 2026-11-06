@@ -9,8 +9,8 @@ import {
   yearsWithPlays,
   type YearPeriod,
 } from '../../model/crate';
-import { Badge } from '../components/Badge';
-import { Segmented } from '../components/Segmented';
+import { Flag } from '../components/Flag';
+import { SegmentedButtons } from '../components/SegmentedButtons';
 import { formatDate, plural } from '../format';
 import { yearPeriod, yearSel } from './selections';
 import {
@@ -107,7 +107,7 @@ export function ByYear({ period }: { period?: string }) {
     plural(result.tracks, 'track');
   return (
     <>
-      <Segmented
+      <SegmentedButtons
         scroll
         options={years.map((y) => ({ value: String(y), label: String(y) }))}
         value={String(year)}
@@ -116,7 +116,7 @@ export function ByYear({ period }: { period?: string }) {
           limit.value = PAGE_SIZE;
         }}
       />
-      <Segmented
+      <SegmentedButtons
         scroll
         options={PERIOD_OPTIONS}
         value={String(selection)}
@@ -144,19 +144,19 @@ export function ByYear({ period }: { period?: string }) {
                       : item.row.trackId;
                 }}
                 badge1={
-                  <Badge kind="plays">
+                  <Flag kind="plays">
                     {plural(item.selectionPlays, 'play')}
-                  </Badge>
+                  </Flag>
                 }
                 badge2={
                   inNoPlaylist(item.row) ? (
-                    <Badge kind="todo">not in a playlist</Badge>
+                    <Flag kind="todo">not in a playlist</Flag>
                   ) : selection === 'all' ? (
-                    <Badge>of {item.row.plays.toLocaleString()} all-time</Badge>
+                    <Flag>of {item.row.plays.toLocaleString()} all-time</Flag>
                   ) : (
-                    <Badge>
+                    <Flag>
                       of {item.yearPlays.toLocaleString()} in {year}
-                    </Badge>
+                    </Flag>
                   )
                 }
               >

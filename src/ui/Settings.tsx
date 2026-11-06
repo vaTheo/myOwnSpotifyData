@@ -38,8 +38,8 @@ import {
   type ReachCoverage,
 } from '../model/state';
 import { routeHref } from '../router';
-import { Progress } from './components/Progress';
-import { Segmented } from './components/Segmented';
+import { ProgressBar } from './components/ProgressBar';
+import { SegmentedButtons } from './components/SegmentedButtons';
 import { formatDate, formatDateTime, plural } from './format';
 
 /** The sign-in form of the server card: an email, a magic link (research D3). */
@@ -195,7 +195,7 @@ function ServerCard() {
             deletes everything on the server and keeps this browser's copy.
           </p>
           {(state.status === 'pushing' || state.status === 'pulling') && (
-            <Progress
+            <ProgressBar
               label={`${state.status === 'pushing' ? 'Sending' : 'Fetching'} ${state.dataset}`}
               done={state.done}
               total={state.total}
@@ -307,7 +307,7 @@ function AudioCard() {
         <p class="muted">Sync or import a history first.</p>
       )}
       {lookup.status === 'running' && (
-        <Progress
+        <ProgressBar
           label={`Looking up · ${lookup.pass}`}
           done={lookup.done}
           total={lookup.total}
@@ -343,7 +343,7 @@ function AudioCard() {
         />
       </label>
       {rekordbox.status === 'running' && (
-        <Progress
+        <ProgressBar
           label={rekordbox.file}
           done={rekordbox.index}
           total={rekordbox.total}
@@ -359,7 +359,7 @@ function AudioCard() {
         </p>
       )}
       <p class="muted">Key notation</p>
-      <Segmented
+      <SegmentedButtons
         options={NOTATIONS}
         value={keyNotation.value}
         onChange={setKeyNotation}
@@ -429,7 +429,7 @@ function ReachCard() {
         <p class="muted">Sync your playlists first.</p>
       )}
       {state.status === 'running' && (
-        <Progress
+        <ProgressBar
           label={`Resolving artists · ${SOURCE_LABEL[state.step]}`}
           done={state.done}
           total={state.total}
@@ -484,7 +484,7 @@ export function Settings() {
           {lastSyncAt.value ? formatDateTime(lastSyncAt.value) : 'never'}
         </p>
         {state.status === 'running' && (
-          <Progress
+          <ProgressBar
             label={state.current ?? 'Working'}
             done={state.done}
             total={state.total}
