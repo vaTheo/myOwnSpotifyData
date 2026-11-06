@@ -274,7 +274,8 @@ describe('validateJobRow (worker round)', () => {
     applied_at: null,
   };
   it('accepts a full row and a row with nulls', () => {
-    expect(validateJobRow(full)).toEqual(full);
+    const defaults = { progress: null, priority: 0, stop_requested_at: null };
+    expect(validateJobRow(full)).toEqual({ ...full, ...defaults });
     const queued = {
       ...full,
       status: 'queued',
@@ -282,7 +283,7 @@ describe('validateJobRow (worker round)', () => {
       claimed_at: null,
       finished_at: null,
     };
-    expect(validateJobRow(queued)).toEqual(queued);
+    expect(validateJobRow(queued)).toEqual({ ...queued, ...defaults });
     expect(
       validateJobRow({
         ...full,
@@ -355,6 +356,53 @@ describe('validateMix — round 004 hits', () => {
       expect(validateMix({ ...mixRow, rows: [{ ...r0, hits }] }).ok).toBe(
         false
       );
+    }
+  });
+});
+
+describe('validateJobRow — round 004 columns', () => {
+  const base = {
+    id: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+    payload: { url: 'https://soundcloud.com/a/b' },
+    status: 'claimed',
+    claimed_by: 'laptop',
+    claimed_at: '2026-11-06T20:00:00Z',
+    finished_at: null,
+    error: null,
+    created_at: '2026-11-06T19:00:00Z',
+    applied_at: null,
+  };
+  it('keeps a well-formed progress, priority and stop', () => {
+    const progress = {
+      step: 'first',
+      done: 1,
+      total: 2,
+      percent: 50,
+      minutes_left: 3,
+      paused_until: null,
+      warning: null,
+      at: '2026-11-06T20:01:00Z',
+    };
+    const row = validateJobRow({
+      ...base,
+      progress,
+      priority: 3,
+      stop_requested_at: '2026-11-06T20:02:00Z',
+    });
+    expect(row).toMatchObject({
+      progress,
+      priority: 3,
+      stop_requested_at: '2026-11-06T20:02:00Z',
+    });
+  });
+  it('drops a malformed progress without refusing the row', () => {
+    for (const progress of [
+      { step: 7 },
+      { step: 'first', done: 'x' },
+      { step: 'first', warning: 'w'.repeat(300) },
+      { step: 'first', paused_until: 'soon' },
+    ]) {
+      expect(validateJobRow({ ...base, progress })?.progress).toBeNull();
     }
   });
 });

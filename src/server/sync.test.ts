@@ -3,8 +3,11 @@ import type { AllRows, MixRow, PlayRow, TrackRow } from '../db/schema';
 import { ACCOUNT_MISMATCH_NOTICE } from '../sync/runner';
 import type { Query, ServerClient, ServerResult } from './client';
 import {
+  cancelRequest,
+  moveRequestToTop,
   readUsage,
   requestIdentify,
+  stopRequest,
   runPull,
   runPush,
   runRemoveAll,
@@ -1104,7 +1107,12 @@ const RESULT = {
       confidence: 86.1,
       metadata: { isrc: 'DECH62001634', label: 'Primary Colours' },
     },
-    { song_name: 'Katerina', artist: 'Mixxwave', time_in_mix: '00:25:50', confidence: 97.7 },
+    {
+      song_name: 'Katerina',
+      artist: 'Mixxwave',
+      time_in_mix: '00:25:50',
+      confidence: 97.7,
+    },
   ],
 };
 
@@ -1129,13 +1137,21 @@ describe('identify requests (worker round)', () => {
   it('requestIdentify inserts once and answers exists while a request is open', async () => {
     const fake = fakeServer();
     const first = await requestIdentify(fake.client, 'tok', JOB_URL);
-    expect(first.ok && first.value !== 'exists' && first.value.status === 'queued').toBe(true);
+    expect(
+      first.ok && first.value !== 'exists' && first.value.status === 'queued'
+    ).toBe(true);
     expect(fake.tables.jobs).toHaveLength(1);
-    expect(fake.tables.jobs[0]).toMatchObject({ kind: 'identify-mix', payload: { url: JOB_URL } });
+    expect(fake.tables.jobs[0]).toMatchObject({
+      kind: 'identify-mix',
+      payload: { url: JOB_URL },
+    });
     const second = await requestIdentify(fake.client, 'tok', JOB_URL);
     expect(second).toEqual({ ok: true, value: 'exists' });
     fake.tables.jobs[0].status = 'claimed';
-    expect((await requestIdentify(fake.client, 'tok', JOB_URL))).toEqual({ ok: true, value: 'exists' });
+    expect(await requestIdentify(fake.client, 'tok', JOB_URL)).toEqual({
+      ok: true,
+      value: 'exists',
+    });
     fake.tables.jobs[0].status = 'failed';
     const again = await requestIdentify(fake.client, 'tok', JOB_URL);
     expect(again.ok && again.value !== 'exists').toBe(true);
@@ -1158,7 +1174,13 @@ describe('identify requests (worker round)', () => {
       author: 'Someone',
       playerSrc: null,
       slug: null,
-      sources: { trackid: false, description: false, pasted: false, linkOut: null, worker: true },
+      sources: {
+        trackid: false,
+        description: false,
+        pasted: false,
+        linkOut: null,
+        worker: true,
+      },
       identifyJobId: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
       identifiedAt: Date.parse('2026-11-06T10:05:00.000Z'),
       savedAt: 5_000,
@@ -1166,10 +1188,15 @@ describe('identify requests (worker round)', () => {
     expect(mix?.rows.map((r) => r.title)).toEqual(['Noble Booth', 'Katerina']);
     expect(mix?.rows[0].isrc).toBe('DECH62001634');
     expect(fake.tables.jobs[0].applied_at).not.toBeNull();
-    expect((state.metas[SERVER_PENDING_META] as ServerPending).mixes).toBe(true);
+    expect((state.metas[SERVER_PENDING_META] as ServerPending).mixes).toBe(
+      true
+    );
     const jobs = state.metas[MIX_JOBS_META] as MixJobs;
     expect(jobs[JOB_URL]).toHaveLength(1);
-    expect(jobs[JOB_URL][0]).toMatchObject({ status: 'done', claimedBy: 'laptop' });
+    expect(jobs[JOB_URL][0]).toMatchObject({
+      status: 'done',
+      claimedBy: 'laptop',
+    });
     expect(jobs[JOB_URL][0].appliedAt).not.toBeNull();
     expect(res.value.pulled).toContain('mixes');
   });
@@ -1202,13 +1229,19 @@ describe('identify requests (worker round)', () => {
         referenceCount: null,
       },
     ];
-    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' }, [existing]);
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' }, [
+      existing,
+    ]);
     const { d } = deps(fake, repo);
     const res = await runPull(d);
     expect(res.ok).toBe(true);
     const merged = state.mixes.find((m) => m.url === JOB_URL);
     expect(merged?.title).toBe('Kept title');
-    expect(merged?.rows.map((r) => r.title)).toEqual(['Noble Booth (my edit)', 'Noble Booth', 'Katerina']);
+    expect(merged?.rows.map((r) => r.title)).toEqual([
+      'Noble Booth (my edit)',
+      'Noble Booth',
+      'Katerina',
+    ]);
     expect(merged?.sources.worker).toBe(true);
   });
 
@@ -1225,7 +1258,9 @@ describe('identify requests (worker round)', () => {
     if (!res.ok) throw new Error(res.message);
     expect(b.repo.putMix).toHaveBeenCalledTimes(1);
     expect(b.state.mixes[0].url).toBe(JOB_URL);
-    expect(fake.calls.slice(before).filter((c) => c.startsWith('update jobs'))).toHaveLength(0);
+    expect(
+      fake.calls.slice(before).filter((c) => c.startsWith('update jobs'))
+    ).toHaveLength(0);
     const jobs = b.state.metas[MIX_JOBS_META] as MixJobs;
     expect(jobs[JOB_URL][0].status).toBe('done');
   });
@@ -1253,7 +1288,9 @@ describe('identify requests (worker round)', () => {
           status: 'failed',
           error: `reason ${i}`,
           result: null,
-          created_at: new Date(Date.parse('2026-11-01T00:00:00.000Z') + i * 60_000).toISOString(),
+          created_at: new Date(
+            Date.parse('2026-11-01T00:00:00.000Z') + i * 60_000
+          ).toISOString(),
         })
       );
     }
@@ -1269,7 +1306,9 @@ describe('identify requests (worker round)', () => {
 
   it('a failed row with an over-long error is rejected, not truncated', async () => {
     const fake = seededServer();
-    fake.tables.jobs.push(doneJob({ status: 'failed', error: 'x'.repeat(201), result: null }));
+    fake.tables.jobs.push(
+      doneJob({ status: 'failed', error: 'x'.repeat(201), result: null })
+    );
     const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' });
     const res = await runPull(deps(fake, repo).d);
     if (!res.ok) throw new Error(res.message);
@@ -1280,10 +1319,108 @@ describe('identify requests (worker round)', () => {
   it('runRemoveAll deletes the jobs and the mixJobs meta', async () => {
     const fake = seededServer();
     fake.tables.jobs.push(doneJob());
-    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc', [MIX_JOBS_META]: { x: [] } });
+    const { repo, state } = fakeRepo(emptyRows(), {
+      accountId: 'acc',
+      [MIX_JOBS_META]: { x: [] },
+    });
     const res = await runRemoveAll(deps(fake, repo).d);
     expect(res.ok).toBe(true);
     expect(fake.tables.jobs).toHaveLength(0);
     expect(state.metas[MIX_JOBS_META]).toBeUndefined();
+  });
+});
+
+describe('queue control and progress (round 004)', () => {
+  function queued(n: number, over: Row = {}): Row {
+    return {
+      id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
+      kind: 'identify-mix',
+      payload: { url: `https://soundcloud.com/a/${n}` },
+      status: 'queued',
+      priority: 0,
+      claimed_by: null,
+      claimed_at: null,
+      finished_at: null,
+      error: null,
+      applied_at: null,
+      created_at: '2026-11-06T10:00:00.000Z',
+      ...over,
+    };
+  }
+
+  it('cancels a waiting request only', async () => {
+    const fake = fakeServer({
+      jobs: [queued(1), queued(2, { status: 'claimed' })],
+    });
+    await cancelRequest(fake.client, 'tok', String(fake.tables.jobs[0].id));
+    await cancelRequest(fake.client, 'tok', String(fake.tables.jobs[0].id));
+    expect(fake.tables.jobs.map((r) => r.status)).toEqual(['claimed']);
+  });
+
+  it('moves a waiting request above the others', async () => {
+    const fake = fakeServer({
+      jobs: [
+        queued(1, { priority: 2 }),
+        queued(2),
+        queued(3, { status: 'claimed' }),
+      ],
+    });
+    const res = await moveRequestToTop(
+      fake.client,
+      'tok',
+      String(fake.tables.jobs[1].id)
+    );
+    expect(res).toEqual({ ok: true, value: 'moved' });
+    expect(fake.tables.jobs[1].priority).toBe(3);
+    expect(
+      await moveRequestToTop(fake.client, 'tok', String(fake.tables.jobs[2].id))
+    ).toEqual({ ok: true, value: 'gone' });
+  });
+
+  it('asks a running request to stop, or says it is gone', async () => {
+    const fake = fakeServer({
+      jobs: [queued(1, { status: 'claimed' }), queued(2, { status: 'done' })],
+    });
+    const now = Date.parse('2026-11-06T21:00:00Z');
+    expect(
+      await stopRequest(fake.client, 'tok', String(fake.tables.jobs[0].id), now)
+    ).toEqual({ ok: true, value: 'asked' });
+    expect(fake.tables.jobs[0].stop_requested_at).toBe(
+      '2026-11-06T21:00:00.000Z'
+    );
+    expect(
+      await stopRequest(fake.client, 'tok', String(fake.tables.jobs[1].id), now)
+    ).toEqual({ ok: true, value: 'gone' });
+  });
+
+  it('pulls without progress when the server has no 0003 migration', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(queued(9, { payload: { url: JOB_URL } }));
+    const select = fake.client.select.bind(fake.client);
+    fake.client.select = (async (
+      table: string,
+      query: Query,
+      token: string,
+      range?: [number, number]
+    ) => {
+      if (table === 'jobs' && query.select?.includes('progress')) {
+        return {
+          ok: false,
+          kind: 'error',
+          message: 'column jobs.progress does not exist',
+        };
+      }
+      return select(table, query, token, range);
+    }) as typeof fake.client.select;
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' });
+    const { d } = deps(fake, repo);
+    const res = await runPull(d);
+    expect(res.ok).toBe(true);
+    const jobs = state.metas[MIX_JOBS_META] as MixJobs;
+    expect(jobs[JOB_URL][0]).toMatchObject({
+      status: 'queued',
+      progress: null,
+      priority: 0,
+    });
   });
 });

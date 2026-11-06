@@ -84,6 +84,9 @@ import {
   readUsage,
   requestIdentify,
   runPull,
+  cancelRequest,
+  moveRequestToTop,
+  stopRequest,
   runPush,
   runRemoveAll,
   type PushName,
@@ -1575,4 +1578,59 @@ export async function disconnect(): Promise<void> {
   serverState.value = serverBaseState();
   serverLastSyncAt.value = null;
   // keyNotation is a display preference, not data: it survives a wipe.
+}
+
+/* ---------- queue control from the phone (round 004) ---------- */
+
+export const CANCEL_REQUEST_CONFIRM =
+  'Cancel this request? It leaves the queue; you can ask again later.';
+export const STOP_REQUEST_CONFIRM =
+  'Stop this scan? The computer ends it within about a minute and keeps the tracks found so far.';
+
+/** Runs one queue action with a fresh token, then pulls so the card updates. */
+async function queueAction(
+  run: (token: string) => Promise<ServerResult<unknown>>,
+  failure: string
+): Promise<void> {
+  mixError.value = null;
+  if (!serverConfigured || !serverAuth.session.value) {
+    mixError.value = 'Sign in to the server (Settings)';
+    return;
+  }
+  const token = await serverAuth.getAccessToken();
+  if (!token.ok) {
+    serverState.value = serverFailure(token);
+    mixError.value = `${failure}: ${token.message}`;
+    return;
+  }
+  const res = await run(token.value);
+  if (!res.ok) {
+    serverState.value = serverFailure(res);
+    mixError.value = `${failure}: ${res.message}`;
+    return;
+  }
+  await startServerPull();
+}
+
+export async function startCancelRequest(id: string): Promise<void> {
+  if (!confirm(CANCEL_REQUEST_CONFIRM)) return;
+  await queueAction(
+    (t) => cancelRequest(serverClient, t, id),
+    'Could not cancel the request'
+  );
+}
+
+export async function startMoveToTop(id: string): Promise<void> {
+  await queueAction(
+    (t) => moveRequestToTop(serverClient, t, id),
+    'Could not move the request'
+  );
+}
+
+export async function startStopRequest(id: string): Promise<void> {
+  if (!confirm(STOP_REQUEST_CONFIRM)) return;
+  await queueAction(
+    (t) => stopRequest(serverClient, t, id, Date.now()),
+    'Could not stop the scan'
+  );
 }
