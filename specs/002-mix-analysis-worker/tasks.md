@@ -107,14 +107,14 @@ Create playlist from mix works unchanged.
 
 ### Tests for User Story 2
 
-- [ ] T035 [P] [US2] Test in `src/server/sync.test.ts`: `pullJobs` writes a `failed` row's `error` into the view and a `claimed` row's `claimed_by`/`claimed_at`; a row with `error` over 200 characters is rejected (counted), not truncated; after "Ask again" (`requestIdentify` on a url whose latest row is `failed`) the new row is first and the failed one still listed; `runRemoveAll` deletes `jobs` rows and `MIX_JOBS_META`
-- [ ] T036 [P] [US2] Test in `worker/tests/test_server.py` (extend): `claim` passes `p_stale_seconds` from settings; `finish` with `status failed` sends `error` and no `result`; `release` is sent on `KeyboardInterrupt` by `run_loop` (fake client records it) and the loop exits 130 (contracts/worker.md)
-- [ ] T037 [P] [US2] Test in `worker/tests/test_pipeline.py` (extend): `run_loop(once=True)` processes two rows in claim order and stops at `[]`; a `paused` claim answer → exit 3 and no further claim; `offline` → exit 2; `unauthorized` after one refresh → exit 4; a request failing does not stop the loop; the second request is still processed after the first raised
+- [X] T035 [P] [US2] Test in `src/server/sync.test.ts`: `pullJobs` writes a `failed` row's `error` into the view and a `claimed` row's `claimed_by`/`claimed_at`; a row with `error` over 200 characters is rejected (counted), not truncated; after "Ask again" (`requestIdentify` on a url whose latest row is `failed`) the new row is first and the failed one still listed; `runRemoveAll` deletes `jobs` rows and `MIX_JOBS_META`
+- [X] T036 [P] [US2] Test in `worker/tests/test_server.py` (extend): `claim` passes `p_stale_seconds` from settings; `finish` with `status failed` sends `error` and no `result`; `release` is sent on `KeyboardInterrupt` by `run_loop` (fake client records it) and the loop exits 130 (contracts/worker.md)
+- [X] T037 [P] [US2] Test in `worker/tests/test_pipeline.py` (extend): `run_loop(once=True)` processes two rows in claim order and stops at `[]`; a `paused` claim answer → exit 3 and no further claim; `offline` → exit 2; `unauthorized` after one refresh → exit 4; a request failing does not stop the loop; the second request is still processed after the first raised
 
 ### Implementation for User Story 2
 
-- [ ] T038 [US2] Extend `pullJobs`/`jobView` and the Mix screen per T035: the collapsed "Earlier requests (n)" list under the state line, "Ask again" calling `startIdentifyRequest` for done/failed/rejected, "Already requested" inline; sign-out and removal already clear the meta (T029)
-- [ ] T039 [US2] Finish `run_loop` in `worker/mix_worker/pipeline.py` per T036–T037: `SIGINT`/`KeyboardInterrupt` → `release` (3 s timeout) then exit 130; the exit codes 2/3/4 on the claim's `Result`; `--watch` sleeping `poll_seconds` between empty claims; the log line "request taken by <name>" on a `taken` finish
+- [X] T038 [US2] Extend `pullJobs`/`jobView` and the Mix screen per T035: the collapsed "Earlier requests (n)" list under the state line, "Ask again" calling `startIdentifyRequest` for done/failed/rejected, "Already requested" inline; sign-out and removal already clear the meta (T029)
+- [X] T039 [US2] Finish `run_loop` in `worker/mix_worker/pipeline.py` per T036–T037: `SIGINT`/`KeyboardInterrupt` → `release` (3 s timeout) then exit 130; the exit codes 2/3/4 on the claim's `Result`; `--watch` sleeping `poll_seconds` between empty claims; the log line "request taken by <name>" on a `taken` finish
 - [ ] T040 [US2] Apply migration `0002` on the owner's project (owner; quickstart §1.2) and run scenarios 5–11, 13–15 and 18; fix what they find; commit
 
 **Checkpoint**: every failure reaches the phone with a reason; an interrupted request is retaken; both suites green.
