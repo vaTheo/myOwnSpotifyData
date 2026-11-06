@@ -2424,16 +2424,26 @@ a {
   overflow-x: auto;
 }
 
+/* No horizontal border spacing: the sticky year column would leave a
+   strip beside it where scrolled cells show. The 4 px between cells is
+   their own 2 px side padding instead. */
 .ym-grid {
   border-collapse: separate;
-  border-spacing: 4px;
+  border-spacing: 0 4px;
   font: var(--md-sys-typescale-label-small);
   font-variant-numeric: tabular-nums;
 }
 
 .ym-grid th,
 .ym-grid td {
-  padding: 0;
+  padding: 0 2px;
+}
+
+/* January's cells: room for the selection ring (4 px) and the focus
+   outline (5 px off, 3 px wide) between them and the year column. */
+.ym-grid tbody td:nth-child(2),
+.ym-grid thead th:nth-child(2) {
+  padding-left: 10px;
 }
 
 .ym-month {
@@ -2442,17 +2452,20 @@ a {
   text-align: center;
 }
 
-.ym-year {
+/* The year column and the header corners stay put while the grid
+   scrolls; the left shadow paints over the scroll padding, so nothing
+   scrolled under them shows beside them. */
+.ym-grid .ym-year,
+.ym-grid .ym-corner {
   position: sticky;
   left: 0;
   z-index: 1;
-  padding-right: 8px;
   background: var(--md-sys-color-surface);
-  /* Covers the scroll padding and the border spacing on both sides, so a
-     cell scrolled under the year never peeks out beside it. */
-  box-shadow:
-    -10px 0 0 var(--md-sys-color-surface),
-    4px 0 0 var(--md-sys-color-surface);
+  box-shadow: -6px 0 0 var(--md-sys-color-surface);
+}
+
+.ym-year {
+  padding-right: 8px;
   color: var(--md-sys-color-on-surface-variant);
   text-align: right;
 }

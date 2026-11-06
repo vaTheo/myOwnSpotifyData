@@ -59,6 +59,18 @@ async function firstRow(page: Page): Promise<void> {
 }
 
 /**
+ * The charts page's grid: Winter pressed, then Jan 2026 focused with the
+ * keyboard's focus ring (Shift+Tab, Tab first so focus counts as keyboard).
+ */
+async function winterJanuary(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /^Winter 2026,/ }).click();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await page.getByRole('button', { name: /^Jan 2026,/ }).focus();
+  await page.mouse.move(1, 1);
+}
+
+/**
  * SC-001: at 1440 × 900 a playlist shows at least 15 whole rows without
  * scrolling, with the title, artists, plays, BPM and key columns on screen.
  */
@@ -412,6 +424,27 @@ export const PAGES: ShotPage[] = [
       return tip?.startsWith('Jan 2026')
         ? []
         : [`a click on Jan 2026 shows "${tip || 'no tooltip'}"`];
+    },
+  },
+
+  {
+    // Winter selected and Jan 2026 focused from the keyboard: January's
+    // selection ring and focus ring show whole beside the year column.
+    id: 'charts-winter',
+    hash: '#/dev/charts',
+    setup: winterJanuary,
+  },
+  {
+    // The same, with the grid scrolled to its right end (a phone): the
+    // sticky year column and header corners cover what scrolled under them.
+    id: 'charts-scrolled',
+    hash: '#/dev/charts',
+    setup: async (page) => {
+      await winterJanuary(page);
+      await page.evaluate(() => {
+        const box = document.querySelector('.ym-scroll');
+        if (box) box.scrollLeft = box.scrollWidth;
+      });
     },
   },
 
