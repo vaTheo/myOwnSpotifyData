@@ -11,6 +11,12 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.3.1: the planned-break count of Shazam calls runs across sets (a set started right after another no longer starts at
+  zero); YouTube comments: the 100 newest only (a popular video's thread ran past the 90 s limit); "second pass · N new
+  tracks" counts new tracks only. Also since 0.3.0: the second pass skips stretches inside a known track, a planned break
+  every 80 calls, all waits ± 40 %, the pace recovers after a refusal, a refusal once tracks were found sends them as done
+  ("stopped early"), sends to the server are retried, no silent library retries.
+
 - 0.3.0: fills the gaps. Where nothing was found, a second listen 7 s later at normal speed, then 4 % slower and faster.
   The set's description, chapters and comments are read; a tracklist in them is understood whatever its separator; a clue
   naming one track becomes a row "from a comment · not heard" when Deezer or MusicBrainz holds exactly that artist and title.

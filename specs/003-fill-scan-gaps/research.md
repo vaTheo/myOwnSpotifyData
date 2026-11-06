@@ -47,6 +47,14 @@ everything external injected in tests, no Spotify host, no key.
 - A send to the server is retried after 30 s, 1 min, 2 min (± 40 %) when offline or a server error; paused, unauthorized and
   too large are not retried. Catalogue busy waits (2 s, 4 s) are spread ± 40 % too.
 
+## R1d. Gates across sets (owner, 2026-11-06)
+
+- The planned-break count is shared by every set of one worker run (`run_scan(shared=…)`), reset by a break, a refusal
+  pause, or 15 minutes without a call (`SHAZAM_WINDOW_SECONDS`).
+- YouTube comments: `max_comments` 100 top-level, no replies, newest first (the Rick Astley video's thread ran past 90 s).
+- Measured on Artaphine (1 h, old pacing): old-worker estimate 19 tracks, first pass 28, second pass +7 (stopped at place
+  67/75 by the 4th refusal), clues +0 (both comment answers already heard): 35, +84 %; 89 minutes with 4 refusals.
+
 ## R2. Speed correction with the packaged ffmpeg
 
 - **Decision**: a replay at factor `f` (1.04 or 0.96) cuts `probe_seconds × f` seconds from the probe's start and filters
