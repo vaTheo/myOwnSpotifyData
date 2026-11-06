@@ -11,6 +11,6 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
-- 0.2.0: listens to 12 s every 30 s of the set (was 10 s every 60 s): more of the set heard, fewer wrong matches; a 2 h set
-  takes about 20 minutes. A recognition that hangs is cut off after 45 s and retried, then skipped; the sign-in is refreshed
+- 0.2.0: listens to the whole set, 12 s probes end to end (was 10 s every 60 s): every moment heard, fewer wrong matches; a
+  2 h set takes about 50 minutes (`WORKER_PROBE_STEP_SECONDS=30` or `60` for a quicker, partial scan). A recognition that hangs is cut off after 45 s and retried, then skipped; the sign-in is refreshed
   before sending; a console that cannot print a title no longer stops the worker.
