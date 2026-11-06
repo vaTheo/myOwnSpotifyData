@@ -24,6 +24,7 @@ import {
   SERVER_LAST_SYNC_META,
   SERVER_PENDING_META,
   SERVER_STAMPS_META,
+  type MixJobView,
   type MixJobs,
   type MixRow,
   type ServerPending,
@@ -39,6 +40,7 @@ import {
 import { parseDescription, parsePasted } from '../features/mix/parse';
 import { parseTracklistifyJson } from '../features/mix/tracklistify';
 import { classifyMixInput, isShortLink, requestKey } from '../features/mix/url';
+import { goneNote, queueFailure } from '../features/mix/queue';
 import { requestStatusText } from '../features/mix/worker';
 import { runCreatePlaylist } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
@@ -485,6 +487,13 @@ export const savedMixes = signal<MixRow[]>([]);
  * separate concern and lives in the screen's local state — see Task 5.)
  */
 export const mixError = signal<string | null>(null);
+
+/**
+ * What the last queue action found, inline in the Mixes pane (ruling D4):
+ * "Already taken by your computer" or "Already finished" when the request
+ * had moved on. Cleared by the next action; failures stay in `mixError`.
+ */
+export const mixQueueNote = signal<string | null>(null);
 
 export interface UnmatchedRow {
   artist: string;
@@ -1262,6 +1271,7 @@ export const NOT_A_REQUEST_LINK =
  */
 export async function startIdentifyRequest(url: string): Promise<void> {
   mixError.value = null;
+  mixQueueNote.value = null;
   const key = requestKey(url);
   if (key === null) {
     mixError.value = NOT_A_REQUEST_LINK;
@@ -1566,6 +1576,7 @@ export async function disconnect(): Promise<void> {
   mixRows.value = [];
   savedMixes.value = [];
   mixError.value = null;
+  mixQueueNote.value = null;
   createPlaylistState.value = { status: 'idle' };
   likeState.value = { status: 'idle' };
   lastSyncAt.value = null;
@@ -1587,12 +1598,26 @@ export const CANCEL_REQUEST_CONFIRM =
 export const STOP_REQUEST_CONFIRM =
   'Stop this scan? The computer ends it within about a minute and keeps the tracks found so far.';
 
-/** Runs one queue action with a fresh token, then pulls so the card updates. */
+/** The status a request has after a pull, or undefined when no longer listed. */
+function pulledStatus(id: string): MixJobView['status'] | undefined {
+  for (const history of Object.values(mixJobs.value)) {
+    const view = history.find((v) => v.id === id);
+    if (view) return view.status;
+  }
+  return undefined;
+}
+
+/**
+ * Runs one queue action with a fresh token, then pulls so the list updates;
+ * a 'gone' answer becomes `mixQueueNote` from the pulled status (T122).
+ */
 async function queueAction(
-  run: (token: string) => Promise<ServerResult<unknown>>,
+  id: string,
+  run: (token: string) => Promise<ServerResult<string>>,
   failure: string
 ): Promise<void> {
   mixError.value = null;
+  mixQueueNote.value = null;
   if (!serverConfigured || !serverAuth.session.value) {
     mixError.value = 'Sign in to the server (Settings)';
     return;
@@ -1600,21 +1625,23 @@ async function queueAction(
   const token = await serverAuth.getAccessToken();
   if (!token.ok) {
     serverState.value = serverFailure(token);
-    mixError.value = `${failure}: ${token.message}`;
+    mixError.value = queueFailure(failure, token.message);
     return;
   }
   const res = await run(token.value);
   if (!res.ok) {
     serverState.value = serverFailure(res);
-    mixError.value = `${failure}: ${res.message}`;
+    mixError.value = queueFailure(failure, res.message);
     return;
   }
   await startServerPull();
+  if (res.value === 'gone') mixQueueNote.value = goneNote(pulledStatus(id));
 }
 
 export async function startCancelRequest(id: string): Promise<void> {
   if (!confirm(CANCEL_REQUEST_CONFIRM)) return;
   await queueAction(
+    id,
     (t) => cancelRequest(serverClient, t, id),
     'Could not cancel the request'
   );
@@ -1622,6 +1649,7 @@ export async function startCancelRequest(id: string): Promise<void> {
 
 export async function startMoveToTop(id: string): Promise<void> {
   await queueAction(
+    id,
     (t) => moveRequestToTop(serverClient, t, id),
     'Could not move the request'
   );
@@ -1630,6 +1658,7 @@ export async function startMoveToTop(id: string): Promise<void> {
 export async function startStopRequest(id: string): Promise<void> {
   if (!confirm(STOP_REQUEST_CONFIRM)) return;
   await queueAction(
+    id,
     (t) => stopRequest(serverClient, t, id, Date.now()),
     'Could not stop the scan'
   );

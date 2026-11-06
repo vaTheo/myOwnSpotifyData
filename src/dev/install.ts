@@ -17,6 +17,7 @@ import {
   likeState,
   lookupState,
   mixError,
+  mixQueueNote,
   mixRows,
   mixState,
   reachState,
@@ -51,6 +52,8 @@ const CONTROLLED: Record<string, Signal<unknown>> = {
   likeState,
   lookupState,
   mixError,
+  /** The 'gone' note of a queue action (T122, ruling D4). */
+  mixQueueNote,
   /** The open mix's working rows: round-003/004 rows before S08b seeds them. */
   mixRows,
   mixState,

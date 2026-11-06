@@ -135,6 +135,12 @@ function fakeServer(seed: Partial<Record<string, Row[]>> = {}): Fake {
       tables[table] = tables[table].filter((r) => !matches(r, query));
       return { ok: true as const, value: undefined };
     },
+    async removeReturning<T>(table: string, query: Query) {
+      fake.calls.push(`removeReturning ${table} ${JSON.stringify(query)}`);
+      const gone = tables[table].filter((r) => matches(r, query));
+      tables[table] = tables[table].filter((r) => !matches(r, query));
+      return { ok: true as const, value: gone as T[] };
+    },
     rpc: vi.fn(async () => ({ ok: true as const, value: 42 })),
     async insert(table: string, row: Row) {
       fake.calls.push(`insert ${table}`);
@@ -1352,8 +1358,21 @@ describe('queue control and progress (round 004)', () => {
     const fake = fakeServer({
       jobs: [queued(1), queued(2, { status: 'claimed' })],
     });
-    await cancelRequest(fake.client, 'tok', String(fake.tables.jobs[0].id));
-    await cancelRequest(fake.client, 'tok', String(fake.tables.jobs[0].id));
+    const first = String(fake.tables.jobs[0].id);
+    const taken = String(fake.tables.jobs[1].id);
+    expect(await cancelRequest(fake.client, 'tok', first)).toEqual({
+      ok: true,
+      value: 'cancelled',
+    });
+    // Already gone, or already taken by the computer: 'gone' (ruling D4).
+    expect(await cancelRequest(fake.client, 'tok', first)).toEqual({
+      ok: true,
+      value: 'gone',
+    });
+    expect(await cancelRequest(fake.client, 'tok', taken)).toEqual({
+      ok: true,
+      value: 'gone',
+    });
     expect(fake.tables.jobs.map((r) => r.status)).toEqual(['claimed']);
   });
 

@@ -53,7 +53,11 @@ export interface ServerClient {
     range?: [number, number]
   ): Promise<ServerResult<{ rows: T[]; total: number | null }>>;
   /** `POST` one row with `Prefer: return=representation`; the created row (worker round). */
-  insert<T>(table: string, row: unknown, token: string): Promise<ServerResult<T>>;
+  insert<T>(
+    table: string,
+    row: unknown,
+    token: string
+  ): Promise<ServerResult<T>>;
   /** `PATCH` the rows the filters match, returning them (worker round). */
   update<T>(
     table: string,
@@ -72,6 +76,12 @@ export interface ServerClient {
     query: Query,
     token: string
   ): Promise<ServerResult<void>>;
+  /** `DELETE` the rows the filters match, returning them (queue round). */
+  removeReturning<T>(
+    table: string,
+    query: Query,
+    token: string
+  ): Promise<ServerResult<T[]>>;
   rpc<T>(name: string, token: string): Promise<ServerResult<T>>;
 }
 
@@ -363,6 +373,18 @@ export function createServerClient(deps: ServerDeps): ServerClient {
         url(`/rest/v1/${table}`, query),
         { method: 'DELETE', token, headers: { Prefer: 'return=minimal' } },
         () => undefined
+      );
+    },
+
+    removeReturning<T>(table: string, query: Query, token: string) {
+      return call<T[]>(
+        url(`/rest/v1/${table}`, query),
+        {
+          method: 'DELETE',
+          token,
+          headers: { Prefer: 'return=representation' },
+        },
+        (_res, body) => (Array.isArray(body) ? (body as T[]) : [])
       );
     },
 
