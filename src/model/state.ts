@@ -27,6 +27,7 @@ import {
   type MixJobView,
   type MixJobs,
   type MixRow,
+  type RemovedTrack,
   type ServerPending,
   type ServerStamps,
   type TracklistRow,
@@ -37,6 +38,7 @@ import {
   hasManualRows,
   lookupMix,
 } from '../features/mix/lookup';
+import { recordRemoved } from '../features/mix/keepReview';
 import { parseDescription, parsePasted } from '../features/mix/parse';
 import { parseTracklistifyJson } from '../features/mix/tracklistify';
 import { classifyMixInput, isShortLink, requestKey } from '../features/mix/url';
@@ -476,6 +478,33 @@ export type MixState =
 export const mixState = signal<MixState>({ status: 'idle' });
 /** The one working, editable tracklist; its own signal so an edit re-renders. */
 export const mixRows = signal<TracklistRow[]>([]);
+/**
+ * The open mix's removed scan tracks (T125), saved with it as
+ * `MixRow.removed` so a later worker result does not bring them back.
+ */
+export const mixRemoved = signal<RemovedTrack[]>([]);
+
+/** The removed tracks a saved mix remembers, to start the open one with. */
+function removedOf(url: string): RemovedTrack[] {
+  return savedMixes.value.find((m) => m.url === url)?.removed ?? [];
+}
+
+/**
+ * What a saved mix holds beyond the working list, kept when the mix is saved
+ * again: the worker's set-wide clues, run and request, and the removed
+ * tracks (Save mix used to drop the first three).
+ */
+function savedExtras(url: string): Partial<MixRow> {
+  const prior = savedMixes.value.find((m) => m.url === url);
+  const removed = mixRemoved.value;
+  return {
+    ...(prior?.clues ? { clues: prior.clues } : {}),
+    ...(prior?.run ? { run: prior.run } : {}),
+    ...(prior?.identifyJobId ? { identifyJobId: prior.identifyJobId } : {}),
+    ...(prior?.identifiedAt ? { identifiedAt: prior.identifiedAt } : {}),
+    ...(removed.length > 0 ? { removed } : {}),
+  };
+}
 /** Saved mixes, newest first; loaded when the Mix screen mounts. */
 export const savedMixes = signal<MixRow[]>([]);
 /**
@@ -1098,6 +1127,7 @@ export async function startMixLookup(pastedUrl: string): Promise<void> {
   // actions below (I2): a re-lookup must not silently discard curated edits.
   // A no-op guard on a first lookup, since mixRows.value is [] then.
   if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_LOOKUP)) return;
+  mixRemoved.value = removedOf(view.url);
   mixRows.value =
     trackid.status === 'ok' && trackid.rows.length > 0
       ? trackid.rows
@@ -1148,6 +1178,7 @@ export async function startTracklistifyImport(file: File): Promise<void> {
     shortLink: false,
   };
   mixState.value = { status: 'ready', view };
+  mixRemoved.value = removedOf(view.url);
   mixRows.value = parsed.rows;
 }
 
@@ -1231,9 +1262,25 @@ export function addMixRow(): void {
   ];
 }
 
-/** Removes one row (spec §4). */
+/**
+ * Removes one row (spec §4). A scan row is remembered in the mix's removed
+ * tracks (T125), so a later worker result leaves it out.
+ */
 export function deleteMixRow(index: number): void {
+  const row = mixRows.value[index];
+  if (!row) return;
+  const removed = recordRemoved(mixRemoved.value, row);
+  if (removed !== undefined) mixRemoved.value = removed;
   mixRows.value = mixRows.value.filter((_, i) => i !== index);
+}
+
+/** Validated or back To review (T118); saved with Save mix like an edit. */
+export function toggleValidated(index: number): void {
+  const rows = mixRows.value.slice();
+  const row = rows[index];
+  if (!row || row.gap) return;
+  rows[index] = { ...row, validated: row.validated !== true };
+  mixRows.value = rows;
 }
 
 /** Reads the saved mixes newest-first; called when the Mix screen mounts. */
@@ -1338,6 +1385,7 @@ export async function saveMix(): Promise<boolean> {
     slug: view.trackid?.slug ?? null,
     sources: view.sources,
     rows: mixRows.value,
+    ...savedExtras(view.url),
     savedAt: Date.now(),
     playlistUrl: view.playlistUrl,
     playlistId: view.playlistId,
@@ -1370,6 +1418,7 @@ export async function startCreatePlaylist(): Promise<void> {
   if (state.status !== 'ready') return;
   const view = state.view;
   const rows = mixRows.value;
+  const extras = savedExtras(view.url);
 
   if (!canCreatePlaylists(auth.session.value)) {
     if (!(await saveMix())) return;
@@ -1422,6 +1471,7 @@ export async function startCreatePlaylist(): Promise<void> {
       slug: view.trackid?.slug ?? null,
       sources: view.sources,
       rows,
+      ...extras,
       savedAt: Date.now(),
       playlistUrl: outcome.url ?? undefined,
       playlistId: outcome.playlistId,
@@ -1465,6 +1515,7 @@ export function openMix(url: string): void {
   if (!row) return;
   mixError.value = null;
   mixRows.value = row.rows;
+  mixRemoved.value = row.removed ?? [];
   const count = row.rows.filter((r) => !r.gap).length;
   const view: MixView = {
     url: row.url,
@@ -1497,6 +1548,7 @@ export function openMix(url: string): void {
 export function closeMix(): void {
   mixState.value = { status: 'idle' };
   mixRows.value = [];
+  mixRemoved.value = [];
   mixError.value = null;
   createPlaylistState.value = { status: 'idle' };
 }
@@ -1576,6 +1628,7 @@ export async function disconnect(): Promise<void> {
   reachState.value = { status: 'idle' };
   mixState.value = { status: 'idle' };
   mixRows.value = [];
+  mixRemoved.value = [];
   savedMixes.value = [];
   mixError.value = null;
   mixQueueNote.value = null;

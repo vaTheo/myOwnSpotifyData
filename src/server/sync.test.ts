@@ -1243,12 +1243,54 @@ describe('identify requests (worker round)', () => {
     expect(res.ok).toBe(true);
     const merged = state.mixes.find((m) => m.url === JOB_URL);
     expect(merged?.title).toBe('Kept title');
+    // The incoming Noble Booth is the track the owner edited: dropped (T125).
     expect(merged?.rows.map((r) => r.title)).toEqual([
       'Noble Booth (my edit)',
-      'Noble Booth',
       'Katerina',
     ]);
     expect(merged?.sources.worker).toBe(true);
+  });
+
+  it('a later result keeps the review and leaves removed tracks out (T125)', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(doneJob());
+    const existing = mix(JOB_URL, 100, 'Kept title');
+    const spotify = {
+      id: 'abc',
+      url: 'https://open.spotify.com/track/abc',
+    };
+    existing.rows = [
+      {
+        startSec: 0,
+        endSec: null,
+        artist: 'Stefan Gubatz',
+        title: 'Noble Booth',
+        label: null,
+        source: 'tracklistify',
+        gap: false,
+        detected: { artist: 'Stefan Gubatz', title: 'Noble Booth' },
+        referenceCount: null,
+        isrc: 'DECH62001634',
+        validated: true,
+        spotify,
+        checkedAt: 7,
+      },
+    ];
+    existing.removed = [{ artist: 'Mixxwave', title: 'Katerina', isrc: null }];
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' }, [
+      existing,
+    ]);
+    expect((await runPull(deps(fake, repo).d)).ok).toBe(true);
+    const merged = state.mixes.find((m) => m.url === JOB_URL);
+    expect(merged?.rows).toHaveLength(1);
+    expect(merged?.rows[0]).toMatchObject({
+      title: 'Noble Booth',
+      label: 'Primary Colours',
+      validated: true,
+      spotify,
+      checkedAt: 7,
+    });
+    expect(merged?.removed).toEqual(existing.removed);
   });
 
   it('replaces the run wholesale with each result (T124)', async () => {
