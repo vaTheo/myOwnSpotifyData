@@ -755,3 +755,15 @@ details.card > summary {
   color: var(--muted, #888);
   font-weight: normal;
 }
+
+/* Mix: the "Identify on my computer" block (worker round) */
+.mix .identify {
+  margin: 0.5rem 0 0.75rem;
+}
+.mix .identify details {
+  margin-top: 0.25rem;
+}
+.mix .identify ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}
