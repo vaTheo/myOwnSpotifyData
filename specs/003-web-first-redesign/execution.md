@@ -22,19 +22,21 @@ wait on any other step.
 
 | Step | Story | Tasks | Implementer model | Stop after |
 |---|---|---|---|---|
-| S01 | US2 tables | T046–T049: column builders, table styles, Top as tables, Compare periods | sonnet | — |
+| S01 | US2 tables | T046–T049: column builders, table styles, Top as tables, Compare periods | opus | — |
 | S02 | US2 tables | T050–T053: Playlist and Match, Artist, Artists and Under the radar, shots (grid roles, SC-001) | opus | **Stop** (P1 MVP) |
-| S03 | US3 details | T054–T058: `trackFacts`, `SideSheet`, `TrackDetails`, `?d=` wiring, in-place expansions removed | sonnet | — |
-| S04 | US3 details | T059–T062: `ListDetail`, Playlists and Artists list–detail, shots | sonnet | **Stop** |
-| S05 | US4 history | T063–T067: series helpers, `MonthBars`, `Meter`, `YearMonthGrid` | sonnet | — |
+| S03 | US3 details | T054–T058: `trackFacts`, `SideSheet`, `TrackDetails`, `?d=` wiring, in-place expansions removed | opus | — |
+| S04 | US3 details | T059–T062: `ListDetail`, Playlists and Artists list–detail, shots | opus | **Stop** |
+| S05 | US4 history | T063–T067: series helpers, `MonthBars`, `Meter`, `YearMonthGrid` | opus | — |
 | S06 | US4 history | T068–T076: Crate shared, hub cards, the five views, details history chart, shots | opus | **Stop** |
-| S07 | US5 Settings | T077–T080: Settings sections and index, Import, shots | sonnet | **Stop** |
+| S07 | US5 Settings | T077–T080: Settings sections and index, Import, shots | opus | **Stop** |
 | S08 | US6 Mix | T081–T085: the Mix workspace, `#/mix/<key>`, shots | opus | **Stop** |
-| S09 | US7 find | T086–T093: track filters, search index, `FilterBar`, `KeyPicker`, `SearchView`, shots | sonnet | **Stop** |
-| S10 | US8 Overview | T094–T098: `overviewBlocks`, Overview screen, default address, shots | sonnet | **Stop** |
-| S11 | Polish | T099, T100, T102: Firefox/WebKit shots, keyboard walkthrough, quickstart §13 checks. T101 (Lighthouse on the owner's real profile) is the owner's: the subagent writes the steps in its report | sonnet | — |
-| S12 | Docs | T103–T109: the round's documents | sonnet | — |
-| S13 | Final | T110 gate, then one whole-branch review (opus), one fix wave if needed | opus | **Stop** (merge is the owner's) |
+| S09 | US7 find | T086–T093: track filters, search index, `FilterBar`, `KeyPicker`, `SearchView`, shots | opus | **Stop** |
+| S10 | US8 Overview | T094–T098: `overviewBlocks`, Overview screen, default address, shots | opus | **Stop** |
+| S11 | Polish | T099, T100, T102: Firefox/WebKit shots, keyboard walkthrough, quickstart §13 checks. T101 (Lighthouse on the owner's real profile) is the owner's: the subagent writes the steps in its report | opus | — |
+| S12 | Docs | T103–T109: the round's documents | opus | — |
+| S13 | Final | T110 gate, then one whole-branch review (opus), one fix wave if needed | opus | — |
+| S14 | Non-regression | T111–T113: `regression.md` (one row per feature and old address), `yarn regression` end-to-end suite, `yarn invariants` (vs `main`: DB_VERSION, `confirm()` texts, hosts, dependencies, test names, model outputs on demo data) | opus | — |
+| S15 | Non-regression | T114–T115: run everything on three browsers, fix each regression with a failing test first, the owner's real-profile checklist | opus | **Stop** (merge is the owner's) |
 
 ## The controller's loop, per step
 
@@ -48,7 +50,7 @@ wait on any other step.
      requirements."*
    - *"Write your full report to `<workspace>/step-<id>-report.md` and return only the short report the rules describe."*
 4. On DONE: run `yarn -s typecheck; yarn -s lint; yarn -s test` (exit codes only) and `yarn -s shots:summary | head -12`.
-5. Run the skill's `scripts/review-package <this file> BASE HEAD` and dispatch the reviewer (`model: sonnet`) with these inputs:
+5. Run the skill's `scripts/review-package <this file> BASE HEAD` and dispatch the reviewer (`model: opus`, owner's choice 2026-11-06) with these inputs:
    - the brief, the report and the package paths;
    - the global constraints: the "Non-negotiable rules" of the root `CLAUDE.md`, and spec FR-046 to FR-049;
    - the instruction: *"write your review to `<workspace>/step-<id>-review.md`; return the verdicts (spec ✅/❌, quality approved or not)
