@@ -18,3 +18,5 @@ or deployed.
 6. **Clues unreadable** — `WORKER_CLUE_SECONDS=1`: log `clues · dropped after 1 s`, tracklist sent as usual (SC-005).
 7. **Older app** — the result opened by the app from `main` before this round: rows as before, nothing breaks (FR-014).
 8. **Timing** — a 2 h set ends in under 75 minutes (SC-003); record the number in the spec page.
+9. **The five reference sets** (research R8): Ask again on each; compare the result with R8's "Expected" column. Offline, the
+   same checks run in `worker/tests/test_clues.py` from `worker/tests/fixtures/clues/` with fake catalogue answers.

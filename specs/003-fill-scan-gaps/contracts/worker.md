@@ -20,8 +20,10 @@ Extends `specs/002-mix-analysis-worker/contracts/worker.md`. Unchanged: commands
    `WORKER_CLUE_SECONDS`; parse description, chapters, comments into clues with positions (R3, R4). A failure is one log
    line.
 4. **Candidates** (`clues.lookup`): for each clue in a still-empty gap (or set-wide) that reads as one `Artist – Title`,
-   not already a track of the set, one Deezer search; accepted by the ported equality rules only (R5). Paced 0.2 s,
-   `WORKER_LOOKUPS` at most. Hosts: `api.deezer.com` added to the outbound list (`worker/CLAUDE.md`).
+   not already a track of the set: Deezer search, then MusicBrainz if Deezer accepts nothing; a Discogs or Deezer link is read
+   by its id (R8); accepted by the ported equality rules only (R5). Paced (Deezer 0.2 s, MusicBrainz 1.1 s, Discogs 2.5 s),
+   `WORKER_LOOKUPS` clues at most. Hosts `api.deezer.com`, `musicbrainz.org`, `api.discogs.com` join the outbound list
+   (`worker/CLAUDE.md`).
 5. **Write**: tracks sorted by time (set-wide candidates last), `mix_info.second_pass`, `gaps` with their clues, set-wide
    `clues`; cut clues nearest-gap first under `WORKER_RESULT_MAX_BYTES`.
 
