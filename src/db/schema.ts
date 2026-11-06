@@ -232,6 +232,30 @@ export interface TracklistRow {
   /** Tracklistify's `https://www.shazam.com/…` page for the identified track,
    *  or absent/null. Shown beside a track Spotify did not find. */
   shazamUrl?: string | null;
+  /** Round 003: how a worker row was found when not on the first listen —
+   *  'replay' (second pass, at `speedPercent`), 'clue' (a candidate named by a
+   *  comment, a chapter or the description, never heard). Absent otherwise. */
+  origin?: 'replay' | 'clue';
+  /** Round 004: how many 12 s clips matched this heard row (first and
+   *  second pass); its best score is `confidence`. Absent for candidates
+   *  and rows from before. */
+  hits?: number;
+  /** Second-pass speed correction in percent (+4, −4, or 0). */
+  speedPercent?: number;
+  /** The clue a candidate came from. */
+  clue?: Clue;
+  /** Gap rows from the worker: the clues placed around this gap. */
+  clues?: Clue[];
+}
+
+/** A description line, chapter or comment the worker read (round 003).
+ *  Third-party text: always rendered as plain text. */
+export interface Clue {
+  /** Seconds into the set, or null for a set-wide line. */
+  atSec: number | null;
+  author: string;
+  text: string;
+  kind: 'comment' | 'chapter' | 'description';
 }
 
 /** New store `mixes`, keyPath 'url'. One row per saved mix. */
@@ -278,6 +302,9 @@ export interface MixRow {
   identifyJobId?: string;
   /** That request's `finished_at`, epoch ms, or absent. */
   identifiedAt?: number;
+  /** Round 003: set-wide clues from the worker (a tracklist without times in
+   *  the description or a comment), shown once above the tracklist. */
+  clues?: Clue[];
   savedAt: number;
 }
 
@@ -318,6 +345,21 @@ export interface MixJobView {
   appliedAt: number | null;
   /** Local only: the result failed the safety check and was not merged. */
   rejected?: true;
+  /** Round 004: the worker's last progress on a running request. */
+  progress?: {
+    step: string;
+    done: number | null;
+    total: number | null;
+    percent: number | null;
+    minutesLeft: number | null;
+    pausedUntil: number | null;
+    warning: string | null;
+    at: number | null;
+  } | null;
+  /** Round 004: queue order (Move to top raises it). */
+  priority?: number;
+  /** Round 004: when Stop was asked, epoch ms, or null. */
+  stopRequestedAt?: number | null;
 }
 export type MixJobs = Record<string, MixJobView[]>;
 /** Mixes deleted here and not yet pushed as tombstones (server sync, US2). */

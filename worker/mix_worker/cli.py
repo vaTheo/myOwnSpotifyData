@@ -61,14 +61,43 @@ def code_for(result: Result) -> int:
 def build_deps(settings: Settings) -> Deps:
     from .download import download as do_download
     from .log import Log
-    from .scan import run_scan
+    from .scan import run_scan, spread
 
     log = Log(settings.log_file)
+    shazam_calls: dict[str, float] = {}  # one count of Shazam calls for every set of this run
     return Deps(
         client=ServerClient(settings.supabase_url, settings.supabase_key),
         download=lambda url, dest: do_download(url, dest, settings, line=log.line, max_duration=settings.max_duration_seconds or None),
-        scan=lambda path, duration: run_scan(path, duration, settings, line=log.line),
+        scan=lambda path, duration, **hooks: run_scan(path, duration, settings, line=log.line, shared=shazam_calls, **hooks),
         log=log,
+        jitter=spread,
+        scan_hooks=True,
+        clues=(lambda url, gaps, rows: gather_clues(settings, log, url, gaps, rows)) if settings.clues else None,
+    )
+
+
+def gather_clues(settings: Settings, log: Any, url: str, gaps: list[tuple[int, int]], rows: list[dict[str, Any]]) -> Any:
+    """Round 003's clue step with the real seams: yt-dlp for the clues, the
+    keyless catalogues for the lookups (a fresh budget per set)."""
+    import yt_dlp  # type: ignore[import-untyped]
+
+    from .clues import Lookups, fetch_json, gather, read
+    from .scan import hhmmss, spread
+
+    agent = f"myOwnSpotifyData-worker/{__version__} (https://github.com/vaTheo/myOwnSpotifyData)"
+    lookups = (
+        Lookups(fetch=lambda u: fetch_json(u, user_agent=agent), sleep=time.sleep, line=log.line, budget=settings.lookups, jitter=spread)
+        if settings.lookups > 0
+        else None
+    )
+    return gather(
+        url,
+        gaps,
+        rows,
+        read_clues=lambda u: read(u, ydl_factory=yt_dlp.YoutubeDL, timeout=settings.clue_seconds, line=log.line),
+        lookups=lookups,
+        hhmmss=hhmmss,
+        line=log.line,
     )
 
 

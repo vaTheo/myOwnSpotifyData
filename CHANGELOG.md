@@ -3,6 +3,27 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-06 — See, steer and trust the worker's scans (worker 0.4.0)
+
+Each heard track shows how many 12-second clips matched it and its best score ("heard 3× · best 91 %"), sortable, with a
+"heard once" view; nothing is removed automatically. The Requests card shows a running scan's progress and has Cancel, Move
+to top and Stop; Ask again continues a stopped set; Shazam refusing often raises a VPN warning; the second pass tries ×1
+everywhere first. Needs `supabase/migrations/0003_job_control.sql` (the app and the worker work without it, minus these
+controls). Spec: `specs/004-worker-progress-control/`. No `DB_VERSION` bump.
+
+## 2026-11-06 — Fill the gaps of a scan (worker 0.3.0)
+
+Where the first listen found nothing, the worker listens again (7 s later, at normal speed, then 4 % slower, then 4 % faster)
+and reads the set's description, chapters and comments. Tracklists in them are read whatever the separator; the clues around
+a part without a track show on it on the Mix screen; a clue naming one track becomes a row "from a comment · not heard" when
+Deezer or MusicBrainz holds exactly that artist and title (ADR-10, constitution 2.1.0), and Create playlist includes it unless
+deleted. A refusal during the second pass keeps what was found; the second pass skips stretches inside a track already heard, and
+the worker takes a planned 3-minute break every 80 calls (all waits ± 40 %) so Shazam refuses less. After a refusal the
+pace comes back down; a refusal once tracks were found sends them as done, "stopped early"; sends to the server are retried;
+the Shazam library no longer retries silently. Since the day's refusals came at any pace, a refusal is now a flat 6-minute
+pause (up to 8 a set) and the pace (1.5 s + 0–30 % since 0.4.0, after ~780 calls without a refusal at 1.9 s off the VPN) is never slowed; a refusal pauses 3 min + 0–40 %. Every line of a tracklist in the description (or a comment listing 3+ tracks) becomes a
+row even when no catalogue knows the track. Spec: `specs/003-fill-scan-gaps/`. No `DB_VERSION` bump.
+
 ## 2026-11-06 — Identify a mix on my computer (the worker)
 
 The Mix screen gains **Identify on my computer**: paste any set link yt-dlp supports, tap, and a request waits on the owner's

@@ -69,6 +69,7 @@ def make(tmp, *, client=None, download=None, scan=None, result_max_bytes=900000,
         now=lambda: 1_793_959_500.0,  # 2026-11-06T10:05:00Z
         today=lambda: "2026-11-06",
         log=log,
+        sleep=lambda s: None,
     )
     return settings, deps, log
 
@@ -209,12 +210,183 @@ class Failures(unittest.TestCase):
 
     def test_server_away_during_send(self):
         with tempfile.TemporaryDirectory() as tmp:
-            settings, deps, log = make(tmp, client=FakeClient([Result("offline", None, None, "net")]))
+            settings, deps, log = make(tmp, client=FakeClient([Result("offline", None, None, "net")] * 4))
+            waits = []
+            deps.sleep = waits.append
             outcome = run_one(job(), settings, "tok", deps)
             self.assertEqual(outcome.status, "server")
             self.assertEqual(outcome.server.kind, "offline")
+            self.assertEqual(waits, [30.0, 60.0, 120.0])
             self.assertEqual(len(list((Path(tmp) / "json").iterdir())), 1)
+
+    def test_a_send_that_works_on_a_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, client=FakeClient([Result("error", None, 502, "bad gateway"), Result("ok", "done", 200)]))
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            self.assertTrue(any("send · error: bad gateway · trying again in 30 s (1/3)" in x for x in log.lines))
+
+    def test_a_paused_project_is_not_retried(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, client=FakeClient([Result("paused", None, 503, "paused")]))
+            self.assertEqual(run_one(job(), settings, "tok", deps).server.kind, "paused")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Round003(unittest.TestCase):
+    """Second pass summary, clues on gaps and candidates in the result."""
+
+    def sent(self, deps):
+        return [c for c in deps.client.calls if c[0] == "finish"][-1][4]
+
+    def test_scan_output_and_clues_go_into_the_result(self):
+        from mix_worker.clues import Gathered
+        from mix_worker.scan import ScanOutput
+
+        replay = dict(TRACK, song_name="R", time_in_mix="00:20:00", origin="replay", speed_percent=4)
+        candidate = {"song_name": "C", "artist": "B", "time_in_mix": None, "origin": "clue", "clue": {"at": None, "author": "dj", "text": "B - C", "kind": "description"}}
+        seen = {}
+
+        def clues(url, gaps, rows):
+            seen["args"] = (url, gaps, [r["song_name"] for r in rows])
+            return Gathered(
+                gaps=[{"start": 600, "end": 900, "clues": [{"at": 610.0, "author": "x", "text": "ID?", "kind": "comment"}]}, {"start": 1500, "end": 1515, "clues": []}],
+                clues=[{"at": None, "author": "dj", "text": "B - C", "kind": "description"}],
+                candidates=[candidate],
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d: ScanOutput(rows=[TRACK, replay], second_pass={"places": 9, "found": 1, "stopped": None}, gaps=[(600, 900), (1500, 1515)]))
+            deps.clues = clues
+            outcome = run_one(job(), settings, "tok", deps)
+            self.assertEqual(outcome.status, "done")
+            body = self.sent(deps)["result"]
+        self.assertEqual(seen["args"], ("https://www.youtube.com/watch?v=abc123", [(600, 900), (1500, 1515)], ["T", "R"]))
+        info = body["mix_info"]
+        self.assertEqual(info["second_pass"], {"places": 9, "found": 1, "stopped": None})
+        self.assertEqual([g["start"] for g in info["gaps"]], [600])  # empty gaps are left out
+        self.assertEqual(info["clues"][0]["text"], "B - C")
+        self.assertEqual([t["song_name"] for t in body["tracks"]], ["T", "R", "C"])  # set-wide candidate last
+        self.assertEqual(info["track_count"], 3)
+
+    def test_a_refused_second_pass_is_still_done(self):
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d: ScanOutput(rows=[TRACK], second_pass={"places": 4, "found": 0, "stopped": "rate limited"}))
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            self.assertEqual(self.sent(deps)["result"]["mix_info"]["second_pass"]["stopped"], "rate limited")
+
+    def test_candidates_alone_make_a_done_request(self):
+        from mix_worker.clues import Gathered
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d: [])
+            deps.clues = lambda url, gaps, rows: Gathered(candidates=[{"song_name": "C", "artist": "B", "time_in_mix": None, "origin": "clue", "clue": {"at": None, "author": "dj", "text": "B - C", "kind": "comment"}}])
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+
+    def test_clues_are_cut_to_fit(self):
+        from mix_worker.clues import Gathered
+
+        many = [{"at": None, "author": "x", "text": "y" * 900, "kind": "comment"} for _ in range(50)]
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, result_max_bytes=8000)
+            deps.clues = lambda url, gaps, rows: Gathered(clues=list(many))
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            body = self.sent(deps)["result"]
+            self.assertLessEqual(len(json.dumps(body, ensure_ascii=False).encode()), 8000)
+            self.assertTrue(any("clues left out" in x for x in log.lines))
+
+    def test_stopped_early_is_done_with_a_note(self):
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d: ScanOutput(rows=[TRACK], stopped={"at": "00:47:00", "reason": "rate limited"}))
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            body = self.sent(deps)
+            self.assertEqual(body["error"], "Stopped early at 00:47:00 (rate limited); ask again later for the rest")
+            self.assertEqual(body["result"]["mix_info"]["stopped_early"], {"at": "00:47:00", "reason": "rate limited"})
+
+
+class Round004Pipeline(unittest.TestCase):
+    def sent(self, deps):
+        return [c for c in deps.client.calls if c[0] == "finish"][-1][4]
+
+    def client_with_progress(self, answers):
+        c = FakeClient()
+        c.progress_answers = list(answers)
+        c.progress_calls = []
+
+        def progress(token, job_id, worker, body):
+            c.progress_calls.append(body)
+            return c.progress_answers.pop(0) if c.progress_answers else Result("ok", {"stop": False, "taken": False}, 200)
+
+        c.progress = progress
+        return c
+
+    def test_progress_steps_and_a_failed_write_turns_it_off(self):
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            c = self.client_with_progress([Result("ok", {"stop": False, "taken": False}, 200), Result("error", None, 400, "column progress does not exist")])
+
+            def scan(p, d, progress=None, resume=None, remember=None):
+                progress({"step": "first", "done": 1, "total": 2})
+                return ScanOutput(rows=[TRACK])
+
+            settings, deps, log = make(tmp, client=c, scan=scan)
+            deps.scan_hooks = True
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            self.assertEqual(c.progress_calls[0]["step"], "download")
+            self.assertTrue(any("is migration 0003 applied" in x for x in log.lines))
+            self.assertEqual(len(c.progress_calls), 2)  # off after the failure
+
+    def test_stop_with_tracks_is_done_stopped_early_by_you(self):
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d, **k: ScanOutput(rows=[TRACK], stopped={"at": "00:47:00", "reason": "by you"}))
+            deps.scan_hooks = True
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            self.assertEqual(self.sent(deps)["error"], "Stopped early at 00:47:00 (by you); ask again later for the rest")
+
+    def test_stop_before_any_track_fails_with_its_reason(self):
+        from mix_worker.scan import StopRequested
+
+        def scan(p, d, **k):
+            raise StopRequested()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=scan)
+            deps.scan_hooks = True
+            run_one(job(), settings, "tok", deps)
+            self.assertEqual(self.sent(deps)["error"], "Stopped by you before any track was found")
+
+    def test_resume_state_kept_when_stopped_and_cleared_after_a_full_run(self):
+        from mix_worker import runstate
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            seen = {}
+
+            def stopped_scan(p, d, progress=None, resume=None, remember=None):
+                remember("first", "0", dict(TRACK))
+                return ScanOutput(rows=[TRACK], stopped={"at": "00:00:15", "reason": "by you"})
+
+            settings, deps, log = make(tmp, scan=stopped_scan)
+            deps.scan_hooks = True
+            run_one(job(), settings, "tok", deps)
+            url = job()["payload"]["url"]
+            self.assertTrue(runstate.path_for(settings.work_dir, url).exists())
+
+            def full_scan(p, d, progress=None, resume=None, remember=None):
+                seen["resume"] = resume
+                return ScanOutput(rows=[TRACK])
+
+            deps.scan = full_scan
+            deps.client = FakeClient()
+            run_one(job(), settings, "tok", deps)
+            self.assertEqual(seen["resume"]["first"], {"0": TRACK})
+            self.assertFalse(runstate.path_for(settings.work_dir, url).exists())

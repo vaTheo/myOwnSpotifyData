@@ -274,7 +274,8 @@ describe('validateJobRow (worker round)', () => {
     applied_at: null,
   };
   it('accepts a full row and a row with nulls', () => {
-    expect(validateJobRow(full)).toEqual(full);
+    const defaults = { progress: null, priority: 0, stop_requested_at: null };
+    expect(validateJobRow(full)).toEqual({ ...full, ...defaults });
     const queued = {
       ...full,
       status: 'queued',
@@ -282,10 +283,14 @@ describe('validateJobRow (worker round)', () => {
       claimed_at: null,
       finished_at: null,
     };
-    expect(validateJobRow(queued)).toEqual(queued);
-    expect(validateJobRow({ ...full, status: 'failed', error: 'No track identified' })?.error).toBe(
-      'No track identified'
-    );
+    expect(validateJobRow(queued)).toEqual({ ...queued, ...defaults });
+    expect(
+      validateJobRow({
+        ...full,
+        status: 'failed',
+        error: 'No track identified',
+      })?.error
+    ).toBe('No track identified');
   });
   it('rejects a non-uuid id, a fifth status, long strings, bad dates, a bad payload, a non-object', () => {
     expect(validateJobRow({ ...full, id: 'nope' })).toBeNull();
@@ -294,12 +299,110 @@ describe('validateJobRow (worker round)', () => {
     expect(validateJobRow({ ...full, error: 'x'.repeat(201) })).toBeNull();
     expect(validateJobRow({ ...full, created_at: 'yesterday' })).toBeNull();
     expect(validateJobRow({ ...full, claimed_at: 12 })).toBeNull();
-    expect(validateJobRow({ ...full, payload: { url: 'http://x.y/z' } })).toBeNull();
+    expect(
+      validateJobRow({ ...full, payload: { url: 'http://x.y/z' } })
+    ).toBeNull();
     expect(validateJobRow({ ...full, payload: {} })).toBeNull();
     expect(validateJobRow(null)).toBeNull();
     expect(validateJobRow('row')).toBeNull();
   });
   it('keeps claimed_by and error at exactly 200 characters', () => {
-    expect(validateJobRow({ ...full, claimed_by: 'x'.repeat(200) })).not.toBeNull();
+    expect(
+      validateJobRow({ ...full, claimed_by: 'x'.repeat(200) })
+    ).not.toBeNull();
+  });
+});
+
+describe('validateMix — round 003 fields', () => {
+  const clue = { atSec: 610, author: 'x', text: 'ID?', kind: 'comment' };
+  it('accepts replays, candidates, gap clues and set-wide clues', () => {
+    expect(
+      validateMix({
+        ...mixRow,
+        rows: [
+          { ...mixRow.rows[0], origin: 'replay', speedPercent: -4 },
+          { ...mixRow.rows[0], origin: 'clue', clue: { ...clue, atSec: null } },
+          { ...mixRow.rows[0], gap: true, clues: [clue] },
+        ],
+        clues: [{ ...clue, kind: 'description', atSec: null }],
+      }).ok
+    ).toBe(true);
+  });
+  it('rejects a bad origin, speed, clue kind, over-long text and too many clues', () => {
+    const r0 = mixRow.rows[0];
+    for (const bad of [
+      { ...mixRow, rows: [{ ...r0, origin: 'guess' }] },
+      { ...mixRow, rows: [{ ...r0, speedPercent: Number.NaN }] },
+      { ...mixRow, rows: [{ ...r0, clue: { ...clue, kind: 'html' } }] },
+      {
+        ...mixRow,
+        rows: [{ ...r0, clues: [{ ...clue, text: 'x'.repeat(1001) }] }],
+      },
+      { ...mixRow, rows: [{ ...r0, clues: Array(31).fill(clue) }] },
+      { ...mixRow, clues: [{ ...clue, author: 3 }] },
+    ]) {
+      expect(validateMix(bad).ok).toBe(false);
+    }
+  });
+});
+
+describe('validateMix — round 004 hits', () => {
+  it('accepts a whole count from 1, refuses anything else', () => {
+    const r0 = mixRow.rows[0];
+    expect(validateMix({ ...mixRow, rows: [{ ...r0, hits: 3 }] }).ok).toBe(
+      true
+    );
+    for (const hits of [0, 1.5, -1, '2', Number.NaN]) {
+      expect(validateMix({ ...mixRow, rows: [{ ...r0, hits }] }).ok).toBe(
+        false
+      );
+    }
+  });
+});
+
+describe('validateJobRow — round 004 columns', () => {
+  const base = {
+    id: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+    payload: { url: 'https://soundcloud.com/a/b' },
+    status: 'claimed',
+    claimed_by: 'laptop',
+    claimed_at: '2026-11-06T20:00:00Z',
+    finished_at: null,
+    error: null,
+    created_at: '2026-11-06T19:00:00Z',
+    applied_at: null,
+  };
+  it('keeps a well-formed progress, priority and stop', () => {
+    const progress = {
+      step: 'first',
+      done: 1,
+      total: 2,
+      percent: 50,
+      minutes_left: 3,
+      paused_until: null,
+      warning: null,
+      at: '2026-11-06T20:01:00Z',
+    };
+    const row = validateJobRow({
+      ...base,
+      progress,
+      priority: 3,
+      stop_requested_at: '2026-11-06T20:02:00Z',
+    });
+    expect(row).toMatchObject({
+      progress,
+      priority: 3,
+      stop_requested_at: '2026-11-06T20:02:00Z',
+    });
+  });
+  it('drops a malformed progress without refusing the row', () => {
+    for (const progress of [
+      { step: 7 },
+      { step: 'first', done: 'x' },
+      { step: 'first', warning: 'w'.repeat(300) },
+      { step: 'first', paused_until: 'soon' },
+    ]) {
+      expect(validateJobRow({ ...base, progress })?.progress).toBeNull();
+    }
   });
 });

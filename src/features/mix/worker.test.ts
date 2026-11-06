@@ -5,6 +5,8 @@ import {
   jobView,
   mergeWorkerRows,
   requestList,
+  viewRows,
+  progressLine,
   requestStatusText,
   resultToRows,
 } from './worker';
@@ -227,6 +229,9 @@ describe('jobView', () => {
       finishedAt: null,
       error: null,
       appliedAt: null,
+      progress: null,
+      priority: 0,
+      stopRequestedAt: null,
     });
   });
   it('is null for a row the validator refuses', () => {
@@ -426,5 +431,232 @@ describe('requestList', () => {
       message: 'x',
     });
     expect(offline.some((i) => i.canAskAgain)).toBe(false);
+  });
+});
+
+describe('resultToRows — round 003 additions', () => {
+  const base = resultFixture() as {
+    mix_info: Record<string, unknown>;
+    tracks: Record<string, unknown>[];
+  };
+  function with3(): unknown {
+    return {
+      mix_info: {
+        ...base.mix_info,
+        second_pass: { places: 9, found: 1, stopped: null },
+        gaps: [
+          {
+            start: 600,
+            end: 900,
+            clues: [
+              { at: 610.4, author: 'x', text: 'ID? <b>', kind: 'comment' },
+              { at: 'later', author: 'y', text: 'bad', kind: 'comment' },
+            ],
+          },
+          { start: 1000, end: 1015, clues: [] },
+        ],
+        clues: [
+          { at: null, author: 'dj', text: 'B - C', kind: 'description' },
+          { at: null, author: 'dj', text: 'x'.repeat(1500), kind: 'comment' },
+          { at: null, author: 'dj', text: 'nope', kind: 'html' },
+        ],
+      },
+      tracks: [
+        { ...base.tracks[0], origin: 'replay', speed_percent: 4 },
+        { song_name: '', artist: '' },
+        ...base.tracks.slice(1),
+        {
+          song_name: 'Leave Home (Edit Select Remix)',
+          artist: 'Space Above',
+          time_in_mix: null,
+          origin: 'clue',
+          clue: {
+            at: null,
+            author: 'dj',
+            text: 'Space Above - Leave Home',
+            kind: 'comment',
+          },
+          metadata: { isrc: 'NLCK41072412' },
+        },
+      ],
+    };
+  }
+
+  it('marks replays and candidates, builds gap rows with their clues, keeps set-wide clues', () => {
+    const r = resultToRows(with3());
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows[0]).toMatchObject({ origin: 'replay', speedPercent: 4 });
+    const candidate = r.rows.find((x) => x.origin === 'clue');
+    expect(candidate).toMatchObject({
+      artist: 'Space Above',
+      isrc: 'NLCK41072412',
+      startSec: null,
+      clue: { atSec: null, kind: 'comment' },
+    });
+    expect(r.rows[r.rows.length - 1]).toBe(candidate); // no time: last
+    const gaps = r.rows.filter((x) => x.gap);
+    expect(gaps).toHaveLength(1); // the gap without clues is left out
+    expect(gaps[0]).toMatchObject({ startSec: 600, endSec: 900 });
+    expect(gaps[0].clues).toEqual([
+      { atSec: 610.4, author: 'x', text: 'ID? <b>', kind: 'comment' },
+    ]);
+    expect(r.clues.map((c) => c.text.length)).toEqual([5, 1000]);
+  });
+
+  it('a result without additions reads as before', () => {
+    const r = resultToRows(resultFixture());
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows.some((x) => x.origin !== undefined || x.gap)).toBe(false);
+    expect(r.clues).toEqual([]);
+  });
+});
+
+describe('requestStatusText — stopped early', () => {
+  it("shows the worker's note next to Done", () => {
+    const line = requestStatusText(
+      {
+        id: 'x',
+        status: 'done',
+        createdAt: 0,
+        claimedBy: null,
+        claimedAt: null,
+        finishedAt: Date.parse('2026-11-06T16:00:00Z'),
+        error:
+          'Stopped early at 00:47:00 (rate limited); ask again later for the rest',
+        appliedAt: null,
+      },
+      {
+        status: 'connected',
+        lastSyncAt: null,
+        usedBytes: null,
+        stamps: [],
+        rejected: 0,
+      }
+    ).line;
+    expect(line).toMatch(
+      /^Done .* · Stopped early at 00:47:00 \(rate limited\)/
+    );
+  });
+});
+
+describe('resultToRows — round 004 clip count', () => {
+  it('keeps hits on heard rows, never on candidates, and refuses bad values', () => {
+    const base = resultFixture() as {
+      mix_info: unknown;
+      tracks: Record<string, unknown>[];
+    };
+    const r = resultToRows({
+      ...base,
+      tracks: [
+        { ...base.tracks[0], hits: 5 },
+        { ...base.tracks[1], hits: 0 },
+        { ...base.tracks[2], origin: 'replay', speed_percent: -4, hits: 1 },
+        {
+          song_name: 'C',
+          artist: 'B',
+          time_in_mix: null,
+          origin: 'clue',
+          hits: 3,
+          clue: { at: null, author: 'dj', text: 'B - C', kind: 'description' },
+        },
+      ],
+    });
+    if (!r.ok) throw new Error(r.message);
+    const byTitle = (t: string) => r.rows.find((x) => x.title === t);
+    expect(byTitle(String(base.tracks[0].song_name))?.hits).toBe(5);
+    expect(byTitle(String(base.tracks[1].song_name))?.hits).toBeUndefined();
+    expect(byTitle(String(base.tracks[2].song_name))).toMatchObject({
+      origin: 'replay',
+      hits: 1,
+    });
+    expect(byTitle('C')?.hits).toBeUndefined();
+  });
+});
+
+describe('viewRows', () => {
+  const r = (over: Partial<TracklistRow>): TracklistRow => ({
+    startSec: 0,
+    endSec: null,
+    artist: 'A',
+    title: 'T',
+    label: null,
+    source: 'tracklistify',
+    gap: false,
+    detected: { artist: 'A', title: 'T' },
+    referenceCount: null,
+    ...over,
+  });
+  const rows = [
+    r({ hits: 1, confidence: 63 }),
+    r({ hits: 5, confidence: 91 }),
+    r({ origin: 'clue' }),
+    r({ hits: 1, confidence: 97 }),
+  ];
+  it('keeps set order by default and filters heard-once without touching the rows', () => {
+    expect(viewRows(rows, 'time', false)).toEqual([0, 1, 2, 3]);
+    expect(viewRows(rows, 'time', true)).toEqual([0, 3]);
+  });
+  it('sorts by clips or best score, rows without the number last', () => {
+    expect(viewRows(rows, 'clips', false)).toEqual([1, 0, 3, 2]);
+    expect(viewRows(rows, 'score', false)).toEqual([3, 1, 0, 2]);
+  });
+});
+
+describe('progressLine', () => {
+  const now = Date.parse('2026-11-06T21:00:00Z');
+  const v = (
+    progress: MixJobView['progress'],
+    over: Partial<MixJobView> = {}
+  ): MixJobView => ({
+    id: 'x',
+    status: 'claimed',
+    createdAt: 0,
+    claimedBy: 'laptop',
+    claimedAt: now - 60_000,
+    finishedAt: null,
+    error: null,
+    appliedAt: null,
+    progress,
+    stopRequestedAt: null,
+    ...over,
+  });
+  const p = (over: Partial<NonNullable<MixJobView['progress']>>) => ({
+    step: 'first',
+    done: 211,
+    total: 519,
+    percent: 41,
+    minutesLeft: 18,
+    pausedUntil: null,
+    warning: null,
+    at: now - 30_000,
+    ...over,
+  });
+  it('words a step, its percent and the time left', () => {
+    expect(progressLine(v(p({})), now)).toBe(
+      'First pass · 41 % · about 18 min left'
+    );
+    expect(
+      progressLine(
+        v(p({ step: 'second ×0.96', percent: 50, minutesLeft: null })),
+        now
+      )
+    ).toBe('Second pass ×0.96 · 50 %');
+  });
+  it('says a pause, the network warning, stale news and a stop', () => {
+    expect(
+      progressLine(v(p({ step: 'paused', pausedUntil: now + 300_000 })), now)
+    ).toMatch(/^Paused by Shazam until /);
+    expect(progressLine(v(p({ warning: 'refuses often' })), now)).toContain(
+      'a VPN or a shared network?'
+    );
+    expect(progressLine(v(p({ at: now - 11 * 60_000 })), now)).toContain(
+      'the computer stopped sending news'
+    );
+    expect(progressLine(v(p({}), { stopRequestedAt: now }), now)).toContain(
+      'stopping…'
+    );
+  });
+  it('is null without progress', () => {
+    expect(progressLine(v(null), now)).toBeNull();
   });
 });

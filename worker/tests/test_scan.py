@@ -8,7 +8,12 @@ from mix_worker.scan import (
     Hit,
     ScanRefused,
     ScanUnreachable,
+    cut_probe,
     default_classify,
+    gap_positions,
+    gaps_of,
+    inside_known,
+    StopRequested,
     confidence_of,
     hhmmss,
     merge,
@@ -181,18 +186,18 @@ class Scan(unittest.TestCase):
         rows = run(scan(120, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify))
         self.assertEqual([r["time_in_mix"] for r in rows], ["00:01:00"])
 
-    def test_rate_limited_pauses_grow_and_the_cooldown_doubles(self):
+    def test_rate_limited_pauses_are_flat_and_the_pace_unchanged(self):
         calls, cut, recognise, sleep = self.make([RateLimited(), RateLimited(), CASSETTE, NO_MATCH])
         rows = run(scan(120, step=60, cooldown=6.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify))
-        # cooldown 6, pause 300, cooldown 12, pause 600, cooldown 24 (probe 1 again), cooldown 24 (probe 2)
-        self.assertEqual(calls["sleeps"], [6.0, 300.0, 12.0, 600.0, 24.0, 24.0])
+        # Owner, 2026-11-06: a flat pause each time, the pace unchanged.
+        self.assertEqual(calls["sleeps"], [6.0, 300.0, 6.0, 300.0, 6.0, 6.0])
         self.assertEqual(calls["cuts"], [0, 60])
         self.assertEqual(len(rows), 1)
 
-    def test_cooldown_is_capped_and_jitter_added(self):
+    def test_jitter_on_calls_not_on_the_pause(self):
         calls, cut, recognise, sleep = self.make([RateLimited(), CASSETTE])
         run(scan(60, step=60, cooldown=20.0, pause=1.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify, jitter=lambda c: c / 4))
-        self.assertEqual(calls["sleeps"], [25.0, 1.0, 37.5])
+        self.assertEqual(calls["sleeps"], [25.0, 1.0, 25.0])  # the pace is not slowed; the pause is exact
 
     def test_one_more_than_the_allowed_pauses_refuses(self):
         calls, cut, recognise, sleep = self.make([RateLimited(), RateLimited(), RateLimited()])
@@ -284,7 +289,7 @@ class Lines(unittest.TestCase):
 
         with self.assertRaises(ScanRefused):
             run(scan(60, step=60, cooldown=3.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, max_pauses=1, clock=lambda: 0.0))
-        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited (1/1) · pausing 300 s, then this probe again · cooldown now 6 s", "  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited again · giving up after 1 pauses"])
+        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited (1/1) · pausing 300 s, then this probe again at the same pace", "  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited again · giving up after 1 pauses"])
 
 
 class Device(unittest.TestCase):
@@ -346,3 +351,358 @@ class Result(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SecondPass(unittest.TestCase):
+    """Round 003: the gaps heard again (+7 s, every 30 s, ×1 then ×0.96 then ×1.04)."""
+
+    def kw(self, **over):
+        base = dict(step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, sleep=self.sleep, classify=classify, clock=lambda: 0.0)
+        base.update(over)
+        return base
+
+    async def sleep(self, s):
+        pass
+
+    def test_positions(self):
+        self.assertEqual(gap_positions([0, 15, 30, 45, 60, 75], 30, 7), [7, 37, 67])
+        self.assertEqual(gap_positions([300], 30, 7), [307])
+
+    def test_gaps_of(self):
+        self.assertEqual(gaps_of([0, 15, 30, 90], [], 15), [(0, 45), (90, 105)])
+        self.assertEqual(gaps_of([0, 15, 30], [22], 15), [(0, 15), (30, 45)])
+        self.assertEqual(gaps_of([], [0], 15), [])
+
+    def test_hit_at_a_corrected_speed_is_marked_and_the_rest_reported(self):
+        # 6 first-pass probes, all no match; places 7, 37, 67, heard speed by
+        # speed (round 004, R6): ×1 at 7, 37, 67 (67 hits); ×0.96 at 7 (hits,
+        # same track), 37; ×1.04 at 37.
+        answers = [NO_MATCH] * 6 + [NO_MATCH, NO_MATCH, CASSETTE, CASSETTE, NO_MATCH, NO_MATCH]
+        asked_cuts = []
+
+        async def recognise(data, skew):
+            return answers.pop(0)
+
+        def cut_at(t, speed):
+            asked_cuts.append((t, speed))
+            return b"x" * 5000
+
+        report = {}
+        lines = []
+        rows = run(scan(90, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=cut_at, report=report, line=lines.append, **self.kw()))
+        self.assertEqual(asked_cuts, [(7, 1.0), (37, 1.0), (67, 1.0), (7, 0.96), (37, 0.96), (37, 1.04)])
+        self.assertEqual(rows[0]["origin"], "replay")
+        self.assertEqual(rows[0]["speed_percent"], -4)  # the row starts at the ×0.96 hit, at 7 s
+        self.assertEqual(report["second_pass"], {"places": 3, "found": 1, "stopped": None})
+        self.assertEqual(report["gaps"], [(15, 60), (75, 90)])
+        self.assertTrue(any("second pass · 1 new track in 3 places" in x for x in lines))
+
+    def test_refusal_keeps_what_was_found(self):
+        answers = [CASSETTE, NO_MATCH, NO_MATCH, NO_MATCH, RateLimited(), RateLimited()]
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        report = {}
+        rows = run(scan(60, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=lambda t, s: b"x" * 5000, report=report, max_pauses=1, **self.kw()))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(report["second_pass"]["stopped"], "rate limited")
+
+    def test_off(self):
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        cuts = []
+        report = {}
+        run(scan(30, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=lambda t, s: cuts.append(t) or b"", gap_step=0, report=report, **self.kw()))
+        self.assertEqual(cuts, [])
+        self.assertEqual(report["second_pass"]["places"], 0)
+
+
+class CutProbeSpeed(unittest.TestCase):
+    def test_ffmpeg_arguments(self):
+        import subprocess
+        import tempfile
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            audio = Path(tmp) / "a.m4a"
+            audio.write_bytes(b"x")
+            seen = []
+
+            def fake_run(cmd, **kw):
+                seen.append(cmd)
+                Path(cmd[-1]).write_bytes(b"RIFF" + b"x" * 2000)
+                return subprocess.CompletedProcess(cmd, 0, b"", b"")
+
+            with mock.patch("mix_worker.scan.subprocess.run", fake_run):
+                cut_probe("ffmpeg", audio, 60, 12)
+                cut_probe("ffmpeg", audio, 60, 12, speed=1.04)
+                cut_probe("ffmpeg", audio, 60, 12, speed=0.96)
+        plain, fast, slow = seen
+        self.assertNotIn("-af", plain)
+        self.assertEqual(plain[plain.index("-t") + 1], "12")
+        self.assertLess(fast.index("-t"), fast.index("-i"))
+        self.assertEqual(fast[fast.index("-t") + 1], "12.48")
+        self.assertEqual(fast[fast.index("-af") + 1], "aresample=16000,asetrate=16640,aresample=16000")
+        self.assertEqual(slow[slow.index("-t") + 1], "11.52")
+        self.assertEqual(slow[slow.index("-af") + 1], "aresample=16000,asetrate=15360,aresample=16000")
+
+
+class LessCalls(unittest.TestCase):
+    """Owner, 2026-11-06: skip stretches inside a known track; planned breaks."""
+
+    def test_inside_known(self):
+        keys = {0: "a", 15: "a", 60: "a", 120: "b", 300: "c"}
+        # 30, 45 sit between two "a" probes: that track. 75-105 between "a" and "b": open.
+        # 135-285 between "b" and "c": open. 315: after the last hit: open.
+        self.assertEqual(inside_known([30, 45, 75, 90, 105, 135, 150, 315], keys, 180), [75, 90, 105, 135, 150, 315])
+
+    def test_a_long_run_inside_the_same_track_is_still_heard(self):
+        keys = {0: "a", 300: "a"}
+        self.assertEqual(inside_known([15, 30, 285], keys, 180), [15, 30, 285])
+
+    def test_planned_break_every_n_calls(self):
+        sleeps = []
+
+        async def sleep(s):
+            sleeps.append(s)
+
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        lines = []
+        run(scan(90, step=15, cooldown=1.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, clock=lambda: 0.0, break_every=2, break_seconds=60.0))
+        # 6 probes: cooldown, cooldown, break, cooldown, cooldown, break, cooldown, cooldown
+        self.assertEqual(sleeps, [1.0, 1.0, 60.0, 1.0, 1.0, 60.0, 1.0, 1.0])
+        self.assertEqual(sum("break · 2 calls" in x for x in lines), 2)
+
+    def test_second_pass_skips_inside_a_known_track(self):
+        # probes 0 hit, 15 miss, 30 hit (same track), 45 miss: only 45 is heard again
+        answers = [CASSETTE, NO_MATCH, CASSETTE, NO_MATCH, NO_MATCH]
+        cuts = []
+
+        async def recognise(data, skew):
+            return answers.pop(0) if answers else NO_MATCH
+
+        async def sleep(s):
+            pass
+
+        def cut_at(t, speed):
+            cuts.append(t)
+            return b"x" * 5000
+
+        run(scan(60, step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=cut_at, speeds=(), sleep=sleep, classify=classify, clock=lambda: 0.0))
+        self.assertEqual(cuts, [52])
+
+
+class Retries(unittest.TestCase):
+    """Owner, 2026-11-06: a first-pass refusal keeps the hits."""
+
+    def test_first_pass_refusal_keeps_the_hits(self):
+        answers = [CASSETTE, NO_MATCH, RateLimited(), RateLimited()]
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        async def sleep(s):
+            pass
+
+        report = {}
+        rows = run(scan(120, step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=lambda t, s: b"x" * 5000, sleep=sleep, classify=classify, max_pauses=1, report=report, clock=lambda: 0.0))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(report["stopped"], {"at": "00:00:30", "reason": "rate limited"})
+        self.assertEqual(report["second_pass"]["places"], 0)  # no second pass after a stop
+
+    def test_shazam_server_error_is_a_visible_retry(self):
+        class FailedDecodeJson(Exception):
+            pass
+
+        self.assertEqual(default_classify(FailedDecodeJson("Failed to decode json (status=502): <html>")), "network")
+        self.assertEqual(default_classify(FailedDecodeJson("Failed to decode json (status=200): x")), "raise")
+
+
+class AcrossSets(unittest.TestCase):
+    """Owner, 2026-11-06: the planned-break count runs across sets."""
+
+    def go(self, shared, now):
+        sleeps = []
+
+        async def sleep(s):
+            sleeps.append(s)
+
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        lines = []
+        run(scan(30, step=15, cooldown=1.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, clock=lambda: now, break_every=3, break_seconds=60.0, shared=shared))
+        return sleeps, lines
+
+    def test_count_carries_into_the_next_set(self):
+        shared = {}
+        first, _ = self.go(shared, 1000.0)
+        self.assertEqual(first, [1.0, 1.0])
+        self.assertEqual(shared["calls"], 2)
+        second, lines = self.go(shared, 1100.0)  # 100 s later: same window
+        self.assertEqual(second, [1.0, 60.0, 1.0])  # break after the 3rd call overall
+        self.assertTrue(any("2 calls already made" in x for x in lines))
+
+    def test_a_quiet_spell_starts_afresh(self):
+        shared = {"calls": 2, "last": 0.0}
+        sleeps, _ = self.go(shared, 5000.0)  # long after the window
+        self.assertEqual(sleeps, [1.0, 1.0])
+
+
+class ExactBreak(unittest.TestCase):
+    def test_the_planned_break_has_no_spread(self):
+        sleeps = []
+
+        async def sleep(s):
+            sleeps.append(s)
+
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        run(scan(45, step=15, cooldown=1.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, clock=lambda: 0.0, break_every=2, break_seconds=180.0, jitter=lambda s: s * 0.4))
+        self.assertEqual(sleeps, [1.4, 1.4, 180.0, 1.4])  # calls spread, the break exact
+
+
+class AddedSpread(unittest.TestCase):
+    """Owner, 2026-11-06: 2 s + 0-50 % between calls, 3 min + 0-40 % after a refusal."""
+
+    def test_added_only_grows(self):
+        from mix_worker.scan import added
+
+        f = added(50)
+        values = [f(2.0) for _ in range(500)]
+        self.assertTrue(all(0.0 <= v <= 1.0 for v in values))
+        self.assertGreater(max(values), 0.8)
+
+    def test_refusal_pause_gets_its_own_spread(self):
+        answers = [RateLimited(), NO_MATCH]
+        sleeps = []
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        async def sleep(s):
+            sleeps.append(s)
+
+        run(scan(15, step=15, cooldown=2.0, pause=180.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, clock=lambda: 0.0, jitter=lambda s: s * 0.5, pause_jitter=lambda s: s * 0.4))
+        self.assertEqual(sleeps, [3.0, 252.0, 3.0])  # 2 s +50 %, 180 s +40 %, 2 s +50 %
+
+
+class ClipCount(unittest.TestCase):
+    """Round 004: each row keeps how many clips matched it and its best score."""
+
+    def test_hits_and_best(self):
+        a = dict(track_entry(CASSETTE, "00:00:00"))
+        lo = dict(a, confidence=60.0)
+        hi = dict(a, confidence=95.0)
+        rows = merge([Hit(0, lo), Hit(15, hi), Hit(30, lo), Hit(600, lo)], 180)
+        self.assertEqual([(r["hits"], r["confidence"]) for r in rows], [(3, 95.0), (1, 60.0)])
+
+
+class Round004Scan(unittest.TestCase):
+    def base(self, **over):
+        async def sleep(s):
+            self.sleeps.append(s)
+
+        kw = dict(step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, sleep=sleep, classify=classify, clock=lambda: 0.0, wall=lambda: 1_794_000_000.0)
+        kw.update(over)
+        return kw
+
+    def setUp(self):
+        self.sleeps = []
+
+    def test_progress_at_each_step_change_and_counts(self):
+        seen = []
+
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        run(scan(60, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=lambda t, s: b"x" * 5000, speeds=(), progress=seen.append, **self.base()))
+        steps = [(p["step"], p["done"], p["total"]) for p in seen]
+        self.assertEqual(steps[0], ("first", 1, 4))  # first call: published (never before)
+        self.assertIn(("second ×1", 0, 2), steps)
+        self.assertEqual(seen[0]["percent"], 25)
+        self.assertEqual(seen[0]["at"], "2026-11-06T21:20:00Z")
+
+    def test_stop_keeps_the_hits(self):
+        answers = [CASSETTE, NO_MATCH, NO_MATCH, NO_MATCH]
+        calls = {"n": 0}
+
+        async def recognise(data, skew):
+            return answers.pop(0)
+
+        def progress(p):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise StopRequested()
+
+        clock = iter(range(0, 10_000, 100))
+        report = {}
+        rows = run(scan(60, recognise=recognise, cut=lambda t: b"x" * 5000, progress=progress, report=report, **self.base(clock=lambda: next(clock))))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(report["stopped"]["reason"], "by you")
+
+    def test_stop_during_a_refusal_pause_is_seen_within_a_slice(self):
+        answers = [CASSETTE, RateLimited(), NO_MATCH]
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        def progress(p):
+            if p["step"] == "paused" and p["paused_until"] and len(self.sleeps) > 2:
+                raise StopRequested()
+
+        report = {}
+        run(scan(30, recognise=recognise, cut=lambda t: b"x" * 5000, progress=progress, report=report, **self.base(pause=360.0)))
+        self.assertEqual(report["stopped"]["reason"], "by you")
+        self.assertLess(sum(self.sleeps), 100)  # not the full 6 minutes
+
+    def test_refusals_close_together_warn_once(self):
+        answers = [RateLimited(), NO_MATCH, RateLimited(), NO_MATCH, RateLimited(), NO_MATCH]
+        lines = []
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        report = {}
+        run(scan(45, recognise=recognise, cut=lambda t: b"x" * 5000, line=lines.append, report=report, warn_calls=150, max_pauses=8, **self.base()))
+        self.assertEqual(report["warnings"], ["refuses often"])
+        self.assertEqual(sum("are you on a VPN" in x for x in lines), 1)
+
+    def test_resume_skips_what_the_stopped_run_heard(self):
+        asked = []
+
+        async def recognise(data, skew):
+            return CASSETTE
+
+        def cut(t):
+            asked.append(t)
+            return b"x" * 5000
+
+        hit = track_entry(CASSETTE, "00:00:00")
+        remembered = []
+        report = {}
+        rows = run(scan(60, recognise=recognise, cut=cut, resume={"first": {"0": hit, "15": None}}, remember=lambda k, key, e: remembered.append((k, key)), report=report, **self.base()))
+        self.assertEqual(asked, [30, 45])
+        self.assertEqual(report["resumed"], {"probes_kept": 2, "from": "00:00:15"})
+        self.assertEqual(remembered, [("first", "30"), ("first", "45")])
+        self.assertEqual(rows[0]["hits"], 3)

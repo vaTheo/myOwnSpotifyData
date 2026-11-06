@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { auth } from '../auth/browser';
-import type { TracklistRow } from '../db/schema';
+import type { Clue, TracklistRow } from '../db/schema';
 import { parseClock } from '../features/mix/parse';
 import {
   libraryTitleIndex,
@@ -10,7 +10,12 @@ import {
 import { digRows } from '../features/mix/digLinks';
 import { isIdentified } from '../features/mix/spotifySearch';
 import { requestKey } from '../features/mix/url';
-import { requestList, requestStatusText } from '../features/mix/worker';
+import {
+  requestList,
+  requestStatusText,
+  viewRows,
+  type RowSort,
+} from '../features/mix/worker';
 import {
   addMixRow,
   applyDescriptionTracklist,
@@ -31,7 +36,10 @@ import {
   savedMixes,
   serverState,
   startCreatePlaylist,
+  startCancelRequest,
   startIdentifyRequest,
+  startMoveToTop,
+  startStopRequest,
   startServerSync,
   startMixLookup,
   startTracklistifyImport,
@@ -92,8 +100,48 @@ function sourceLabel(row: TracklistRow): string {
  * format.ts lines drop their missing parts; `plural` cannot spell "mixes", so
  * that part is written out.
  */
+/** Where a worker row came from when not the first listen (round 003). */
+function originLabel(row: TracklistRow): string | null {
+  if (row.origin === 'replay') {
+    const pct = row.speedPercent ?? 0;
+    return pct === 0
+      ? 'second listen'
+      : `second listen · ${pct > 0 ? '+' : '−'}${Math.abs(pct)} %`;
+  }
+  if (row.origin === 'clue') {
+    const kind = row.clue?.kind;
+    const by = row.clue?.author ? ` by ${row.clue.author}` : '';
+    if (kind === 'description') return 'from the description · not heard';
+    if (kind === 'chapter') return 'from a chapter · not heard';
+    return `from a comment${by} · not heard`;
+  }
+  return null;
+}
+
+/** One clue as plain text: "mm:ss · author · text" (never HTML). */
+function clueLine(c: Clue): string {
+  const at = c.atSec !== null ? `${formatClock(c.atSec)} · ` : '';
+  return `${at}${c.author ? `${c.author} · ` : ''}${c.text}`;
+}
+
+/** A folded list of clues (third-party text, rendered as text only). */
+function Clues(p: { clues: Clue[]; summary: string }) {
+  return (
+    <details class="clues">
+      <summary>{p.summary}</summary>
+      <ul>
+        {p.clues.map((c, i) => (
+          <li key={i}>{clueLine(c)}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function provenanceLine(row: TracklistRow, match: MixMatch | null): string {
   const parts = [sourceLabel(row)];
+  const origin = originLabel(row);
+  if (origin) parts.push(origin);
   if (match && match.playlistCount > 0) {
     parts.push(`in ${plural(match.playlistCount, 'playlist')}`);
   }
@@ -105,7 +153,12 @@ function provenanceLine(row: TracklistRow, match: MixMatch | null): string {
   // edited, `source` flips away from 'tracklistify' (see spotifySearch.ts),
   // and a confidence score for a rejected identification would mislead.
   if (row.source === 'tracklistify' && row.confidence != null) {
-    parts.push(`${Math.round(row.confidence)}% match`);
+    // Round 004: how many 12 s clips matched, and the best score among them.
+    parts.push(
+      row.hits !== undefined
+        ? `heard ${row.hits}× · best ${Math.round(row.confidence)} %`
+        : `${Math.round(row.confidence)}% match`
+    );
   }
   return parts.join(' · ');
 }
@@ -126,6 +179,9 @@ function DisplayRow(p: {
         <>
           {match && <FeaturePills trackId={match.trackId} />}
           <span class="src">{provenanceLine(row, match)}</span>
+          {row.origin === 'clue' && row.clue && (
+            <span class="src clue">“{row.clue.text}”</span>
+          )}
         </>
       }
     >
@@ -152,6 +208,12 @@ function GapRow(p: { row: TracklistRow; onDelete: () => void }) {
           <span class="title">ID · unidentified</span>
           {rowSubtitle(p.row) !== '' && (
             <span class="sub">{rowSubtitle(p.row)}</span>
+          )}
+          {p.row.clues && p.row.clues.length > 0 && (
+            <Clues
+              clues={p.row.clues}
+              summary={`${plural(p.row.clues.length, 'clue')} around here`}
+            />
           )}
         </div>
       </div>
@@ -239,6 +301,12 @@ function Tracklist() {
   const index = m ? libraryTitleIndex(m) : null;
   const [editing, setEditing] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
+  const [sort, setSort] = useState<RowSort>('time');
+  const [heardOnce, setHeardOnce] = useState(false);
+  const counted = rows.some((r) => r.hits !== undefined);
+  const shown = counted
+    ? viewRows(rows, sort, heardOnce)
+    : rows.map((_, i) => i);
   const onSaveMix = (): void => {
     void (async () => {
       const ok = await saveMix();
@@ -249,8 +317,44 @@ function Tracklist() {
   };
   return (
     <>
+      {counted && (
+        <div class="rowview">
+          <label>
+            Sort{' '}
+            <select
+              id="mix-sort"
+              value={sort}
+              onChange={(e) =>
+                setSort((e.currentTarget as HTMLSelectElement).value as RowSort)
+              }
+            >
+              <option value="time">by time in the set</option>
+              <option value="clips">by clips heard</option>
+              <option value="score">by best score</option>
+            </select>
+          </label>
+          <label>
+            <input
+              id="mix-heard-once"
+              type="checkbox"
+              checked={heardOnce}
+              onChange={(e) =>
+                setHeardOnce((e.currentTarget as HTMLInputElement).checked)
+              }
+            />{' '}
+            Only tracks heard once ({rows.filter((r) => r.hits === 1).length})
+          </label>
+          {heardOnce && (
+            <span class="caption">
+              The others are hidden, not deleted; Create playlist uses every
+              row.
+            </span>
+          )}
+        </div>
+      )}
       <ul class="list">
-        {rows.map((row, i) => {
+        {shown.map((i) => {
+          const row = rows[i];
           if (editing === i) {
             return (
               <EditRow
@@ -595,6 +699,19 @@ function sameRows(a: TracklistRow[], b: TracklistRow[]): boolean {
   });
 }
 
+/** Round 003: a tracklist without times from the description or a comment. */
+function SetWideClues(p: { url: string }) {
+  const clues = savedMixes.value.find((m) => m.url === p.url)?.clues ?? [];
+  if (clues.length === 0) return null;
+  const fromDescription = clues.every((c) => c.kind === 'description');
+  return (
+    <Clues
+      clues={clues}
+      summary={`Tracklist ${fromDescription ? 'from the description' : 'from the comments'} (${clues.length} lines, no times)`}
+    />
+  );
+}
+
 function Ready(p: { view: MixView }) {
   const { view } = p;
   const showReplace =
@@ -622,6 +739,7 @@ function Ready(p: { view: MixView }) {
           Replace with the description tracklist
         </button>
       )}
+      <SetWideClues url={view.url} />
       <Tracklist />
       <CreatePlaylistPanel view={view} />
       <PasteBox />
@@ -830,6 +948,32 @@ function RequestsCard(p: { onPick: (url: string) => void }) {
                   onClick={() => void startIdentifyRequest(item.key)}
                 >
                   Ask again
+                </button>
+              </div>
+            )}
+            {item.status === 'queued' && (
+              <div class="actions">
+                <button
+                  type="button"
+                  onClick={() => void startMoveToTop(item.id)}
+                >
+                  Move to top
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void startCancelRequest(item.id)}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+            {item.status === 'claimed' && (
+              <div class="actions">
+                <button
+                  type="button"
+                  onClick={() => void startStopRequest(item.id)}
+                >
+                  Stop
                 </button>
               </div>
             )}
