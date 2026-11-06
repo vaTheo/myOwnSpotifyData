@@ -264,6 +264,9 @@ export interface MixRow {
      *  Absent (not false) on every row saved before this feature and on
      *  every SoundCloud-origin mix. */
     tracklistify?: boolean;
+    /** True once at least one row came from the worker on the owner's
+     *  computer (specs/002-mix-analysis-worker). Absent before that round. */
+    worker?: boolean;
   };
   /** The one working list the owner curated, in play order. */
   rows: TracklistRow[];
@@ -271,6 +274,10 @@ export interface MixRow {
   playlistUrl?: string;
   /** Spotify id of that playlist, or absent. Kept for provenance/debugging. */
   playlistId?: string;
+  /** The last identify request whose rows were merged here, or absent. */
+  identifyJobId?: string;
+  /** That request's `finished_at`, epoch ms, or absent. */
+  identifiedAt?: number;
   savedAt: number;
 }
 
@@ -294,6 +301,25 @@ export type ServerPending = Partial<
 >;
 /** The last successful push or pull, shown in Settings. */
 export const SERVER_LAST_SYNC_META = 'serverLastSync';
+/**
+ * The identify requests this device last saw on the server, per canonical
+ * link, newest first, 20 at most (worker round, FR-003). Written by the pull;
+ * deleted on server sign-out and on Remove server data.
+ */
+export const MIX_JOBS_META = 'mixJobs';
+export interface MixJobView {
+  id: string;
+  status: 'queued' | 'claimed' | 'done' | 'failed';
+  createdAt: number;
+  claimedBy: string | null;
+  claimedAt: number | null;
+  finishedAt: number | null;
+  error: string | null;
+  appliedAt: number | null;
+  /** Local only: the result failed the safety check and was not merged. */
+  rejected?: true;
+}
+export type MixJobs = Record<string, MixJobView[]>;
 /** Mixes deleted here and not yet pushed as tombstones (server sync, US2). */
 export const MIX_DELETED_META = 'mixDeleted';
 export interface MixDeletedEntry {

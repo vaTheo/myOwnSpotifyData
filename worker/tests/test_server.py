@@ -1,0 +1,197 @@
+import io
+import json
+import unittest
+import urllib.error
+
+from mix_worker.server import ServerClient
+
+BASE = "https://abc.supabase.co"
+KEY = "sb_publishable_123"
+
+
+class FakeResponse:
+    def __init__(self, status, body, headers=None):
+        self.status = status
+        self._body = body if isinstance(body, bytes) else json.dumps(body).encode()
+        self.headers = {k: v for k, v in (headers or {}).items()}
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+class FakeOpener:
+    """Records every request; answers from a queue of responses or errors."""
+
+    def __init__(self, *answers):
+        self.answers = list(answers)
+        self.calls = []
+
+    def __call__(self, req, timeout=None):
+        body = req.data.decode() if req.data else None
+        self.calls.append(
+            {
+                "url": req.full_url,
+                "method": req.get_method(),
+                "headers": {k.lower(): v for k, v in req.header_items()},
+                "body": json.loads(body) if body else None,
+                "timeout": timeout,
+            }
+        )
+        answer = self.answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+
+def http_error(code, body=b"", headers=None):
+    return urllib.error.HTTPError("https://abc.supabase.co/x", code, "err", headers or {}, io.BytesIO(body))
+
+
+def client(*answers, sleeps=None):
+    opener = FakeOpener(*answers)
+    sleeps = sleeps if sleeps is not None else []
+    return ServerClient(BASE, KEY, opener=opener, sleep=sleeps.append), opener
+
+
+class Auth(unittest.TestCase):
+    def test_send_otp(self):
+        c, o = client(FakeResponse(200, {}))
+        r = c.send_otp("dj@example.com")
+        self.assertEqual(r.kind, "ok")
+        call = o.calls[0]
+        self.assertEqual(call["url"], BASE + "/auth/v1/otp")
+        self.assertEqual(call["method"], "POST")
+        self.assertEqual(call["body"], {"email": "dj@example.com", "create_user": False})
+        self.assertEqual(call["headers"]["apikey"], KEY)
+        self.assertEqual(call["headers"]["content-type"], "application/json")
+        self.assertNotIn("authorization", call["headers"])
+
+    def test_verify_returns_session_triple(self):
+        c, o = client(FakeResponse(200, {"access_token": "a", "refresh_token": "r", "expires_in": 3600, "user": {"email": "dj@example.com"}}))
+        r = c.verify("dj@example.com", "123456")
+        self.assertEqual(r.kind, "ok")
+        self.assertEqual(r.value, {"access_token": "a", "refresh_token": "r", "expires_in": 3600})
+        self.assertEqual(o.calls[0]["url"], BASE + "/auth/v1/verify")
+        self.assertEqual(o.calls[0]["body"], {"type": "email", "email": "dj@example.com", "token": "123456"})
+
+    def test_verify_refused(self):
+        c, _ = client(http_error(403, b'{"error_code":"otp_expired","msg":"Token has expired or is invalid"}'))
+        r = c.verify("dj@example.com", "000000")
+        self.assertEqual(r.kind, "unauthorized")
+        self.assertIn("expired", r.message)
+
+    def test_refresh(self):
+        c, o = client(FakeResponse(200, {"access_token": "a2", "refresh_token": "r2", "expires_in": 3600}))
+        r = c.refresh("r1")
+        self.assertEqual(r.value["access_token"], "a2")
+        self.assertEqual(o.calls[0]["url"], BASE + "/auth/v1/token?grant_type=refresh_token")
+        self.assertEqual(o.calls[0]["body"], {"refresh_token": "r1"})
+
+    def test_logout(self):
+        c, o = client(FakeResponse(204, b""))
+        self.assertEqual(c.logout("a").kind, "ok")
+        self.assertEqual(o.calls[0]["url"], BASE + "/auth/v1/logout")
+        self.assertEqual(o.calls[0]["headers"]["authorization"], "Bearer a")
+
+
+class Queue(unittest.TestCase):
+    ROW = {"id": "6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f", "kind": "identify-mix", "payload": {"url": "https://x.y/z"}, "status": "claimed"}
+
+    def test_claim_empty_and_row(self):
+        c, o = client(FakeResponse(200, []), FakeResponse(200, [self.ROW]))
+        r = c.claim("a", "laptop", 21600)
+        self.assertEqual(r.kind, "ok")
+        self.assertIsNone(r.value)
+        self.assertEqual(c.claim("a", "laptop", 21600).value, self.ROW)
+        call = o.calls[0]
+        self.assertEqual(call["url"], BASE + "/rest/v1/rpc/claim_job")
+        self.assertEqual(call["method"], "POST")
+        self.assertEqual(call["body"], {"p_worker": "laptop", "p_stale_seconds": 21600})
+        self.assertEqual(call["headers"]["authorization"], "Bearer a")
+        self.assertEqual(call["headers"]["apikey"], KEY)
+
+    def test_finish_done_and_taken(self):
+        c, o = client(FakeResponse(200, [self.ROW]), FakeResponse(200, []))
+        body = {"status": "done", "finished_at": "2026-11-06T10:05:00Z", "result": {"tracks": []}}
+        r = c.finish("a", self.ROW["id"], "laptop", body)
+        self.assertEqual((r.kind, r.value), ("ok", "done"))
+        call = o.calls[0]
+        self.assertEqual(call["method"], "PATCH")
+        self.assertEqual(call["url"], BASE + "/rest/v1/jobs?id=eq." + self.ROW["id"] + "&status=eq.claimed&claimed_by=eq.laptop")
+        self.assertEqual(call["headers"]["prefer"], "return=representation")
+        self.assertEqual(call["body"], body)
+        self.assertEqual(c.finish("a", self.ROW["id"], "laptop", body).value, "taken")
+
+    def test_finish_failed_sends_error_only(self):
+        c, o = client(FakeResponse(200, [self.ROW]))
+        c.finish("a", self.ROW["id"], "laptop", {"status": "failed", "finished_at": "t", "error": "No track identified"})
+        self.assertNotIn("result", o.calls[0]["body"])
+        self.assertEqual(o.calls[0]["body"]["error"], "No track identified")
+
+    def test_release(self):
+        c, o = client(FakeResponse(200, [self.ROW]))
+        self.assertEqual(c.release("a", self.ROW["id"], "laptop").kind, "ok")
+        self.assertEqual(o.calls[0]["body"], {"status": "queued", "claimed_by": None, "claimed_at": None})
+        self.assertEqual(o.calls[0]["timeout"], 3)
+
+    def test_worker_name_is_url_encoded(self):
+        c, o = client(FakeResponse(200, [self.ROW]))
+        c.finish("a", self.ROW["id"], "my laptop&more", {"status": "failed", "finished_at": "t", "error": "x"})
+        self.assertIn("claimed_by=eq.my%20laptop%26more", o.calls[0]["url"])
+
+
+class Mapping(unittest.TestCase):
+    def test_network_and_5xx_are_offline(self):
+        c, _ = client(urllib.error.URLError("no route"))
+        self.assertEqual(c.claim("a", "w", 1).kind, "offline")
+        c, _ = client(http_error(503, b"upstream"))
+        self.assertEqual(c.claim("a", "w", 1).kind, "offline")
+
+    def test_paused(self):
+        c, _ = client(http_error(540, b'{"message":"This project is paused"}'))
+        self.assertEqual(c.claim("a", "w", 1).kind, "paused")
+        c, _ = client(urllib.error.URLError("[Errno -2] Name or service not known"))
+        self.assertEqual(c.claim("a", "w", 1).kind, "paused")
+
+    def test_unauthorized_and_too_large(self):
+        c, _ = client(http_error(401, b'{"message":"JWT expired"}'))
+        self.assertEqual(c.claim("a", "w", 1).kind, "unauthorized")
+        c, _ = client(http_error(413, b""))
+        self.assertEqual(c.finish("a", "id", "w", {}).kind, "too_large")
+
+    def test_429_waits_once_then_offline(self):
+        sleeps = []
+        c, o = client(http_error(429, b"", {"Retry-After": "2"}), http_error(429, b"", {"Retry-After": "2"}), sleeps=sleeps)
+        r = c.claim("a", "w", 1)
+        self.assertEqual(r.kind, "offline")
+        self.assertEqual(sleeps, [2.0])
+        self.assertEqual(len(o.calls), 2)
+
+    def test_other_4xx_is_error_with_message(self):
+        c, _ = client(http_error(400, b'{"message":"bad filter"}'))
+        r = c.claim("a", "w", 1)
+        self.assertEqual(r.kind, "error")
+        self.assertEqual(r.status, 400)
+        self.assertIn("bad filter", r.message)
+
+    def test_never_raises_on_garbage(self):
+        c, _ = client(FakeResponse(200, b"not json"))
+        self.assertEqual(c.claim("a", "w", 1).kind, "error")
+
+    def test_only_the_project_host(self):
+        c, o = client(FakeResponse(200, []), FakeResponse(200, {}), FakeResponse(204, b""))
+        c.claim("a", "w", 1)
+        c.send_otp("e")
+        c.logout("a")
+        for call in o.calls:
+            self.assertTrue(call["url"].startswith(BASE + "/"))
+
+
+if __name__ == "__main__":
+    unittest.main()

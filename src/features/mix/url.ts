@@ -240,3 +240,35 @@ export function permalinkFromOembed(
 ): string | null {
   return permalinkCandidates(authorUrl, title, author)[0] ?? null;
 }
+
+/** Query parameters that only track where a link was shared from. */
+const TRACKING_PARAMS = new Set(['si', 'feature']);
+
+/**
+ * The canonical link of an identify request and the `mixes` key it lands on
+ * (worker round, contracts/client-api.md). A SoundCloud permalink keeps
+ * `normalizeMixUrl`'s form so the result joins the mix the lookup saved; a
+ * SoundCloud link that form refuses (a user page, a short link the app cannot
+ * resolve) is refused too; any other `https:` link is kept with its hash and
+ * tracking parameters dropped. Never `http:`, never free text.
+ */
+export function requestKey(input: string): string | null {
+  const permalink = normalizeMixUrl(input);
+  if (permalink !== null) return permalink;
+  let parsed: URL;
+  try {
+    parsed = new URL(input.trim());
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:') return null;
+  const host = parsed.hostname.toLowerCase();
+  if (ALLOWED_HOSTS.has(host) || host === SHORTLINK_HOST) return null;
+  parsed.hash = '';
+  for (const key of [...parsed.searchParams.keys()]) {
+    if (key.startsWith('utm_') || TRACKING_PARAMS.has(key)) {
+      parsed.searchParams.delete(key);
+    }
+  }
+  return parsed.toString();
+}

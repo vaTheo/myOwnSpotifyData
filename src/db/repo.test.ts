@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   closeDb,
+  deleteMeta,
   deleteMix,
   deletePlaylists,
   getAllRows,
@@ -24,12 +25,13 @@ import {
   setDbEvents,
   wipeDb,
 } from './repo';
-import { DB_NAME, DB_VERSION, reachKey } from './schema';
+import { DB_NAME, DB_VERSION, MIX_JOBS_META, reachKey } from './schema';
 import type {
   ArtistIdentityRow,
   ArtistReachRow,
   EntryRow,
   FeatureRow,
+  MixJobs,
   MixRow,
   PlayRow,
   PlaylistRow,
@@ -657,5 +659,56 @@ describe('deleteMix tombstones', () => {
     expect(await getMixDeleted()).toEqual([
       { url: 'https://soundcloud.com/a/one', deletedAt: 20 },
     ]);
+  });
+});
+
+describe('worker round additions (no DB_VERSION bump)', () => {
+  it('keeps DB_VERSION at 4', () => {
+    expect(DB_VERSION).toBe(4);
+  });
+  it('round-trips the optional worker fields of a mix', async () => {
+    await openDb();
+    const row: MixRow = {
+      url: 'https://www.youtube.com/watch?v=abc',
+      title: 'A set',
+      author: 'Someone',
+      playerSrc: null,
+      slug: null,
+      sources: {
+        trackid: false,
+        description: false,
+        pasted: false,
+        linkOut: null,
+        worker: true,
+      },
+      rows: [],
+      savedAt: 1,
+      identifyJobId: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+      identifiedAt: 2,
+    };
+    await putMix(row);
+    const back = (await getMixes()).find((m) => m.url === row.url);
+    expect(back).toEqual(row);
+  });
+  it('round-trips and deletes the mixJobs meta', async () => {
+    await openDb();
+    const jobs: MixJobs = {
+      'https://soundcloud.com/x/y': [
+        {
+          id: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+          status: 'queued',
+          createdAt: 1,
+          claimedBy: null,
+          claimedAt: null,
+          finishedAt: null,
+          error: null,
+          appliedAt: null,
+        },
+      ],
+    };
+    await putMeta(MIX_JOBS_META, jobs);
+    expect(await getMeta(MIX_JOBS_META)).toEqual(jobs);
+    await deleteMeta(MIX_JOBS_META);
+    expect(await getMeta(MIX_JOBS_META)).toBeUndefined();
   });
 });

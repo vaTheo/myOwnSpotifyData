@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { validateMix, validateRow, validateSummary } from './validate';
+import {
+  validateJobRow,
+  validateMix,
+  validateRow,
+  validateSummary,
+} from './validate';
 
 const track = {
   key: 't1',
@@ -253,5 +258,48 @@ describe('validateSummary', () => {
     expect(validateSummary('features', { importedAt: 'x' })).toBe(false);
     expect(validateSummary('library', null)).toBe(true);
     expect(validateSummary('library', { anything: 1 })).toBe(false);
+  });
+});
+
+describe('validateJobRow (worker round)', () => {
+  const full = {
+    id: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+    payload: { url: 'https://soundcloud.com/x/y' },
+    status: 'done',
+    claimed_by: 'laptop',
+    claimed_at: '2026-11-06T09:40:00.000Z',
+    finished_at: '2026-11-06T10:05:00.000Z',
+    error: null,
+    created_at: '2026-11-06T09:12:00.000Z',
+    applied_at: null,
+  };
+  it('accepts a full row and a row with nulls', () => {
+    expect(validateJobRow(full)).toEqual(full);
+    const queued = {
+      ...full,
+      status: 'queued',
+      claimed_by: null,
+      claimed_at: null,
+      finished_at: null,
+    };
+    expect(validateJobRow(queued)).toEqual(queued);
+    expect(validateJobRow({ ...full, status: 'failed', error: 'No track identified' })?.error).toBe(
+      'No track identified'
+    );
+  });
+  it('rejects a non-uuid id, a fifth status, long strings, bad dates, a bad payload, a non-object', () => {
+    expect(validateJobRow({ ...full, id: 'nope' })).toBeNull();
+    expect(validateJobRow({ ...full, status: 'running' })).toBeNull();
+    expect(validateJobRow({ ...full, claimed_by: 'x'.repeat(201) })).toBeNull();
+    expect(validateJobRow({ ...full, error: 'x'.repeat(201) })).toBeNull();
+    expect(validateJobRow({ ...full, created_at: 'yesterday' })).toBeNull();
+    expect(validateJobRow({ ...full, claimed_at: 12 })).toBeNull();
+    expect(validateJobRow({ ...full, payload: { url: 'http://x.y/z' } })).toBeNull();
+    expect(validateJobRow({ ...full, payload: {} })).toBeNull();
+    expect(validateJobRow(null)).toBeNull();
+    expect(validateJobRow('row')).toBeNull();
+  });
+  it('keeps claimed_by and error at exactly 200 characters', () => {
+    expect(validateJobRow({ ...full, claimed_by: 'x'.repeat(200) })).not.toBeNull();
   });
 });
