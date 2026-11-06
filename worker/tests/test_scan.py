@@ -185,18 +185,18 @@ class Scan(unittest.TestCase):
         rows = run(scan(120, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify))
         self.assertEqual([r["time_in_mix"] for r in rows], ["00:01:00"])
 
-    def test_rate_limited_pauses_grow_and_the_cooldown_doubles(self):
+    def test_rate_limited_pauses_are_flat_and_the_pace_unchanged(self):
         calls, cut, recognise, sleep = self.make([RateLimited(), RateLimited(), CASSETTE, NO_MATCH])
         rows = run(scan(120, step=60, cooldown=6.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify))
-        # cooldown 6, pause 300, cooldown 12, pause 600, cooldown 24 (probe 1 again), cooldown 24 (probe 2)
-        self.assertEqual(calls["sleeps"], [6.0, 300.0, 12.0, 600.0, 24.0, 24.0])
+        # Owner, 2026-11-06: a flat pause each time, the pace unchanged.
+        self.assertEqual(calls["sleeps"], [6.0, 300.0, 6.0, 300.0, 6.0, 6.0])
         self.assertEqual(calls["cuts"], [0, 60])
         self.assertEqual(len(rows), 1)
 
-    def test_cooldown_is_capped_and_jitter_added(self):
+    def test_jitter_on_calls_not_on_the_pause(self):
         calls, cut, recognise, sleep = self.make([RateLimited(), CASSETTE])
         run(scan(60, step=60, cooldown=20.0, pause=1.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify, jitter=lambda c: c / 4))
-        self.assertEqual(calls["sleeps"], [25.0, 1.25, 37.5])  # the pause is spread too
+        self.assertEqual(calls["sleeps"], [25.0, 1.0, 25.0])  # the pace is not slowed; the pause is exact
 
     def test_one_more_than_the_allowed_pauses_refuses(self):
         calls, cut, recognise, sleep = self.make([RateLimited(), RateLimited(), RateLimited()])
@@ -288,7 +288,7 @@ class Lines(unittest.TestCase):
 
         with self.assertRaises(ScanRefused):
             run(scan(60, step=60, cooldown=3.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, max_pauses=1, clock=lambda: 0.0))
-        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited (1/1) · pausing 300 s, then this probe again · cooldown now 6 s (±40 %)", "  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited again · giving up after 1 pauses"])
+        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited (1/1) · pausing 300 s, then this probe again at the same pace", "  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited again · giving up after 1 pauses"])
 
 
 class Device(unittest.TestCase):
@@ -498,29 +498,7 @@ class LessCalls(unittest.TestCase):
 
 
 class Retries(unittest.TestCase):
-    """Owner, 2026-11-06: the pace recovers; a first-pass refusal keeps the hits."""
-
-    def test_pace_recovers_after_calm_calls(self):
-        from mix_worker.scan import RECOVER_AFTER_CALLS
-
-        answers = [RateLimited()] + [NO_MATCH] * (RECOVER_AFTER_CALLS + 5)
-        sleeps = []
-
-        async def recognise(data, skew):
-            r = answers.pop(0)
-            if isinstance(r, Exception):
-                raise r
-            return r
-
-        async def sleep(s):
-            sleeps.append(s)
-
-        lines = []
-        run(scan(15 * (RECOVER_AFTER_CALLS + 5), step=15, cooldown=3.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, clock=lambda: 0.0))
-        cooldowns = [s for s in sleeps if s > 0]
-        self.assertEqual(cooldowns[:2], [3.0, 6.0])  # doubled after the refusal
-        self.assertEqual(cooldowns[-1], 3.0)  # back to the base pace
-        self.assertTrue(any("cooldown back to 3 s" in x for x in lines))
+    """Owner, 2026-11-06: a first-pass refusal keeps the hits."""
 
     def test_first_pass_refusal_keeps_the_hits(self):
         answers = [CASSETTE, NO_MATCH, RateLimited(), RateLimited()]

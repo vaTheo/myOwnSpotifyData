@@ -42,9 +42,9 @@ class Defaults(unittest.TestCase):
         self.assertEqual(s.max_duration_seconds, 0)
         self.assertEqual(s.probe_step_seconds, 15)
         self.assertEqual(s.probe_seconds, 12)
-        self.assertEqual(s.cooldown_seconds, 3.0)
-        self.assertEqual(s.rate_limit_pause_seconds, 300.0)
-        self.assertEqual(s.rate_limit_pauses, 3)
+        self.assertEqual(s.cooldown_seconds, 3.2)
+        self.assertEqual(s.rate_limit_pause_seconds, 360.0)
+        self.assertEqual(s.rate_limit_pauses, 8)
         self.assertEqual(s.max_skew, 0.1)
         self.assertEqual(s.shazam_device, "android")
         self.assertEqual(s.merge_gap_seconds, 180)
@@ -54,7 +54,7 @@ class Defaults(unittest.TestCase):
         self.assertTrue(s.clues)
         self.assertEqual(s.clue_seconds, 90)
         self.assertEqual(s.lookups, 100)
-        self.assertEqual((s.break_every_calls, s.break_seconds), (80, 120.0))
+        self.assertEqual((s.break_every_calls, s.break_seconds), (0, 120.0))
         self.assertEqual(s.result_max_bytes, 900000)
 
     def test_windows_paths(self):

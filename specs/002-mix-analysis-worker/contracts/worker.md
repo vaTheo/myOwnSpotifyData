@@ -41,9 +41,9 @@ first start). A failed *request* is not a failed *run*: the worker marks it `fai
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit (owner's pick); a positive value refuses longer sets on the metadata, before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 15 | one probe every N seconds; with 12 s probes, 80 % of the set heard (D4, revised 2026-11-06) |
 | `WORKER_PROBE_SECONDS` | 12 | probe length sent to Shazam, 2–12 (D4, revised 2026-11-06) |
-| `WORKER_COOLDOWN_SECONDS` | 3.0 | sleep before every recognition call, ± random 40 %, every retry wait spread the same (owner's pick), doubled after each `RateLimited` (30 s cap) (D3) |
-| `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | pause after a `RateLimited`, × the number of pauses so far |
-| `WORKER_RATE_LIMIT_PAUSES` | 3 | pauses per set; one more `RateLimited` fails the request |
+| `WORKER_COOLDOWN_SECONDS` | 3.2 | sleep before every recognition call, ± random 40 % (1.92–4.48 s), never slowed after a refusal (owner's pick), doubled after each `RateLimited` (30 s cap) (D3) |
+| `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 360 | pause after a `RateLimited`, exact, the same each time (round 003, R1e) |
+| `WORKER_RATE_LIMIT_PAUSES` | 8 | pauses per set; one more `RateLimited` stops the scan: done with the tracks found ("stopped early"), failed only when none |
 | `WORKER_SHAZAM_DEVICE` | android | recognition profile, `android` or `iphone` (D3) |
 | `WORKER_MAX_SKEW` | 0.1 | ShazamIO's `max_skew` (max of the first match's time and frequency skew); 0 disables (D5) |
 | `WORKER_MERGE_GAP_SECONDS` | 180 | same track within this gap extends the row (D5) |
