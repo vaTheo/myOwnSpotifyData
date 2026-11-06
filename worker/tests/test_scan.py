@@ -12,6 +12,7 @@ from mix_worker.scan import (
     default_classify,
     gap_positions,
     gaps_of,
+    inside_known,
     confidence_of,
     hhmmss,
     merge,
@@ -447,3 +448,50 @@ class CutProbeSpeed(unittest.TestCase):
         self.assertEqual(fast[fast.index("-af") + 1], "aresample=16000,asetrate=16640,aresample=16000")
         self.assertEqual(slow[slow.index("-t") + 1], "11.52")
         self.assertEqual(slow[slow.index("-af") + 1], "aresample=16000,asetrate=15360,aresample=16000")
+
+
+class LessCalls(unittest.TestCase):
+    """Owner, 2026-11-06: skip stretches inside a known track; planned breaks."""
+
+    def test_inside_known(self):
+        keys = {0: "a", 15: "a", 60: "a", 120: "b", 300: "c"}
+        # 30, 45 sit between two "a" probes: that track. 75-105 between "a" and "b": open.
+        # 135-285 between "b" and "c": open. 315: after the last hit: open.
+        self.assertEqual(inside_known([30, 45, 75, 90, 105, 135, 150, 315], keys, 180), [75, 90, 105, 135, 150, 315])
+
+    def test_a_long_run_inside_the_same_track_is_still_heard(self):
+        keys = {0: "a", 300: "a"}
+        self.assertEqual(inside_known([15, 30, 285], keys, 180), [15, 30, 285])
+
+    def test_planned_break_every_n_calls(self):
+        sleeps = []
+
+        async def sleep(s):
+            sleeps.append(s)
+
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        lines = []
+        run(scan(90, step=15, cooldown=1.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, clock=lambda: 0.0, break_every=2, break_seconds=60.0))
+        # 6 probes: cooldown, cooldown, break, cooldown, cooldown, break, cooldown, cooldown
+        self.assertEqual(sleeps, [1.0, 1.0, 60.0, 1.0, 1.0, 60.0, 1.0, 1.0])
+        self.assertEqual(sum("break · 2 calls" in x for x in lines), 2)
+
+    def test_second_pass_skips_inside_a_known_track(self):
+        # probes 0 hit, 15 miss, 30 hit (same track), 45 miss: only 45 is heard again
+        answers = [CASSETTE, NO_MATCH, CASSETTE, NO_MATCH, NO_MATCH]
+        cuts = []
+
+        async def recognise(data, skew):
+            return answers.pop(0) if answers else NO_MATCH
+
+        async def sleep(s):
+            pass
+
+        def cut_at(t, speed):
+            cuts.append(t)
+            return b"x" * 5000
+
+        run(scan(60, step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=cut_at, speeds=(), sleep=sleep, classify=classify, clock=lambda: 0.0))
+        self.assertEqual(cuts, [52])

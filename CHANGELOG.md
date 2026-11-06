@@ -9,7 +9,8 @@ Where the first listen found nothing, the worker listens again (7 s later, at no
 and reads the set's description, chapters and comments. Tracklists in them are read whatever the separator; the clues around
 a part without a track show on it on the Mix screen; a clue naming one track becomes a row "from a comment · not heard" when
 Deezer or MusicBrainz holds exactly that artist and title (ADR-10, constitution 2.1.0), and Create playlist includes it unless
-deleted. A refusal during the second pass keeps what was found. Spec: `specs/003-fill-scan-gaps/`. No `DB_VERSION` bump.
+deleted. A refusal during the second pass keeps what was found; the second pass skips stretches inside a track already heard, and
+the worker takes a planned 3-minute break every 80 calls (all waits ± 40 %) so Shazam refuses less. Spec: `specs/003-fill-scan-gaps/`. No `DB_VERSION` bump.
 
 ## 2026-11-06 — Identify a mix on my computer (the worker)
 

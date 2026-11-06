@@ -180,6 +180,33 @@ def merge(hits: list[Hit], gap: int) -> list[dict[str, Any]]:
     return rows
 
 
+def inside_known(misses: list[int], keys: dict[int, str], within: int) -> list[int]:
+    """The misses worth hearing again (owner, 2026-11-06): a run of misses
+    with the same track heard just before and just after it, the whole run
+    no longer than `within` seconds (the merge gap), is that track; it is
+    dropped. Every other miss is kept."""
+    hits = sorted(keys)
+    out: list[int] = []
+    run: list[int] = []
+
+    def flush() -> None:
+        if not run:
+            return
+        before = max((h for h in hits if h < run[0]), default=None)
+        after = min((h for h in hits if h > run[-1]), default=None)
+        same = before is not None and after is not None and keys[before] == keys[after]
+        if not (same and after - before <= within):
+            out.extend(run)
+        run.clear()
+
+    for t in sorted(misses):
+        if run and any(run[-1] < h < t for h in hits):
+            flush()
+        run.append(t)
+    flush()
+    return out
+
+
 def gap_positions(misses: list[int], step: int, offset: int) -> list[int]:
     """Second-pass starts (D4b): `offset` seconds after each probe that found
     nothing, at most one every `step` seconds, so a long gap is re-heard at
@@ -239,6 +266,8 @@ async def scan(
     speeds: tuple[float, ...] = (0.96, 1.04),
     hits_out: list[Hit] | None = None,
     report: dict[str, Any] | None = None,
+    break_every: int = 0,
+    break_seconds: float = 0.0,
 ) -> list[dict[str, Any]]:
     """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
     (+ `jitter(cooldown)`) before each. A `rate_limited` error doubles the
@@ -263,15 +292,24 @@ async def scan(
     known = duration is not None and duration > 0
     times = probe_times(duration, step) if known else None
     skew = max_skew if max_skew > 0 else None
-    pace = {"cooldown": cooldown, "pauses": 0, "net_skips": 0}
+    pace = {"cooldown": cooldown, "pauses": 0, "net_skips": 0, "calls": 0}
+    first_keys: dict[int, str] = {}  # first-pass probe time → track key (hits only)
 
     async def ask(data: bytes, where: str) -> Any:
         """One recognition with the pacing and error rules; None when the
         probe is skipped (undecodable, or no answer after the retries)."""
         tries = 0
         while True:
+            if break_every > 0 and pace["calls"] >= break_every:
+                # A planned break (owner, 2026-11-06): Shazam refuses after a
+                # run of calls whatever their spacing, so stop before it does.
+                wait = break_seconds + jitter(break_seconds)
+                say(f"  break · {pace['calls']} calls · pausing {int(wait)} s (±{JITTER_PERCENT} %) before Shazam refuses")
+                await sleep(wait)
+                pace["calls"] = 0
             c = pace["cooldown"]
             await sleep(c + jitter(c))
+            pace["calls"] += 1
             try:
                 response = await recognise(data, skew)
             except Exception as err:  # classified, never swallowed silently
@@ -293,6 +331,7 @@ async def scan(
                         f" then this probe again · cooldown now {pace['cooldown']:g} s (±{JITTER_PERCENT} %)"
                     )
                     await sleep(wait)
+                    pace["calls"] = 0  # the pause was a break too
                     continue  # the same probe again, after the pause
                 if kind == "network":
                     tries += 1
@@ -344,6 +383,7 @@ async def scan(
         entry = track_entry(response, hhmmss(t)) if response is not None else None
         if entry is not None:
             record(t, entry, where)
+            first_keys[t] = _key(entry)
         else:
             misses.append(t)
             if response is not None:
@@ -352,7 +392,10 @@ async def scan(
 
     second = {"places": 0, "found": 0, "stopped": None}
     if cut_at is not None and misses and gap_step > 0:
-        positions = gap_positions(misses, gap_step, gap_offset)
+        open_misses = inside_known(misses, first_keys, gap)
+        if len(open_misses) < len(misses):
+            say(f"  second pass · {len(misses) - len(open_misses)} probes skipped: between two probes of the same track")
+        positions = gap_positions(open_misses, gap_step, gap_offset)
         second["places"] = len(positions)
         say(
             f"  second pass · {len(misses)} probes found nothing · {len(positions)} places heard again"
@@ -612,6 +655,8 @@ def run_scan(
                 gap_offset=getattr(settings, "second_pass_offset_seconds", 7),
                 speeds=tuple(getattr(settings, "second_pass_speeds", ())),
                 report=report,
+                break_every=getattr(settings, "break_every_calls", 0),
+                break_seconds=getattr(settings, "break_seconds", 0.0),
             )
         finally:
             # The library only closes a client it created itself; ours is

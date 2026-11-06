@@ -88,7 +88,8 @@ alive · waiting for a request · next look in 30 s
 queue empty · next look in 60 s
 ```
 
-After the first pass, the **second pass** listens again where nothing was found: 7 s later than the probe that missed, at
+After the first pass, the **second pass** listens again where nothing was found (not inside a stretch with the same track
+just before and after it, up to 3 minutes: that is the same track): 7 s later than the probe that missed, at
 normal speed, then 4 % slower, then 4 % faster (a DJ's pitch fader), stopping at the first match. Then the worker reads the
 set's **description, chapters and comments** (the clues): the ones written around a part still without a track show on that
 part on the Mix screen, a tracklist without times shows once above the tracklist, and a clue that reads as one
@@ -141,6 +142,8 @@ Only the first two are required.
 | `WORKER_MAX_SKEW` | 0.1 | rejects a match more than 10 % off in pitch or speed; a DJ pitches tracks a few %, so keep it well above that; 0 disables |
 | `WORKER_MERGE_GAP_SECONDS` | 180 | the same track heard again within this gap stays one row |
 | `WORKER_RESULT_MAX_BYTES` | 900000 | larger results fail with "Result too large"; clues are left out first to fit |
+| `WORKER_BREAK_EVERY_CALLS` | 80 | a planned break after this many recognition calls, before Shazam refuses; 0 = none |
+| `WORKER_BREAK_SECONDS` | 180 | that break's length, ± 40 % |
 | `WORKER_SECOND_PASS_STEP_SECONDS` | 30 | one place heard again every N seconds of a part without a track; 0 = no second pass |
 | `WORKER_SECOND_PASS_OFFSET_SECONDS` | 7 | that place is this far after the probe that found nothing |
 | `WORKER_SECOND_PASS_SPEEDS` | 0.96,1.04 | speeds tried after normal speed, in order; empty = normal only |
