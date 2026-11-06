@@ -193,7 +193,7 @@ function LikeStatus({ playlistId }: { playlistId: string }) {
         <div class="like-status">
           <StatusLine kind="warning">
             This app cannot like songs yet — connect again to allow it. Your
-            library stays on this browser.
+            library stays in this browser.
           </StatusLine>
           <Button variant="tonal" onClick={() => auth.logout()}>
             Connect again to allow likes
