@@ -11,6 +11,8 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.3.2: the planned break is exactly `WORKER_BREAK_SECONDS` (3 min), without the ± 40 % spread (owner).
+
 - 0.3.1: the planned-break count of Shazam calls runs across sets (a set started right after another no longer starts at
   zero); YouTube comments: the 100 newest only (a popular video's thread ran past the 90 s limit); "second pass · N new
   tracks" counts new tracks only. Also since 0.3.0: the second pass skips stretches inside a known track, a planned break

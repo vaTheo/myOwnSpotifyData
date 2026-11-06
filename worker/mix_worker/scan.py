@@ -319,8 +319,8 @@ async def scan(
             if break_every > 0 and pace["calls"] >= break_every:
                 # A planned break (owner, 2026-11-06): Shazam refuses after a
                 # run of calls whatever their spacing, so stop before it does.
-                wait = break_seconds + jitter(break_seconds)
-                say(f"  break · {pace['calls']} calls · pausing {int(wait)} s (±{JITTER_PERCENT} %) before Shazam refuses")
+                wait = break_seconds  # exact: no spread on a planned break (owner, 2026-11-06)
+                say(f"  break · {pace['calls']} calls · pausing {int(wait)} s before Shazam refuses")
                 await sleep(wait)
                 pace["calls"] = 0
                 if shared is not None:
