@@ -11,6 +11,11 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.3.0: fills the gaps. Where nothing was found, a second listen 7 s later at normal speed, then 4 % slower and faster.
+  The set's description, chapters and comments are read; a tracklist in them is understood whatever its separator; a clue
+  naming one track becomes a row "from a comment · not heard" when Deezer or MusicBrainz holds exactly that artist and title.
+  New settings: `WORKER_SECOND_PASS_*`, `WORKER_CLUES`, `WORKER_CLUE_SECONDS`, `WORKER_LOOKUPS`.
+
 - 0.2.0: listens to 12 s every 15 s, 80 % of the set (was 10 s every 60 s): far more heard, fewer wrong matches; a 2 h set
   takes about 40 minutes; the pause between two calls is 2.5 s ± 50 % (`WORKER_PROBE_STEP_SECONDS=12` hears all of it, `30` or `60` is quicker). A recognition that hangs is cut off after 45 s and retried, then skipped; the sign-in is refreshed
   before sending; a console that cannot print a title no longer stops the worker.

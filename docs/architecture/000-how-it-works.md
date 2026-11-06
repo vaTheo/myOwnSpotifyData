@@ -178,6 +178,11 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 - `worker.ts` (pure, worker round): `resultToRows` (the worker's result through `parseTracklistifyJson`, re-checked), `mergeWorkerRows`
   (a new result replaces untouched scan rows only), `jobView` and `requestStatusText` (the one wording of the Identify button and the
   request's state line for every server and request state). `url.ts` gains `requestKey`, the canonical link of a request.
+  Round 003: `resultToRows` also maps a track's `origin` (`replay` with `speedPercent`, `clue` with its `clue`), builds gap
+  rows (with `clues`) from `mix_info.gaps` and returns the set-wide `clues` (stored on `MixRow.clues`); `toClue` keeps only
+  plain strings within their caps. The Mix screen shows "second listen · ±4 %", "from a comment · not heard" with the clue's
+  text, a folded "N clues around here" on a gap row and a folded set-wide tracklist; clue text is always rendered as text.
+  `match.cases.json` and `parse.cases.json` are shared with the worker's tests so its Python ports read the same way.
 - `digLinks.ts` (`digRows`): a track Search did not find is listed under the result, repeats grouped by name with every time in the mix,
   five store/preview search links (Beatport, Bandcamp, Discogs, SoundCloud, YouTube) plus Tracklistify's Shazam page (kept by the parser
   only when it is an https `shazam.com` URL, dropped once the row is edited), drawn as Simple Icons (CC0) by `ui/components/DigLinks.tsx`.
@@ -315,11 +320,19 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   `finish` → `PATCH jobs?id=eq.&status=eq.claimed&claimed_by=eq.` with `return=representation` ("taken" when it answers no
   row), `release`), every call a `Result`, the error mapping of `client.ts`. `session.py`: load/save/refresh with a 60 s margin.
 - `download.py`: `yt_dlp.YoutubeDL` in-process, `bestaudio/best`, no playlist, no live, no post-processing; the error text
-  mapped to one-line reasons. `scan.py`: `probe_times` (one probe every 60 s), `cut_probe` (ffmpeg → mono 16 kHz WAV through a
+  mapped to one-line reasons. `scan.py`: `probe_times` (one 12 s probe every 15 s), `cut_probe` (ffmpeg → mono 16 kHz WAV through a
   scratch file), `recognize(bytes, max_skew)` one at a time behind a cooldown (a `RateLimited` pauses once, then `ScanRefused`),
   `confidence_of` (the skew formula), `track_entry` (the F15 entry with ISRC, label, Shazam link), `merge` (one row per run of
   hits within the gap), `write_result` (the JSON, saved before it is sent). `pipeline.py`: `run_one` (validate → download → scan →
   write → send → clean, every path logged and the folder removed) and `log.py` (one line per step; tracebacks to the file only).
+- Round 003 (`specs/003-fill-scan-gaps/`): `scan.scan` runs a **second pass** (`gap_positions`: 7 s after the misses, one
+  place every 30 s, heard at ×1, ×0.96, ×1.04 through `cut_probe(speed=…)`'s `asetrate`), marks its hits `origin: "replay"`,
+  keeps them when refused, and reports the still-empty `gaps`; `run_scan` returns `ScanOutput`. `clues.py` reads the
+  description, chapters and comments (`read`: one yt-dlp call without download, in a thread, 90 s at most), parses them
+  (`split_tracklist` tries every separator and item start, keeps the cleanest split), places them on gaps (`attach`) and
+  turns a clue naming one track into a candidate (`Lookups`: Deezer, then MusicBrainz, Discogs/Deezer links by id; equality
+  by `match.py`, ADR-10). `pipeline.run_one` adds `mix_info.second_pass`, `gaps`, `clues` and the candidates, and `trim`s
+  clues to fit the size limit.
 - The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
 
 ## Links

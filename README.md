@@ -175,7 +175,12 @@ sends the tracklist back (ISRC and label when Shazam knows them) and deletes
 the audio. The next sync shows the rows on the Mix screen, where you review
 them and tap Create playlist from mix as before. The request's state is shown
 under the button (waiting, running on which computer, done, failed with the
-reason) with Ask again. The **Requests to your computer** card lists every
+reason) with Ask again. Where the first listen found nothing, the worker
+listens again (7 s later, then 4 % slower and faster) and reads the set's
+description and comments: they show on those parts of the tracklist, and a
+comment that names a track the free catalogues (Deezer, MusicBrainz) hold
+exactly becomes a row marked "from a comment · not heard", included in Create
+playlist unless you delete it. The **Requests to your computer** card lists every
 link sent: running first, then waiting in the order the worker takes them, then
 done and failed, each with its state; **Check now** asks the server again, a
 done row opens its saved mix (ready for Create playlist), a failed one has Ask

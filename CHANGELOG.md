@@ -3,6 +3,14 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-06 — Fill the gaps of a scan (worker 0.3.0)
+
+Where the first listen found nothing, the worker listens again (7 s later, at normal speed, then 4 % slower, then 4 % faster)
+and reads the set's description, chapters and comments. Tracklists in them are read whatever the separator; the clues around
+a part without a track show on it on the Mix screen; a clue naming one track becomes a row "from a comment · not heard" when
+Deezer or MusicBrainz holds exactly that artist and title (ADR-10, constitution 2.1.0), and Create playlist includes it unless
+deleted. A refusal during the second pass keeps what was found. Spec: `specs/003-fill-scan-gaps/`. No `DB_VERSION` bump.
+
 ## 2026-11-06 — Identify a mix on my computer (the worker)
 
 The Mix screen gains **Identify on my computer**: paste any set link yt-dlp supports, tap, and a request waits on the owner's

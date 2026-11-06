@@ -29,11 +29,7 @@ import {
 import type { ServerStatus } from './types';
 import { validateMix, validateRow, validateSummary } from './validate';
 import { validateJobRow, type MixJobRow } from './validate';
-import {
-  jobView,
-  mergeWorkerRows,
-  resultToRows,
-} from '../features/mix/worker';
+import { jobView, mergeWorkerRows, resultToRows } from '../features/mix/worker';
 
 /**
  * The two runners of the server sync (research D5–D7). Both take injected
@@ -592,7 +588,8 @@ export async function requestIdentify(
   );
   if (!created.ok) return created;
   const view = jobView(created.value);
-  if (view === null) return { ok: false, kind: 'error', message: UNEXPECTED_JOB_ROW };
+  if (view === null)
+    return { ok: false, kind: 'error', message: UNEXPECTED_JOB_ROW };
   return ok(view);
 }
 
@@ -614,7 +611,9 @@ function mixWithResult(
       sources: { ...local.sources, worker: true },
       rows: mergeWorkerRows(local.rows, parsed.rows),
       // Set-wide clues come from the worker alone: a new result replaces them.
-      ...(parsed.clues.length > 0 ? { clues: parsed.clues } : { clues: undefined }),
+      ...(parsed.clues.length > 0
+        ? { clues: parsed.clues }
+        : { clues: undefined }),
       identifyJobId: row.id,
       identifiedAt,
       savedAt: now,

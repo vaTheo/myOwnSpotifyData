@@ -15,6 +15,10 @@ when a comment names an artist and a title that are easy to read, the worker tri
 database (owner: "sometimes names and artists are really easy to find") so the gap gets a candidate track, marked as coming
 from a comment and not from the audio. No paid service, no key; never a wrong track presented as certain."
 
+Revised 2026-11-06 at implementation (owner's pick): the second pass keeps the owner's first draft found in the worker —
+places 7 s after the probes that found nothing, one every 30 s, each heard at normal speed, then ×0.96, then ×1.04, stopping
+at the first match; this replaces the one-in-two rule below, kept for the record.
+
 Clarified 2026-11-06 by the owner: (1) the second pass replays **one unmatched probe out of two**, alternating the speed
 correction: in a run of unmatched probes, the 1st is replayed at +4 %, the 2nd is not replayed, the 3rd at −4 %, the 4th not,
 and so on; (2) besides the comments, the worker reads the **set's description**, where uploaders often post the tracklist;
@@ -141,7 +145,8 @@ ISRC, marked "from a comment"; a gap with the comment "this one is fire 🔥" ge
 
 - **FR-001**: After the first pass, the worker MUST determine the gaps: stretches of the set between two found tracks (or the
   set's start or end) where no probe matched.
-- **FR-002**: In each run of unmatched probes, the worker MUST replay the 1st, 3rd, 5th… probe (one out of two, counted from
+- **FR-002** (revised at implementation, owner's pick): places 7 s after the unmatched probes, one every 30 s, each heard at
+  normal speed, then ×0.96, then ×1.04, stopping at the first match (settings `WORKER_SECOND_PASS_*`). Superseded wording: In each run of unmatched probes, the worker MUST replay the 1st, 3rd, 5th… probe (one out of two, counted from
   the run's start), alternating the speed correction: +4 % for the 1st, −4 % for the 3rd, +4 % for the 5th, and so on; the
   other probes are not replayed. A gap of a single unmatched probe gets one replay at +4 %.
 - **FR-003**: The second pass MUST follow the first pass's pacing and rate-limit rules (one call at a time, the pause between

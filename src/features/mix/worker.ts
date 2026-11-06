@@ -40,12 +40,19 @@ export function toClue(value: unknown): Clue | null {
   if (typeof v.text !== 'string' || v.text.trim() === '') return null;
   if (typeof v.kind !== 'string' || !CLUE_KINDS.has(v.kind)) return null;
   const at = v.at;
-  if (at !== null && at !== undefined && (typeof at !== 'number' || !Number.isFinite(at))) {
+  if (
+    at !== null &&
+    at !== undefined &&
+    (typeof at !== 'number' || !Number.isFinite(at))
+  ) {
     return null;
   }
   return {
     atSec: typeof at === 'number' ? at : null,
-    author: cut(typeof v.author === 'string' ? v.author.trim() : '', CLUE_AUTHOR_MAX),
+    author: cut(
+      typeof v.author === 'string' ? v.author.trim() : '',
+      CLUE_AUTHOR_MAX
+    ),
     text: cut(v.text.trim(), CLUE_TEXT_MAX),
     kind: v.kind as Clue['kind'],
   };
@@ -67,7 +74,9 @@ function trackExtras(track: unknown): Partial<TracklistRow> {
     const pct = t.speed_percent;
     return {
       origin: 'replay',
-      ...(typeof pct === 'number' && Number.isFinite(pct) ? { speedPercent: pct } : {}),
+      ...(typeof pct === 'number' && Number.isFinite(pct)
+        ? { speedPercent: pct }
+        : {}),
     };
   }
   if (t.origin === 'clue') {
@@ -102,7 +111,8 @@ function gapRows(info: unknown): TracklistRow[] {
     if (typeof g !== 'object' || g === null) continue;
     const { start, end, clues } = g as Record<string, unknown>;
     if (typeof start !== 'number' || !Number.isFinite(start)) continue;
-    if (typeof end !== 'number' || !Number.isFinite(end) || end < start) continue;
+    if (typeof end !== 'number' || !Number.isFinite(end) || end < start)
+      continue;
     const kept = toClues(clues, GAP_CLUES_MAX);
     if (kept.length === 0) continue;
     rows.push({
