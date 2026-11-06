@@ -396,6 +396,50 @@ describe('validateMix — the run (T124)', () => {
   });
 });
 
+describe('validateMix — the review (T117, T118, T125)', () => {
+  const r0 = mixRow.rows[0];
+  const found = {
+    id: '4uLU6hMCjMI75M1A2tKUQC',
+    url: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC',
+  };
+  it('accepts validated, checked and removed fields', () => {
+    expect(
+      validateMix({
+        ...mixRow,
+        rows: [
+          { ...r0, validated: true, spotify: found, checkedAt: 5 },
+          { ...r0, validated: false, spotify: 'not-found', checkedAt: 6 },
+        ],
+        removed: [
+          { artist: 'A', title: 'B', isrc: null },
+          { artist: 'C', title: 'D', isrc: 'GBAAA0000001' },
+        ],
+      }).ok
+    ).toBe(true);
+  });
+  it('refuses a malformed review field', () => {
+    for (const row of [
+      { ...r0, validated: 'yes' },
+      { ...r0, spotify: 'found' },
+      { ...r0, spotify: { ...found, url: 'javascript:alert(1)' } },
+      { ...r0, spotify: { ...found, url: 'https://evil.example/track/x' } },
+      { ...r0, spotify: { ...found, id: 'a/b' } },
+      { ...r0, spotify: { url: found.url } },
+      { ...r0, checkedAt: Number.NaN },
+    ]) {
+      expect(validateMix({ ...mixRow, rows: [row] }).ok).toBe(false);
+    }
+    for (const removed of [
+      'x',
+      [{ artist: 'A', title: 'B' }],
+      [{ artist: 'A', title: 3, isrc: null }],
+      Array(501).fill({ artist: 'A', title: 'B', isrc: null }),
+    ]) {
+      expect(validateMix({ ...mixRow, removed }).ok).toBe(false);
+    }
+  });
+});
+
 describe('validateJobRow — round 004 columns', () => {
   const base = {
     id: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f',

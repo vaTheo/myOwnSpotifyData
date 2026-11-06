@@ -182,10 +182,47 @@ export function validateMix(row: unknown): Valid<MixRow> {
       return fail('mixes.row.hits');
     if (t.clue !== undefined && !clueOk(t.clue)) return fail('mixes.row.clue');
     if (!cluesOk(t.clues, 30)) return fail('mixes.row.clues');
+    if (t.validated !== undefined && typeof t.validated !== 'boolean')
+      return fail('mixes.row.validated');
+    if (t.spotify !== undefined && !spotifyCheckOk(t.spotify))
+      return fail('mixes.row.spotify');
+    if (t.checkedAt !== undefined && !finite(t.checkedAt))
+      return fail('mixes.row.checkedAt');
   }
   if (!cluesOk(row.clues, 200)) return fail('mixes.clues');
   if (row.run !== undefined && !runOk(row.run)) return fail('mixes.run');
+  if (row.removed !== undefined && !removedOk(row.removed))
+    return fail('mixes.removed');
   return { ok: true, row: row as unknown as MixRow };
+}
+
+/** Check on Spotify's answer (T117): 'not-found', or a track id and its
+ *  open.spotify.com track link, rendered as a link. */
+function spotifyCheckOk(v: unknown): boolean {
+  if (v === 'not-found') return true;
+  if (!obj(v)) return false;
+  return (
+    typeof v.id === 'string' &&
+    /^[A-Za-z0-9]{1,64}$/.test(v.id) &&
+    v.url === `${SPOTIFY_PREFIX}track/${v.id}`
+  );
+}
+
+const REMOVED_MAX = 500;
+
+/** The removed tracks (T125): plain names, an ISRC or null, 500 at most. */
+function removedOk(v: unknown): boolean {
+  return (
+    Array.isArray(v) &&
+    v.length <= REMOVED_MAX &&
+    v.every(
+      (t) =>
+        obj(t) &&
+        typeof t.artist === 'string' &&
+        typeof t.title === 'string' &&
+        (t.isrc === null || typeof t.isrc === 'string')
+    )
+  );
 }
 
 const RUN_TEXT_MAX = 200;

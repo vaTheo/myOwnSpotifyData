@@ -29,7 +29,8 @@ import {
 import type { ServerStatus } from './types';
 import { validateMix, validateRow, validateSummary } from './validate';
 import { validateJobRow, type MixJobRow } from './validate';
-import { jobView, mergeWorkerRows, resultToRows } from '../features/mix/worker';
+import { mergeKeepingReview } from '../features/mix/keepReview';
+import { jobView, resultToRows } from '../features/mix/worker';
 
 /**
  * The two runners of the server sync (research D5–D7). Both take injected
@@ -615,7 +616,8 @@ function mixWithResult(
       title: local.title ?? parsed.title,
       author: local.author ?? parsed.author,
       sources: { ...local.sources, worker: true },
-      rows: mergeWorkerRows(local.rows, parsed.rows),
+      // A later result keeps the review (T125, owner D1).
+      rows: mergeKeepingReview(local.rows, parsed.rows, local.removed ?? []),
       // Set-wide clues come from the worker alone: a new result replaces them.
       ...(parsed.clues.length > 0
         ? { clues: parsed.clues }
