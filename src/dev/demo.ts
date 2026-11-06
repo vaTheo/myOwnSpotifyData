@@ -15,6 +15,7 @@ import type {
   ArtistReachRow,
   EntryRow,
   FeatureRow,
+  MixJobView,
   MixJobs,
   MixRow,
   Period,
@@ -654,6 +655,38 @@ function tracklistRow(
   };
 }
 
+/** The demo's mix links, one per request state the Mix shots show (T128). */
+export const DEMO_MIX_LINKS = {
+  sunrise: 'https://www.youtube.com/watch?v=demoSet0001',
+  dock: 'https://soundcloud.com/demo-dj/closing-set-at-the-dock',
+  warehouse: 'https://soundcloud.com/demo-dj/warehouse-b2b-all-night',
+  second: 'https://www.mixcloud.com/demo-dj/rooftop-sunset-session/',
+  paused: 'https://www.youtube.com/watch?v=demoSet0002',
+  stale: 'https://soundcloud.com/demo-dj/basement-tapes-vol-3',
+  stopping: 'https://soundcloud.com/demo-dj/after-hours-at-the-pier',
+  queuedOld: 'https://soundcloud.com/demo-dj/lakeside-open-air',
+  queuedTop: 'https://www.youtube.com/watch?v=demoSet0003',
+  found: 'https://soundcloud.com/demo-dj/radio-show-episode-112',
+  failed: 'https://soundcloud.com/demo-dj/festival-warm-up',
+} as const;
+const LINK = DEMO_MIX_LINKS;
+
+/** Request ids: UUIDs, like the server's, so they pass `jobView`. */
+const JOB = {
+  done: '00000000-0000-4000-8000-00000000d001',
+  rejected: '00000000-0000-4000-8000-00000000d002',
+  stoppedEarly: '00000000-0000-4000-8000-00000000d003',
+  first: '00000000-0000-4000-8000-00000000c001',
+  second: '00000000-0000-4000-8000-00000000c002',
+  paused: '00000000-0000-4000-8000-00000000c003',
+  stale: '00000000-0000-4000-8000-00000000c004',
+  stopping: '00000000-0000-4000-8000-00000000c005',
+  queuedOld: '00000000-0000-4000-8000-00000000a001',
+  queuedTop: '00000000-0000-4000-8000-00000000a002',
+  failed: '00000000-0000-4000-8000-00000000f001',
+  found: '00000000-0000-4000-8000-00000000d004',
+  failedLatest: '00000000-0000-4000-8000-00000000f002',
+} as const;
 function buildMixes(
   rand: Rand,
   lib: Built
@@ -690,23 +723,99 @@ function buildMixes(
     );
     at += int(rand, 180, 360);
   }
+  // The worker's scan (rounds 003–004, T128): clip counts (some heard
+  // once), second-listen rows at +4 % and −4 %, a candidate named by a
+  // comment, a gap with its clues, and set-wide clues on the mix.
   const second: TracklistRow[] = [];
   at = 0;
   for (let i = 0; i < 18; i += 1) {
     const t = known[12 + i];
+    if (i === 7) {
+      second.push(
+        tracklistRow({
+          startSec: at,
+          endSec: at + 240,
+          artist: '',
+          title: '',
+          source: 'tracklistify',
+          gap: true,
+          detected: { artist: '', title: '' },
+          clues: [
+            {
+              atSec: at + 30,
+              author: 'night_owl',
+              text: 'ID? sounds like Moreau Unit https://example.com/x',
+              kind: 'comment',
+            },
+            { atSec: at + 90, author: '', text: 'Chapter 3', kind: 'chapter' },
+          ],
+        })
+      );
+      at += 240;
+      continue;
+    }
+    const artist = t.artists[0].name;
+    const title = t.name;
+    if (i === 12) {
+      second.push(
+        tracklistRow({
+          startSec: at,
+          artist,
+          title,
+          source: 'tracklistify',
+          detected: { artist, title },
+          confidence: null,
+          isrc: t.isrc,
+          origin: 'clue',
+          clue: {
+            atSec: at,
+            author: 'night_owl',
+            text: `this is ${artist} – ${title} for sure`,
+            kind: 'comment',
+          },
+        })
+      );
+      at += int(rand, 200, 380);
+      continue;
+    }
+    const replay = i === 4 ? 4 : i === 10 ? -4 : null;
     second.push(
+      tracklistRow({
+        startSec: at,
+        endSec: at + 12,
+        artist,
+        title,
+        source: 'tracklistify',
+        detected: { artist, title },
+        confidence: int(rand, 55, 99),
+        isrc: t.isrc,
+        shazamUrl: null,
+        hits: i % 5 === 1 || replay !== null ? 1 : int(rand, 2, 7),
+        ...(replay !== null
+          ? { origin: 'replay' as const, speedPercent: replay }
+          : {}),
+      })
+    );
+    at += int(rand, 200, 380);
+  }
+  const third: TracklistRow[] = [];
+  at = 0;
+  for (let i = 0; i < 9; i += 1) {
+    const t = known[i + 3];
+    third.push(
       tracklistRow({
         startSec: at,
         endSec: at + 12,
         artist: t.artists[0].name,
         title: t.name,
         source: 'tracklistify',
-        confidence: int(rand, 55, 99),
+        detected: { artist: t.artists[0].name, title: t.name },
+        confidence: int(rand, 60, 98),
         isrc: t.isrc,
-        shazamUrl: null,
+        hits: int(rand, 1, 5),
       })
     );
-    at += int(rand, 200, 380);
+    at += int(rand, 220, 360);
   }
   const playlistId = spotifyId('m', 1);
   const mixes: MixRow[] = [
@@ -728,7 +837,7 @@ function buildMixes(
       savedAt: DEMO_NOW - 3 * DAY,
     },
     {
-      url: 'https://www.youtube.com/watch?v=demoSet0001',
+      url: LINK.sunrise,
       title: 'Sunrise closing set (scanned on my computer)',
       author: 'Another DJ',
       playerSrc: null,
@@ -742,67 +851,203 @@ function buildMixes(
         worker: true,
       },
       rows: second,
-      identifyJobId: 'demo-job-done',
+      clues: [
+        {
+          atSec: null,
+          author: '',
+          text: '1. Darian Falk – Dawn Paper',
+          kind: 'description',
+        },
+        {
+          atSec: null,
+          author: '',
+          text: '2. Amaru Prism – Moon Mirror',
+          kind: 'description',
+        },
+        {
+          atSec: null,
+          author: '',
+          text: '3. Moreau Unit – Silk Tide',
+          kind: 'description',
+        },
+      ],
+      identifyJobId: JOB.done,
       identifiedAt: DEMO_NOW - DAY,
       savedAt: DEMO_NOW - DAY,
     },
+    {
+      url: LINK.dock,
+      title: 'Closing set at the Dock',
+      author: 'Demo DJ',
+      playerSrc: null,
+      slug: null,
+      sources: {
+        trackid: false,
+        description: false,
+        pasted: false,
+        linkOut: null,
+        worker: true,
+      },
+      rows: third,
+      identifyJobId: JOB.stoppedEarly,
+      identifiedAt: DEMO_NOW - 2 * 3_600_000,
+      savedAt: DEMO_NOW - 2 * 3_600_000,
+    },
   ];
   const created = (days: number) => DEMO_NOW - days * DAY;
+  const MIN = 60_000;
+  const view = (
+    id: string,
+    over: Partial<MixJobView> & Pick<MixJobView, 'status' | 'createdAt'>
+  ): MixJobView => ({
+    id,
+    claimedBy: null,
+    claimedAt: null,
+    finishedAt: null,
+    error: null,
+    appliedAt: null,
+    progress: null,
+    priority: 0,
+    stopRequestedAt: null,
+    ...over,
+  });
+  const running = (
+    id: string,
+    minutesAgo: number,
+    progress: Partial<NonNullable<MixJobView['progress']>> & { step: string },
+    over: Partial<MixJobView> = {}
+  ): MixJobView =>
+    view(id, {
+      status: 'claimed',
+      createdAt: DEMO_NOW - (minutesAgo + 5) * MIN,
+      claimedBy: 'studio-pc',
+      claimedAt: DEMO_NOW - minutesAgo * MIN,
+      progress: {
+        done: null,
+        total: null,
+        percent: null,
+        minutesLeft: null,
+        pausedUntil: null,
+        warning: null,
+        at: DEMO_NOW - MIN,
+        ...progress,
+      },
+      ...over,
+    });
+  // One link per request state (T128); a demo may run several at once.
   const mixJobs: MixJobs = {
-    'https://www.youtube.com/watch?v=demoSet0001': [
-      {
-        id: 'demo-job-done',
+    [LINK.sunrise]: [
+      view(JOB.done, {
         status: 'done',
         createdAt: created(2),
         claimedBy: 'studio-pc',
-        claimedAt: created(2) + 60_000,
+        claimedAt: created(2) + MIN,
         finishedAt: created(1),
-        error: null,
         appliedAt: created(1) + 5_000,
-      },
-      {
-        id: 'demo-job-rejected',
+      }),
+      view(JOB.rejected, {
         status: 'done',
         createdAt: created(5),
         claimedBy: 'studio-pc',
-        claimedAt: created(5) + 60_000,
+        claimedAt: created(5) + MIN,
         finishedAt: created(5) + 900_000,
-        error: null,
-        appliedAt: null,
         rejected: true,
-      },
+      }),
     ],
-    'https://soundcloud.com/demo-dj/warehouse-b2b-all-night': [
-      {
-        id: 'demo-job-queued',
-        status: 'queued',
-        createdAt: DEMO_NOW - 3_600_000,
-        claimedBy: null,
-        claimedAt: null,
-        finishedAt: null,
-        error: null,
-        appliedAt: null,
-      },
-      {
-        id: 'demo-job-claimed',
-        status: 'claimed',
-        createdAt: DEMO_NOW - 7_200_000,
+    [LINK.dock]: [
+      view(JOB.stoppedEarly, {
+        status: 'done',
+        createdAt: DEMO_NOW - 3 * 3_600_000,
         claimedBy: 'studio-pc',
-        claimedAt: DEMO_NOW - 600_000,
-        finishedAt: null,
-        error: null,
-        appliedAt: null,
-      },
-      {
-        id: 'demo-job-failed',
+        claimedAt: DEMO_NOW - 3 * 3_600_000 + MIN,
+        finishedAt: DEMO_NOW - 2 * 3_600_000,
+        appliedAt: DEMO_NOW - 2 * 3_600_000 + 5_000,
+        error:
+          'Stopped early at 01:12:00 (by you); ask again later for the rest',
+      }),
+    ],
+    [LINK.warehouse]: [
+      running(JOB.first, 40, {
+        step: 'first',
+        done: 141,
+        total: 300,
+        percent: 47,
+        minutesLeft: 25,
+      }),
+      view(JOB.failed, {
         status: 'failed',
         createdAt: created(3),
         claimedBy: 'studio-pc',
-        claimedAt: created(3) + 60_000,
+        claimedAt: created(3) + MIN,
         finishedAt: created(3) + 300_000,
-        error: 'Shazam refused the probes (HTTP 429). Try again later.',
-        appliedAt: null,
-      },
+        error: 'Recognition service refused (rate limited); try later',
+      }),
+    ],
+    [LINK.second]: [
+      running(JOB.second, 70, {
+        step: 'second ×1.04',
+        done: 12,
+        total: 41,
+        percent: 29,
+        minutesLeft: 9,
+      }),
+    ],
+    [LINK.paused]: [
+      running(JOB.paused, 55, {
+        step: 'paused',
+        pausedUntil: DEMO_NOW + 35 * MIN,
+        warning: 'refuses often',
+      }),
+    ],
+    [LINK.stale]: [
+      running(JOB.stale, 90, {
+        step: 'first',
+        done: 80,
+        total: 400,
+        percent: 20,
+        at: DEMO_NOW - 25 * MIN,
+      }),
+    ],
+    [LINK.stopping]: [
+      running(
+        JOB.stopping,
+        30,
+        { step: 'second ×0.96', done: 30, total: 41, percent: 73 },
+        { stopRequestedAt: DEMO_NOW - MIN }
+      ),
+    ],
+    // Two waiting: the younger one was moved to the top.
+    [LINK.queuedOld]: [
+      view(JOB.queuedOld, {
+        status: 'queued',
+        createdAt: DEMO_NOW - 3 * 3_600_000,
+      }),
+    ],
+    [LINK.queuedTop]: [
+      view(JOB.queuedTop, {
+        status: 'queued',
+        createdAt: DEMO_NOW - 3_600_000,
+        priority: 1,
+      }),
+    ],
+    [LINK.failed]: [
+      view(JOB.failedLatest, {
+        status: 'failed',
+        createdAt: DEMO_NOW - 5 * 3_600_000,
+        claimedBy: 'studio-pc',
+        claimedAt: DEMO_NOW - 5 * 3_600_000 + MIN,
+        finishedAt: DEMO_NOW - 4 * 3_600_000,
+        error: 'Recognition service did not answer; try later',
+      }),
+    ],
+    [LINK.found]: [
+      view(JOB.found, {
+        status: 'done',
+        createdAt: created(1),
+        claimedBy: 'studio-pc',
+        claimedAt: created(1) + MIN,
+        finishedAt: DEMO_NOW - 10 * MIN,
+      }),
     ],
   };
   return { mixes, mixJobs };
