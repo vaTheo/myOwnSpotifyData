@@ -45,6 +45,39 @@ def reason_for(message: str) -> str:
     return f"Download failed: {first}"
 
 
+def progress_hook(line: Callable[[str], None], step: int = 10) -> Callable[[dict[str, Any]], None]:
+    """A yt-dlp progress hook that logs every `step` percent, then the end."""
+    state = {"next": step}
+
+    def mb(n: Any) -> str:
+        return f"{float(n) / 1_048_576:.1f} MB" if isinstance(n, (int, float)) else "? MB"
+
+    def hook(d: dict[str, Any]) -> None:
+        status = d.get("status")
+        if status == "downloading":
+            done = d.get("downloaded_bytes")
+            total = d.get("total_bytes") or d.get("total_bytes_estimate")
+            if not isinstance(done, (int, float)) or not isinstance(total, (int, float)) or total <= 0:
+                return
+            percent = int(done * 100 / total)
+            if percent < state["next"] or percent >= 100:
+                return
+            while state["next"] <= percent:
+                state["next"] += step
+            speed = d.get("speed")
+            eta = d.get("eta")
+            extra = ""
+            if isinstance(speed, (int, float)) and speed > 0:
+                extra += f" · {speed / 1_048_576:.1f} MB/s"
+            if isinstance(eta, (int, float)):
+                extra += f" · {int(eta)} s left"
+            line(f"  download · {percent:3d} % · {mb(done)} of {mb(total)}{extra}")
+        elif status == "finished":
+            line(f"  download · 100 % · {mb(d.get('downloaded_bytes') or d.get('total_bytes'))}")
+
+    return hook
+
+
 def ydl_options(dest_dir: Path, settings: Settings, match_filter: Any) -> dict[str, Any]:
     opts: dict[str, Any] = {
         "noplaylist": True,
@@ -79,6 +112,7 @@ def download(
     settings: Settings,
     ydl_factory: Callable[[dict[str, Any]], Any] | None = None,
     match_filter: Any = None,
+    line: Callable[[str], None] | None = None,
 ) -> Downloaded | DownloadFailure:
     if ydl_factory is None or match_filter is None:
         import yt_dlp  # imported here so tests never load it
@@ -88,7 +122,10 @@ def download(
         match_filter = match_filter or match_filter_func("!is_live")
     dest_dir.mkdir(parents=True, exist_ok=True)
     try:
-        with ydl_factory(ydl_options(dest_dir, settings, match_filter)) as ydl:
+        opts = ydl_options(dest_dir, settings, match_filter)
+        if line is not None:
+            opts["progress_hooks"] = [progress_hook(line)]
+        with ydl_factory(opts) as ydl:
             info = ydl.extract_info(url, download=True)
     except Exception as err:  # yt_dlp.utils.DownloadError and anything else
         return DownloadFailure(reason_for(str(err)))

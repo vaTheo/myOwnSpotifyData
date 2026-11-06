@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from mix_worker.config import Settings
-from mix_worker.download import DownloadFailure, Downloaded, download, reason_for
+from mix_worker.download import DownloadFailure, Downloaded, download, progress_hook, reason_for
 
 
 def settings(**over):
@@ -11,7 +11,7 @@ def settings(**over):
         supabase_url="https://abc.supabase.co", supabase_key="k", worker_name="w",
         session_file=Path("/s"), work_dir=DEST, json_dir=Path("/j"), log_file=Path("/l"),
         ffmpeg="/usr/bin/ffmpeg", ytdlp_cookies=None, proxy=None, stale_seconds=1, poll_seconds=1,
-        max_duration_seconds=14400, probe_step_seconds=60, cooldown_seconds=0.0,
+        max_duration_seconds=14400, probe_step_seconds=60, probe_seconds=10, cooldown_seconds=0.0,
         rate_limit_pause_seconds=0.0, max_skew=0.001, merge_gap_seconds=180, result_max_bytes=900000,
     )
     base.update(over)
@@ -91,6 +91,37 @@ class Options(unittest.TestCase):
         info = dict(INFO, uploader=None, channel=None, title=None)
         r = download("u", DEST, settings(), ydl_factory=factory(info), match_filter=lambda *a: None)
         self.assertEqual((r.title, r.uploader), ("abc123", None))
+
+
+class Progress(unittest.TestCase):
+    def test_every_ten_percent_then_the_end(self):
+        lines = []
+        hook = progress_hook(lines.append)
+        total = 100 * 1_048_576
+        for done in (0, 5, 9, 10, 11, 25, 99):
+            hook({"status": "downloading", "downloaded_bytes": done * 1_048_576, "total_bytes": total, "speed": 2 * 1_048_576, "eta": 30})
+        hook({"status": "finished", "downloaded_bytes": total})
+        self.assertEqual(len(lines), 4)
+        self.assertTrue(lines[0].startswith("  download ·  10 % · 10.0 MB of 100.0 MB · 2.0 MB/s · 30 s left"))
+        self.assertIn(" 25 %", lines[1])  # crosses the 20 % step: logged once, at the real value
+        self.assertIn(" 99 %", lines[2])
+        self.assertEqual(lines[3], "  download · 100 % · 100.0 MB")
+
+    def test_estimate_and_missing_total(self):
+        lines = []
+        hook = progress_hook(lines.append)
+        hook({"status": "downloading", "downloaded_bytes": 50, "total_bytes_estimate": 100})
+        hook({"status": "downloading", "downloaded_bytes": 50})
+        self.assertEqual(len(lines), 1)
+        self.assertIn(" 50 %", lines[0])
+
+    def test_the_hook_is_passed_to_yt_dlp_only_with_a_line(self):
+        FakeYdl.instances.clear()
+        download("u", DEST, settings(), ydl_factory=factory(INFO), match_filter=lambda *a: None, line=print)
+        self.assertEqual(len(FakeYdl.instances[0].opts["progress_hooks"]), 1)
+        FakeYdl.instances.clear()
+        download("u", DEST, settings(), ydl_factory=factory(INFO), match_filter=lambda *a: None)
+        self.assertNotIn("progress_hooks", FakeYdl.instances[0].opts)
 
 
 class Failures(unittest.TestCase):

@@ -58,7 +58,7 @@ def make(tmp, client, download=None, scan=None, expires_at=10_000.0):
         supabase_url="https://abc.supabase.co", supabase_key="k", worker_name="laptop",
         session_file=Path(tmp) / "s.json", work_dir=work, json_dir=Path(tmp) / "json", log_file=work / "w.log",
         ffmpeg="ffmpeg", ytdlp_cookies=None, proxy=None, stale_seconds=4321, poll_seconds=7,
-        max_duration_seconds=14400, probe_step_seconds=60, cooldown_seconds=0.0,
+        max_duration_seconds=14400, probe_step_seconds=60, probe_seconds=10, cooldown_seconds=0.0,
         rate_limit_pause_seconds=0.0, max_skew=0.0, merge_gap_seconds=180, result_max_bytes=900000,
     )
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -155,11 +156,14 @@ async def scan(
     cut: Callable[[int], bytes],
     sleep: Callable[[float], Awaitable[None]],
     classify: Callable[[Exception], str],
+    line: Callable[[str], None] | None = None,
 ) -> list[dict[str, Any]]:
     """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
     before each; a `rate_limited` error pauses once, twice raises
     `ScanRefused`; a `skip` error (undecodable probe) is skipped."""
     hits: list[Hit] = []
+    seen: set[str] = set()
+    say = line or (lambda text: None)
     known = duration is not None and duration > 0
     times = probe_times(duration, step) if known else None
     skew = max_skew if max_skew > 0 else None
@@ -175,6 +179,7 @@ async def scan(
         data = cut(t)
         if len(data) < MIN_PROBE_BYTES:
             break
+        where = f"probe {index + 1}/{len(times) if times is not None else '?'} · {hhmmss(t)}"
         while True:
             await sleep(cooldown)
             try:
@@ -182,12 +187,15 @@ async def scan(
             except Exception as err:  # classified, never swallowed silently
                 kind = classify(err)
                 if kind == "skip":
+                    say(f"  {where} · skipped (undecodable or silent)")
                     response = None
                     break
                 if kind == "rate_limited":
                     if paused_once:
+                        say(f"  {where} · rate limited again · giving up")
                         raise ScanRefused() from err
                     paused_once = True
+                    say(f"  {where} · rate limited · pausing {int(pause)} s, then this probe again")
                     await sleep(pause)
                     continue  # the same probe again, after the pause
                 raise
@@ -195,6 +203,16 @@ async def scan(
         entry = track_entry(response, hhmmss(t)) if response is not None else None
         if entry is not None:
             hits.append(Hit(time=t, entry=entry))
+            key = _key(entry)
+            meta = entry.get("metadata") or {}
+            details = " · ".join(
+                x for x in (meta.get("isrc"), meta.get("label"), f"{entry['confidence']:.0f} %") if x
+            )
+            mark = "same track" if key in seen else "NEW"
+            seen.add(key)
+            say(f"  {where} · {mark} · {entry['artist']} — {entry['song_name']} · {details}")
+        elif response is not None:
+            say(f"  {where} · no match")
         index += 1
     return merge(hits, gap)
 
@@ -238,23 +256,39 @@ def ffmpeg_path(configured: str | None) -> str:
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
-def cut_probe(ffmpeg: str, file: Path, start: int) -> bytes:
-    """Twelve seconds from `start`, mono 16 kHz WAV, as bytes (D4).
+def cut_probe(
+    ffmpeg: str,
+    file: Path,
+    start: int,
+    seconds: int = PROBE_SECONDS,
+    line: Callable[[str], None] | None = None,
+) -> bytes:
+    """`seconds` from `start`, mono 16 kHz WAV, as bytes (D4); the command
+    and anything ffmpeg prints go to `line`.
 
     Written to one scratch file beside the audio and read back: on a pipe
     ffmpeg cannot seek back to fill the WAV header's sizes, and the decoder
     then refuses the payload ("unexpected end of file")."""
     scratch = file.with_name(f".probe-{file.stem}.wav")
     cmd = [
-        ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-        "-ss", str(start), "-t", str(PROBE_SECONDS), "-i", str(file),
+        ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "warning", "-y",
+        "-ss", str(start), "-t", str(seconds), "-i", str(file),
         "-vn", "-ac", "1", "-ar", "16000", "-f", "wav", str(scratch),
     ]
+    say = line or (lambda text: None)
+    began = time.monotonic()
     done = subprocess.run(cmd, capture_output=True, check=False)
+    took = time.monotonic() - began
+    for message in done.stderr.decode("utf-8", "replace").splitlines():
+        if message.strip():
+            say(f"    ffmpeg · {message.strip()}")
     try:
         if done.returncode != 0 or not scratch.exists():
+            say(f"    ffmpeg · exit {done.returncode} · {' '.join(cmd[-15:])}")
             return b""
-        return scratch.read_bytes()
+        data = scratch.read_bytes()
+        say(f"    ffmpeg · cut {hhmmss(start)} +{seconds} s · {len(data) // 1024} KB · {took:.2f} s")
+        return data
     finally:
         try:
             scratch.unlink()
@@ -282,13 +316,24 @@ def default_classify(err: Exception) -> str:
     return "raise"
 
 
-def run_scan(file: Path, duration: int | None, settings: Any) -> list[dict[str, Any]]:
+def run_scan(
+    file: Path,
+    duration: int | None,
+    settings: Any,
+    line: Callable[[str], None] | None = None,
+) -> list[dict[str, Any]]:
     """The pipeline's `scan` seam: builds the Shazam client lazily and runs
     the async scan with the real cutter and sleeps."""
     from aiohttp_retry import ExponentialRetry  # type: ignore[import-not-found]
     from shazamio import HTTPClient, Shazam  # type: ignore[import-not-found]
 
     ffmpeg = ffmpeg_path(settings.ffmpeg)
+    say = line or (lambda text: None)
+    say(
+        f"  scan · ffmpeg {ffmpeg} · one {settings.probe_seconds} s probe every {settings.probe_step_seconds} s"
+        f" · {len(probe_times(duration, settings.probe_step_seconds)) if duration else '?'} probes"
+        f" · cooldown {settings.cooldown_seconds} s"
+    )
 
     async def go() -> list[dict[str, Any]]:
         client = HTTPClient(retry_options=ExponentialRetry(attempts=5, max_timeout=60.0))
@@ -305,9 +350,10 @@ def run_scan(file: Path, duration: int | None, settings: Any) -> list[dict[str, 
                 max_skew=settings.max_skew,
                 gap=settings.merge_gap_seconds,
                 recognise=recognise,
-                cut=lambda t: cut_probe(ffmpeg, file, t),
+                cut=lambda t: cut_probe(ffmpeg, file, t, settings.probe_seconds, say),
                 sleep=asyncio.sleep,
                 classify=default_classify,
+                line=say,
             )
         finally:
             # The library only closes a client it created itself; ours is

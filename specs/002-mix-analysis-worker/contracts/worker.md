@@ -38,7 +38,8 @@ first start). A failed *request* is not a failed *run*: the worker marks it `fai
 | `WORKER_STALE_SECONDS` | 21600 | `claim_job`'s `p_stale_seconds` |
 | `WORKER_POLL_SECONDS` | 60 | `--watch` interval |
 | `WORKER_MAX_DURATION_SECONDS` | 14400 | longer sets fail "Set longer than 4 hours" |
-| `WORKER_PROBE_STEP_SECONDS` | 60 | one 12-second probe every N seconds (D4) |
+| `WORKER_PROBE_STEP_SECONDS` | 60 | one probe every N seconds (D4) |
+| `WORKER_PROBE_SECONDS` | 10 | probe length sent to Shazam, 2–12 (owner's pick, 2026-11-06; D4) |
 | `WORKER_COOLDOWN_SECONDS` | 3.0 | sleep before every recognition call (D3) |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | the one pause after a `RateLimited` |
 | `WORKER_MAX_SKEW` | 0.001 | ShazamIO's `max_skew`; 0 disables (D5) |

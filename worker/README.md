@@ -60,7 +60,17 @@ One line per step, on the terminal and in the log file:
 ```
 mix-worker 0.1.0 · https://….supabase.co · as you@example.com · on laptop
 claimed 6f1c2d3e · https://soundcloud.com/…
+  download ·  10 % · 9.8 MB of 98.0 MB · 4.1 MB/s · 21 s left
+  …
+  download · 100 % · 98.0 MB
   download · abc123.m4a · 7260 s · 38.2 s
+  scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 10 s probe every 60 s · 121 probes · cooldown 3.0 s
+    ffmpeg · cut 00:00:00 +10 s · 312 KB · 0.06 s
+  probe 1/121 · 00:00:00 · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
+    ffmpeg · cut 00:01:00 +10 s · 312 KB · 0.05 s
+  probe 2/121 · 00:01:00 · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
+  probe 3/121 · 00:02:00 · no match
+  …
   scan · 41 tracks · 540.3 s
   write · 2026-11-06 Some set [6f1c2d3e].json · 0.0 s
   send · 24510 bytes · 0.4 s
@@ -104,7 +114,8 @@ Only the first two are required.
 | `WORKER_STALE_SECONDS` | 21600 | a request left "running" longer than this (a crash, a power cut) is taken again |
 | `WORKER_POLL_SECONDS` | 60 | `--watch`: seconds between two looks at the queue |
 | `WORKER_MAX_DURATION_SECONDS` | 14400 | longer sets fail with "Set longer than 4 hours" |
-| `WORKER_PROBE_STEP_SECONDS` | 60 | one 12-second probe every N seconds of the set |
+| `WORKER_PROBE_STEP_SECONDS` | 60 | one probe every N seconds of the set |
+| `WORKER_PROBE_SECONDS` | 10 | the length of each probe sent to Shazam, 2 to 12 (Shazam's own app sends 12) |
 | `WORKER_COOLDOWN_SECONDS` | 3.0 | the pause before every recognition call |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | the one pause when the service answers "rate limited"; a second refusal fails the request |
 | `WORKER_MAX_SKEW` | 0.001 | drops a skewed (likely wrong) match; 0 disables |

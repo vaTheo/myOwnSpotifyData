@@ -202,6 +202,42 @@ class Scan(unittest.TestCase):
         self.assertEqual(rows, [])
 
 
+class Lines(unittest.TestCase):
+    def test_one_line_per_probe_new_then_same_then_no_match(self):
+        responses = [CASSETTE, CASSETTE, NO_MATCH, SignatureError("x")]
+        lines = []
+
+        async def recognise(data, max_skew):
+            r = responses.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        async def sleep(s):
+            pass
+
+        run(scan(240, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append))
+        self.assertEqual(len(lines), 4)
+        self.assertEqual(lines[0], "  probe 1/4 · 00:00:00 · NEW · Gloria Gaynor — I Will Survive · USUR10200634 · Polydor · 100 %")
+        self.assertIn("probe 2/4 · 00:01:00 · same track · Gloria Gaynor", lines[1])
+        self.assertEqual(lines[2], "  probe 3/4 · 00:02:00 · no match")
+        self.assertEqual(lines[3], "  probe 4/4 · 00:03:00 · skipped (undecodable or silent)")
+
+    def test_rate_limit_lines(self):
+        responses = [RateLimited(), RateLimited()]
+        lines = []
+
+        async def recognise(data, max_skew):
+            raise responses.pop(0)
+
+        async def sleep(s):
+            pass
+
+        with self.assertRaises(ScanRefused):
+            run(scan(60, step=60, cooldown=0.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append))
+        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · rate limited · pausing 300 s, then this probe again", "  probe 1/1 · 00:00:00 · rate limited again · giving up"])
+
+
 class Result(unittest.TestCase):
     def test_write_result_has_the_keys_the_app_requires(self):
         with tempfile.TemporaryDirectory() as tmp:
