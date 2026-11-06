@@ -11,7 +11,8 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
-- 0.3.3: the owner's next test pacing: 2 s + 0–50 % between calls (2 to 3 s) and a 3-minute pause + 0–40 % after a refusal
+- 0.3.3: every line of a tracklist (description, or a comment listing 3+ tracks) becomes a row, catalogue or not; a
+  catalogue only adds the ISRC. Also the owner's next test pacing: 2 s + 0–50 % between calls (2 to 3 s) and a 3-minute pause + 0–40 % after a refusal
   (3:00 to 4:12); both spreads only add time and are settings (`WORKER_COOLDOWN_SPREAD_PERCENT`,
   `WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`).
 

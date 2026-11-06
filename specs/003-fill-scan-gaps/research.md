@@ -64,6 +64,15 @@ everything external injected in tests, no Spotify host, no key.
   pause (`WORKER_RATE_LIMIT_PAUSE_SECONDS` 360), the same each time, up to 8 a set (`WORKER_RATE_LIMIT_PAUSES`), the next one
   stopping the scan with the tracks found kept. The doubling and the recovery of R1c are removed.
 
+## R8b. Tracklist lines are rows (owner, 2026-11-06)
+
+- **Evidence**: BRUM's description lists 31 tracks; the audio found 13 of them, Deezer/MusicBrainz confirmed 2 more, and 16 no
+  catalogue holds (TZAR DOMYNIK, Orbwd, nlbs…): with the catalogue rule they stayed text.
+- **Decision**: a clue that is a line of a tracklist (`Clue.listed`: the description's run, or a comment the split search reads
+  as 3+ tracks) becomes a candidate row as written when no catalogue confirms it (`confirmed_by: null`, label kept, no ISRC);
+  a catalogue match still adds the ISRC (`confirmed_by: "deezer"|"musicbrainz"`). A single comment answer keeps the catalogue
+  rule. Create playlist searches those rows by name on Spotify like any row and lists those it cannot find.
+
 ## R2. Speed correction with the packaged ffmpeg
 
 - **Decision**: a replay at factor `f` (1.04 or 0.96) cuts `probe_seconds × f` seconds from the probe's start and filters

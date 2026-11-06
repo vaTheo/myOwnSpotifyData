@@ -93,7 +93,9 @@ just before and after it, up to 3 minutes: that is the same track): 7 s later th
 normal speed, then 4 % slower, then 4 % faster (a DJ's pitch fader), stopping at the first match. Then the worker reads the
 set's **description, chapters and comments** (the clues): the ones written around a part still without a track show on that
 part on the Mix screen, a tracklist without times shows once above the tracklist, and a clue that reads as one
-`Artist – Title` is looked up in Deezer, then MusicBrainz (a Discogs or Deezer link by its id). Only an exact artist and title
+`Artist – Title` is looked up in Deezer, then MusicBrainz (a Discogs or Deezer link by its id). Every line of a **tracklist**
+(the description's, or a comment listing 3 tracks or more) becomes a row even when no catalogue knows it; a catalogue match only
+adds the ISRC. For a single comment answer, only an exact artist and title in a catalogue
 make a row, marked "from a comment · not heard"; it goes into Create playlist unless you delete it. A refusal during the second
 pass, or comments that cannot be read, never fail the request.
 
