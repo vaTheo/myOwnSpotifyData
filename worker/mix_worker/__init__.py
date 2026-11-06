@@ -1,3 +1,3 @@
 """The owner's-computer worker (specs/002-mix-analysis-worker)."""
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"
