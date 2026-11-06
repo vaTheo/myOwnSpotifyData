@@ -3,14 +3,19 @@ import type { PlayRow } from '../../db/schema';
 import {
   barHeights,
   heatLevel,
+  historyKeys,
   meterBand,
   monthKeys,
   monthSeries,
+  monthTotals,
   periodTotal,
   seriesLabel,
+  yearChartKeys,
   yearMonthTotals,
   yearPoints,
   yearSpan,
+  yearsReached,
+  yearTotals,
 } from './series';
 
 // The importer buckets months in the device zone, so the file pins one far
@@ -279,5 +284,90 @@ describe('yearPoints', () => {
         { key: '2024', value: 0 },
       ])
     ).toBe('Plays per year: 2023 5, 2024 0');
+  });
+});
+
+describe('monthTotals', () => {
+  it('sums the plays of every row per month, skipping rows without months', () => {
+    expect(
+      monthTotals([
+        row({ '2025-11': 3, '2026-01': 4 }),
+        row({ '2025-11': 2 }),
+        row(undefined),
+      ])
+    ).toEqual({ '2025-11': 5, '2026-01': 4 });
+  });
+});
+
+describe('yearTotals', () => {
+  it('lays a month map over the given years, null outside the range', () => {
+    const totals = yearTotals(
+      { '2025-12': 2, '2026-01': 4 },
+      [2025, 2026],
+      RANGE
+    );
+    expect(totals[0].months[9]).toBeNull();
+    expect(totals[0].months[10]).toBe(0);
+    expect(totals[0].months[11]).toBe(2);
+    expect(totals[1].months.slice(0, 3)).toEqual([4, 0, null]);
+    expect(totals[1].total).toBe(4);
+    expect(totals[1].max).toBe(4);
+  });
+});
+
+describe('historyKeys', () => {
+  it('runs from the start of the range to its end', () => {
+    expect(historyKeys({ '2025-12': 1 }, RANGE)).toEqual([
+      '2025-11',
+      '2025-12',
+      '2026-01',
+      '2026-02',
+    ]);
+  });
+
+  it('stretches to played months outside the range, and falls back to them', () => {
+    expect(historyKeys({ '2026-03': 1 }, RANGE)).toHaveLength(5);
+    expect(historyKeys({ '2024-02': 1, '2024-04': 2 }, null)).toEqual([
+      '2024-02',
+      '2024-03',
+      '2024-04',
+    ]);
+  });
+
+  it('is empty without a range and without plays', () => {
+    expect(historyKeys({}, null)).toEqual([]);
+    expect(historyKeys(undefined, null)).toEqual([]);
+  });
+});
+
+describe('yearChartKeys', () => {
+  it('gives the twelve months of the year, whatever the month or season', () => {
+    const keys = yearChartKeys(2026, 'all');
+    expect(keys).toHaveLength(12);
+    expect(keys[0]).toBe('2026-01');
+    expect(yearChartKeys(2026, 8)).toEqual(keys);
+    expect(yearChartKeys(2026, 'summer')).toEqual(keys);
+  });
+
+  it('opens Winter with the previous December', () => {
+    const keys = yearChartKeys(2026, 'winter');
+    expect(keys).toHaveLength(13);
+    expect(keys[0]).toBe('2025-12');
+    expect(keys[12]).toBe('2026-12');
+  });
+});
+
+describe('yearsReached', () => {
+  it('counts the tracks played in at least n years, for each n', () => {
+    expect(yearsReached([3, 3, 4, 6], 3, 6)).toEqual([
+      { key: '3', value: 4 },
+      { key: '4', value: 2 },
+      { key: '5', value: 1 },
+      { key: '6', value: 1 },
+    ]);
+  });
+
+  it('is empty when the span is under the minimum', () => {
+    expect(yearsReached([], 3, 2)).toEqual([]);
   });
 });
