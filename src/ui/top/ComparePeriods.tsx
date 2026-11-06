@@ -6,6 +6,7 @@ import { model } from '../../model/state';
 import { routeHref } from '../../router';
 import { TOP_PERIOD_LABEL, artistNames } from '../format';
 import { moveIndex } from '../table/keyboard';
+import { tabStop } from './compareFocus';
 
 const PERIODS: Period[] = ['short_term', 'medium_term', 'long_term'];
 
@@ -61,9 +62,12 @@ export function ComparePeriods(p: { kind: 'tracks' | 'artists' }) {
   const root = useRef<HTMLDivElement>(null);
   const outlined = pointed.value ?? focused.value;
 
-  // The tab stop stays on an item that exists.
-  const col = Math.min(active.col, PERIODS.length - 1);
-  const index = Math.min(active.index, columns[col].length - 1);
+  // The tab stop stays on an item that exists, in the first column with
+  // items when the remembered one is empty.
+  const stop = tabStop(
+    active,
+    columns.map((list) => list.length)
+  );
 
   function focusItem(c: number, i: number): void {
     setActive({ col: c, index: i });
@@ -118,7 +122,7 @@ export function ComparePeriods(p: { kind: 'tracks' | 'artists' }) {
                 'data-item-id': item.id,
                 'data-col': c,
                 'data-index': i,
-                tabIndex: c === col && i === index ? 0 : -1,
+                tabIndex: c === stop?.col && i === stop.index ? 0 : -1,
                 title: item.subtitle
                   ? `${item.title}, ${item.subtitle}`
                   : item.title,

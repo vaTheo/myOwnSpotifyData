@@ -12,6 +12,7 @@ import type {
 } from '../db/schema';
 import { buildModel, type Model } from './aggregate';
 import {
+  artistPlays,
   hasHistory,
   isWellKnown,
   rankUnderTheRadar,
@@ -212,6 +213,20 @@ describe('hasHistory', () => {
   it('is false with no imported rows and true with a zero-play row', () => {
     expect(hasHistory(modelOf({}))).toBe(false);
     expect(hasHistory(modelOf({ plays: [play('t1', 0)] }))).toBe(true);
+  });
+});
+
+describe('artistPlays', () => {
+  it('sums the plays over the artist tracks, 0 without a history', () => {
+    const model = modelOf(
+      library([
+        { id: 'a1', name: 'One', tracks: 2, plays: 7 },
+        { id: null, name: 'Two' },
+      ])
+    );
+    expect(artistPlays(model, model.artistsByKey.get('a1')!)).toBe(7);
+    const bare = modelOf(library([{ id: 'a1', name: 'One' }]));
+    expect(artistPlays(bare, bare.artistsByKey.get('a1')!)).toBe(0);
   });
 });
 

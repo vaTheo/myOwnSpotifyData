@@ -1,28 +1,40 @@
-import { Fragment } from 'preact';
 import { signal } from '@preact/signals';
 import type { ArtistIdentityRow } from '../db/schema';
-import { artistTracks, topArtistById, type Model } from '../model/aggregate';
+import {
+  artistTracks,
+  topArtistById,
+  type ArtistTrack,
+  type Model,
+} from '../model/aggregate';
+import { featureFor } from '../model/features';
 import { reachFor } from '../model/reach';
 import { artistReachSummary, model } from '../model/state';
 import { routeHref } from '../router';
-import { FeaturePills } from './components/FeaturePills';
-import { PlaysBadge } from './components/PlaysBadge';
+import { Card } from './components/Card';
+import { NoData } from './components/NoData';
 import { SpotifyLink } from './components/SpotifyLink';
-import { TrackRow } from './components/TrackRow';
+import { artistUrl, formatDate, plural, profileLine } from './format';
+import { Icon } from './icons';
 import {
-  artistUrl,
-  formatDate,
-  plural,
-  profileLine,
-  reachLine,
-} from './format';
+  albumColumn,
+  bpmColumn,
+  countColumn,
+  keyColumn,
+  playsColumn,
+  spotifyLinkColumn,
+  titleColumn,
+} from './table/columns';
+import { DataTable, type Column } from './table/DataTable';
+import type { SortState } from './table/sort';
 
 /**
  * Rows toggled away from their default. The default is "the first three are
  * open": one or two tracks stay answered at a glance, forty stop scrolling.
+ * Kept until the details sheet (US3) replaces it.
  */
 const opened = signal<Record<string, boolean>>({});
 const OPEN_BY_DEFAULT = 3;
+const sort = signal<SortState>({ columnId: null, direction: 'asc' });
 
 /**
  * Rebuilt from the stored sitelink segment, so it is exact: `wikiTitles`
@@ -37,12 +49,25 @@ function wikipediaUrl(identity: ArtistIdentityRow | undefined): string | null {
   return null;
 }
 
+/** One figure of the reach card: a number, or `NoData`, never a 0. */
+function Figure(p: { value: number | null; label: string }) {
+  return (
+    <div class="figure">
+      <span class="figure-value">
+        {p.value === null ? <NoData /> : p.value.toLocaleString()}
+      </span>
+      <span class="figure-label">{p.label}</span>
+    </div>
+  );
+}
+
 /**
- * Spec §5.4. Nothing at all before the first run — the gate is the summary
- * record, never sniffing rows — and nothing for an artist with no Spotify id,
- * which is the key every source in this feature starts from. Each line is
- * decided on its own, so an artist Wikidata knows but neither audience source
- * answered for still gets a language count.
+ * Spec 001 §5.4, as a card (spec 003 §10). Nothing at all before the first
+ * run — the gate is the summary record, never sniffing rows — and nothing for
+ * an artist with no Spotify id, which is the key every source in this
+ * feature starts from. Each line is decided on its own, so an artist Wikidata
+ * knows but neither audience source answered for still gets a language
+ * count. Listeners and fans are two figures side by side, never summed.
  */
 function ArtistReach(p: { m: Model; id: string | null }) {
   const summary = artistReachSummary.value;
@@ -70,57 +95,83 @@ function ArtistReach(p: { m: Model; id: string | null }) {
   const mbid = identity?.mbid ?? null;
   if (mbid !== null) {
     links.push({
-      label: 'ListenBrainz ›',
+      label: 'ListenBrainz',
       href: `https://listenbrainz.org/artist/${mbid}/`,
     });
   }
   const deezerId = identity?.deezerArtistId ?? null;
   if (deezerId !== null) {
     links.push({
-      label: 'Deezer ›',
+      label: 'Deezer',
       href: `https://www.deezer.com/artist/${deezerId}`,
     });
   }
   const wiki = wikipediaUrl(identity);
-  if (wiki !== null) links.push({ label: 'Wikipedia ›', href: wiki });
-  // A profile line is real reach data on screen, so "No reach data." must
-  // never sit above one: the numbers line is dropped instead of contradicting
+  if (wiki !== null) links.push({ label: 'Wikipedia', href: wiki });
+  // A profile line is real reach data on screen, so "No reach data" must
+  // never sit above one: the figures are dropped instead of contradicting
   // it. A bare link is only a page to visit, not data, so the sentence stays
-  // beside links (spec §5.4 decides `reachLine`/`profileLine` independently,
-  // but their combination still has to read as one story).
-  const showNumbers = !unresolved || profile === null;
+  // beside links.
   return (
-    <>
-      {showNumbers && (
-        <p class="reach">
-          {unresolved ? 'No reach data.' : reachLine(listeners, fans)}
-        </p>
-      )}
-      {profile && <p class="reach">{profile}</p>}
-      {credit.length > 0 && <p class="reach">{credit.join(' · ')}</p>}
-      {(unresolved || links.length > 0) && (
-        <div class="provenance">
-          {unresolved && (
-            <span>
-              <a href={routeHref({ name: 'settings' })}>Look up artists ›</a>
-            </span>
-          )}
-          {links.length > 0 && (
-            <span>
-              {links.map((link, i) => (
-                <Fragment key={link.href}>
-                  {i > 0 && ' · '}
-                  <a href={link.href} target="_blank" rel="noopener">
-                    {link.label}
-                  </a>
-                </Fragment>
-              ))}
-            </span>
-          )}
+    <Card class="reach-card">
+      {!unresolved && (
+        <div class="reach-figures">
+          <Figure value={listeners} label="ListenBrainz listeners" />
+          <Figure value={fans} label="Deezer fans" />
         </div>
       )}
-    </>
+      {unresolved && profile === null && (
+        <p class="reach-none">No reach data</p>
+      )}
+      {profile && <p class="reach-profile">{profile}</p>}
+      {credit.length > 0 && <p class="reach-credit">{credit.join(' · ')}</p>}
+      {(unresolved || links.length > 0) && (
+        <div class="reach-links">
+          {unresolved && (
+            <a class="btn btn-tonal" href={routeHref({ name: 'settings' })}>
+              <span>Look up artists</span>
+            </a>
+          )}
+          {links.map((link) => (
+            <a
+              key={link.href}
+              class="btn btn-outlined"
+              href={link.href}
+              target="_blank"
+              rel="noopener"
+            >
+              <span>{link.label}</span>
+              <Icon name="open_in_new" size={18} />
+            </a>
+          ))}
+        </div>
+      )}
+    </Card>
   );
+}
+
+/** Title · album · plays · playlists · BPM · key · link (spec 003 §10). */
+function trackColumns(m: Model): Column<ArtistTrack>[] {
+  const featureOf = (r: ArtistTrack) =>
+    r.track.id ? featureFor(m, r.track.id) : null;
+  return [
+    titleColumn((r) => r.track.name),
+    albumColumn((r) => r.track.album || null, {
+      priority: 2,
+      compact: 'subtitle',
+    }),
+    playsColumn((r) => r.plays),
+    countColumn(
+      'playlists',
+      'Playlists',
+      (r) => r.playlistIds.length,
+      { unit: ['playlist', 'playlists'] },
+      { priority: 2, width: '104px' }
+    ),
+    bpmColumn(featureOf),
+    keyColumn(featureOf),
+    spotifyLinkColumn((r) => r.track.spotifyUrl),
+  ];
 }
 
 export function Artist({ artistKey }: { artistKey: string }) {
@@ -142,14 +193,18 @@ export function Artist({ artistKey }: { artistKey: string }) {
   const artistId = agg?.id ?? top?.id ?? null;
   const url = artistUrl(artistId);
   const tracks = agg ? artistTracks(m, artistKey) : [];
+  const place = new Map(tracks.map((t, i) => [t.track.key, i]));
+  const isOpen = (t: ArtistTrack) =>
+    opened.value[t.track.key] ??
+    (place.get(t.track.key) ?? 0) < OPEN_BY_DEFAULT;
   return (
     <section>
-      <p class="muted">
+      <p class="detail-meta artist-meta">
         {plural(tracks.length, 'saved track')} in{' '}
         {plural(agg?.playlistIds.size ?? 0, 'playlist')}
         {url && (
           <>
-            {' · '}
+            <span aria-hidden="true"> · </span>
             <SpotifyLink href={url} label />
           </>
         )}
@@ -158,43 +213,38 @@ export function Artist({ artistKey }: { artistKey: string }) {
           §2 is `model.artists`): a top-list-only artist would never resolve,
           so no "Look up artists" is offered for one. */}
       <ArtistReach m={m} id={agg ? artistId : null} />
-      {tracks.length === 0 && (
+      {tracks.length === 0 ? (
         <p class="empty">No saved tracks from {name} in your playlists.</p>
+      ) : (
+        <DataTable
+          label={`Saved tracks by ${name}`}
+          noun="track"
+          columns={trackColumns(m)}
+          rows={tracks}
+          rowKey={(t) => t.track.key}
+          sort={sort.value}
+          onSort={(s) => {
+            sort.value = s;
+          }}
+          resetKey={artistKey}
+          onOpen={(t) => {
+            opened.value = { ...opened.value, [t.track.key]: !isOpen(t) };
+          }}
+          expanded={(t) =>
+            isOpen(t) ? (
+              <ul class="sublist">
+                {t.playlistIds.map((id) => (
+                  <li key={id}>
+                    <a href={routeHref({ name: 'playlist', id })}>
+                      {m.playlistsById.get(id)?.name ?? id}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : null
+          }
+        />
       )}
-      <ul class="list">
-        {tracks.map((t, i) => {
-          const open = opened.value[t.track.key] ?? i < OPEN_BY_DEFAULT;
-          return (
-            <TrackRow
-              key={t.track.key}
-              title={t.track.name}
-              subtitle={t.track.album}
-              spotifyUrl={t.track.spotifyUrl}
-              onClick={() => {
-                opened.value = { ...opened.value, [t.track.key]: !open };
-              }}
-              badges={
-                <>
-                  <PlaysBadge plays={t.plays} />
-                  {t.track.id && <FeaturePills trackId={t.track.id} />}
-                </>
-              }
-            >
-              {open && (
-                <ul class="sublist">
-                  {t.playlistIds.map((id) => (
-                    <li key={id}>
-                      <a href={routeHref({ name: 'playlist', id })}>
-                        {m.playlistsById.get(id)?.name ?? id}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </TrackRow>
-          );
-        })}
-      </ul>
     </section>
   );
 }

@@ -3,6 +3,7 @@ import type { BannerMessage } from '../../model/banner';
 import { model } from '../../model/state';
 import type { Route } from '../../router';
 import { ActivityButton } from '../ActivityButton';
+import { PlaylistActions } from '../Playlist';
 import { Banner } from '../components/Banner';
 import { ProgressBar } from '../components/ProgressBar';
 import { Nav } from './Nav';
@@ -30,6 +31,9 @@ export function AppFrame(p: {
       <div class="frame-body">
         <TopBar title={title} up={up}>
           <ActivityButton />
+          {p.route.name === 'playlist' && !p.loading && (
+            <PlaylistActions id={p.route.id} />
+          )}
         </TopBar>
         <ScreenTabs current={p.route} />
         {p.banner && <Banner message={p.banner} onClose={p.onCloseBanner} />}

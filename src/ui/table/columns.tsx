@@ -221,7 +221,15 @@ export function countColumn<Row>(
     firstDirection: 'desc',
     cell: (row) => {
       const n = countOf(row);
-      if (n === null) return <NoData />;
+      // On a phone the noun stays beside the dash: "— listeners".
+      if (n === null) {
+        return (
+          <span>
+            <NoData />
+            {opts.unit && <Unit n={2} unit={opts.unit} />}
+          </span>
+        );
+      }
       return (
         <span>
           {n.toLocaleString()}

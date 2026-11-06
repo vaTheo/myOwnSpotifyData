@@ -169,7 +169,8 @@ function compareBySort(
   return comparePlays(a, b, history);
 }
 
-function playsOf(model: Model, agg: ArtistAgg): number {
+/** Plays summed over the artist tracks; 0 when no history is loaded. */
+export function artistPlays(model: Model, agg: ArtistAgg): number {
   let total = 0;
   for (const trackKey of agg.trackKeys) {
     const track = model.tracksByKey.get(trackKey);
@@ -216,7 +217,7 @@ export function rankUnderTheRadar(
       rank: 0,
       tracks: agg.trackKeys.size,
       playlists: agg.playlistIds.size,
-      plays: playsOf(model, agg),
+      plays: artistPlays(model, agg),
       listeners,
       fans,
       views: reach.wikipedia?.value ?? null,
