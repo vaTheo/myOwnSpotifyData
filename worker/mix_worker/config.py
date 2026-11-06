@@ -37,6 +37,7 @@ class Settings:
     proxy: str | None
     stale_seconds: int
     poll_seconds: int
+    heartbeat_seconds: int
     max_duration_seconds: int
     probe_step_seconds: int
     probe_seconds: int
@@ -195,6 +196,7 @@ def load_settings(
         proxy=values.get("WORKER_PROXY") or None,
         stale_seconds=_int(values, "WORKER_STALE_SECONDS", 21600, 1),
         poll_seconds=_int(values, "WORKER_POLL_SECONDS", 60, 1),
+        heartbeat_seconds=_int(values, "WORKER_HEARTBEAT_SECONDS", 30, 1),
         max_duration_seconds=_int(values, "WORKER_MAX_DURATION_SECONDS", 0, 0),
         probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 60, 1),
         probe_seconds=_probe_seconds(values),

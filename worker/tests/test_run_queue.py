@@ -57,7 +57,7 @@ def make(tmp, client, download=None, scan=None, expires_at=10_000.0):
     settings = Settings(
         supabase_url="https://abc.supabase.co", supabase_key="k", worker_name="laptop",
         session_file=Path(tmp) / "s.json", work_dir=work, json_dir=Path(tmp) / "json", log_file=work / "w.log",
-        ffmpeg="ffmpeg", ytdlp_cookies=None, proxy=None, stale_seconds=4321, poll_seconds=7,
+        ffmpeg="ffmpeg", ytdlp_cookies=None, proxy=None, stale_seconds=4321, poll_seconds=7, heartbeat_seconds=30,
         max_duration_seconds=14400, probe_step_seconds=60, probe_seconds=10, cooldown_seconds=0.0,
         rate_limit_pause_seconds=0.0, rate_limit_pauses=3, shazam_device="android", max_skew=0.0, merge_gap_seconds=180, result_max_bytes=900000,
     )
@@ -148,6 +148,27 @@ class Watch(unittest.TestCase):
             code = run_queue(settings, deps, session, once=False, interval=7, sleep=sleep)
             self.assertEqual(code, EXIT_INTERRUPTED)
             self.assertEqual(sleeps, [7, 7])
+
+    def test_waiting_logs_the_empty_queue_and_an_alive_line_every_heartbeat(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = FakeClient([Result("ok", job(1)), Result("ok", None), Result("ok", None)])
+            settings, deps, session = make(tmp, client)
+            sleeps = []
+
+            def sleep(s):
+                sleeps.append(s)
+                if len(sleeps) == 3:
+                    raise KeyboardInterrupt()
+
+            code = run_queue(settings, deps, session, once=False, interval=60, sleep=sleep)
+            self.assertEqual(code, EXIT_INTERRUPTED)
+            self.assertEqual(sleeps, [30, 30, 30])
+            lines = deps.log.lines
+            done_at = next(i for i, l in enumerate(lines) if l.startswith("done "))
+            self.assertEqual(lines[done_at + 1], "queue empty · next look in 60 s")
+            self.assertEqual(lines[done_at + 2], "alive · waiting for a request · next look in 30 s")
+            self.assertEqual(lines[done_at + 3], "queue empty · next look in 60 s")
+            self.assertEqual(lines[-1], "stopped")
 
     def test_ctrl_c_during_a_request_releases_it(self):
         with tempfile.TemporaryDirectory() as tmp:

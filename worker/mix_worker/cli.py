@@ -168,8 +168,9 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
             if once:
                 log.line("queue empty")
                 return EXIT_OK
+            log.line(f"queue empty · next look in {interval} s")
             try:
-                sleep(interval)
+                wait_alive(log, interval, settings.heartbeat_seconds, sleep)
             except KeyboardInterrupt:
                 log.line("stopped")
                 return EXIT_INTERRUPTED
@@ -188,6 +189,18 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
             log.line(f"server: {outcome.server.message}")
             return code_for(outcome.server)
         log.line(f"{outcome.status} {job_id[:8]}" + (f" · {outcome.reason}" if outcome.reason else ""))
+
+
+def wait_alive(log: Any, interval: int, heartbeat: int, sleep: Any) -> None:
+    """Sleeps `interval` seconds in steps of `heartbeat`, with an "alive"
+    line at each step, so a waiting worker visibly still runs."""
+    left = interval
+    while left > 0:
+        step = min(heartbeat, left)
+        sleep(step)
+        left -= step
+        if left > 0:
+            log.line(f"alive · waiting for a request · next look in {left} s")
 
 
 def _masked(key: str) -> str:
@@ -209,7 +222,7 @@ def cmd_check(settings: Settings, config: Path | None, deps: CliDeps) -> int:
         f" · {settings.rate_limit_pauses} rate-limit pauses of {settings.rate_limit_pause_seconds:g} s × n"
         f" · merge gap {settings.merge_gap_seconds} s · max skew {settings.max_skew}"
     )
-    out(f"stale after: {settings.stale_seconds} s · poll: {settings.poll_seconds} s · max set: {settings.max_duration_seconds or 'no limit'}")
+    out(f"stale after: {settings.stale_seconds} s · poll: {settings.poll_seconds} s · alive line: {settings.heartbeat_seconds} s · max set: {settings.max_duration_seconds or 'no limit'}")
     version = deps.ffmpeg_version(settings.ffmpeg)
     if version is None:
         if settings.ffmpeg:
