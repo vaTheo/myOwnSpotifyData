@@ -67,7 +67,6 @@ function SavedTracks() {
 export function Artists() {
   return (
     <section>
-      <h1>Artists</h1>
       <SegmentedButtons
         options={[
           { value: 'saved', label: 'Saved tracks' },

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { CRATE_VIEWS, parseRoute, routeHref, visitEntry } from './router';
+import {
+  CRATE_VIEWS,
+  destinationOf,
+  parseRoute,
+  routeHref,
+  visitEntry,
+} from './router';
 
 describe('parseRoute', () => {
   it('defaults to top for empty or unknown hashes', () => {
@@ -144,5 +150,108 @@ describe('visitEntry', () => {
     const h = fakeHistory('replaced by the OAuth cleanup');
     expect(visitEntry(h)).toBe(true);
     expect(h.state).toEqual({ djVisited: true });
+  });
+});
+
+describe('the detail parameter (spec 003)', () => {
+  it('parses ?d= on the list routes', () => {
+    expect(parseRoute('#/top?d=4uLU6hMCjMI75M1A2tKUQC')).toEqual({
+      name: 'top',
+      detail: '4uLU6hMCjMI75M1A2tKUQC',
+    });
+    expect(parseRoute('#/playlist/abc?d=12')).toEqual({
+      name: 'playlist',
+      id: 'abc',
+      detail: '12',
+    });
+    expect(parseRoute('#/artist/x1?d=t9')).toEqual({
+      name: 'artist',
+      key: 'x1',
+      detail: 't9',
+    });
+    expect(parseRoute('#/crate/year/2026-08?d=t9')).toEqual({
+      name: 'crateView',
+      view: 'year',
+      period: '2026-08',
+      detail: 't9',
+    });
+  });
+
+  it('drops ?d= on routes that list no tracks', () => {
+    expect(parseRoute('#/playlists?d=1')).toEqual({ name: 'playlists' });
+    expect(parseRoute('#/settings?d=1')).toEqual({ name: 'settings' });
+    expect(parseRoute('#/crate?d=1')).toEqual({ name: 'crate' });
+  });
+
+  it('ignores an empty ?d=', () => {
+    expect(parseRoute('#/top?d=')).toEqual({ name: 'top' });
+  });
+
+  it('round-trips a detail through routeHref', () => {
+    const routes = [
+      { name: 'top', detail: 'abc' },
+      { name: 'playlist', id: 'p 1', detail: '12' },
+      { name: 'artist', key: 'name:daft punk', detail: 'x/y' },
+      { name: 'crateView', view: 'year', period: '2022-06', detail: 'z' },
+    ] as const;
+    for (const r of routes) expect(parseRoute(routeHref(r))).toEqual(r);
+  });
+});
+
+describe('the mix key (spec 003)', () => {
+  it('parses #/mix/<key> and round-trips a saved mix url', () => {
+    const key = 'https://soundcloud.com/demo-dj/peak-time?in=a/b';
+    const href = routeHref({ name: 'mix', key });
+    expect(href).toBe(`#/mix/${encodeURIComponent(key)}`);
+    expect(parseRoute(href)).toEqual({ name: 'mix', key });
+  });
+
+  it('keeps #/mix without a key', () => {
+    expect(parseRoute('#/mix')).toEqual({ name: 'mix' });
+    expect(parseRoute('#/mix/')).toEqual({ name: 'mix' });
+    expect(routeHref({ name: 'mix' })).toBe('#/mix');
+  });
+});
+
+describe('destinationOf (spec 003, contracts/routes.md)', () => {
+  it('places every route in its destination and tab', () => {
+    expect(destinationOf({ name: 'top' })).toEqual({
+      destination: 'listening',
+      tab: 'top',
+    });
+    expect(destinationOf({ name: 'crate' })).toEqual({
+      destination: 'listening',
+      tab: 'crate',
+    });
+    expect(destinationOf({ name: 'crateView', view: 'gems' })).toEqual({
+      destination: 'listening',
+      tab: 'crate',
+    });
+    expect(destinationOf({ name: 'playlists' })).toEqual({
+      destination: 'library',
+      tab: 'playlists',
+    });
+    expect(destinationOf({ name: 'playlist', id: 'a' })).toEqual({
+      destination: 'library',
+      tab: 'playlists',
+    });
+    expect(destinationOf({ name: 'artists' })).toEqual({
+      destination: 'library',
+      tab: 'artists',
+    });
+    expect(destinationOf({ name: 'artist', key: 'a' })).toEqual({
+      destination: 'library',
+      tab: 'artists',
+    });
+    expect(destinationOf({ name: 'mix' })).toEqual({ destination: 'mix' });
+    expect(destinationOf({ name: 'mix', key: 'k' })).toEqual({
+      destination: 'mix',
+    });
+    expect(destinationOf({ name: 'settings' })).toEqual({
+      destination: 'settings',
+    });
+    expect(destinationOf({ name: 'import' })).toEqual({
+      destination: 'settings',
+    });
   });
 });

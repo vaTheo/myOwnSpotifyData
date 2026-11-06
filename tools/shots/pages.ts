@@ -55,6 +55,21 @@ export const PAGES: ShotPage[] = [
       }),
   },
 
+  {
+    id: 'activity-open',
+    hash: '#/top',
+    setup: async (page) => {
+      await setState(page, 'syncState', {
+        status: 'running',
+        done: 14,
+        total: 40,
+        current: 'Peak Time Techno',
+        pending: [],
+      });
+      await page.getByRole('button', { name: /^Running/ }).click();
+    },
+  },
+
   // Listening: Top
   { id: 'top-tracks', hash: '#/top' },
   { id: 'top-artists', hash: '#/top', setup: (page) => tab(page, 'Artists') },

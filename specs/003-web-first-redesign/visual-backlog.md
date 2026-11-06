@@ -40,6 +40,7 @@ and 390 px) on the demo data in the variants `full`, `empty`, `old-import`, `no-
 | After | Closed | Still open (and the phase that closes it) |
 |---|---|---|
 | Phase 2 (2026-11-06) | B1 focus rings (364 → 0), B3 segmented 48 px, B4 Spotify icon 48 × 48, B7 Disconnect contrast, B8 links underlined in text: axe 24 → 0 | B2 rows 41 px (US2), B5 back and empty-state links (US1, US2), B6 four-figure ranks (US2); undersized targets 21,378 → 5,266 |
+| US1 (2026-11-06) | V2 navigation: a rail with icons and labels (expanded rail from 1,200 px), the current destination marked by an indicator, a filled icon and a heavier label; V3 four destinations in the phone bar; B5 back links replaced by the top bar's up arrow; no overlap, page scroll or frame finding at any width | V1 the screens still stop at 960 px until their tables arrive (US2); B2, B6 (US2); undersized targets 5,266 → 5,242 |
 
 ## How to read a run
 

@@ -44,62 +44,6 @@ li a,
   text-underline-offset: 2px;
 }
 
-.app {
-  min-height: 100dvh;
-}
-
-.screen {
-  padding: 12px 12px
-    calc(var(--tab-height) + env(safe-area-inset-bottom) + 12px);
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-h1 {
-  font-size: 1.4rem;
-  margin: 8px 0 12px;
-}
-
-h2 {
-  font-size: 1.05rem;
-  margin: 0 0 8px;
-}
-
-a {
-  color: var(--accent);
-}
-
-.tabs {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  height: calc(var(--tab-height) + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
-  background: var(--surface);
-  border-top: 1px solid var(--line);
-}
-
-.tab {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  text-decoration: none;
-  /* Six tabs on a 360 px phone: 60 px each, "Playlists" must fit. */
-  font-size: 0.8rem;
-  white-space: nowrap;
-  min-height: 48px;
-}
-
-.tab.active {
-  color: var(--accent);
-  font-weight: 600;
-}
-
 /* Material 3 tonal button by default; .primary is the filled one. */
 button {
   font: var(--md-sys-typescale-label-large);
@@ -505,17 +449,6 @@ button.danger {
   padding: 32px 12px;
 }
 
-.connect {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 100dvh;
-  padding: 24px;
-  max-width: 480px;
-  margin: 0 auto;
-  gap: 12px;
-}
-
 .sublist {
   list-style: none;
   margin: 0 0 0 38px;
@@ -574,16 +507,6 @@ label.file input {
   width: 0;
   height: 0;
   opacity: 0;
-}
-
-.back {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 0.9rem;
-  padding: 6px 4px 6px 0;
 }
 
 .provenance {
@@ -1100,4 +1023,398 @@ a.btn {
   .file-drop-hint {
     display: block;
   }
+}
+
+/* ---------- The frame (spec 003, US1, contracts/design-tokens.md "Sizes") ----------
+ * compact (< 600): a bottom navigation bar; medium and expanded: an 80 px
+ * rail; large (>= 1200): the expanded rail, labels beside the icons. */
+
+.frame {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.frame-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  flex: 1;
+  width: 100%;
+  /* Until the tables of US2 arrive, the old row lists stay at a readable
+     width; the cap goes when they can use the whole window (FR-005). */
+  max-width: 960px;
+  padding: 8px var(--app-margin)
+    calc(var(--app-nav-bar) + env(safe-area-inset-bottom) + 16px);
+}
+
+.screen-loading {
+  max-width: 480px;
+  padding: 48px 0;
+}
+
+h1 {
+  font: var(--md-sys-typescale-title-large);
+  margin: 8px 0 12px;
+}
+
+h2 {
+  font: var(--md-sys-typescale-title-medium);
+  margin: 0 0 8px;
+}
+
+a {
+  color: var(--md-sys-color-primary);
+}
+
+/* Material 3 small top app bar. */
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--app-top-bar);
+  padding: 0 var(--app-margin);
+  background: var(--md-sys-color-surface);
+}
+
+.top-bar .icon-btn:first-child {
+  margin-left: -12px;
+}
+
+.top-bar-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: var(--md-sys-typescale-title-large);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Material 3 primary tabs under the top bar. */
+.screen-tabs {
+  display: flex;
+  padding: 0 var(--app-margin);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.screen-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: var(--app-target);
+  padding: 0 16px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface-variant);
+  text-decoration: none;
+}
+
+.screen-tab.active {
+  color: var(--md-sys-color-primary);
+}
+
+.screen-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--md-sys-color-primary);
+}
+
+/* The navigation: a bottom bar on compact windows. */
+.nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  height: calc(var(--app-nav-bar) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--md-sys-color-surface-container);
+}
+
+.nav-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: var(--app-target);
+  color: var(--md-sys-color-on-surface-variant);
+  text-decoration: none;
+}
+
+.nav-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 32px;
+  border-radius: var(--md-sys-shape-corner-full);
+  transition: background-color var(--md-sys-motion-duration-short)
+    var(--md-sys-motion-easing-standard);
+}
+
+.nav-label {
+  font: var(--md-sys-typescale-label-medium);
+  white-space: nowrap;
+}
+
+.nav-item:hover .nav-indicator {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.nav-item.active {
+  color: var(--md-sys-color-on-surface);
+}
+
+.nav-item.active .nav-indicator {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.nav-item.active .nav-label {
+  font-weight: 700;
+}
+
+/* Medium and expanded: an 80 px navigation rail on the left. */
+@media (min-width: 600px) {
+  .frame {
+    grid-template-columns: var(--app-nav-rail) minmax(0, 1fr);
+  }
+
+  .screen {
+    padding-bottom: 32px;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    height: 100dvh;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 24px 0 24px;
+    background: var(--md-sys-color-surface-container-low);
+  }
+
+  .nav-item {
+    flex: none;
+    min-height: 56px;
+  }
+
+  .nav-indicator {
+    width: 56px;
+  }
+
+  .nav-foot {
+    margin-top: auto;
+  }
+}
+
+/* Large: the expanded rail, labels beside the icons. */
+@media (min-width: 1200px) {
+  .frame {
+    grid-template-columns: var(--app-nav-rail-expanded) minmax(0, 1fr);
+  }
+
+  .nav {
+    padding: 24px 12px;
+    gap: 4px;
+  }
+
+  .nav-item {
+    position: relative;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 56px;
+    padding: 0 16px;
+    border-radius: var(--md-sys-shape-corner-full);
+  }
+
+  .nav-indicator {
+    width: auto;
+    height: auto;
+    background: none;
+  }
+
+  .nav-item:hover .nav-indicator,
+  .nav-item.active .nav-indicator {
+    background: none;
+  }
+
+  .nav-item:hover {
+    background: color-mix(
+      in srgb,
+      var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+      transparent
+    );
+  }
+
+  .nav-item.active {
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .nav-label {
+    font: var(--md-sys-typescale-label-large);
+  }
+
+  .top-bar-title {
+    font: var(--md-sys-typescale-headline-small);
+  }
+}
+
+/* The activity button and its panel of running jobs. */
+.activity {
+  position: relative;
+}
+
+.ring {
+  transform: rotate(-90deg);
+}
+
+.ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ring-track {
+  stroke: var(--md-sys-color-surface-container-highest);
+}
+
+.ring-value {
+  stroke: var(--md-sys-color-primary);
+  stroke-linecap: round;
+}
+
+.ring.spinning {
+  animation: ring-spin 1s linear infinite;
+}
+
+@keyframes ring-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring.spinning {
+    animation: none;
+  }
+}
+
+.activity-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 5;
+  width: min(320px, calc(100vw - 32px));
+  padding: 8px;
+  border-radius: var(--md-sys-shape-corner-small);
+  background: var(--md-sys-color-surface-container-high);
+  box-shadow: var(--md-sys-elevation-2);
+}
+
+.activity-job {
+  display: block;
+  padding: 8px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  color: var(--md-sys-color-on-surface);
+  text-decoration: none;
+}
+
+.activity-job:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+/* The sign-in card. */
+.connect {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px var(--app-margin);
+}
+
+.connect-card {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 32px 24px;
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  background: var(--md-sys-color-surface-container);
+}
+
+.connect-card h1 {
+  margin: 0;
+  font: var(--md-sys-typescale-headline-small);
+}
+
+.connect-mark {
+  color: var(--md-sys-color-primary);
+}
+
+.connect-purpose {
+  margin: 0;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.connect-reads {
+  margin: 0;
+  padding-left: 20px;
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.connect-privacy summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--app-target);
+  color: var(--md-sys-color-primary);
+  cursor: pointer;
+}
+
+.connect-privacy p {
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.connect-card button.primary {
+  margin-top: 8px;
 }

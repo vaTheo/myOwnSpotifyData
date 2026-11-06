@@ -8,14 +8,6 @@ import { Gems } from './Gems';
 import { Rotation } from './Rotation';
 import { CrateShell } from './shared';
 
-const TITLE: Record<CrateViewName, string> = {
-  rotation: 'Heavy rotation',
-  gems: 'Forgotten gems',
-  classics: 'All-time classics',
-  year: 'By year',
-  finish: 'Finish rate',
-};
-
 function Body({ view, period }: { view: CrateViewName; period?: string }) {
   switch (view) {
     case 'rotation':
@@ -39,7 +31,7 @@ export function CrateView({
   period?: string;
 }) {
   return (
-    <CrateShell title={TITLE[view]}>
+    <CrateShell>
       {crateStatus.value === 'ready' ? (
         <Body view={view} period={period} />
       ) : (

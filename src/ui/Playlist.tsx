@@ -173,7 +173,12 @@ function LikeStatus({ playlistId }: { playlistId: string }) {
       );
     case 'liking':
       return (
-        <ProgressBar label="Liking…" done={s.done} total={s.total} unit="songs" />
+        <ProgressBar
+          label="Liking…"
+          done={s.done}
+          total={s.total}
+          unit="songs"
+        />
       );
     case 'done':
       return <p class="muted">{likeSummary(s)}</p>;
@@ -232,7 +237,6 @@ export function Playlist({ id }: { id: string }) {
   const liking = isLiking(like);
   return (
     <section>
-      <h1>{playlist.name}</h1>
       <p class="muted">
         {seedFeature
           ? plural(listed.length, 'other')

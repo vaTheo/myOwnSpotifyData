@@ -869,7 +869,6 @@ export function Mix() {
   };
   return (
     <section class="mix">
-      <h1>Mix tracklist</h1>
       <form
         onSubmit={(e) => {
           e.preventDefault();
