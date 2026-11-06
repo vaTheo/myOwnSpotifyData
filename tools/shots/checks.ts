@@ -122,8 +122,10 @@ export function layoutChecks(): Finding[] {
   }
 
   // 4. Table columns line up: cells marked data-align="end" share their right
-  //    edge, every other cell its left edge, within 1 px.
-  for (const table of document.querySelectorAll('[role=table]')) {
+  //    edge, every other cell its left edge, within 1 px. The tables are ARIA
+  //    grids; only cells with a `data-align` are columns (a phone's item and
+  //    a heading row spanning the table have none).
+  for (const table of document.querySelectorAll('[role=grid], [role=table]')) {
     const columns = new Map<
       number,
       { edge: number; el: Element; end: boolean }[]
@@ -131,11 +133,11 @@ export function layoutChecks(): Finding[] {
     for (const row of table.querySelectorAll('[role=row]')) {
       const cells = [
         ...row.querySelectorAll(
-          ':scope > [role=cell], :scope > [role=columnheader]'
+          ':scope > [role=gridcell], :scope > [role=cell], :scope > [role=columnheader]'
         ),
       ];
       cells.forEach((cell, index) => {
-        if (!visible(cell)) return;
+        if (!cell.hasAttribute('data-align') || !visible(cell)) return;
         const r = cell.getBoundingClientRect();
         const end = cell.getAttribute('data-align') === 'end';
         const list = columns.get(index) ?? [];

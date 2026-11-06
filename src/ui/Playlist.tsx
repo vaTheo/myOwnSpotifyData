@@ -13,7 +13,7 @@ import {
   type SeedRef,
 } from '../model/aggregate';
 import { featureFor, type ResolvedFeature } from '../model/features';
-import { camelotNumber, formatKey } from '../model/keys';
+import { formatKey } from '../model/keys';
 import { rankMatches, type MatchResult } from '../model/match';
 import {
   historySummary,
@@ -26,36 +26,60 @@ import {
   syncState,
 } from '../model/state';
 import { routeHref } from '../router';
+import { Button } from './components/Button';
 import { Flag } from './components/Flag';
-import { FeaturePills } from './components/FeaturePills';
-import { PlaysBadge } from './components/PlaysBadge';
+import { IconButton } from './components/IconButton';
+import { NoData } from './components/NoData';
 import { ProgressBar } from './components/ProgressBar';
 import { SegmentedButtons } from './components/SegmentedButtons';
 import { SpotifyLink } from './components/SpotifyLink';
-import { TrackRow } from './components/TrackRow';
-import { PERIOD_LABEL, artistNames, formatBpm, plural } from './format';
+import { StatusLine } from './components/StatusLine';
+import { formatBpm, plural } from './format';
+import { windowClass } from './layout/windowClass';
+import { matchCells, type MatchCells } from './playlist/matchCells';
+import {
+  addedColumn,
+  albumColumn,
+  artistsColumn,
+  bpmColumn,
+  durationColumn,
+  keyColumn,
+  playsColumn,
+  rankColumn,
+  spotifyLinkColumn,
+  titleColumn,
+  topFlagsColumn,
+} from './table/columns';
+import { DataTable, type Column } from './table/DataTable';
+import type { SortState } from './table/sort';
 
-const order = signal<'plays' | 'order' | 'match'>('plays');
+type Order = 'plays' | 'order' | 'match';
+
+const order = signal<Order>('plays');
+const DEFAULT_SORT: SortState = { columnId: null, direction: 'asc' };
+/** The header sort, on top of the order; a new order starts from its own. */
+const sort = signal<SortState>(DEFAULT_SORT);
 
 /**
  * Spec §5: one seed per playlist, so walking from one playlist to another
  * with Match on asks for a new seed instead of ranking against a track that
- * is not in this list. The seed is the row that was tapped — `TrackRow.key`
+ * is not in this list. The seed is the row that was tapped — its track key
  * (a local file has no Spotify id) *and* its position, because a playlist may
  * hold the same track twice. Replaced whole, so the signal actually changes.
  */
 const seeds = signal<Record<string, SeedRef>>({});
 
 /**
- * Handed to `rankMatches` and used again for the badge rule, so the list and
- * the badges can never disagree about what "in tolerance" means. It is the
+ * Handed to `rankMatches` and used again for the Relation cell, so the list
+ * and the cells can never disagree about what "in tolerance" means. It is the
  * same 6% as the `tolerancePct` default in spec §2.
  */
 const TOLERANCE_PCT = 6;
 
 interface ListedRow {
   row: RankedTrack;
-  match: MatchResult | null;
+  feature: ResolvedFeature | null;
+  cells: MatchCells;
 }
 
 function setSeed(playlistId: string, row: RankedTrack): void {
@@ -72,13 +96,6 @@ function clearSeed(playlistId: string): void {
   seeds.value = next;
 }
 
-/** '+1.6%', '−2.0%'; an exact tie reads '±0.0%' and not a signed zero. */
-function deltaLabel(pct: number): string {
-  const rounded = Math.round(pct * 10) / 10;
-  const sign = rounded > 0 ? '+' : rounded < 0 ? '−' : '±';
-  return `${sign}${Math.abs(rounded).toFixed(1)}%`;
-}
-
 /** `Matching: Nightdrive · 126 BPM · 8A`; each part only when it is known. */
 function seedCaption(name: string, f: ResolvedFeature | null): string {
   const parts = [`Matching: ${name}`];
@@ -89,60 +106,66 @@ function seedCaption(name: string, f: ResolvedFeature | null): string {
   return parts.join(' · ');
 }
 
-/** 1..12, or null when the source gave a BPM but no key. */
-function wheelNumber(f: ResolvedFeature): number | null {
-  if (f.key === null || f.major === null) return null;
-  return camelotNumber(f.key, f.major);
-}
+/** Relation (same key, relative, boost, +1, −1), or "no data" alone. */
+const relationColumn: Column<ListedRow> = {
+  id: 'relation',
+  header: 'Relation',
+  priority: 1,
+  width: '112px',
+  cell: ({ cells }) =>
+    cells.noData ? (
+      <Flag>no data</Flag>
+    ) : cells.relation ? (
+      <Flag kind="relation">{cells.relation}</Flag>
+    ) : null,
+  compact: 'meta',
+};
+
+/** ΔBPM against the seed; out of tolerance it stays, the relation goes. */
+const deltaColumn: Column<ListedRow> = {
+  id: 'delta',
+  header: 'ΔBPM',
+  align: 'end',
+  priority: 1,
+  width: '88px',
+  cell: ({ cells }) =>
+    cells.noData ? null : cells.delta ? (
+      <span class="dt-num">{cells.delta}</span>
+    ) : (
+      <NoData />
+    ),
+  compact: 'meta',
+};
 
 /**
- * `keyRelation` reports `adjacent`; which side of the wheel that is shows
- * only in the Camelot numbers, so the direction is decided here. 12A → 1A
- * counts as `+1`, the same wrap `keyRelation` itself applies.
+ * Spec 003 §8: # · title · artists · album · length · added · plays ·
+ * (relation · ΔBPM in Match) · top · BPM · key · link.
  */
-function relationLabel(
-  seed: ResolvedFeature,
-  feature: ResolvedFeature,
-  relation: MatchResult['relation']
-): string | null {
-  if (relation === 'same') return 'same key';
-  if (relation === 'relative') return 'relative';
-  if (relation === 'boost') return 'boost';
-  if (relation !== 'adjacent') return null;
-  const from = wheelNumber(seed);
-  const to = wheelNumber(feature);
-  if (from === null || to === null) return null;
-  return (from % 12) + 1 === to ? '+1' : '−1';
-}
-
-/**
- * Spec §5: relation then ΔBPM, and `no data` alone for a track no source
- * knows. A row out of tolerance keeps its ΔBPM and loses the relation; a row
- * with no ΔBPM at all keeps its relation and shows no percentage.
- */
-function MatchBadges(p: {
-  seed: ResolvedFeature | null;
-  match: MatchResult | null;
-}) {
-  const { seed, match } = p;
-  if (!seed || !match) return null;
-  if (!match.feature) return <Flag>no data</Flag>;
-  const far =
-    match.deltaPct !== null && Math.abs(match.deltaPct) > TOLERANCE_PCT;
-  const relation = far
-    ? null
-    : relationLabel(seed, match.feature, match.relation);
-  return (
-    <>
-      {relation && <Flag kind="relation">{relation}</Flag>}
-      {match.deltaPct !== null && <Flag>{deltaLabel(match.deltaPct)}</Flag>}
-    </>
-  );
+function playlistColumns(matching: boolean): Column<ListedRow>[] {
+  const featureOf = (r: ListedRow) => r.feature;
+  return [
+    rankColumn(),
+    titleColumn((r) => r.row.track.name),
+    artistsColumn((r) => r.row.track.artists),
+    albumColumn((r) => r.row.track.album || null, { priority: 4 }),
+    durationColumn((r) => r.row.track.durationMs, {
+      priority: 4,
+      firstDirection: 'asc',
+    }),
+    addedColumn((r) => r.row.entry.addedAt, { priority: 4 }),
+    playsColumn((r) => r.row.plays),
+    ...(matching ? [relationColumn, deltaColumn] : []),
+    topFlagsColumn((r) => r.row.inTop, { sortValue: undefined }),
+    bpmColumn(featureOf),
+    keyColumn(featureOf),
+    spotifyLinkColumn((r) => r.row.track.spotifyUrl),
+  ];
 }
 
 /**
  * Like-playlist spec §3: every line of the like job, shown only on the
- * playlist it belongs to. Every failure is printed here; no banner.
+ * playlist it belongs to, inline under the header. Every failure is printed
+ * here; no banner.
  */
 function LikeStatus({ playlistId }: { playlistId: string }) {
   const s = likeState.value;
@@ -150,41 +173,104 @@ function LikeStatus({ playlistId }: { playlistId: string }) {
   switch (s.status) {
     case 'needScope':
       return (
-        <>
-          <p class="muted">
+        <div class="like-status">
+          <StatusLine kind="warning">
             This app cannot like songs yet — connect again to allow it. Your
             library stays on this phone.
-          </p>
-          <div class="actions">
-            <button type="button" onClick={() => auth.logout()}>
-              Connect again to allow likes
-            </button>
-          </div>
-        </>
+          </StatusLine>
+          <Button variant="tonal" onClick={() => auth.logout()}>
+            Connect again to allow likes
+          </Button>
+        </div>
       );
     case 'checking':
       return (
-        <ProgressBar
-          label="Checking your Liked Songs…"
-          done={s.done}
-          total={s.total}
-          unit="songs"
-        />
+        <div class="like-status">
+          <ProgressBar
+            label="Checking your Liked Songs…"
+            done={s.done}
+            total={s.total}
+            unit="songs"
+          />
+        </div>
       );
     case 'liking':
       return (
-        <ProgressBar
-          label="Liking…"
-          done={s.done}
-          total={s.total}
-          unit="songs"
-        />
+        <div class="like-status">
+          <ProgressBar
+            label="Liking…"
+            done={s.done}
+            total={s.total}
+            unit="songs"
+          />
+        </div>
       );
     case 'done':
-      return <p class="muted">{likeSummary(s)}</p>;
+      return (
+        <div class="like-status">
+          <StatusLine kind="success">{likeSummary(s)}</StatusLine>
+        </div>
+      );
     case 'error':
-      return <p class="error">{likeErrorText(s)}</p>;
+      return (
+        <div class="like-status">
+          <StatusLine kind="error">{likeErrorText(s)}</StatusLine>
+        </div>
+      );
   }
+}
+
+/**
+ * The top bar's actions on a playlist (spec 003 §8): Sync this playlist and
+ * Like all songs, with today's labels and disabled rules. Icon buttons on a
+ * phone, where the labels become their names and tooltips.
+ */
+export function PlaylistActions({ id }: { id: string }) {
+  const m = model.value;
+  if (!m?.playlistsById.has(id)) return null;
+  const busy = isSyncBusy(syncState.value);
+  const like = likeState.value;
+  const liking = isLiking(like);
+  const syncLabel = busy ? 'Syncing…' : 'Sync this playlist';
+  const likeLabel = likeButtonLabel(like, id);
+  if (windowClass.value === 'compact') {
+    return (
+      <>
+        <IconButton
+          icon="sync"
+          label={syncLabel}
+          disabled={busy}
+          onClick={() => void startSync(id)}
+        />
+        <IconButton
+          icon="favorite"
+          label={likeLabel}
+          disabled={liking}
+          onClick={() => void startLikePlaylist(id)}
+        />
+      </>
+    );
+  }
+  return (
+    <>
+      <Button
+        variant="text"
+        icon="sync"
+        disabled={busy}
+        onClick={() => void startSync(id)}
+      >
+        {syncLabel}
+      </Button>
+      <Button
+        variant="text"
+        icon="favorite"
+        disabled={liking}
+        onClick={() => void startLikePlaylist(id)}
+      >
+        {likeLabel}
+      </Button>
+    </>
+  );
 }
 
 export function Playlist({ id }: { id: string }) {
@@ -204,126 +290,159 @@ export function Playlist({ id }: { id: string }) {
     order.value === 'order'
       ? [...ranked].sort((a, b) => a.entry.position - b.entry.position)
       : ranked;
+  const featureOfRow = (r: RankedTrack) =>
+    r.track.id ? featureFor(m, r.track.id) : null;
   // Ranked by position, not by track key: a playlist may hold the same track
   // twice, and two candidates sharing an id would collapse the second row.
   const byPosition = new Map(rows.map((r) => [String(r.entry.position), r]));
   const matching = order.value === 'match';
   const seed = matching ? findSeedRow(rows, seeds.value[id]) : undefined;
-  const seedFeature =
-    seed && seed.track.id ? featureFor(m, seed.track.id) : null;
+  const seedFeature = seed ? featureOfRow(seed) : null;
   const seedPosition = seed?.entry.position;
   const listed: ListedRow[] = seedFeature
     ? rankMatches(
         seedFeature,
-        // Exclude only the seed's own position (not its track id): the
-        // caption already names the seed as "Matching: …", so it must not
-        // also rank as the top result of its own list. A track that
-        // appears twice in the playlist keeps its other row.
+        // Exclude only the seed's own position (not its track id): the seed
+        // bar already names the seed as "Matching: …", so it must not also
+        // rank as the top result of its own list. A track that appears twice
+        // in the playlist keeps its other row.
         rows
           .filter((r) => r.entry.position !== seedPosition)
           .map((r) => ({
             id: String(r.entry.position),
-            feature: r.track.id ? featureFor(m, r.track.id) : null,
+            feature: featureOfRow(r),
           })),
         TOLERANCE_PCT
-      ).flatMap((match) => {
+      ).flatMap((match: MatchResult) => {
         const row = byPosition.get(match.id);
-        return row ? [{ row, match }] : [];
+        return row
+          ? [
+              {
+                row,
+                feature: match.feature,
+                cells: matchCells(seedFeature, match, TOLERANCE_PCT),
+              },
+            ]
+          : [];
       })
-    : rows.map((row) => ({ row, match: null }));
-  const sync = syncState.value;
-  const busy = isSyncBusy(sync);
-  const like = likeState.value;
-  const liking = isLiking(like);
-  return (
-    <section>
-      <p class="muted">
-        {seedFeature
-          ? plural(listed.length, 'other')
-          : plural(ranked.length, 'track')}
-        {playlist.spotifyUrl && (
-          <>
-            {' · '}
-            <SpotifyLink href={playlist.spotifyUrl} label />
-          </>
-        )}
-      </p>
-      <div class="actions">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void startSync(id)}
-        >
-          {busy ? 'Syncing…' : 'Sync this playlist'}
-        </button>
-        <button
-          type="button"
-          disabled={liking}
-          onClick={() => void startLikePlaylist(id)}
-        >
-          {likeButtonLabel(like, id)}
-        </button>
+    : rows.map((row) => ({
+        row,
+        feature: featureOfRow(row),
+        cells: matchCells(null, null, TOLERANCE_PCT),
+      }));
+  const side = windowClass.value === 'large';
+
+  const head = (
+    <div class="detail-head">
+      {playlist.imageUrl ? (
+        <img class="detail-cover" src={playlist.imageUrl} alt="" />
+      ) : (
+        <span class="detail-cover" aria-hidden="true" />
+      )}
+      <div class="detail-head-text">
+        <p class="detail-name">{playlist.name}</p>
+        <p class="detail-meta">
+          {seedFeature
+            ? plural(listed.length, 'other')
+            : plural(ranked.length, 'track')}
+          {playlist.spotifyUrl && (
+            <>
+              <span aria-hidden="true"> · </span>
+              <SpotifyLink href={playlist.spotifyUrl} label />
+            </>
+          )}
+        </p>
       </div>
+    </div>
+  );
+
+  const controls = (
+    <>
       <LikeStatus playlistId={id} />
-      <SegmentedButtons
-        options={[
-          { value: 'plays', label: 'By plays' },
-          { value: 'order', label: 'Playlist order' },
-          { value: 'match', label: 'Match' },
-        ]}
-        value={order.value}
-        onChange={(v) => {
-          order.value = v;
-          if (v !== 'match') clearSeed(id);
-        }}
-      />
+      <div class="toolbar">
+        <SegmentedButtons
+          options={[
+            { value: 'plays', label: 'By plays' },
+            { value: 'order', label: 'Playlist order' },
+            { value: 'match', label: 'Match' },
+          ]}
+          value={order.value}
+          onChange={(v) => {
+            order.value = v;
+            sort.value = DEFAULT_SORT;
+            if (v !== 'match') clearSeed(id);
+          }}
+        />
+      </div>
       {!historySummary.value && (
         <p class="caption">
           No play counts yet —{' '}
           <a href={routeHref({ name: 'import' })}>import your history</a>
         </p>
       )}
-      {matching && !seed && <p class="caption">Tap a track to match against</p>}
+      {matching && !seed && (
+        <p class="seed-bar caption">Select a track to match against</p>
+      )}
       {matching && seed && (
-        <>
-          <p class="caption">{seedCaption(seed.track.name, seedFeature)}</p>
+        <div class="seed-bar">
+          <p class="seed-caption">
+            {seedCaption(seed.track.name, seedFeature)}
+          </p>
+          <Button variant="text" icon="close" onClick={() => clearSeed(id)}>
+            Clear
+          </Button>
           {!seedFeature && (
-            <p class="muted">No BPM or key for this track yet</p>
+            <StatusLine kind="warning">
+              No BPM or key for this track yet
+            </StatusLine>
           )}
           {seedFeature?.bpm === null && (
-            <p class="muted">No BPM for this track — matching by key alone</p>
+            <StatusLine>
+              No BPM for this track — matching by key alone
+            </StatusLine>
           )}
-          <div class="actions">
-            <button type="button" onClick={() => clearSeed(id)}>
-              Clear
-            </button>
-          </div>
-        </>
+        </div>
       )}
-      <ul class="list">
-        {listed.map(({ row: r, match }, i) => (
-          <TrackRow
-            key={r.entry.position}
-            rank={i + 1}
-            title={r.track.name}
-            subtitle={artistNames(r.track.artists)}
-            spotifyUrl={r.track.spotifyUrl}
-            onClick={matching ? () => setSeed(id, r) : undefined}
-            badges={
-              <>
-                <PlaysBadge plays={r.plays} />
-                {r.inTop.map((p) => (
-                  <Flag kind="top" key={p}>
-                    Top {PERIOD_LABEL[p]}
-                  </Flag>
-                ))}
-                <MatchBadges seed={seedFeature} match={match} />
-                {r.track.id && <FeaturePills trackId={r.track.id} />}
-              </>
-            }
-          />
-        ))}
-      </ul>
+    </>
+  );
+
+  const table = (
+    <DataTable
+      label={`${playlist.name}, ${
+        matching
+          ? 'matches'
+          : order.value === 'order'
+            ? 'playlist order'
+            : 'by plays'
+      }`}
+      noun="track"
+      columns={playlistColumns(matching && seedFeature !== null)}
+      rows={listed}
+      rowKey={(r) => String(r.row.entry.position)}
+      sort={sort.value}
+      onSort={(s) => {
+        sort.value = s;
+      }}
+      resetKey={`${id} ${order.value} ${seedPosition ?? ''}`}
+      onOpen={matching ? (r) => setSeed(id, r.row) : undefined}
+    />
+  );
+
+  // Large windows: the header and the controls sit beside the table, so a
+  // 900 px tall window shows 15 rows (SC-001).
+  return side ? (
+    <section class="playlist-layout">
+      <div class="playlist-side">
+        {head}
+        {controls}
+      </div>
+      <div class="playlist-main">{table}</div>
+    </section>
+  ) : (
+    <section>
+      {head}
+      {controls}
+      {table}
     </section>
   );
 }

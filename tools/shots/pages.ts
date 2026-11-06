@@ -41,6 +41,45 @@ async function setState(page: Page, name: string, value: unknown) {
   ] as const);
 }
 
+/** The first track row of the screen's table (row 0 is the header). */
+async function firstRow(page: Page): Promise<void> {
+  await page
+    .getByRole('grid')
+    .first()
+    .getByRole('row')
+    .nth(1)
+    .click({ position: { x: 120, y: 20 } });
+}
+
+/**
+ * SC-001: at 1440 × 900 a playlist shows at least 15 whole rows without
+ * scrolling, with the title, artists, plays, BPM and key columns on screen.
+ */
+async function fifteenRows(page: Page): Promise<string[]> {
+  const size = page.viewportSize();
+  if (!size || size.width !== 1440 || size.height !== 900) return [];
+  return page.evaluate(() => {
+    const out: string[] = [];
+    const grid = document.querySelector('[role=grid]');
+    if (!grid) return ['SC-001: no table on the page'];
+    const rows = [...grid.querySelectorAll('[role=row][data-row-id]')];
+    const whole = rows.filter((row) => {
+      const r = row.getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= innerHeight + 0.5;
+    }).length;
+    if (whole < 15)
+      out.push(`SC-001: ${whole} whole rows in the viewport, needs 15`);
+    const headers = [...grid.querySelectorAll('[role=columnheader]')]
+      .filter((h) => h.getBoundingClientRect().width > 0)
+      .map((h) => (h.textContent ?? '').trim());
+    for (const name of ['Title', 'Artists', 'Plays', 'BPM', 'Key']) {
+      if (!headers.includes(name))
+        out.push(`SC-001: no ${name} column on screen`);
+    }
+    return out;
+  });
+}
+
 export const PAGES: ShotPage[] = [
   // Connect and the frame
   { id: 'connect', variant: 'signed-out', hash: '#/' },
@@ -101,6 +140,7 @@ export const PAGES: ShotPage[] = [
   {
     id: 'playlist-big',
     hash: (ids) => `#/playlist/${enc(ids.bigPlaylist ?? '')}`,
+    expect: fifteenRows,
   },
   {
     id: 'playlist-order',
@@ -108,12 +148,17 @@ export const PAGES: ShotPage[] = [
     setup: (page) => tab(page, 'Playlist order'),
   },
   {
+    id: 'playlist-match-select',
+    hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
+    setup: (page) => tab(page, 'Match'),
+  },
+  {
     id: 'playlist-match',
     hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
     setup: async (page) => {
       await tab(page, 'Match');
-      // In Match mode every row is a button; the first one becomes the seed.
-      await page.locator('main li button').first().click();
+      // In Match mode a row click sets the seed.
+      await firstRow(page);
     },
   },
   {
@@ -136,6 +181,26 @@ export const PAGES: ShotPage[] = [
     id: 'artists-radar',
     hash: '#/artists',
     setup: (page) => tab(page, 'Under the radar'),
+  },
+  {
+    id: 'artists-radar-listeners',
+    hash: '#/artists',
+    setup: async (page) => {
+      await tab(page, 'Under the radar');
+      // The Listeners header sorts on larger windows; a phone keeps the tabs.
+      const header = page.getByRole('button', { name: 'Listeners' });
+      if (await header.count()) await header.click();
+      else await tab(page, 'Fewest listeners');
+    },
+  },
+  {
+    // A filter that reaches every group, so the headings are on screen.
+    id: 'artists-radar-groups',
+    hash: '#/artists',
+    setup: async (page) => {
+      await tab(page, 'Under the radar');
+      await page.getByPlaceholder('Filter artists').fill('fjord');
+    },
   },
   {
     id: 'artists-radar-no-reach',

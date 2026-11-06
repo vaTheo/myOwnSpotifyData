@@ -84,6 +84,12 @@ export function DataTable<Row>(p: {
   resetKey?: string;
   /** What a row is called in the paging footer ("track", "artist"). */
   noun?: string;
+  /**
+   * The rows arrive already in the order `sort` names (Under the radar's
+   * three sorts): a header click only reports the column, the table never
+   * re-sorts, and the group headings stay.
+   */
+  presorted?: boolean;
 }) {
   const compact = windowClass.value === 'compact';
   const [shown, setShown] = useState(PAGE_SIZE);
@@ -98,10 +104,10 @@ export function DataTable<Row>(p: {
   const column = p.columns.find((c) => c.id === p.sort.columnId);
   const ordered = useMemo(
     () =>
-      column?.sortValue
+      column?.sortValue && !p.presorted
         ? sortRows(ranked, (r) => column.sortValue!(r.row), p.sort.direction)
         : ranked,
-    [ranked, column, p.sort.direction]
+    [ranked, column, p.sort.direction, p.presorted]
   );
 
   useEffect(() => {
@@ -110,7 +116,8 @@ export function DataTable<Row>(p: {
   }, [p.sort.columnId, p.sort.direction, p.resetKey]);
 
   const visible = ordered.slice(0, shown);
-  const grouped = p.groupOf !== undefined && p.sort.columnId === null;
+  const grouped =
+    p.groupOf !== undefined && (p.presorted || p.sort.columnId === null);
 
   function focusRow(index: number): void {
     setActive(index);
@@ -142,6 +149,11 @@ export function DataTable<Row>(p: {
   }
 
   function sortBy(c: Column<Row>): void {
+    if (p.presorted) {
+      p.onSort({ columnId: c.id, direction: c.firstDirection ?? 'asc' });
+      setAnnounce(`Sorted by ${c.header}`);
+      return;
+    }
     const next = nextSort(p.sort, c.id, c);
     p.onSort(next);
     const by = next.columnId === null ? 'the default order' : c.header;

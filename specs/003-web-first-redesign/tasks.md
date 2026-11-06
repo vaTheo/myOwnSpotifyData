@@ -249,7 +249,7 @@ sorting by BPM then plays keeps each rank; compact shows two-line items.
   - **Tables**: the Tracks and Artists columns with the priorities and first sort directions of §4.
   - **Rows**: a track row keeps today's playlists sublist through `expanded` until US3. An artist row opens `#/artist/<key>`.
 - [X] T049 [US2] Create `src/ui/top/ComparePeriods.tsx` and add a "Compare periods" toggle (large windows only) to `src/ui/Top.tsx`: three narrow ranked columns (4 weeks, 6 months, all time); hovering or focusing an item outlines the same id in the other columns.
-- [ ] T050 [US2] Rewrite `src/ui/Playlist.tsx` per §8.
+- [X] T050 [US2] Rewrite `src/ui/Playlist.tsx` per §8.
   - **Header**: the cover at 64 px, the name, and "N tracks · Open in Spotify".
   - **Actions**: Sync this playlist and Like all songs as top-bar actions, with today's labels and disabled rules.
   - **Like status**: `LikeStatus` inline under the header, never a banner.
@@ -259,17 +259,17 @@ sorting by BPM then plays keeps each rank; compact shows two-line items.
     - The seed bar shows "Matching: … · BPM · key" with Clear, and "Select a track to match against" before a seed is set.
     - Relation and ΔBPM columns sit after Plays.
     - The "No BPM or key for this track yet" and "No BPM for this track — matching by key alone" notes stay.
-- [ ] T051 [US2] Rewrite `src/ui/Artist.tsx` per §10.
+- [X] T051 [US2] Rewrite `src/ui/Artist.tsx` per §10.
   - **Header**: "N saved tracks in N playlists · Open in Spotify".
   - **Reach card**: Listeners and Fans side by side, never summed; `profileLine`, then "as of" and the CC BY-SA credit; the ListenBrainz, Deezer and Wikipedia links as outlined buttons with `open_in_new`; "No reach data" with Look up artists when unresolved; every rule of `ArtistReach` kept.
   - **Table**: Title, Album, Plays, Playlists, BPM, Key. Keep `OPEN_BY_DEFAULT` through `expanded` until US3.
-- [ ] T052 [US2] Rewrite `src/ui/Artists.tsx` and `src/ui/UnderRadar.tsx` as one artist table per §9.
+- [X] T052 [US2] Rewrite `src/ui/Artists.tsx` and `src/ui/UnderRadar.tsx` as one artist table per §9.
   - **Toolbar**: `ScreenTabs`, the view `SegmentedButtons`, the filter.
   - **Saved tracks**: Plays shows once a history is imported. Listeners and Fans show only when `artistReachSummary.value?.version === 1`.
   - **Under the radar sorting**: the Plays, Listeners and Fans headers set `radarSort` (`plays`, `listeners`, `fans`); other columns do not sort.
   - **Under the radar groups**: the `radar`, `unknown` and `known` order stays. "No reach data" and "Well known" are heading rows (never filters), with "Not resolved yet · Look up artists ›" under the first.
   - **Under the radar figures**: listeners and fans in two columns, never summed; `NoData` never 0; the coverage line; the CC BY-SA credit when Well known rows show; the `NoRun` gate card.
-- [ ] T053 [US2] Add to `tools/shots/pages.ts`:
+- [X] T053 [US2] Add to `tools/shots/pages.ts`:
   - pages for the playlist in each order, Match with a seed, Top tracks, artists and compare, the Artist, and Artists in both views;
   - an assertion for SC-001: at 1440 × 900 the 500-track playlist shows at least 15 rows in the viewport.
 
