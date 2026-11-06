@@ -9,7 +9,7 @@ import type {
 } from '../../db/schema';
 import { buildModel } from '../../model/aggregate';
 import { featureFor } from '../../model/features';
-import { historyCells, trackFacts } from './trackFacts';
+import { trackFacts } from './trackFacts';
 
 const daft = { id: 'daft', name: 'Daft Punk' };
 const guest = { id: 'guest', name: 'Guest' };
@@ -143,15 +143,6 @@ const recco = (over: object = {}) => ({
   energy: 0.4,
   fetchedAt: 200,
   ...over,
-});
-
-describe('historyCells', () => {
-  it('gives one cell per year from the first play to the last, gaps as a dash', () => {
-    expect(
-      historyCells({ '2023-04': 2, '2023-09': 1, '2025-01': 4, '2024-02': 0 })
-    ).toEqual(["'23 3", "'24 —", "'25 4"]);
-    expect(historyCells({})).toEqual([]);
-  });
 });
 
 describe('trackFacts', () => {

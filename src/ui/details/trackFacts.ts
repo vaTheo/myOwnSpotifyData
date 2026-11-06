@@ -174,29 +174,6 @@ function playlistIds(
 }
 
 /**
- * The History section's text strip until its chart lands (T075): plays per
- * year, `'24 12`, from the first year played to the last, a dash for a year
- * without plays, as All-time classics writes them.
- */
-export function historyCells(months: Record<string, number>): string[] {
-  const perYear = new Map<number, number>();
-  for (const [month, n] of Object.entries(months)) {
-    if (n <= 0) continue;
-    const year = Number(month.slice(0, 4));
-    perYear.set(year, (perYear.get(year) ?? 0) + n);
-  }
-  if (perYear.size === 0) return [];
-  const years = [...perYear.keys()];
-  const cells: string[] = [];
-  for (let y = Math.min(...years); y <= Math.max(...years); y += 1) {
-    cells.push(
-      `'${String(y).slice(2)} ${perYear.get(y)?.toLocaleString() ?? '—'}`
-    );
-  }
-  return cells;
-}
-
-/**
  * The facts of one track for the details sheet (spec 003, data-model §5),
  * or null for an unknown or stale reference. Nothing is computed anew: plays
  * come from `playsFor` (the Plays column's count), audio from

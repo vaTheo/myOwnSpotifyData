@@ -1,4 +1,3 @@
-import type { ComponentChild } from 'preact';
 import { MONTH_NAMES } from '../../model/crate';
 import { model } from '../../model/state';
 import { routeHref } from '../../router';
@@ -14,21 +13,6 @@ import { plural } from '../format';
 export function monthLabel(key: string): string {
   const [year, month] = key.split('-');
   return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
-}
-
-/**
- * A dense year/month readout. Each `<label> <count>` pair is one nowrap span
- * carrying its own trailing separator, so a line can break only after a " · "
- * and a count never opens a line.
- */
-export function Strip(p: { cells: string[] }) {
-  const nodes: ComponentChild[] = [];
-  p.cells.forEach((cell, i) => {
-    const last = i === p.cells.length - 1;
-    nodes.push(<span key={`${i} ${cell}`}>{last ? cell : `${cell} ·`}</span>);
-    if (!last) nodes.push(' ');
-  });
-  return <p class="strip">{nodes}</p>;
 }
 
 /**
