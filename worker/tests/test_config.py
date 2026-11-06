@@ -40,7 +40,7 @@ class Defaults(unittest.TestCase):
         self.assertEqual(s.poll_seconds, 60)
         self.assertEqual(s.heartbeat_seconds, 30)
         self.assertEqual(s.max_duration_seconds, 0)
-        self.assertEqual(s.probe_step_seconds, 12)
+        self.assertEqual(s.probe_step_seconds, 15)
         self.assertEqual(s.probe_seconds, 12)
         self.assertEqual(s.cooldown_seconds, 3.0)
         self.assertEqual(s.rate_limit_pause_seconds, 300.0)

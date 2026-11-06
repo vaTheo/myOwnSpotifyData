@@ -96,8 +96,9 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
   scanned at 10 s every 60 s gave 18 rows, 3 shared with the owner's Tracklistify playlist of 15; the worker matched 30 of 130
   probes and nothing in the first 49 minutes, and its single-probe rows (63–80 %) looked like wrong matches. Both tools
   fingerprint 12 s at most (`shazamio_core` takes a centred 12 s window), so Tracklistify heard 12 s every 85 s; 12 s every 30 s
-  hears about 40 % of the set, at 240 calls for 2 h (about 20 minutes with the 3 s cooldown). The owner then chose the whole
-  set: **12 s every 12 s**, probes end to end, 600 calls for 2 h (about 50 minutes); the rate-limit pauses (D3) are the guard.
+  hears about 40 % of the set, at 240 calls for 2 h (about 20 minutes with the 3 s cooldown). The owner then settled on
+  **12 s every 15 s**: 80 % of the set heard, 480 calls for 2 h (about 40 minutes); 12 (end to end) stays a setting; the
+  rate-limit pauses (D3) are the guard.
 
 ## D5. Confidence and merging: the fork's formula, one row per run of matching probes
 
