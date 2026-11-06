@@ -92,6 +92,12 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
   (NEW / same track / no match / skipped, with ISRC, label and confidence), the ffmpeg cut and any ffmpeg warning, and the
   download at 1 %, then every 5 %.
 
+- **Revised again 2026-11-06 (owner's pick, after the first comparison)**: **12 s every 30 s**. The LYL Radio set (2 h 10)
+  scanned at 10 s every 60 s gave 18 rows, 3 shared with the owner's Tracklistify playlist of 15; the worker matched 30 of 130
+  probes and nothing in the first 49 minutes, and its single-probe rows (63–80 %) looked like wrong matches. Both tools
+  fingerprint 12 s at most (`shazamio_core` takes a centred 12 s window), so Tracklistify heard 12 s every 85 s; 12 s every 30 s
+  hears about 40 % of the set, at 240 calls for 2 h (about 20 minutes with the 3 s cooldown).
+
 ## D5. Confidence and merging: the fork's formula, one row per run of matching probes
 
 - **Decision**: `confidence = 0.6 × freq + 0.4 × time`, with `freq = 100 × (1 − min(|frequencyskew|, 0.1) / 0.1)` and the same

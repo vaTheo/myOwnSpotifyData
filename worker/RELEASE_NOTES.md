@@ -8,3 +8,9 @@ One executable per system, from `worker/` at this tag. Put it in a folder of its
 Inside: yt-dlp, ShazamIO and a static ffmpeg built by BtbN/FFmpeg-Builds under the GPL v3, shipped unmodified through the
 `imageio-ffmpeg` package (its own licence: BSD-2-Clause). The worker itself is MIT, like the app. YouTube links need Node or
 Deno on the computer; other platforms need nothing else.
+
+## What changed
+
+- 0.2.0: listens to 12 s every 30 s of the set (was 10 s every 60 s): more of the set heard, fewer wrong matches; a 2 h set
+  takes about 20 minutes. A recognition that hangs is cut off after 45 s and retried, then skipped; the sign-in is refreshed
+  before sending; a console that cannot print a title no longer stops the worker.
