@@ -7,7 +7,7 @@
  * survives the redesign of the markup.
  */
 import type { Page } from '@playwright/test';
-import type { DemoIds, DemoVariant } from '../../src/dev/flag';
+import { DEMO_NOW, type DemoIds, type DemoVariant } from '../../src/dev/flag';
 
 export type Story =
   'US1' | 'US2' | 'US3' | 'US4' | 'US5' | 'US6' | 'US7' | 'US8';
@@ -29,6 +29,28 @@ export interface ShotPage {
 }
 
 const enc = encodeURIComponent;
+
+/** The server session the Settings pages sign in with (demo only). */
+const SERVER_SESSION = {
+  accessToken: 'demo',
+  refreshToken: 'demo',
+  expiresAt: DEMO_NOW + 3_600_000,
+  email: 'dj@example.com',
+};
+
+/** An artist reach summary for the `done` reach states. */
+const REACH_SUMMARY = {
+  version: 1,
+  ranAt: DEMO_NOW - 86_400_000,
+  paused: [],
+  artists: 1204,
+  covered: 1151,
+  resolved: 1151,
+  listenbrainz: 1100,
+  deezer: 1120,
+  wikipedia: 310,
+  wellKnown: 290,
+};
 
 async function tab(page: Page, name: string): Promise<void> {
   await page.getByRole('tab', { name, exact: true }).first().click();
@@ -263,23 +285,226 @@ export const PAGES: ShotPage[] = [
       page.getByText('Peak time set at the Harbour', { exact: true }).click(),
   },
 
-  // Settings and Import
+  // Settings and Import (US5): every job state and failure the sections show
   { id: 'settings', hash: '#/settings' },
   { id: 'settings-empty', variant: 'empty', hash: '#/settings' },
   { id: 'settings-locked', variant: 'locked', hash: '#/settings' },
   {
+    // Sync, lookup, Rekordbox and reach running, the server sending.
     id: 'settings-running',
     hash: '#/settings',
-    setup: (page) =>
-      setState(page, 'syncState', {
+    setup: async (page) => {
+      await setState(page, 'syncState', {
         status: 'running',
         done: 14,
         total: 40,
         current: 'Peak Time Techno',
         pending: [],
+      });
+      await setState(page, 'lookupState', {
+        status: 'running',
+        pass: 'ISRC',
+        done: 320,
+        total: 1180,
+      });
+      await setState(page, 'rekordboxState', {
+        status: 'running',
+        file: 'rekordbox.xml',
+        index: 1,
+        total: 1,
+      });
+      await setState(page, 'reachState', {
+        status: 'running',
+        step: 'listenbrainz',
+        done: 412,
+        total: 1204,
+        paused: ['deezer'],
+      });
+      await setState(page, 'serverSession', SERVER_SESSION);
+      await setState(page, 'serverState', {
+        status: 'pushing',
+        dataset: 'tracks',
+        done: 1500,
+        total: 4980,
+      });
+    },
+  },
+  {
+    // Every job done, the server connected with its stamps table.
+    id: 'settings-done',
+    hash: '#/settings',
+    setup: async (page) => {
+      await setState(page, 'lookupState', {
+        status: 'done',
+        found: 1012,
+        notFound: 168,
+        total: 1180,
+      });
+      await setState(page, 'reachState', {
+        status: 'done',
+        summary: REACH_SUMMARY,
+        run: { lookedUp: 1204, written: 2110, unresolved: 53 },
+        paused: [],
+      });
+      await setState(page, 'serverSession', SERVER_SESSION);
+      await setState(page, 'serverState', {
+        status: 'connected',
+        lastSyncAt: DEMO_NOW - 3_600_000,
+        usedBytes: 12.5 * 1024 * 1024,
+        rejected: 3,
+        stamps: [
+          {
+            name: 'Playlists',
+            localAt: DEMO_NOW - 86_400_000,
+            serverAt: DEMO_NOW - 86_400_000,
+            rows: 42,
+          },
+          {
+            name: 'History',
+            localAt: DEMO_NOW - 864_000_000,
+            serverAt: null,
+            rows: null,
+          },
+          {
+            name: 'Audio data',
+            localAt: null,
+            serverAt: DEMO_NOW - 172_800_000,
+            rows: 1012,
+          },
+        ],
+      });
+    },
+  },
+  {
+    // Every failure: sync, lookup, Rekordbox, reach (a source paused), and
+    // the server signed out with an error and a link just sent.
+    id: 'settings-errors',
+    hash: '#/settings',
+    setup: async (page) => {
+      await setState(page, 'syncState', {
+        status: 'error',
+        message: 'Spotify did not answer (HTTP 502).',
+        pending: ['Peak Time Techno'],
+      });
+      await setState(page, 'lookupState', {
+        status: 'error',
+        message: 'ReccoBeats did not answer (HTTP 503).',
+      });
+      await setState(page, 'rekordboxState', {
+        status: 'error',
+        message: 'This file is not a Rekordbox collection.',
+      });
+      await setState(page, 'reachState', {
+        status: 'error',
+        message: 'MusicBrainz did not answer (HTTP 503).',
+        paused: ['wikidata'],
+      });
+      await setState(page, 'serverState', {
+        status: 'error',
+        message: 'Signed out of the server: the session expired.',
+      });
+      await setState(page, 'serverLinkSent', 'dj@example.com');
+    },
+  },
+  {
+    // A cancelled sync; the server offline; nothing new for either lookup.
+    id: 'settings-offline',
+    hash: '#/settings',
+    setup: async (page) => {
+      await setState(page, 'syncState', {
+        status: 'cancelled',
+        message: 'Sync cancelled. Nothing was changed.',
+      });
+      await setState(page, 'lookupState', {
+        status: 'done',
+        found: 0,
+        notFound: 0,
+        total: 0,
+      });
+      await setState(page, 'reachState', {
+        status: 'done',
+        summary: REACH_SUMMARY,
+        run: { lookedUp: 0, written: 0, unresolved: 53 },
+        paused: [],
+      });
+      await setState(page, 'serverSession', SERVER_SESSION);
+      await setState(page, 'serverState', {
+        status: 'offline',
+        message: 'The network is unreachable.',
+      });
+    },
+  },
+  {
+    id: 'settings-paused',
+    hash: '#/settings',
+    setup: async (page) => {
+      await setState(page, 'serverSession', SERVER_SESSION);
+      await setState(page, 'serverState', {
+        status: 'paused',
+        dashboardUrl: 'https://supabase.com/dashboard',
+      });
+    },
+  },
+  {
+    // US5 scenario 2: the index scrolls to Artist reach and marks it (large).
+    id: 'settings-index',
+    hash: '#/settings',
+    setup: async (page) => {
+      const item = page
+        .getByRole('navigation', { name: 'Settings sections' })
+        .getByRole('button', { name: 'Artist reach' });
+      if (await item.isVisible()) await item.click();
+    },
+    expect: async (page) => {
+      const nav = page.getByRole('navigation', { name: 'Settings sections' });
+      if (!(await nav.isVisible())) return [];
+      const marked = await nav.locator('[aria-current="true"]').innerText();
+      return marked === 'Artist reach' ? [] : [`index marks ${marked}`];
+    },
+  },
+  {
+    // A token granted before the two writes: the account section warns.
+    id: 'settings-scopes',
+    hash: '#/settings',
+    setup: (page) =>
+      setState(page, 'spotifySession', {
+        accessToken: 'demo',
+        refreshToken: 'demo',
+        expiresAt: DEMO_NOW + 3_600_000,
+        scope: 'user-top-read playlist-read-private',
       }),
   },
   { id: 'import', hash: '#/import' },
+  { id: 'import-empty', variant: 'empty', hash: '#/import' },
+  {
+    id: 'import-running',
+    hash: '#/import',
+    setup: (page) =>
+      setState(page, 'importState', {
+        status: 'running',
+        file: 'Streaming_History_Audio_2021-2023_2.json',
+        index: 3,
+        total: 6,
+      }),
+  },
+  {
+    id: 'import-error',
+    hash: '#/import',
+    setup: (page) =>
+      setState(page, 'importState', {
+        status: 'error',
+        message: 'This zip holds no streaming history.',
+      }),
+  },
+  {
+    id: 'import-cancelled',
+    hash: '#/import',
+    setup: (page) =>
+      setState(page, 'importState', {
+        status: 'cancelled',
+        message: 'Import cancelled. Your existing history was kept.',
+      }),
+  },
 
   // Track details (US3): the side sheet over Top, Playlist, Artist, Crate
   {

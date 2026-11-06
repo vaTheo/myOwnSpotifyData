@@ -7,6 +7,7 @@
  * every boot, so a variant never inherits another one's rows or metas.
  */
 import type { Signal } from '@preact/signals';
+import { auth } from '../auth/browser';
 import { putMeta, putMix, replaceDataset, wipeDb } from '../db/repo';
 import { MIX_JOBS_META, type AllRows } from '../db/schema';
 import {
@@ -19,6 +20,8 @@ import {
   mixState,
   reachState,
   rekordboxState,
+  serverLinkSent,
+  serverSession,
   serverState,
   syncState,
 } from '../model/state';
@@ -50,7 +53,11 @@ const CONTROLLED: Record<string, Signal<unknown>> = {
   mixState,
   reachState,
   rekordboxState,
+  serverLinkSent,
+  serverSession,
   serverState,
+  /** The Spotify session, to show the missing-scope warning. */
+  spotifySession: auth.session,
   syncState,
 } as Record<string, Signal<unknown>>;
 

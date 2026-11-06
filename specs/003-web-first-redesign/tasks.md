@@ -371,20 +371,20 @@ for screen readers; with `old-import`, the hub shows the re-import card.
 **Independent Test**: Settings in the `empty`, `locked` and `full` demos and with jobs running (`window.__demo.set`): every status and
 error text of today appears in its section; Sync now's disabled rule holds; Disconnect asks today's question.
 
-- [ ] T077 [US5] Split `src/ui/Settings.tsx` into `src/ui/settings/`: `SettingsPage.tsx`, `AccountSection.tsx`, `SyncSection.tsx`, `HistorySection.tsx`, `AudioSection.tsx`, `ReachSection.tsx`, `ServerSection.tsx` and `DangerZone.tsx`. Each is a `Card` with a title, a one-line description, `StatusLine`s, a `ProgressBar` while running, its last error or warning, and its actions, the main one filled. Follow the table in `contracts/screens.md` §13:
+- [X] T077 [US5] Split `src/ui/Settings.tsx` into `src/ui/settings/`: `SettingsPage.tsx`, `AccountSection.tsx`, `SyncSection.tsx`, `HistorySection.tsx`, `AudioSection.tsx`, `ReachSection.tsx`, `ServerSection.tsx` and `DangerZone.tsx`. Each is a `Card` with a title, a one-line description, `StatusLine`s, a `ProgressBar` while running, its last error or warning, and its actions, the main one filled. Follow the table in `contracts/screens.md` §13:
   - Key notation moves to `SegmentedButtons` (Camelot · Open Key · Classic). The Rekordbox XML picker becomes a `FileDrop` with `accept=".xml"`.
   - Every status text, disabled rule and `confirm()` stays word for word.
   - Reword the device-specific "this phone" texts outside `confirm()` (`grep -rn "phone" src/ui`) to "this browser".
   - The app version is the last line.
-- [ ] T078 [US5] Add the section index to `src/ui/settings/SettingsPage.tsx`: large windows only, sticky, 220 px. A click calls `scrollIntoView` on its section, and an `IntersectionObserver` marks the section in view. The address does not change. Long jobs still start only here (Principle IV).
-- [ ] T079 [P] [US5] Rewrite `src/ui/Import.tsx` per §14:
+- [X] T078 [US5] Add the section index to `src/ui/settings/SettingsPage.tsx`: large windows only, sticky, 220 px. A click calls `scrollIntoView` on its section, and an `IntersectionObserver` marks the section in view. The address does not change. Long jobs still start only here (Principle IV).
+- [X] T079 [P] [US5] Rewrite `src/ui/Import.tsx` per §14:
   - one card at reading width;
   - Last import;
   - "How to get the file", open until a first import exists;
   - a `FileDrop` reading "Drop my_spotify_data.zip here or choose a file", with the file `i` of `n` progress.
 
   The narrower-import `confirm()` stays in `src/model/state.ts`, unchanged.
-- [ ] T080 [US5] Add pages to `tools/shots/pages.ts`: Settings in the `empty`, `locked` and `full` demos, with sync, lookup and reach running and the server connected; and Import. Run the visual loop. The owner approves, and these become baselines. Commit.
+- [X] T080 [US5] Add pages to `tools/shots/pages.ts`: Settings in the `empty`, `locked` and `full` demos, with sync, lookup and reach running and the server connected; and Import. Run the visual loop. The owner approves, and these become baselines. Commit.
 
 ---
 
