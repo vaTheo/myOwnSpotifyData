@@ -12,7 +12,8 @@ import { routeHref } from '../router';
 import { Button } from './components/Button';
 import { Empty } from './components/Empty';
 import { SegmentedButtons } from './components/SegmentedButtons';
-import { NoPlaylistNote } from './crate/shared';
+import { openDetail } from './details/navigate';
+import { TrackSheet } from './details/TrackDetails';
 import { TOP_PERIOD_LABEL } from './format';
 import { windowClass } from './layout/windowClass';
 import {
@@ -34,7 +35,6 @@ import { ComparePeriods } from './top/ComparePeriods';
 const period = signal<Period>('short_term');
 const kind = signal<'tracks' | 'artists'>('tracks');
 const compare = signal(false);
-const expanded = signal<string | null>(null);
 const DEFAULT_SORT: SortState = { columnId: null, direction: 'asc' };
 const tracksSort = signal<SortState>(DEFAULT_SORT);
 const artistsSort = signal<SortState>(DEFAULT_SORT);
@@ -82,7 +82,8 @@ const ARTIST_COLUMNS: Column<AnnotatedTopArtist>[] = [
   spotifyLinkColumn((r) => r.item.spotifyUrl),
 ];
 
-export function Top() {
+/** `detail` is the track whose details sheet is open (`?d=`). */
+export function Top({ detail }: { detail?: string }) {
   const m = model.value;
   if (!m || m.topItems.size === 0) return <Empty what="top lists" />;
   const comparing = compare.value && windowClass.value === 'large';
@@ -137,29 +138,8 @@ export function Top() {
             tracksSort.value = s;
           }}
           resetKey={period.value}
-          selectedKey={expanded.value}
-          onOpen={(r) => {
-            expanded.value = expanded.value === r.item.id ? null : r.item.id;
-          }}
-          expanded={(r) =>
-            expanded.value === r.item.id ? (
-              r.playlistIds.length > 0 ? (
-                <ul class="sublist">
-                  {r.playlistIds.map((id) => (
-                    <li key={id}>
-                      <a href={routeHref({ name: 'playlist', id })}>
-                        {m.playlistsById.get(id)?.name ?? id}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div class="sublist">
-                  <NoPlaylistNote />
-                </div>
-              )
-            ) : null
-          }
+          selectedKey={detail ?? null}
+          onOpen={(r) => openDetail(r.item.id)}
         />
       ) : (
         <DataTable
@@ -179,6 +159,7 @@ export function Top() {
           }}
         />
       )}
+      {detail && <TrackSheet trackRef={{ trackId: detail }} rowId={detail} />}
     </section>
   );
 }

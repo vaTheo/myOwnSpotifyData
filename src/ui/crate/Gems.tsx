@@ -7,23 +7,24 @@ import {
   forgottenGems,
   hasMonthData,
   monthKey,
+  type GemItem,
 } from '../../model/crate';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
+import { DetailsSection } from '../details/TrackDetails';
 import { formatDate, plural } from '../format';
 import { gemMonths } from './selections';
 import {
   CrateRow,
+  CrateSheet,
   OpenMonthLink,
   Paged,
-  PlaylistLinks,
   inNoPlaylist,
   monthLabel,
   spanYears,
   useCrateRows,
 } from './shared';
 
-const expanded = signal<string | null>(null);
 const shown = signal(PAGE_SIZE);
 
 function gemLabel(months: number): string {
@@ -57,12 +58,30 @@ function yearsActive(row: PlayRow): number {
   return years.size;
 }
 
-export function Gems() {
+/** What the row used to expand into: the span, the years, the last month. */
+function GemExtra(p: { item: GemItem; span: number }) {
+  const row = p.item.row;
+  return (
+    <DetailsSection title="Forgotten gems">
+      <p class="details-note">
+        {plural(row.plays, 'play')} · {spanLabel(row, p.item.lastPlayed)}
+      </p>
+      <p class="strip">
+        {yearsActive(row).toLocaleString()} of {plural(p.span, 'year')} · last{' '}
+        {formatDate(row.lastTs)}
+      </p>
+      <OpenMonthLink month={monthKey(p.item.lastPlayed)} />
+    </DetailsSection>
+  );
+}
+
+export function Gems({ detail }: { detail?: string }) {
   const rows = useCrateRows();
   const now = new Date();
   const months = gemMonths.value;
   const items = forgottenGems(rows, now, months);
   const span = spanYears(rows).length;
+  const opened = items.find((item) => item.row.trackId === detail);
   const since = monthLabel(cutoffMonth(now, months));
   return (
     <>
@@ -118,22 +137,8 @@ export function Gems() {
                       <Flag>last {monthLabel(month)}</Flag>
                     )
                   }
-                  expanded={expanded.value === id}
-                  onToggle={() => {
-                    expanded.value = expanded.value === id ? null : id;
-                  }}
-                >
-                  <p class="muted">
-                    {plural(item.row.plays, 'play')} ·{' '}
-                    {spanLabel(item.row, item.lastPlayed)}
-                  </p>
-                  <p class="strip">
-                    {yearsActive(item.row).toLocaleString()} of{' '}
-                    {plural(span, 'year')} · last {formatDate(item.row.lastTs)}
-                  </p>
-                  <PlaylistLinks row={item.row} />
-                  <OpenMonthLink month={month} />
-                </CrateRow>
+                  selected={detail === id}
+                />
               );
             })}
           </ul>
@@ -147,6 +152,10 @@ export function Gems() {
           />
         </>
       )}
+      <CrateSheet
+        detail={detail}
+        extra={opened && <GemExtra item={opened} span={span} />}
+      />
     </>
   );
 }

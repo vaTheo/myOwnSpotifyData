@@ -80,8 +80,6 @@ export function DataTable<Row>(p: {
   onSort: (sort: SortState) => void;
   onOpen?: (row: Row) => void;
   selectedKey?: string | null;
-  /** Today's in-place details, until the details sheet replaces them. */
-  expanded?: (row: Row) => ComponentChildren;
   /** Heading rows between groups (Under the radar); kept in order. */
   groupOf?: (row: Row) => string | null;
   groupHeading?: (group: string) => ComponentChildren;
@@ -192,7 +190,6 @@ export function DataTable<Row>(p: {
       onClick: (e: MouseEvent) => onRowClick(e, row, index),
       onFocus: () => setActive(index),
     };
-    const extra = p.expanded?.(row);
     return (
       <Fragment key={key}>
         {heading && (
@@ -219,13 +216,6 @@ export function DataTable<Row>(p: {
                 {c.cell(row, rank)}
               </div>
             ))}
-          </div>
-        )}
-        {extra && (
-          <div role="row" class="dt-expansion">
-            <div role="gridcell" data-span="true">
-              {extra}
-            </div>
           </div>
         )}
       </Fragment>

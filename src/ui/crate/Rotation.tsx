@@ -9,26 +9,27 @@ import {
   heavyRotation,
   lastMonths,
   peakMonth,
+  type RotationItem,
 } from '../../model/crate';
 import { historySummary } from '../../model/state';
 import { routeHref } from '../../router';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
+import { DetailsSection } from '../details/TrackDetails';
 import { plural } from '../format';
 import { staleMonthKey, windowLabel } from './labels';
 import { rotationMonths } from './selections';
 import {
   CrateRow,
+  CrateSheet,
   OpenMonthLink,
   Paged,
-  PlaylistLinks,
   Strip,
   inNoPlaylist,
   monthLabel,
   useCrateRows,
 } from './shared';
 
-const expanded = signal<string | null>(null);
 const shown = signal(PAGE_SIZE);
 
 const OPTIONS = ROTATION_WINDOWS.map((n) => ({
@@ -58,7 +59,25 @@ function stripCells(row: PlayRow, keys: string[]): string[] {
   });
 }
 
-export function Rotation() {
+/** What the row used to expand into: the window's plays, month by month. */
+function RotationExtra(p: { item: RotationItem; keys: string[] }) {
+  const cells = stripCells(p.item.row, p.keys);
+  const month = hasMonthData(p.item.row)
+    ? peakMonth(p.item.row.months, p.keys)
+    : null;
+  return (
+    <DetailsSection title="Heavy rotation">
+      <p class="details-note">
+        {p.item.windowPlays.toLocaleString()} of{' '}
+        {plural(p.item.row.plays, 'play')}
+      </p>
+      {cells.length > 0 && <Strip cells={cells} />}
+      {month && <OpenMonthLink month={month} />}
+    </DetailsSection>
+  );
+}
+
+export function Rotation({ detail }: { detail?: string }) {
   const rows = useCrateRows();
   const now = new Date();
   const months = rotationMonths.value;
@@ -70,6 +89,7 @@ export function Rotation() {
     caption.push(`${current} is ${plural(now.getDate(), 'day')} in`);
   }
   caption.push(`${MIN_ROTATION_PLAYS}+ plays`, plural(items.length, 'track'));
+  const opened = items.find((item) => item.row.trackId === detail);
   const stale = staleMonthKey(historySummary.value?.range, now);
   return (
     <>
@@ -117,10 +137,6 @@ export function Rotation() {
           <ul class="list">
             {items.slice(0, shown.value).map((item, i) => {
               const id = item.row.trackId;
-              const cells = stripCells(item.row, keys);
-              const month = hasMonthData(item.row)
-                ? peakMonth(item.row.months, keys)
-                : null;
               return (
                 <CrateRow
                   key={id}
@@ -138,19 +154,8 @@ export function Rotation() {
                       <Flag>{item.row.plays.toLocaleString()} lifetime</Flag>
                     )
                   }
-                  expanded={expanded.value === id}
-                  onToggle={() => {
-                    expanded.value = expanded.value === id ? null : id;
-                  }}
-                >
-                  <p class="muted">
-                    {item.windowPlays.toLocaleString()} of{' '}
-                    {plural(item.row.plays, 'play')}
-                  </p>
-                  {cells.length > 0 && <Strip cells={cells} />}
-                  <PlaylistLinks row={item.row} />
-                  {month && <OpenMonthLink month={month} />}
-                </CrateRow>
+                  selected={detail === id}
+                />
               );
             })}
           </ul>
@@ -164,6 +169,10 @@ export function Rotation() {
           />
         </>
       )}
+      <CrateSheet
+        detail={detail}
+        extra={opened && <RotationExtra item={opened} keys={keys} />}
+      />
     </>
   );
 }

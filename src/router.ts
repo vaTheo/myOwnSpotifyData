@@ -127,6 +127,36 @@ export function routeHref(route: Route): string {
   }
 }
 
+/**
+ * The same route with its details sheet open on `detail`, or closed when it
+ * is empty. A route that carries no sheet comes back unchanged.
+ */
+export function withDetailOf(
+  route: Route,
+  detail: string | null | undefined
+): Route {
+  switch (route.name) {
+    case 'top':
+    case 'playlist':
+    case 'artist':
+    case 'crateView': {
+      const next = { ...route };
+      delete next.detail;
+      return detail ? { ...next, detail } : next;
+    }
+    default:
+      return route;
+  }
+}
+
+/**
+ * Whether two routes are the same screen, a details sheet aside: opening or
+ * closing a sheet keeps the list where it was scrolled (spec 003, US3).
+ */
+export function sameScreen(a: Route, b: Route): boolean {
+  return routeHref(withDetailOf(a, null)) === routeHref(withDetailOf(b, null));
+}
+
 /** The five places of the navigation (contracts/routes.md, Destinations). */
 export type Destination =
   'overview' | 'listening' | 'library' | 'mix' | 'settings';

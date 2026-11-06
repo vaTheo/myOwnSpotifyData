@@ -6,6 +6,7 @@ import {
   formatBpm,
   formatClock,
   formatDate,
+  formatListening,
   notCountedLine,
   plural,
   profileLine,
@@ -13,6 +14,15 @@ import {
 } from './format';
 
 describe('format helpers', () => {
+  it('formats listening time in hours and minutes', () => {
+    expect(formatListening(0)).toBe('0 min');
+    expect(formatListening(29_000)).toBe('0 min');
+    expect(formatListening(45 * 60_000)).toBe('45 min');
+    expect(formatListening(60 * 60_000)).toBe('1 h');
+    expect(formatListening((2 * 60 + 5) * 60_000 + 40_000)).toBe('2 h 6 min');
+    expect(formatListening(1234 * 3_600_000)).toBe('1,234 h');
+  });
+
   it('pluralises', () => {
     expect(plural(1, 'playlist')).toBe('1 playlist');
     expect(plural(0, 'track')).toBe('0 tracks');

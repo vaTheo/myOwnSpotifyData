@@ -5,34 +5,50 @@ import {
   PAGE_SIZE,
   classics,
   monthKey,
+  type ClassicItem,
 } from '../../model/crate';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
+import { DetailsSection } from '../details/TrackDetails';
 import { formatDate, plural } from '../format';
 import { classicSort } from './selections';
 import {
   CrateRow,
+  CrateSheet,
   OpenMonthLink,
   Paged,
-  PlaylistLinks,
   Strip,
   inNoPlaylist,
   spanYears,
   useCrateRows,
 } from './shared';
 
-const expanded = signal<string | null>(null);
 const limit = signal(PAGE_SIZE);
 
 function yearCells(span: number[], perYear: Map<number, number>): string[] {
   return span.map((y) => `'${String(y).slice(2)} ${perYear.get(y) ?? '—'}`);
 }
 
-export function Classics() {
+/** What the row used to expand into: plays per year, the last play. */
+function ClassicExtra(p: { item: ClassicItem; span: number[] }) {
+  const row = p.item.row;
+  return (
+    <DetailsSection title="All-time classics">
+      <p class="details-note">
+        {plural(row.plays, 'play')} · last {formatDate(row.lastTs)}
+      </p>
+      <Strip cells={yearCells(p.span, p.item.perYear)} />
+      <OpenMonthLink month={monthKey(new Date(row.lastTs))} />
+    </DetailsSection>
+  );
+}
+
+export function Classics({ detail }: { detail?: string }) {
   const rows = useCrateRows();
   const span = spanYears(rows);
   const items = classics(rows, classicSort.value);
   const shown = items.slice(0, limit.value);
+  const opened = items.find((item) => item.row.trackId === detail);
   const caption =
     `Played ${CLASSIC_MIN_PLAYS_PER_YEAR}+ times in ` +
     `${CLASSIC_MIN_YEARS}+ of your ${span.length} years · ` +
@@ -64,13 +80,7 @@ export function Classics() {
                 key={item.row.trackId}
                 rank={i + 1}
                 row={item.row}
-                expanded={expanded.value === item.row.trackId}
-                onToggle={() => {
-                  expanded.value =
-                    expanded.value === item.row.trackId
-                      ? null
-                      : item.row.trackId;
-                }}
+                selected={detail === item.row.trackId}
                 badge1={
                   <Flag kind="top">
                     {item.yearsActive} of {span.length} years
@@ -83,15 +93,7 @@ export function Classics() {
                     <Flag kind="plays">{plural(item.row.plays, 'play')}</Flag>
                   )
                 }
-              >
-                <p class="muted">
-                  {plural(item.row.plays, 'play')} · last{' '}
-                  {formatDate(item.row.lastTs)}
-                </p>
-                <Strip cells={yearCells(span, item.perYear)} />
-                <PlaylistLinks row={item.row} />
-                <OpenMonthLink month={monthKey(new Date(item.row.lastTs))} />
-              </CrateRow>
+              />
             ))}
           </ul>
           <Paged
@@ -104,6 +106,10 @@ export function Classics() {
           />
         </>
       )}
+      <CrateSheet
+        detail={detail}
+        extra={opened && <ClassicExtra item={opened} span={span} />}
+      />
     </>
   );
 }

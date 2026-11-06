@@ -10,6 +10,10 @@ export function TrackRow(p: {
   onClick?: () => void;
   spotifyUrl?: string | null;
   badges?: ComponentChildren;
+  /** Where focus returns when the row's details sheet closes. */
+  rowId?: string;
+  /** The row whose details sheet is open. */
+  selected?: boolean;
   children?: ComponentChildren;
 }) {
   const main = (
@@ -21,7 +25,7 @@ export function TrackRow(p: {
   );
   return (
     <li>
-      <div class="row">
+      <div class={p.selected ? 'row selected' : 'row'}>
         {p.rank !== undefined && <span class="rank">{p.rank}</span>}
         {p.imageUrl && (
           <img class="cover" src={p.imageUrl} loading="lazy" alt="" />
@@ -31,7 +35,13 @@ export function TrackRow(p: {
             {main}
           </a>
         ) : p.onClick ? (
-          <button type="button" class="main" onClick={p.onClick}>
+          <button
+            type="button"
+            class="main"
+            onClick={p.onClick}
+            data-row-id={p.rowId}
+            aria-current={p.selected ? 'true' : undefined}
+          >
             {main}
           </button>
         ) : (

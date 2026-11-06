@@ -7,6 +7,8 @@ import { historySummary, model } from '../../model/state';
 import { routeHref } from '../../router';
 import { FeaturePills } from '../components/FeaturePills';
 import { TrackRow } from '../components/TrackRow';
+import { openDetail } from '../details/navigate';
+import { TrackSheet } from '../details/TrackDetails';
 import { artistNames, plural } from '../format';
 
 /** A play row from an import that recorded month buckets. */
@@ -97,9 +99,8 @@ export function CrateRow(p: {
   row: PlayRow;
   badge1: ComponentChildren;
   badge2?: ComponentChildren;
-  expanded: boolean;
-  onToggle: () => void;
-  children?: ComponentChildren;
+  /** The row whose details sheet is open (`?d=`). */
+  selected: boolean;
 }) {
   const label = trackLabel(p.row);
   return (
@@ -108,7 +109,9 @@ export function CrateRow(p: {
       title={label.title}
       subtitle={label.subtitle}
       spotifyUrl={trackUrl(p.row)}
-      onClick={p.onToggle}
+      onClick={() => openDetail(p.row.trackId)}
+      rowId={p.row.trackId}
+      selected={p.selected}
       badges={
         <>
           {p.badge1}
@@ -116,9 +119,25 @@ export function CrateRow(p: {
           <FeaturePills trackId={p.row.trackId} />
         </>
       }
-    >
-      {p.expanded && <div class="sublist">{p.children}</div>}
-    </TrackRow>
+    />
+  );
+}
+
+/**
+ * The details sheet of a Crate view (spec 003, US3): the track's facts, and
+ * `extra`, the view's own figures for it that the row used to expand into.
+ */
+export function CrateSheet(p: {
+  detail: string | undefined;
+  extra?: ComponentChildren;
+}) {
+  if (!p.detail) return null;
+  return (
+    <TrackSheet
+      trackRef={{ playRowId: p.detail }}
+      rowId={p.detail}
+      extra={p.extra}
+    />
   );
 }
 
@@ -138,8 +157,8 @@ export function Strip(p: { cells: string[] }) {
 }
 
 /**
- * The one sentence a row shows when the track sits in none of the synced
- * playlists. `Top.tsx` renders it too, so the wording exists once.
+ * The one sentence the details sheet shows when the track sits in none of
+ * the synced playlists, so the wording exists once.
  */
 export function NoPlaylistNote() {
   const m = model.value;
@@ -150,27 +169,6 @@ export function NoPlaylistNote() {
         ? 'Sync your playlists in Settings to see where this sits'
         : `Not in any of your ${plural(m.playlists.length, 'playlist')}`}
     </p>
-  );
-}
-
-export function PlaylistLinks(p: { row: PlayRow }) {
-  const m = model.value;
-  if (!m) return null;
-  const ids = playlistsOfRow(m, p.row);
-  if (ids.length === 0) return <NoPlaylistNote />;
-  return (
-    <>
-      <p>In {plural(ids.length, 'playlist')}</p>
-      <ul>
-        {ids.map((id) => (
-          <li key={id}>
-            <a href={routeHref({ name: 'playlist', id })}>
-              {m.playlistsById.get(id)?.name ?? id}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </>
   );
 }
 
