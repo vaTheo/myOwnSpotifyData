@@ -13,7 +13,7 @@ deleted. A refusal during the second pass keeps what was found; the second pass 
 the worker takes a planned 3-minute break every 80 calls (all waits ± 40 %) so Shazam refuses less. After a refusal the
 pace comes back down; a refusal once tracks were found sends them as done, "stopped early"; sends to the server are retried;
 the Shazam library no longer retries silently. Since the day's refusals came at any pace, a refusal is now a flat 6-minute
-pause (up to 8 a set) and the pace (2 s + 0–50 %, 0.3.3) is never slowed; a refusal pauses 3 min + 0–40 %. Every line of a tracklist in the description (or a comment listing 3+ tracks) becomes a
+pause (up to 8 a set) and the pace (1.9 s + 0–40 %, 0.3.3) is never slowed; a refusal pauses 3 min + 0–40 %. Every line of a tracklist in the description (or a comment listing 3+ tracks) becomes a
 row even when no catalogue knows the track. Spec: `specs/003-fill-scan-gaps/`. No `DB_VERSION` bump.
 
 ## 2026-11-06 — Identify a mix on my computer (the worker)

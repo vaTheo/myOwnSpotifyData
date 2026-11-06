@@ -56,7 +56,7 @@ class Settings:
     clue_seconds: int = 90
     lookups: int = 100
     break_every_calls: int = 0
-    cooldown_spread_percent: float = 50.0
+    cooldown_spread_percent: float = 40.0
     rate_limit_pause_spread_percent: float = 40.0
     break_seconds: float = 120.0
 
@@ -229,7 +229,7 @@ def load_settings(
         max_duration_seconds=_int(values, "WORKER_MAX_DURATION_SECONDS", 0, 0),
         probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 15, 1),
         probe_seconds=_probe_seconds(values),
-        cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 2.0, 0.0),
+        cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 1.9, 0.0),
         rate_limit_pause_seconds=_float(values, "WORKER_RATE_LIMIT_PAUSE_SECONDS", 180.0, 0.0),
         rate_limit_pauses=_int(values, "WORKER_RATE_LIMIT_PAUSES", 8, 0),
         shazam_device=_device(values),
@@ -243,7 +243,7 @@ def load_settings(
         clue_seconds=_int(values, "WORKER_CLUE_SECONDS", 90, 5),
         lookups=_int(values, "WORKER_LOOKUPS", 100, 0),
         break_every_calls=_int(values, "WORKER_BREAK_EVERY_CALLS", 0, 0),
-        cooldown_spread_percent=_float(values, "WORKER_COOLDOWN_SPREAD_PERCENT", 50.0, 0.0),
+        cooldown_spread_percent=_float(values, "WORKER_COOLDOWN_SPREAD_PERCENT", 40.0, 0.0),
         rate_limit_pause_spread_percent=_float(values, "WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT", 40.0, 0.0),
         break_seconds=_float(values, "WORKER_BREAK_SECONDS", 120.0, 0.0),
     )
