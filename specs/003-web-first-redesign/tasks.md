@@ -218,15 +218,15 @@ FR-044).
 **Independent Test**: a 100+ track playlist at 1440 × 900 shows ≥ 15 rows with title, artists, plays, BPM and key in aligned columns;
 sorting by BPM then plays keeps each rank; compact shows two-line items.
 
-- [ ] T041 [P] [US2] Write the failing test `src/ui/table/sort.test.ts` for `sortRows` and `nextSort`:
+- [X] T041 [P] [US2] Write the failing test `src/ui/table/sort.test.ts` for `sortRows` and `nextSort`:
   - `sortRows` is stable;
   - "Missing values go last in both directions";
   - text compares with `localeCompare(…, { sensitivity: 'base' })`;
   - header clicks: "on another column, sort by it in its `firstDirection`. On the current column, flip the direction. On the rank column, set `columnId = null`".
-- [ ] T042 [P] [US2] Write the failing test `src/ui/table/keyboard.test.ts` for `moveIndex(current, key, count, page)`: "ArrowUp and ArrowDown move by ±1, PageUp and PageDown by ±page, Home and End jump to the first or last row", with the result clamped to the rows on screen.
-- [ ] T043 [P] [US2] Implement `sortRows` and `nextSort` in `src/ui/table/sort.ts`. Make T041 pass.
-- [ ] T044 [P] [US2] Implement `moveIndex` in `src/ui/table/keyboard.ts`. Make T042 pass.
-- [ ] T045 [US2] Create `src/ui/table/DataTable.tsx`.
+- [X] T042 [P] [US2] Write the failing test `src/ui/table/keyboard.test.ts` for `moveIndex(current, key, count, page)`: "ArrowUp and ArrowDown move by ±1, PageUp and PageDown by ±page, Home and End jump to the first or last row", with the result clamped to the rows on screen.
+- [X] T043 [P] [US2] Implement `sortRows` and `nextSort` in `src/ui/table/sort.ts`. Make T041 pass.
+- [X] T044 [P] [US2] Implement `moveIndex` in `src/ui/table/keyboard.ts`. Make T042 pass.
+- [X] T045 [US2] Create `src/ui/table/DataTable.tsx`.
   - **Columns**: `Column<Row>` of data-model §3: `id`, `header`, `align`, `priority` ("1 never hides"), `sortValue` (null is missing, always last), `firstDirection`, `cell`, `compact`.
   - **Roles**: `role="table"`, `rowgroup`, `row`, `columnheader` with `aria-sort`, and `cell` on a CSS grid.
   - **Responsive**: priority hiding by container queries; the compact reflow into two lines (title; artists · main metric · BPM · key).
