@@ -55,6 +55,15 @@ everything external injected in tests, no Spotify host, no key.
 - Measured on Artaphine (1 h, old pacing): old-worker estimate 19 tracks, first pass 28, second pass +7 (stopped at place
   67/75 by the 4th refusal), clues +0 (both comment answers already heard): 35, +84 %; 89 minutes with 4 refusals.
 
+## R1e. Refusals set the pace (owner, 2026-11-06)
+
+- **Evidence**: the afternoon's eight refusals (Android profile, 15:33–17:21, 1 051 calls that day) came at 1.3, 8.0, 5.2, 2.9
+  (20 s a call) and 8.8 calls a minute; calls in the 30 minutes before: 24, 187, 128, 51, 126; in 60 min: 24, 202, 306, 158,
+  198. No pace and no short window explains them; a refusal came 19 calls after a 4-minute planned break.
+- **Decision** (owner): planned breaks off by default; the pace is never slowed after a refusal; a refusal is an exact 6-minute
+  pause (`WORKER_RATE_LIMIT_PAUSE_SECONDS` 360), the same each time, up to 8 a set (`WORKER_RATE_LIMIT_PAUSES`), the next one
+  stopping the scan with the tracks found kept. The doubling and the recovery of R1c are removed.
+
 ## R2. Speed correction with the packaged ffmpeg
 
 - **Decision**: a replay at factor `f` (1.04 or 0.96) cuts `probe_seconds × f` seconds from the probe's start and filters

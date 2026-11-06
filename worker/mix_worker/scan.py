@@ -21,9 +21,6 @@ PROBE_SECONDS = 12
 MIN_PROBE_BYTES = 1000
 # A cooldown doubled after each rate limit never grows past this.
 MAX_COOLDOWN_SECONDS = 30.0
-# After a refusal the pace doubles; this many calls without refusal halve it
-# again, back to the base pace at most (owner, 2026-11-06).
-RECOVER_AFTER_CALLS = 40
 # Calls made within this long before a set count toward its first planned
 # break (Shazam's refusals came about 15 minutes of calls apart).
 SHAZAM_WINDOW_SECONDS = 900
@@ -300,7 +297,7 @@ async def scan(
     known = duration is not None and duration > 0
     times = probe_times(duration, step) if known else None
     skew = max_skew if max_skew > 0 else None
-    pace = {"cooldown": cooldown, "pauses": 0, "net_skips": 0, "calls": 0, "calm": 0}
+    pace = {"cooldown": cooldown, "pauses": 0, "net_skips": 0, "calls": 0}
     # The planned-break count runs across sets while the worker runs (owner,
     # 2026-11-06): Shazam counts calls over a window, not per set. A quiet
     # spell of SHAZAM_WINDOW_SECONDS since the last call starts it afresh.
@@ -344,13 +341,13 @@ async def scan(
                     if n > max_pauses:
                         say(f"  {where} · rate limited again · giving up after {max_pauses} pauses")
                         raise ScanRefused() from err
-                    pace["cooldown"] = min(max(pace["cooldown"] * 2, 1.0), MAX_COOLDOWN_SECONDS)
-                    pace["calm"] = 0
-                    wait = pause * n
-                    wait += jitter(wait)  # every wait gets the same random spread (owner, 2026-11-06)
+                    # Owner, 2026-11-06, from the day's refusals: Shazam refused
+                    # at 1.3 and at 8.8 calls a minute alike, so the pace is not
+                    # slowed; a refusal is a flat pause, the same each time.
+                    wait = pause
                     say(
                         f"  {where} · rate limited ({n}/{max_pauses}) · pausing {int(wait)} s,"
-                        f" then this probe again · cooldown now {pace['cooldown']:g} s (±{JITTER_PERCENT} %)"
+                        f" then this probe again at the same pace"
                     )
                     await sleep(wait)
                     pace["calls"] = 0  # the pause was a break too
@@ -374,11 +371,6 @@ async def scan(
                     return None
                 raise
             pace["net_skips"] = 0
-            pace["calm"] += 1
-            if pace["cooldown"] > cooldown and pace["calm"] >= RECOVER_AFTER_CALLS:
-                pace["cooldown"] = max(cooldown, pace["cooldown"] / 2)
-                pace["calm"] = 0
-                say(f"  pace · {RECOVER_AFTER_CALLS} calls without refusal · cooldown back to {pace['cooldown']:g} s (±{JITTER_PERCENT} %)")
             return response
 
     def record(t: int, entry: dict[str, Any], where: str, speed: float | None = None) -> bool:

@@ -11,6 +11,9 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.3.2 (also): a Shazam refusal is an exact 6-minute pause, up to 8 a set, and the pace (3.2 s ± 40 %, 1.92 to 4.48 s)
+  is never slowed; planned breaks are off by default: the day's refusals showed neither helped.
+
 - 0.3.2: the planned break is exactly `WORKER_BREAK_SECONDS`, now 2 min, without the ± 40 % spread (owner).
 
 - 0.3.1: the planned-break count of Shazam calls runs across sets (a set started right after another no longer starts at
