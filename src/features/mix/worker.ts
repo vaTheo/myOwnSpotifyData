@@ -1,4 +1,4 @@
-import type { MixJobView, TracklistRow } from '../../db/schema';
+import type { Clue, MixJobView, TracklistRow } from '../../db/schema';
 import type { ServerStatus } from '../../server/types';
 import { validateJobRow, type MixJobRow } from '../../server/validate';
 import { parseTracklistifyJson } from './tracklistify';
@@ -11,8 +11,116 @@ import { parseTracklistifyJson } from './tracklistify';
  */
 
 export type WorkerResult =
-  | { ok: true; title: string; author: string | null; rows: TracklistRow[] }
+  | {
+      ok: true;
+      title: string;
+      author: string | null;
+      rows: TracklistRow[];
+      /** Round 003: set-wide clues (empty when none). */
+      clues: Clue[];
+    }
   | { ok: false; message: string };
+
+/** Caps on third-party text kept from a result (data-model.md, round 003). */
+export const CLUE_TEXT_MAX = 1000;
+export const CLUE_AUTHOR_MAX = 200;
+export const GAP_CLUES_MAX = 30;
+export const SET_CLUES_MAX = 200;
+
+const CLUE_KINDS = new Set(['comment', 'chapter', 'description']);
+
+function cut(s: string, max: number): string {
+  return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
+}
+
+/** One clue from the result, or null when it fails the checks (dropped). */
+export function toClue(value: unknown): Clue | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const v = value as Record<string, unknown>;
+  if (typeof v.text !== 'string' || v.text.trim() === '') return null;
+  if (typeof v.kind !== 'string' || !CLUE_KINDS.has(v.kind)) return null;
+  const at = v.at;
+  if (at !== null && at !== undefined && (typeof at !== 'number' || !Number.isFinite(at))) {
+    return null;
+  }
+  return {
+    atSec: typeof at === 'number' ? at : null,
+    author: cut(typeof v.author === 'string' ? v.author.trim() : '', CLUE_AUTHOR_MAX),
+    text: cut(v.text.trim(), CLUE_TEXT_MAX),
+    kind: v.kind as Clue['kind'],
+  };
+}
+
+function toClues(value: unknown, max: number): Clue[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(toClue)
+    .filter((c): c is Clue => c !== null)
+    .slice(0, max);
+}
+
+/** The worker's own additions on one track entry (round 003). */
+function trackExtras(track: unknown): Partial<TracklistRow> {
+  if (typeof track !== 'object' || track === null) return {};
+  const t = track as Record<string, unknown>;
+  if (t.origin === 'replay') {
+    const pct = t.speed_percent;
+    return {
+      origin: 'replay',
+      ...(typeof pct === 'number' && Number.isFinite(pct) ? { speedPercent: pct } : {}),
+    };
+  }
+  if (t.origin === 'clue') {
+    const clue = toClue(t.clue);
+    return { origin: 'clue', ...(clue ? { clue } : {}) };
+  }
+  return {};
+}
+
+/** The tracks the F15 parser keeps (non-empty artist and title), in order. */
+function keptTracks(result: object): unknown[] {
+  const tracks = (result as { tracks?: unknown }).tracks;
+  if (!Array.isArray(tracks)) return [];
+  return tracks.filter((t) => {
+    if (typeof t !== 'object' || t === null) return false;
+    const { artist, song_name } = t as Record<string, unknown>;
+    return (
+      typeof artist === 'string' &&
+      artist.trim() !== '' &&
+      typeof song_name === 'string' &&
+      song_name.trim() !== ''
+    );
+  });
+}
+
+/** Gap rows from `mix_info.gaps`, each with its clues (round 003). */
+function gapRows(info: unknown): TracklistRow[] {
+  const gaps = (info as { gaps?: unknown } | undefined)?.gaps;
+  if (!Array.isArray(gaps)) return [];
+  const rows: TracklistRow[] = [];
+  for (const g of gaps) {
+    if (typeof g !== 'object' || g === null) continue;
+    const { start, end, clues } = g as Record<string, unknown>;
+    if (typeof start !== 'number' || !Number.isFinite(start)) continue;
+    if (typeof end !== 'number' || !Number.isFinite(end) || end < start) continue;
+    const kept = toClues(clues, GAP_CLUES_MAX);
+    if (kept.length === 0) continue;
+    rows.push({
+      startSec: start,
+      endSec: end,
+      artist: '',
+      title: '',
+      label: null,
+      source: 'tracklistify',
+      gap: true,
+      // As detected, so the next result replaces it like any scan row.
+      detected: { artist: '', title: '' },
+      referenceCount: null,
+      clues: kept,
+    });
+  }
+  return rows;
+}
 
 /**
  * The result the worker sent, as scan rows. `parseTracklistifyJson` is the
@@ -27,7 +135,15 @@ export function resultToRows(result: unknown): WorkerResult {
   }
   const parsed = parseTracklistifyJson(JSON.stringify(result));
   if (parsed.status === 'error') return { ok: false, message: parsed.message };
-  const rows = parsed.rows.filter(
+  // The parser keeps tracks in order and drops the same ones `keptTracks`
+  // drops, so the worker's additions line up; on any mismatch none is used.
+  const kept = keptTracks(result);
+  const withExtras =
+    kept.length === parsed.rows.length
+      ? parsed.rows.map((row, i) => ({ ...row, ...trackExtras(kept[i]) }))
+      : parsed.rows;
+  const info = (result as { mix_info?: unknown }).mix_info;
+  const rows = [...withExtras, ...gapRows(info)].filter(
     (row) =>
       (row.startSec === null || Number.isFinite(row.startSec)) &&
       (row.confidence === null ||
@@ -37,12 +153,18 @@ export function resultToRows(result: unknown): WorkerResult {
   if (rows.length === 0) {
     return { ok: false, message: 'No usable track in the result.' };
   }
-  const info = (result as { mix_info?: { artist?: unknown } }).mix_info;
+  const mixInfo = info as { artist?: unknown; clues?: unknown } | undefined;
   const artist =
-    typeof info?.artist === 'string' && info.artist.trim() !== ''
-      ? info.artist.trim()
+    typeof mixInfo?.artist === 'string' && mixInfo.artist.trim() !== ''
+      ? mixInfo.artist.trim()
       : null;
-  return { ok: true, title: parsed.title, author: artist, rows };
+  return {
+    ok: true,
+    title: parsed.title,
+    author: artist,
+    rows: mergeWorkerRows([], rows),
+    clues: toClues(mixInfo?.clues, SET_CLUES_MAX),
+  };
 }
 
 /** A scan row the owner never edited: its text still reads as detected. */

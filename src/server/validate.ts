@@ -125,6 +125,29 @@ export function validateRow<S extends StoreName>(
   return { ok: true, row: row as AllRows[S][number] };
 }
 
+const CLUE_KINDS = new Set(['comment', 'chapter', 'description']);
+const CLUE_TEXT_MAX = 1000;
+const CLUE_AUTHOR_MAX = 200;
+
+/** A worker clue (round 003): plain strings within their caps. */
+function clueOk(c: unknown): boolean {
+  if (!obj(c)) return false;
+  return (
+    typeof c.text === 'string' &&
+    c.text.length <= CLUE_TEXT_MAX &&
+    typeof c.author === 'string' &&
+    c.author.length <= CLUE_AUTHOR_MAX &&
+    (c.atSec === null || finite(c.atSec)) &&
+    typeof c.kind === 'string' &&
+    CLUE_KINDS.has(c.kind)
+  );
+}
+
+function cluesOk(v: unknown, max: number): boolean {
+  if (v === undefined) return true;
+  return Array.isArray(v) && v.length <= max && v.every(clueOk);
+}
+
 export function validateMix(row: unknown): Valid<MixRow> {
   if (!obj(row)) return fail('not an object');
   if (!nonEmpty(row.url)) return fail('mixes.url');
@@ -148,7 +171,14 @@ export function validateMix(row: unknown): Valid<MixRow> {
     if (!optFinite(t.startSec) || !optFinite(t.endSec))
       return fail('mixes.row.time');
     if (!optHttps(t.shazamUrl)) return fail('mixes.row.shazamUrl');
+    if (t.origin !== undefined && t.origin !== 'replay' && t.origin !== 'clue')
+      return fail('mixes.row.origin');
+    if (t.speedPercent !== undefined && !finite(t.speedPercent))
+      return fail('mixes.row.speedPercent');
+    if (t.clue !== undefined && !clueOk(t.clue)) return fail('mixes.row.clue');
+    if (!cluesOk(t.clues, 30)) return fail('mixes.row.clues');
   }
+  if (!cluesOk(row.clues, 200)) return fail('mixes.clues');
   return { ok: true, row: row as unknown as MixRow };
 }
 

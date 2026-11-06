@@ -94,7 +94,7 @@ function versionBases(name: string): string[] {
 }
 
 /** Equal, or equal once the spaces between letters are ignored. */
-function sameTitle(a: string, b: string): boolean {
+export function sameTitle(a: string, b: string): boolean {
   return a === b || unspaced(a) === unspaced(b);
 }
 
@@ -110,7 +110,7 @@ const NAME_TAG = /\s*[([][^)\]]*[)\]]\s*$/;
  * "DJ Koze" is "koze". Compared for equality, never containment — a word of
  * one name ("Four") is not the other artist ("Four Tet"). '' never matches.
  */
-function artistCore(name: string): string {
+export function artistCore(name: string): string {
   const words = normalize(name.replace(NAME_TAG, '')).split(' ');
   // "Mr. G" stays whole: a one-letter remainder would be some other "G".
   while (

@@ -37,6 +37,7 @@ so a stopped run resumes. Each source is paced to its published limit; the reach
 - Research: [BPM and key sources](../../research/2026-09-05-bpm-key-sources.md),
   [artist reach sources](../../research/2026-09-05-artist-reach-sources.md)
 - [How the app works](../000-how-it-works.md) §9, §10
+- [ADR-10](ADR-10-name-lookup-for-clues.md): the one narrowed exception, in the worker, for clues without identifier
 - [ADR index](README.md)
 - [Limits and roadmap](../800-limits-roadmap.md)
 - [Contributing](../../dev-guide/000-contributing.md)

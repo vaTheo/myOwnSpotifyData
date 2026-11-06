@@ -12,7 +12,7 @@ import random
 import subprocess
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -130,6 +130,17 @@ def track_entry(response: Any, time_in_mix: str) -> dict[str, Any] | None:
 
 
 @dataclass(frozen=True)
+class ScanOutput:
+    """What `run_scan` hands the pipeline: the rows, the second pass's
+    summary (`{places, found, stopped}`, or None when it did not run) and the
+    stretches still without a track (round 003)."""
+
+    rows: list[dict[str, Any]]
+    second_pass: dict[str, Any] | None = None
+    gaps: list[tuple[int, int]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class Hit:
     time: int
     entry: dict[str, Any]
@@ -160,6 +171,43 @@ def merge(hits: list[Hit], gap: int) -> list[dict[str, Any]]:
     return rows
 
 
+def gap_positions(misses: list[int], step: int, offset: int) -> list[int]:
+    """Second-pass starts (D4b): `offset` seconds after each probe that found
+    nothing, at most one every `step` seconds, so a long gap is re-heard at
+    new places without re-asking for every miss."""
+    chosen: list[int] = []
+    for t in sorted(misses):
+        p = t + offset
+        if not chosen or p - chosen[-1] >= step:
+            chosen.append(p)
+    return chosen
+
+
+def gaps_of(misses: list[int], hit_times: list[int], step: int) -> list[tuple[int, int]]:
+    """The stretches still without a track (round 003): runs of first-pass
+    probes that found nothing, each probe covering `step` seconds, split
+    wherever a hit (of either pass) fell inside. `[(start, end)]`, seconds."""
+    hits = sorted(hit_times)
+    gaps: list[tuple[int, int]] = []
+    for t in sorted(misses):
+        end = t + step
+        if any(t <= h < end for h in hits):
+            continue
+        if gaps and gaps[-1][1] == t:
+            gaps[-1] = (gaps[-1][0], end)
+        else:
+            gaps.append((t, end))
+    return gaps
+
+
+def _details(entry: dict[str, Any]) -> str:
+    meta = entry.get("metadata") or {}
+    conf = entry.get("confidence")
+    return " · ".join(
+        x for x in (meta.get("isrc"), meta.get("label"), f"{conf:.0f} %" if isinstance(conf, (int, float)) else None) if x
+    )
+
+
 async def scan(
     duration: int | None,
     *,
@@ -176,22 +224,96 @@ async def scan(
     max_pauses: int = 3,
     jitter: Callable[[float], float] = lambda cooldown: 0.0,
     clock: Callable[[], float] = time.monotonic,
+    cut_at: Callable[[int, float], bytes] | None = None,
+    gap_step: int = 30,
+    gap_offset: int = 7,
+    speeds: tuple[float, ...] = (0.96, 1.04),
+    hits_out: list[Hit] | None = None,
+    report: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
     (+ `jitter(cooldown)`) before each. A `rate_limited` error doubles the
     cooldown for the rest of the set (`MAX_COOLDOWN_SECONDS` at most) and
     pauses `pause` × the number of pauses so far, then retries the same probe;
     one more than `max_pauses` raises `ScanRefused`. A `skip` error
-    (undecodable probe) is skipped."""
+    (undecodable probe) is skipped.
+
+    With `cut_at`, a second pass (D4b) re-hears the gaps: at `gap_positions`
+    of the probes that found nothing, at normal speed, then at each of
+    `speeds` (a track the DJ played faster or slower), stopping at the first
+    match. Every hit of both passes is merged into rows, and copied to
+    `hits_out` when given (the comment step reads where tracks were heard).
+    A refusal or a run of unanswered calls during the second pass stops it
+    and keeps every hit so far (research R6). With `report`, fills
+    `second_pass` (`{places, found, stopped}`) and `gaps` (the stretches still
+    without a track, `[(start, end)]` in seconds)."""
     hits: list[Hit] = []
+    misses: list[int] = []
     seen: set[str] = set()
     say = line or (lambda text: None)
     known = duration is not None and duration > 0
     times = probe_times(duration, step) if known else None
     skew = max_skew if max_skew > 0 else None
+    pace = {"cooldown": cooldown, "pauses": 0, "net_skips": 0}
+
+    async def ask(data: bytes, where: str) -> Any:
+        """One recognition with the pacing and error rules; None when the
+        probe is skipped (undecodable, or no answer after the retries)."""
+        tries = 0
+        while True:
+            c = pace["cooldown"]
+            await sleep(c + jitter(c))
+            try:
+                response = await recognise(data, skew)
+            except Exception as err:  # classified, never swallowed silently
+                kind = classify(err)
+                if kind == "skip":
+                    say(f"  {where} · skipped (undecodable or silent)")
+                    return None
+                if kind == "rate_limited":
+                    pace["pauses"] += 1
+                    n = pace["pauses"]
+                    if n > max_pauses:
+                        say(f"  {where} · rate limited again · giving up after {max_pauses} pauses")
+                        raise ScanRefused() from err
+                    pace["cooldown"] = min(max(pace["cooldown"] * 2, 1.0), MAX_COOLDOWN_SECONDS)
+                    wait = pause * n
+                    say(
+                        f"  {where} · rate limited ({n}/{max_pauses}) · pausing {int(wait)} s,"
+                        f" then this probe again · cooldown now {pace['cooldown']:g} s"
+                    )
+                    await sleep(wait)
+                    continue  # the same probe again, after the pause
+                if kind == "network":
+                    tries += 1
+                    reason = type(err).__name__
+                    if tries < NETWORK_ATTEMPTS:
+                        wait = NETWORK_WAIT_SECONDS * tries
+                        say(f"  {where} · no answer ({reason}, {tries}/{NETWORK_ATTEMPTS}) · trying again in {int(wait)} s")
+                        await sleep(wait)
+                        continue
+                    pace["net_skips"] += 1
+                    if pace["net_skips"] >= NETWORK_SKIPS_IN_A_ROW:
+                        say(f"  {where} · no answer ({reason}) · {pace['net_skips']} probes in a row · giving up")
+                        raise ScanUnreachable() from err
+                    say(f"  {where} · no answer ({reason}) after {NETWORK_ATTEMPTS} tries · probe skipped")
+                    return None
+                raise
+            pace["net_skips"] = 0
+            return response
+
+    def record(t: int, entry: dict[str, Any], where: str, speed: float | None = None) -> None:
+        if speed is not None:
+            # Heard on the second pass: say so, and at which speed (R7).
+            entry["origin"] = "replay"
+            entry["speed_percent"] = round((speed - 1.0) * 100)
+        hits.append(Hit(time=t, entry=entry))
+        key = _key(entry)
+        mark = "same track" if key in seen else "NEW"
+        seen.add(key)
+        say(f"  {where} · {mark} · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
+
     index = 0
-    pauses = 0
-    net_skips = 0
     while True:
         if times is not None:
             if index >= len(times):
@@ -207,62 +329,53 @@ async def scan(
             f"probe {index + 1}/{len(times) if times is not None else '?'} · {hhmmss(t)}"
             f" · cut {len(data) // 1024} KB {clock() - began:.2f} s"
         )
-        tries = 0
-        while True:
-            await sleep(cooldown + jitter(cooldown))
-            try:
-                response = await recognise(data, skew)
-            except Exception as err:  # classified, never swallowed silently
-                kind = classify(err)
-                if kind == "skip":
-                    say(f"  {where} · skipped (undecodable or silent)")
-                    response = None
-                    break
-                if kind == "rate_limited":
-                    pauses += 1
-                    if pauses > max_pauses:
-                        say(f"  {where} · rate limited again · giving up after {max_pauses} pauses")
-                        raise ScanRefused() from err
-                    cooldown = min(max(cooldown * 2, 1.0), MAX_COOLDOWN_SECONDS)
-                    wait = pause * pauses
-                    say(
-                        f"  {where} · rate limited ({pauses}/{max_pauses}) · pausing {int(wait)} s,"
-                        f" then this probe again · cooldown now {cooldown:g} s"
-                    )
-                    await sleep(wait)
-                    continue  # the same probe again, after the pause
-                if kind == "network":
-                    tries += 1
-                    reason = type(err).__name__
-                    if tries < NETWORK_ATTEMPTS:
-                        wait = NETWORK_WAIT_SECONDS * tries
-                        say(f"  {where} · no answer ({reason}, {tries}/{NETWORK_ATTEMPTS}) · trying again in {int(wait)} s")
-                        await sleep(wait)
-                        continue
-                    net_skips += 1
-                    if net_skips >= NETWORK_SKIPS_IN_A_ROW:
-                        say(f"  {where} · no answer ({reason}) · {net_skips} probes in a row · giving up")
-                        raise ScanUnreachable() from err
-                    say(f"  {where} · no answer ({reason}) after {NETWORK_ATTEMPTS} tries · probe skipped")
-                    response = None
-                    break
-                raise
-            net_skips = 0
-            break
+        response = await ask(data, where)
         entry = track_entry(response, hhmmss(t)) if response is not None else None
         if entry is not None:
-            hits.append(Hit(time=t, entry=entry))
-            key = _key(entry)
-            meta = entry.get("metadata") or {}
-            details = " · ".join(
-                x for x in (meta.get("isrc"), meta.get("label"), f"{entry['confidence']:.0f} %") if x
-            )
-            mark = "same track" if key in seen else "NEW"
-            seen.add(key)
-            say(f"  {where} · {mark} · {entry['artist']} — {entry['song_name']} · {details}")
-        elif response is not None:
-            say(f"  {where} · no match")
+            record(t, entry, where)
+        else:
+            misses.append(t)
+            if response is not None:
+                say(f"  {where} · no match")
         index += 1
+
+    second = {"places": 0, "found": 0, "stopped": None}
+    if cut_at is not None and misses and gap_step > 0:
+        positions = gap_positions(misses, gap_step, gap_offset)
+        second["places"] = len(positions)
+        say(
+            f"  second pass · {len(misses)} probes found nothing · {len(positions)} places heard again"
+            f" (+{gap_offset} s, speed ×1{''.join(f' then ×{s:g}' for s in speeds)})"
+        )
+        try:
+            for n, p in enumerate(positions, 1):
+                for speed in (1.0, *speeds):
+                    data = cut_at(p, speed)
+                    if len(data) < MIN_PROBE_BYTES:
+                        break
+                    where = f"gap {n}/{len(positions)} · {hhmmss(p)} ×{speed:g}"
+                    response = await ask(data, where)
+                    entry = track_entry(response, hhmmss(p)) if response is not None else None
+                    if entry is not None:
+                        record(p, entry, where, speed)
+                        second["found"] += 1
+                        break
+                    if response is not None:
+                        say(f"  {where} · no match")
+        except ScanRefused:
+            second["stopped"] = "rate limited"
+        except ScanUnreachable:
+            second["stopped"] = "no answer"
+        say(
+            f"  second pass · found {second['found']} in {second['places']} places"
+            + (f" · stopped early ({second['stopped']}), what was found is kept" if second["stopped"] else "")
+        )
+
+    if hits_out is not None:
+        hits_out.extend(hits)
+    if report is not None:
+        report["second_pass"] = second
+        report["gaps"] = gaps_of(misses, [h.time for h in hits], step)
     return merge(hits, gap)
 
 
@@ -276,9 +389,15 @@ def write_result(
     duration: int | None,
     date: str,
     tracks: list[dict[str, Any]],
+    extra: dict[str, Any] | None = None,
+    max_bytes: int | None = None,
+    line: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """The JSON the app's parser reads (data-model.md "Scan result"), saved
-    to disk first (FR-016) and returned as sent."""
+    to disk first (FR-016) and returned as sent. `extra` adds round 003's
+    `mix_info` keys (`second_pass`, `gaps`, `clues`); tracks are in set
+    order, those without a time (set-wide candidates) last; with `max_bytes`
+    clues are dropped until the result fits (logged)."""
     info: dict[str, Any] = {"title": title}
     if artist:
         info["artist"] = artist
@@ -288,7 +407,15 @@ def write_result(
         info["duration_seconds"] = int(duration)
     info["date"] = date
     info["track_count"] = len(tracks)
-    data = {"mix_info": info, "tracks": tracks}
+    info.update(extra or {})
+    ordered = sorted(tracks, key=lambda t: (t.get("time_in_mix") is None, t.get("time_in_mix") or ""))
+    data = {"mix_info": info, "tracks": ordered}
+    if max_bytes is not None:
+        from .clues import trim
+
+        dropped = trim(data, max_bytes)
+        if dropped and line is not None:
+            line(f"  write · {dropped} clues left out to stay under {max_bytes} bytes")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return data
@@ -311,9 +438,14 @@ def cut_probe(
     start: int,
     seconds: int = PROBE_SECONDS,
     line: Callable[[str], None] | None = None,
+    speed: float = 1.0,
 ) -> bytes:
     """`seconds` from `start`, mono 16 kHz WAV, as bytes (D4); the command
     and anything ffmpeg prints go to `line`.
+
+    With `speed` ≠ 1 (second pass, research R2), `seconds × speed` of the set
+    is played `speed` times as fast, pitch included, as a DJ's pitch fader
+    does, so the probe stays `seconds` long.
 
     Written to one scratch file beside the audio and read back: on a pipe
     ffmpeg cannot seek back to fill the WAV header's sizes, and the decoder
@@ -321,8 +453,9 @@ def cut_probe(
     scratch = file.with_name(f".probe-{file.stem}.wav")
     cmd = [
         ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "warning", "-y",
-        "-ss", str(start), "-t", str(seconds), "-i", str(file),
-        "-vn", "-ac", "1", "-ar", "16000", "-f", "wav", str(scratch),
+        "-ss", str(start), "-t", f"{seconds * speed:g}", "-i", str(file), "-vn",
+        *(["-af", f"aresample=16000,asetrate={round(16000 * speed)},aresample=16000"] if speed != 1.0 else []),
+        "-ac", "1", "-ar", "16000", "-f", "wav", str(scratch),
     ]
     say = line or (lambda text: None)
     done = subprocess.run(cmd, capture_output=True, check=False)
@@ -421,9 +554,9 @@ def run_scan(
     duration: int | None,
     settings: Any,
     line: Callable[[str], None] | None = None,
-) -> list[dict[str, Any]]:
+) -> "ScanOutput":
     """The pipeline's `scan` seam: builds the Shazam client lazily and runs
-    the async scan with the real cutter and sleeps."""
+    the async scan with the real cutter and sleeps, second pass included."""
     from aiohttp_retry import ExponentialRetry  # type: ignore[import-not-found]
     from shazamio import HTTPClient  # type: ignore[import-not-found]
 
@@ -434,6 +567,8 @@ def run_scan(
         f" · {len(probe_times(duration, settings.probe_step_seconds)) if duration else '?'} probes"
         f" · as {settings.shazam_device} · cooldown {settings.cooldown_seconds} s (±50 %) · up to {settings.rate_limit_pauses} pauses"
     )
+
+    report: dict[str, Any] = {}
 
     async def go() -> list[dict[str, Any]]:
         client = HTTPClient(retry_options=ExponentialRetry(attempts=5, max_timeout=60.0))
@@ -459,6 +594,11 @@ def run_scan(
                 line=say,
                 max_pauses=settings.rate_limit_pauses,
                 jitter=lambda cooldown: random.uniform(-cooldown / 2, cooldown / 2),  # noqa: S311 - pacing, not crypto
+                cut_at=lambda t, speed: cut_probe(ffmpeg, file, t, settings.probe_seconds, say, speed=speed),
+                gap_step=getattr(settings, "second_pass_step_seconds", 0),
+                gap_offset=getattr(settings, "second_pass_offset_seconds", 7),
+                speeds=tuple(getattr(settings, "second_pass_speeds", ())),
+                report=report,
             )
         finally:
             # The library only closes a client it created itself; ours is
@@ -466,4 +606,5 @@ def run_scan(
             await shazam.close()
             await client.close()
 
-    return asyncio.run(go())
+    rows = asyncio.run(go())
+    return ScanOutput(rows=rows, second_pass=report.get("second_pass"), gaps=report.get("gaps", []))

@@ -1,0 +1,26 @@
+{
+  "artist": [
+    { "written": "FISHER (OZ)", "candidate": "Fisher", "accept": true },
+    { "written": "DJ Koze", "candidate": "Koze", "accept": true },
+    { "written": "Chase & Status", "candidate": "Chase & Status", "accept": true },
+    { "written": "Chase & Status", "candidate": "Chase", "accept": true },
+    { "written": "Four", "candidate": "Four Tet", "accept": false },
+    { "written": "Mr. G", "candidate": "G", "accept": false },
+    { "written": "JALA", "candidate": "Jala", "accept": true },
+    { "written": "Rouge", "candidate": "Rouge (2)", "accept": true },
+    { "written": "Space Above", "candidate": "Space", "accept": false },
+    { "written": "Rosé", "candidate": "Rose", "accept": true }
+  ],
+  "title": [
+    { "written": "onceless", "candidate": "Onceless (Original Mix)", "accept": true },
+    { "written": "Leave Home Edit Select Remix", "candidate": "Leave Home (Edit Select Remix)", "accept": true },
+    { "written": "Leave Home", "candidate": "Leave Home (Edit Select Remix)", "accept": false },
+    { "written": "Closer Than Close", "candidate": "Closer Than Close (Mentor Original Radio Edit)", "accept": false },
+    { "written": "One", "candidate": "One More Time", "accept": false },
+    { "written": "Freak Out", "candidate": "Freak-Out", "accept": true },
+    { "written": "Freakout", "candidate": "Freak Out", "accept": true },
+    { "written": "Part 1 2", "candidate": "Part 12", "accept": false },
+    { "written": "Not Surrender", "candidate": "Not Surrender (feat. Someone)", "accept": true },
+    { "written": "Sunken", "candidate": "Sunken - Extended Mix", "accept": true }
+  ]
+}

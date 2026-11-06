@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { auth } from '../auth/browser';
-import type { TracklistRow } from '../db/schema';
+import type { Clue, TracklistRow } from '../db/schema';
 import { parseClock } from '../features/mix/parse';
 import {
   libraryTitleIndex,
@@ -92,8 +92,48 @@ function sourceLabel(row: TracklistRow): string {
  * format.ts lines drop their missing parts; `plural` cannot spell "mixes", so
  * that part is written out.
  */
+/** Where a worker row came from when not the first listen (round 003). */
+function originLabel(row: TracklistRow): string | null {
+  if (row.origin === 'replay') {
+    const pct = row.speedPercent ?? 0;
+    return pct === 0
+      ? 'second listen'
+      : `second listen · ${pct > 0 ? '+' : '−'}${Math.abs(pct)} %`;
+  }
+  if (row.origin === 'clue') {
+    const kind = row.clue?.kind;
+    const by = row.clue?.author ? ` by ${row.clue.author}` : '';
+    if (kind === 'description') return 'from the description · not heard';
+    if (kind === 'chapter') return 'from a chapter · not heard';
+    return `from a comment${by} · not heard`;
+  }
+  return null;
+}
+
+/** One clue as plain text: "mm:ss · author · text" (never HTML). */
+function clueLine(c: Clue): string {
+  const at = c.atSec !== null ? `${formatClock(c.atSec)} · ` : '';
+  return `${at}${c.author ? `${c.author} · ` : ''}${c.text}`;
+}
+
+/** A folded list of clues (third-party text, rendered as text only). */
+function Clues(p: { clues: Clue[]; summary: string }) {
+  return (
+    <details class="clues">
+      <summary>{p.summary}</summary>
+      <ul>
+        {p.clues.map((c, i) => (
+          <li key={i}>{clueLine(c)}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function provenanceLine(row: TracklistRow, match: MixMatch | null): string {
   const parts = [sourceLabel(row)];
+  const origin = originLabel(row);
+  if (origin) parts.push(origin);
   if (match && match.playlistCount > 0) {
     parts.push(`in ${plural(match.playlistCount, 'playlist')}`);
   }
@@ -126,6 +166,9 @@ function DisplayRow(p: {
         <>
           {match && <FeaturePills trackId={match.trackId} />}
           <span class="src">{provenanceLine(row, match)}</span>
+          {row.origin === 'clue' && row.clue && (
+            <span class="src clue">“{row.clue.text}”</span>
+          )}
         </>
       }
     >
@@ -152,6 +195,12 @@ function GapRow(p: { row: TracklistRow; onDelete: () => void }) {
           <span class="title">ID · unidentified</span>
           {rowSubtitle(p.row) !== '' && (
             <span class="sub">{rowSubtitle(p.row)}</span>
+          )}
+          {p.row.clues && p.row.clues.length > 0 && (
+            <Clues
+              clues={p.row.clues}
+              summary={`${plural(p.row.clues.length, 'clue')} around here`}
+            />
           )}
         </div>
       </div>
@@ -595,6 +644,19 @@ function sameRows(a: TracklistRow[], b: TracklistRow[]): boolean {
   });
 }
 
+/** Round 003: a tracklist without times from the description or a comment. */
+function SetWideClues(p: { url: string }) {
+  const clues = savedMixes.value.find((m) => m.url === p.url)?.clues ?? [];
+  if (clues.length === 0) return null;
+  const fromDescription = clues.every((c) => c.kind === 'description');
+  return (
+    <Clues
+      clues={clues}
+      summary={`Tracklist ${fromDescription ? 'from the description' : 'from the comments'} (${clues.length} lines, no times)`}
+    />
+  );
+}
+
 function Ready(p: { view: MixView }) {
   const { view } = p;
   const showReplace =
@@ -622,6 +684,7 @@ function Ready(p: { view: MixView }) {
           Replace with the description tracklist
         </button>
       )}
+      <SetWideClues url={view.url} />
       <Tracklist />
       <CreatePlaylistPanel view={view} />
       <PasteBox />

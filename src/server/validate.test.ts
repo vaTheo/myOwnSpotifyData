@@ -303,3 +303,33 @@ describe('validateJobRow (worker round)', () => {
     expect(validateJobRow({ ...full, claimed_by: 'x'.repeat(200) })).not.toBeNull();
   });
 });
+
+describe('validateMix — round 003 fields', () => {
+  const clue = { atSec: 610, author: 'x', text: 'ID?', kind: 'comment' };
+  it('accepts replays, candidates, gap clues and set-wide clues', () => {
+    expect(
+      validateMix({
+        ...mixRow,
+        rows: [
+          { ...mixRow.rows[0], origin: 'replay', speedPercent: -4 },
+          { ...mixRow.rows[0], origin: 'clue', clue: { ...clue, atSec: null } },
+          { ...mixRow.rows[0], gap: true, clues: [clue] },
+        ],
+        clues: [{ ...clue, kind: 'description', atSec: null }],
+      }).ok
+    ).toBe(true);
+  });
+  it('rejects a bad origin, speed, clue kind, over-long text and too many clues', () => {
+    const r0 = mixRow.rows[0];
+    for (const bad of [
+      { ...mixRow, rows: [{ ...r0, origin: 'guess' }] },
+      { ...mixRow, rows: [{ ...r0, speedPercent: Number.NaN }] },
+      { ...mixRow, rows: [{ ...r0, clue: { ...clue, kind: 'html' } }] },
+      { ...mixRow, rows: [{ ...r0, clues: [{ ...clue, text: 'x'.repeat(1001) }] }] },
+      { ...mixRow, rows: [{ ...r0, clues: Array(31).fill(clue) }] },
+      { ...mixRow, clues: [{ ...clue, author: 3 }] },
+    ]) {
+      expect(validateMix(bad).ok).toBe(false);
+    }
+  });
+});

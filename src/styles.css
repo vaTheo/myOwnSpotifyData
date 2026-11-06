@@ -770,3 +770,25 @@ details.card > summary {
   margin: 0.25rem 0 0;
   padding-left: 1.25rem;
 }
+
+/* Round 003: clues read by the worker (third-party text, plain). */
+.mix details.clues {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+}
+.mix details.clues summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+.mix details.clues ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}
+.mix details.clues li {
+  overflow-wrap: anywhere;
+  margin: 0.15rem 0;
+}
+.mix .src.clue {
+  font-style: italic;
+  overflow-wrap: anywhere;
+}

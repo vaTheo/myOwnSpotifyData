@@ -1,0 +1,14 @@
+[
+  { "line": "Artist - Title", "artist": "Artist", "title": "Title", "label": null, "startSec": null },
+  { "line": "Artist – Title [Label]", "artist": "Artist", "title": "Title", "label": "Label", "startSec": null },
+  { "line": "12:34 Artist — Title", "artist": "Artist", "title": "Title", "label": null, "startSec": 754 },
+  { "line": "[1:02:03] Artist - Title", "artist": "Artist", "title": "Title", "label": null, "startSec": 3723 },
+  { "line": "(05.30) Artist - Title", "artist": "Artist", "title": "Title", "label": null, "startSec": 330 },
+  { "line": "3. Artist - Title", "artist": "Artist", "title": "Title", "label": null, "startSec": null },
+  { "line": "A2) Artist - Title", "artist": "Artist", "title": "Title", "label": null, "startSec": null },
+  { "line": "[42] Artist - Title", "artist": "Artist", "title": "Title", "label": null, "startSec": 2520 },
+  { "line": "Stefano Greppi - Danilove - Politics is a jungle", "artist": "Stefano Greppi", "title": "Danilove - Politics is a jungle", "label": null, "startSec": null },
+  { "line": "Artist-Title", "artist": null },
+  { "line": "Just some words", "artist": null },
+  { "line": "12:34", "artist": null }
+]
