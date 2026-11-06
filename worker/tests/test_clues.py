@@ -326,3 +326,29 @@ class Gather(unittest.TestCase):
 
         got = gather("u", [(0, 15)], [], read_clues=lambda u: None, lookups=None, hhmmss=hhmmss, line=lambda t: None)
         self.assertEqual((got.candidates, got.clues), ([], []))
+
+
+class Busy(unittest.TestCase):
+    def test_a_503_waits_and_tries_again_then_gives_up(self):
+        import urllib.error
+
+        calls = []
+
+        def fetch(url):
+            calls.append(url)
+            if len(calls) <= 2:
+                raise urllib.error.HTTPError(url, 503, "busy", {}, None)
+            return {"data": [{"artist": {"name": "Rrose"}, "title": "Onceless (Original Mix)"}]}
+
+        sleeps = []
+        lk = Lookups(fetch=fetch, sleep=sleeps.append, line=lambda t: None, budget=5, clock=lambda: 1e6)
+        self.assertEqual(lk.candidate(from_text("Rrose - onceless", 1.0, "a", "comment")[0]).title, "Onceless (Original Mix)")
+        self.assertEqual([s for s in sleeps if s >= 1], [2.0, 4.0])  # plus the usual 0.2 s pace
+
+        def always(url):
+            raise urllib.error.HTTPError(url, 503, "busy", {}, None)
+
+        lines = []
+        lk = Lookups(fetch=always, sleep=lambda s: None, line=lines.append, budget=5, clock=lambda: 1e6)
+        self.assertIsNone(lk.candidate(from_text("Rrose - onceless", 1.0, "a", "comment")[0]))
+        self.assertIn("HTTPError", lines[0])
