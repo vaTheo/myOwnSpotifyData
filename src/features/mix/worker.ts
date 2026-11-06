@@ -260,7 +260,8 @@ function stateLine(view: MixJobView): string {
     case 'done':
       return view.rejected
         ? 'Result rejected — ask again'
-        : `Done ${when(view.finishedAt)}`;
+        : // A worker that stopped early still sends what it found, with a note.
+          `Done ${when(view.finishedAt)}${view.error ? ` · ${view.error}` : ''}`;
     case 'failed':
       return `Failed ${when(view.finishedAt)}: ${view.error ?? 'no reason given'}`;
   }

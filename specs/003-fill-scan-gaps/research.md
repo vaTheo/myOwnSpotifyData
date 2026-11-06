@@ -36,6 +36,17 @@ everything external injected in tests, no Spotify host, no key.
   `WORKER_BREAK_SECONDS` (180 ± 40 %) after every `WORKER_BREAK_EVERY_CALLS` (80) calls, a rate-limit pause resetting the
   count. ×1 and both speeds stay (owner).
 
+## R1c. Retries refined (owner, 2026-11-06)
+
+- The doubled pace after a refusal halves again after every `RECOVER_AFTER_CALLS` (40) calls without refusal, down to the base.
+- A refusal (or 3 unanswered probes in a row) on the first pass with tracks already found ends the scan early and sends a
+  **done** result with `mix_info.stopped_early {at, reason}` and the job's `error` set to "Stopped early at … ; ask again
+  later for the rest" (shown next to Done on the phone); with nothing found it still fails.
+- The ShazamIO HTTP client gets one attempt (it used to retry server errors up to 5 times, unlogged); a Shazam server error
+  (`FailedDecodeJson`, status 5xx) is the worker's own "no answer" retry, logged and counted.
+- A send to the server is retried after 30 s, 1 min, 2 min (± 40 %) when offline or a server error; paused, unauthorized and
+  too large are not retried. Catalogue busy waits (2 s, 4 s) are spread ± 40 % too.
+
 ## R2. Speed correction with the packaged ffmpeg
 
 - **Decision**: a replay at factor `f` (1.04 or 0.96) cuts `probe_seconds × f` seconds from the probe's start and filters

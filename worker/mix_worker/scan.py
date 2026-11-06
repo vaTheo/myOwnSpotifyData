@@ -21,6 +21,9 @@ PROBE_SECONDS = 12
 MIN_PROBE_BYTES = 1000
 # A cooldown doubled after each rate limit never grows past this.
 MAX_COOLDOWN_SECONDS = 30.0
+# After a refusal the pace doubles; this many calls without refusal halve it
+# again, back to the base pace at most (owner, 2026-11-06).
+RECOVER_AFTER_CALLS = 40
 # Every wait (the pause before a call, a rate-limit pause, a network retry) is
 # spread by a random ± this percent, so calls never fall on a fixed rhythm.
 JITTER_PERCENT = 40
@@ -147,6 +150,7 @@ class ScanOutput:
     rows: list[dict[str, Any]]
     second_pass: dict[str, Any] | None = None
     gaps: list[tuple[int, int]] = field(default_factory=list)
+    stopped: dict[str, Any] | None = None  # {"at": "HH:MM:SS", "reason"} when the first pass stopped early
 
 
 @dataclass(frozen=True)
@@ -292,7 +296,7 @@ async def scan(
     known = duration is not None and duration > 0
     times = probe_times(duration, step) if known else None
     skew = max_skew if max_skew > 0 else None
-    pace = {"cooldown": cooldown, "pauses": 0, "net_skips": 0, "calls": 0}
+    pace = {"cooldown": cooldown, "pauses": 0, "net_skips": 0, "calls": 0, "calm": 0}
     first_keys: dict[int, str] = {}  # first-pass probe time → track key (hits only)
 
     async def ask(data: bytes, where: str) -> Any:
@@ -324,6 +328,7 @@ async def scan(
                         say(f"  {where} · rate limited again · giving up after {max_pauses} pauses")
                         raise ScanRefused() from err
                     pace["cooldown"] = min(max(pace["cooldown"] * 2, 1.0), MAX_COOLDOWN_SECONDS)
+                    pace["calm"] = 0
                     wait = pause * n
                     wait += jitter(wait)  # every wait gets the same random spread (owner, 2026-11-06)
                     say(
@@ -350,6 +355,11 @@ async def scan(
                     return None
                 raise
             pace["net_skips"] = 0
+            pace["calm"] += 1
+            if pace["cooldown"] > cooldown and pace["calm"] >= RECOVER_AFTER_CALLS:
+                pace["cooldown"] = max(cooldown, pace["cooldown"] / 2)
+                pace["calm"] = 0
+                say(f"  pace · {RECOVER_AFTER_CALLS} calls without refusal · cooldown back to {pace['cooldown']:g} s (±{JITTER_PERCENT} %)")
             return response
 
     def record(t: int, entry: dict[str, Any], where: str, speed: float | None = None) -> None:
@@ -364,34 +374,45 @@ async def scan(
         say(f"  {where} · {mark} · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
 
     index = 0
-    while True:
-        if times is not None:
-            if index >= len(times):
+    stopped: dict[str, Any] | None = None
+    t = 0
+    try:
+        while True:
+            if times is not None:
+                if index >= len(times):
+                    break
+                t = times[index]
+            else:
+                t = index * step
+            began = clock()
+            data = cut(t)
+            if len(data) < MIN_PROBE_BYTES:
                 break
-            t = times[index]
-        else:
-            t = index * step
-        began = clock()
-        data = cut(t)
-        if len(data) < MIN_PROBE_BYTES:
-            break
-        where = (
-            f"probe {index + 1}/{len(times) if times is not None else '?'} · {hhmmss(t)}"
-            f" · cut {len(data) // 1024} KB {clock() - began:.2f} s"
-        )
-        response = await ask(data, where)
-        entry = track_entry(response, hhmmss(t)) if response is not None else None
-        if entry is not None:
-            record(t, entry, where)
-            first_keys[t] = _key(entry)
-        else:
-            misses.append(t)
-            if response is not None:
-                say(f"  {where} · no match")
-        index += 1
+            where = (
+                f"probe {index + 1}/{len(times) if times is not None else '?'} · {hhmmss(t)}"
+                f" · cut {len(data) // 1024} KB {clock() - began:.2f} s"
+            )
+            response = await ask(data, where)
+            entry = track_entry(response, hhmmss(t)) if response is not None else None
+            if entry is not None:
+                record(t, entry, where)
+                first_keys[t] = _key(entry)
+            else:
+                misses.append(t)
+                if response is not None:
+                    say(f"  {where} · no match")
+            index += 1
+    except (ScanRefused, ScanUnreachable) as err:
+        # Owner, 2026-11-06: a refusal on the first pass keeps what was found;
+        # the request is sent as done, marked as stopped early. With nothing
+        # found it still fails as before.
+        if not hits:
+            raise
+        stopped = {"at": hhmmss(t), "reason": "rate limited" if isinstance(err, ScanRefused) else "no answer"}
+        say(f"  scan · stopped early at {stopped['at']} ({stopped['reason']}) · the {len(hits)} hits so far are kept")
 
     second = {"places": 0, "found": 0, "stopped": None}
-    if cut_at is not None and misses and gap_step > 0:
+    if cut_at is not None and misses and gap_step > 0 and stopped is None:
         open_misses = inside_known(misses, first_keys, gap)
         if len(open_misses) < len(misses):
             say(f"  second pass · {len(misses) - len(open_misses)} probes skipped: between two probes of the same track")
@@ -425,12 +446,13 @@ async def scan(
             + (f" · stopped early ({second['stopped']}), what was found is kept" if second["stopped"] else "")
         )
 
-    if cut_at is not None and gap_step > 0 and not misses:
+    if cut_at is not None and gap_step > 0 and not misses and stopped is None:
         say("  second pass · every probe found a track · nothing to hear again")
     if hits_out is not None:
         hits_out.extend(hits)
     if report is not None:
         report["second_pass"] = second
+        report["stopped"] = stopped
         report["gaps"] = gaps_of(misses, [h.time for h in hits], step)
     return merge(hits, gap)
 
@@ -551,6 +573,10 @@ def default_classify(err: Exception) -> str:
         return "skip"
     if isinstance(err, (TimeoutError, asyncio.TimeoutError, ConnectionError)):
         return "network"
+    if type(err).__name__ == "FailedDecodeJson" and "(status=5" in str(err):
+        # A Shazam server error (an HTML page, not JSON): retried visibly as a
+        # call without answer, now that the library no longer retries it.
+        return "network"
     try:
         from aiohttp import ClientError  # type: ignore[import-not-found]
     except Exception:  # pragma: no cover
@@ -627,7 +653,9 @@ def run_scan(
     report: dict[str, Any] = {}
 
     async def go() -> list[dict[str, Any]]:
-        client = HTTPClient(retry_options=ExponentialRetry(attempts=5, max_timeout=60.0))
+        # One attempt: a server error comes back to `scan`, which retries it
+        # visibly, paced and counted (owner, 2026-11-06), never silently.
+        client = HTTPClient(retry_options=ExponentialRetry(attempts=1, max_timeout=60.0))
         shazam = shazam_for(settings.shazam_device, client)
         try:
             async def recognise(data: bytes, max_skew: float | None) -> Any:
@@ -665,4 +693,4 @@ def run_scan(
             await client.close()
 
     rows = asyncio.run(go())
-    return ScanOutput(rows=rows, second_pass=report.get("second_pass"), gaps=report.get("gaps", []))
+    return ScanOutput(rows=rows, second_pass=report.get("second_pass"), gaps=report.get("gaps", []), stopped=report.get("stopped"))

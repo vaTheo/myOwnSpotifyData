@@ -20,6 +20,7 @@ from .server import Result
 
 REFUSED_REASON = "Recognition service refused (rate limited); try later"
 UNREACHABLE_REASON = "Recognition service did not answer; try later"
+STOPPED_EARLY = "Stopped early at {at} ({reason}); ask again later for the rest"
 TOO_LARGE_REASON = "Result too large"
 NO_TRACK_REASON = "No track identified"
 BAD_LINK_REASON = "Request has no valid link"
@@ -33,6 +34,9 @@ class Deps:
     now: Callable[[], float] = time.time
     today: Callable[[], str] = lambda: time.strftime("%Y-%m-%d")
     log: Any = None
+    # Waits between send retries (owner, 2026-11-06); `jitter` spreads them.
+    sleep: Callable[[float], None] = time.sleep
+    jitter: Callable[[float], float] = lambda seconds: 0.0
     # Round 003: (url, gaps, rows) → Gathered; None = no clue step.
     clues: Callable[[str, list[tuple[int, int]], list[dict[str, Any]]], Any] | None = None
 
@@ -66,10 +70,25 @@ class _Steps:
 Token = str | Callable[[], str]
 
 
+SEND_WAITS = (30.0, 60.0, 120.0)  # retries of a send to the server, then the worker stops
+
+
 def _finish(deps: Deps, settings: Settings, token: Token, job_id: str, body: dict[str, Any]) -> Result:
-    # A scan can outlast the access token: a callable gives a fresh one.
-    value = token() if callable(token) else token
-    return deps.client.finish(value, job_id, settings.worker_name, body)
+    """Sends the outcome; an unreachable server or a server error is tried
+    again after 30 s, 1 min and 2 min (± the spread) before giving up. A
+    paused project, a refused sign-in or a result too large is not retried."""
+    for attempt in range(len(SEND_WAITS) + 1):
+        # A scan can outlast the access token: a callable gives a fresh one.
+        value = token() if callable(token) else token
+        r = deps.client.finish(value, job_id, settings.worker_name, body)
+        if r.ok or r.kind not in ("offline", "error") or attempt == len(SEND_WAITS):
+            return r
+        wait = SEND_WAITS[attempt]
+        wait += deps.jitter(wait)
+        if deps.log is not None:
+            deps.log.line(f"  send · {r.kind}: {r.message} · trying again in {int(wait)} s ({attempt + 1}/{len(SEND_WAITS)})")
+        deps.sleep(wait)
+    raise AssertionError("unreachable")
 
 
 def _fail(deps: Deps, settings: Settings, token: Token, job_id: str, reason: str) -> Outcome:
@@ -115,12 +134,15 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
             return _fail(deps, settings, token, job_id, UNREACHABLE_REASON)
         tracks = list(out.rows) if isinstance(out, ScanOutput) else list(out)
         second_pass = out.second_pass if isinstance(out, ScanOutput) else None
+        stopped = out.stopped if isinstance(out, ScanOutput) else None
         gaps = list(out.gaps) if isinstance(out, ScanOutput) else []
         steps.done("scan", f"{len(tracks)} tracks", started)
 
         extra: dict[str, Any] = {}
         if second_pass is not None:
             extra["second_pass"] = second_pass
+        if stopped is not None:
+            extra["stopped_early"] = stopped
         if deps.clues is not None:
             started = deps.now()
             gathered = deps.clues(url, gaps, tracks)
@@ -155,7 +177,11 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
             return _fail(deps, settings, token, job_id, TOO_LARGE_REASON)
 
         started = deps.now()
-        r = _finish(deps, settings, token, job_id, {"status": "done", "finished_at": _iso(deps.now()), "result": result})
+        body: dict[str, Any] = {"status": "done", "finished_at": _iso(deps.now()), "result": result}
+        if stopped is not None:
+            # Shown on the phone's Requests card next to "Done".
+            body["error"] = STOPPED_EARLY.format(at=stopped["at"], reason=stopped["reason"])
+        r = _finish(deps, settings, token, job_id, body)
         if r.kind == "too_large":
             steps.done("send", "too large", started)
             return _fail(deps, settings, token, job_id, TOO_LARGE_REASON)

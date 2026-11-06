@@ -505,3 +505,31 @@ describe('resultToRows — round 003 additions', () => {
     expect(r.clues).toEqual([]);
   });
 });
+
+describe('requestStatusText — stopped early', () => {
+  it("shows the worker's note next to Done", () => {
+    const line = requestStatusText(
+      {
+        id: 'x',
+        status: 'done',
+        createdAt: 0,
+        claimedBy: null,
+        claimedAt: null,
+        finishedAt: Date.parse('2026-11-06T16:00:00Z'),
+        error:
+          'Stopped early at 00:47:00 (rate limited); ask again later for the rest',
+        appliedAt: null,
+      },
+      {
+        status: 'connected',
+        lastSyncAt: null,
+        usedBytes: null,
+        stamps: [],
+        rejected: 0,
+      }
+    ).line;
+    expect(line).toMatch(
+      /^Done .* · Stopped early at 00:47:00 \(rate limited\)/
+    );
+  });
+});
