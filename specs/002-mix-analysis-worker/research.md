@@ -148,10 +148,12 @@ needs only `song_name`, `artist`, `mix_info.title`, `mix_info.audio_filename`; e
   PyInstaller cannot cross-build, so one runner per system builds; `uv` is on the owner's computer and locks every library;
   stdlib `unittest` adds no package (ADR-06). A wheel-shipped ffmpeg removes the one manual install of the previous design and
   the "ffmpeg beside the executable" edge case.
-- **To confirm in tasks** (not settled by the research): the licence of the binaries `imageio-ffmpeg` ships (its own code is
-  BSD-2; the ffmpeg builds it bundles are LGPL or GPL builds, which decides the notice the release carries); the size each
-  executable reaches (expected 80–150 MB with ffmpeg inside); that `get_ffmpeg_exe()` resolves inside a PyInstaller one-file
-  bundle on each system (the `check` smoke test).
+- **Confirmed on 2026-11-06 (T002)**: `uv sync` resolves `imageio-ffmpeg 0.8.1` (BSD-2-Clause), `yt-dlp 2026.10.26`,
+  `shazamio 0.9.0` + `shazamio-core 2.0.0`; the Linux binary is `ffmpeg-linux-x86_64-v9.0.2` (`n9.0.2-17-g2a571b6068-20260930`,
+  a BtbN FFmpeg-Builds build configured `--enable-gpl --enable-version3`, so **GPL v3**), **172 MB**. The worker (MIT) runs it as a
+  separate process and ships it unmodified, so the release notes and `worker/README.md` carry the GPL notice and the link to the
+  build's source (github.com/BtbN/FFmpeg-Builds); each executable will be about 200 MB. Still to confirm: that `get_ffmpeg_exe()`
+  resolves inside a PyInstaller one-file bundle on each system (the `check` smoke test, T044/T045).
 - **Alternatives**: Nuitka (slower builds, no gain); ffmpeg beside the executable, downloaded by the owner (the previous
   design; rejected by the owner); the PyAV wheel (ffmpeg as a library, cutting probes in-process: no subprocess, but a 40 MB
   binary dependency with its own API; kept as the fallback if `imageio-ffmpeg` misbehaves inside the bundle); bundling a GPL
