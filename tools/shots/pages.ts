@@ -41,6 +41,13 @@ async function setState(page: Page, name: string, value: unknown) {
   ] as const);
 }
 
+/** The 1024 project's window shrunk to 900 px; other widths stay. */
+async function at900(page: Page): Promise<void> {
+  if (page.viewportSize()?.width !== 1024) return;
+  await page.setViewportSize({ width: 900, height: 768 });
+  await page.waitForTimeout(150);
+}
+
 /** The first track row of the screen's table (row 0 is the header). */
 async function firstRow(page: Page): Promise<void> {
   await page
@@ -285,13 +292,12 @@ export const PAGES: ShotPage[] = [
     since: 'US3',
   },
   {
-    // The Plays section before any history import: the "import" link.
-    id: 'top-details-no-history',
+    // A history imported before month buckets (summary version 1): the
+    // sheet as the demo's real state shows it, without the Crate's months.
+    id: 'top-details-old-import',
+    variant: 'old-import',
     hash: '#/top',
-    setup: async (page) => {
-      await setState(page, 'historySummary', null);
-      await firstRow(page);
-    },
+    setup: firstRow,
     since: 'US3',
   },
   {
@@ -316,7 +322,7 @@ export const PAGES: ShotPage[] = [
     hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
     expect: async (page) => {
       const size = page.viewportSize();
-      if (!size || size.width < 1200) return [];
+      if (!size || size.width < 840) return [];
       return (await page.getByRole('list', { name: 'Playlists' }).count())
         ? []
         : ['no playlist list beside the playlist'];
@@ -349,6 +355,31 @@ export const PAGES: ShotPage[] = [
         .nth(2)
         .click({ position: { x: 200, y: 20 } });
     },
+    since: 'US3',
+  },
+  // An expanded window near its narrow end (SC-003): the 1024 project
+  // shrinks to 900 px; the other widths repeat their own split pages.
+  {
+    id: 'playlists-split-900',
+    hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
+    setup: at900,
+    since: 'US3',
+  },
+  {
+    // Match folds the pane below large (ruling R1).
+    id: 'playlist-match-900',
+    hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
+    setup: async (page) => {
+      await at900(page);
+      await tab(page, 'Match');
+      await firstRow(page);
+    },
+    since: 'US3',
+  },
+  {
+    id: 'artists-split-900',
+    hash: (ids) => `#/artist/${enc(ids.artist ?? '')}`,
+    setup: at900,
     since: 'US3',
   },
 

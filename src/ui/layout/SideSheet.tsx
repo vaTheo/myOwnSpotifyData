@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { parseRoute, sameScreen } from '../../router';
 import { IconButton } from '../components/IconButton';
-import { pushEscapeLayer } from './escape';
+import { ESCAPE_RANK, pushEscapeLayer } from './escape';
 import { focusWhenReady } from './focus';
 import { windowClass, type WindowClass } from './windowClass';
 
@@ -50,7 +50,7 @@ export function SideSheet(p: {
   // another screen leaves focus to that screen.
   useEffect(() => {
     const opened = parseRoute(location.hash);
-    const pop = pushEscapeLayer(() => onClose.current());
+    const pop = pushEscapeLayer(() => onClose.current(), ESCAPE_RANK.sheet);
     return () => {
       pop();
       if (sameScreen(opened, parseRoute(location.hash))) {

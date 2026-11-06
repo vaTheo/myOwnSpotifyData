@@ -454,6 +454,9 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
 
   const table = (
     <DataTable
+      // Beside the list pane an expanded window leaves a phone's width;
+      // Match folds the pane and keeps the columns (ruling R1).
+      compact={windowClass.value === 'expanded' && !matching ? true : undefined}
       label={`${playlist.name}, ${
         matching
           ? 'matches'
@@ -502,6 +505,8 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
   return (
     <section
       class={windowClass.value === 'large' ? 'playlist-dense' : undefined}
+      // Below large, Match takes the list pane's width (styles.css).
+      data-matching={matching ? 'true' : undefined}
     >
       {head}
       {seedBar}

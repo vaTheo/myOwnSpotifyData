@@ -13,11 +13,6 @@ describe('listDetailLayout', () => {
     expect(listDetailLayout('large', true)).toBe('split');
   });
 
-  it('keeps a wide detail alone on expanded windows when asked', () => {
-    expect(listDetailLayout('expanded', true, 'large')).toBe('detail');
-    expect(listDetailLayout('large', true, 'large')).toBe('split');
-  });
-
   it('shows the detail alone on compact and medium windows', () => {
     expect(listDetailLayout('compact', true)).toBe('detail');
     expect(listDetailLayout('medium', true)).toBe('detail');

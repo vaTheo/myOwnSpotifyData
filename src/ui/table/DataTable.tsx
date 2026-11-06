@@ -97,19 +97,25 @@ export function DataTable<Row>(p: {
    */
   follow?: boolean;
   /**
+   * Two-line items whatever the window: a detail beside the list pane on an
+   * expanded window is a phone's width (S04 fix 1).
+   */
+  compact?: boolean;
+  /**
    * The rows arrive already in the order `sort` names (Under the radar's
    * three sorts): a header click only reports the column, the table never
    * re-sorts, and the group headings stay.
    */
   presorted?: boolean;
 }) {
-  const compact = windowClass.value === 'compact';
+  const compact = p.compact ?? windowClass.value === 'compact';
   const [shown, setShown] = useState(PAGE_SIZE);
   const [active, setActive] = useState<number | null>(null);
   const [announce, setAnnounce] = useState('');
   const body = useRef<HTMLDivElement>(null);
   const followTimer = useRef<ReturnType<typeof setTimeout>>();
-  useEffect(() => () => clearTimeout(followTimer.current), []);
+  // The sheet closed (or the table went): a pending follow would reopen it.
+  useEffect(() => () => clearTimeout(followTimer.current), [p.follow]);
 
   const ranked = useMemo(() => {
     const rankOf = p.rankOf ?? ((_: Row, i: number) => i + 1);
@@ -157,7 +163,11 @@ export function DataTable<Row>(p: {
       const open = p.onOpen;
       const row = visible[next].row;
       clearTimeout(followTimer.current);
-      followTimer.current = setTimeout(() => open(row), FOLLOW_DELAY_MS);
+      followTimer.current = setTimeout(() => {
+        // Escape may have closed the sheet before the render that clears
+        // this timer: follow only while a sheet is still open.
+        if (location.hash.includes('?d=')) open(row);
+      }, FOLLOW_DELAY_MS);
     }
   }
 

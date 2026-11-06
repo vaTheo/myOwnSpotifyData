@@ -15,6 +15,7 @@ import { NoData } from './components/NoData';
 import { SpotifyLink } from './components/SpotifyLink';
 import { artistUrl, formatDate, plural, profileLine } from './format';
 import { Icon } from './icons';
+import { windowClass } from './layout/windowClass';
 import {
   albumColumn,
   bpmColumn,
@@ -214,6 +215,8 @@ export function Artist({
         <p class="empty">No saved tracks from {name} in your playlists.</p>
       ) : (
         <DataTable
+          // Beside the list pane an expanded window leaves a phone's width.
+          compact={windowClass.value === 'expanded' ? true : undefined}
           label={`Saved tracks by ${name}`}
           noun="track"
           columns={trackColumns(m)}

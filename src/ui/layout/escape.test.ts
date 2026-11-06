@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isEditable, layerToClose } from './escape';
+import { ESCAPE_RANK, isEditable, layerToClose } from './escape';
 
 describe('isEditable', () => {
   it('takes text inputs, text areas, selects and editable content', () => {
@@ -21,13 +21,24 @@ describe('isEditable', () => {
 });
 
 describe('layerToClose', () => {
-  const sheet = () => undefined;
-  const panel = () => undefined;
+  const noop = () => undefined;
+  const pane = { close: noop, rank: ESCAPE_RANK.pane };
+  const sheet = { close: noop, rank: ESCAPE_RANK.sheet };
+  const panel = { close: noop, rank: ESCAPE_RANK.activity };
   const row = { tagName: 'DIV' };
 
-  it('closes only the layer opened last', () => {
+  it('closes the highest rank, whatever the order of registration', () => {
     expect(layerToClose([sheet, panel], 'Escape', false, row)).toBe(panel);
-    expect(layerToClose([sheet], 'Escape', false, row)).toBe(sheet);
+    expect(layerToClose([panel, sheet], 'Escape', false, row)).toBe(panel);
+    // A reload of `#/playlist/<id>?d=<n>`: the sheet registers first.
+    expect(layerToClose([sheet, pane], 'Escape', false, row)).toBe(sheet);
+    expect(layerToClose([pane, sheet], 'Escape', false, row)).toBe(sheet);
+    expect(layerToClose([pane], 'Escape', false, row)).toBe(pane);
+  });
+
+  it('closes the one opened last among equal ranks', () => {
+    const other = { close: noop, rank: ESCAPE_RANK.sheet };
+    expect(layerToClose([sheet, other], 'Escape', false, row)).toBe(other);
   });
 
   it('closes nothing without a layer, for another key, or once handled', () => {
