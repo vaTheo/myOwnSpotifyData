@@ -63,11 +63,12 @@ def build_deps(settings: Settings) -> Deps:
     from .log import Log
     from .scan import run_scan
 
+    log = Log(settings.log_file)
     return Deps(
         client=ServerClient(settings.supabase_url, settings.supabase_key),
-        download=lambda url, dest: do_download(url, dest, settings),
-        scan=lambda path, duration: run_scan(path, duration, settings),
-        log=Log(settings.log_file),
+        download=lambda url, dest: do_download(url, dest, settings, line=log.line),
+        scan=lambda path, duration: run_scan(path, duration, settings, line=log.line),
+        log=log,
     )
 
 
@@ -204,7 +205,7 @@ def cmd_check(settings: Settings, config: Path | None, deps: CliDeps) -> int:
     out(f"json dir: {settings.json_dir}")
     out(f"log file: {settings.log_file}")
     out(
-        f"probes: one of 12 s every {settings.probe_step_seconds} s · cooldown {settings.cooldown_seconds} s"
+        f"probes: one of {settings.probe_seconds} s every {settings.probe_step_seconds} s · cooldown {settings.cooldown_seconds} s"
         f" · merge gap {settings.merge_gap_seconds} s · max skew {settings.max_skew}"
     )
     out(f"stale after: {settings.stale_seconds} s · poll: {settings.poll_seconds} s · max set: {settings.max_duration_seconds} s")

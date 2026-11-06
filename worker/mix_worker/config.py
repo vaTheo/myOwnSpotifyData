@@ -39,6 +39,7 @@ class Settings:
     poll_seconds: int
     max_duration_seconds: int
     probe_step_seconds: int
+    probe_seconds: int
     cooldown_seconds: float
     rate_limit_pause_seconds: float
     max_skew: float
@@ -127,6 +128,14 @@ def _float(values: Mapping[str, str], name: str, default: float, minimum: float)
     return value
 
 
+def _probe_seconds(values: Mapping[str, str]) -> int:
+    value = _int(values, "WORKER_PROBE_SECONDS", 10, 2)
+    if value > 12:
+        # Shazam answers no match from 15 s up; the library fingerprints 12 s at most.
+        raise SettingsError("WORKER_PROBE_SECONDS", "must be at most 12")
+    return value
+
+
 def load_settings(
     path: Path | None,
     env: Mapping[str, str],
@@ -179,6 +188,7 @@ def load_settings(
         poll_seconds=_int(values, "WORKER_POLL_SECONDS", 60, 1),
         max_duration_seconds=_int(values, "WORKER_MAX_DURATION_SECONDS", 14400, 1),
         probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 60, 1),
+        probe_seconds=_probe_seconds(values),
         cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 3.0, 0.0),
         rate_limit_pause_seconds=_float(values, "WORKER_RATE_LIMIT_PAUSE_SECONDS", 300.0, 0.0),
         max_skew=_float(values, "WORKER_MAX_SKEW", 0.001, 0.0),

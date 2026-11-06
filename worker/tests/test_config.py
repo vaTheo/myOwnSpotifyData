@@ -40,6 +40,7 @@ class Defaults(unittest.TestCase):
         self.assertEqual(s.poll_seconds, 60)
         self.assertEqual(s.max_duration_seconds, 14400)
         self.assertEqual(s.probe_step_seconds, 60)
+        self.assertEqual(s.probe_seconds, 10)
         self.assertEqual(s.cooldown_seconds, 3.0)
         self.assertEqual(s.rate_limit_pause_seconds, 300.0)
         self.assertEqual(s.max_skew, 0.001)
@@ -84,6 +85,8 @@ class FileAndEnv(unittest.TestCase):
             ({"WORKER_POLL_SECONDS": "-1"}, "WORKER_POLL_SECONDS"),
             ({"WORKER_COOLDOWN_SECONDS": "soon"}, "WORKER_COOLDOWN_SECONDS"),
             ({"WORKER_MAX_SKEW": "-0.1"}, "WORKER_MAX_SKEW"),
+            ({"WORKER_PROBE_SECONDS": "13"}, "WORKER_PROBE_SECONDS"),
+            ({"WORKER_PROBE_SECONDS": "1"}, "WORKER_PROBE_SECONDS"),
         ]:
             with self.assertRaises(SettingsError) as ctx:
                 load(env=env)

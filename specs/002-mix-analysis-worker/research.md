@@ -73,6 +73,12 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
 - **Alternatives**: the fork's 85 s step (fewer calls, misses short tracks; kept reachable through the setting); 30 s step
   (twice the calls, no evidence it finds more); passing the whole file (the library would fingerprint its middle only).
 
+- **Revised 2026-11-06 (owner's pick)**: probes are **10 s** by default (`WORKER_PROBE_SECONDS`, 2–12); a probe shorter than
+  the library's 12 s window is fingerprinted whole. The maintainer's measurement (issue #143: 71 % right at 10 s against 94 % at
+  12 s on 234 songs) is recorded so the setting can go back to 12 if matches look thin. The worker logs one line per probe
+  (NEW / same track / no match / skipped, with ISRC, label and confidence), the ffmpeg cut and any ffmpeg warning, and the
+  download in 10 % steps.
+
 ## D5. Confidence and merging: the fork's formula, one row per run of matching probes
 
 - **Decision**: `confidence = 0.6 × freq + 0.4 × time`, with `freq = 100 × (1 − min(|frequencyskew|, 0.1) / 0.1)` and the same
