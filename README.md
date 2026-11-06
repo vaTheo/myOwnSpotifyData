@@ -116,7 +116,7 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   Artist data via MusicBrainz and ListenBrainz · Deezer · Wikidata (CC0) ·
   Wikipedia (CC BY-SA).
 - **Mix tracklist** drafts the tracklist of a SoundCloud DJ mix from a link.
-  Open the **Mix tracklist** card in Settings, paste a mix's link and tap
+  Open the **Mix** tab, paste a mix's link and tap
   `Look up`. It reads two free public sources — TrackId.net (a corpus of
   already-analysed mixes) and the mix's own SoundCloud description — matches
   each row against your synced library, shows the BPM and key pills and how

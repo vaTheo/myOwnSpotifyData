@@ -20,7 +20,8 @@ saved list gets its **Saved mixes** heading. The two info cards (full scan with 
 the worker on your computer**, with the steps for Windows, macOS, Linux and from the code. The server sync runs on its own: back in the app
 after a minute, when the network returns, and every minute while a request waits or runs (Spotify is still never read on
 its own). Each new worker version is released by CI on its own, with the four executables to download. The worker now listens to 80 % of the set, 12 s every 15 s (was 10 s every
-60 s), after a first comparison with Tracklistify on the same set.
+60 s), after a first comparison with Tracklistify on the same set. The Mix screen is a tab of its own (it was a card in
+Settings).
 
 ## 2026-11-06 — A server and database holding the app's data
 

@@ -67,12 +67,15 @@ a {
 
 .tab {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.85rem;
+  /* Six tabs on a 360 px phone: 60 px each, "Playlists" must fit. */
+  font-size: 0.8rem;
+  white-space: nowrap;
   min-height: 48px;
 }
 
