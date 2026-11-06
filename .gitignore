@@ -10,3 +10,5 @@ worker/.venv/
 worker/build/
 worker/dist/
 .tracklistify/
+__pycache__/
+*.pyc
