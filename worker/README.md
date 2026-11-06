@@ -60,7 +60,8 @@ One line per step, on the terminal and in the log file:
 ```
 mix-worker 0.1.0 · https://….supabase.co · as you@example.com · on laptop
 claimed 6f1c2d3e · https://soundcloud.com/…
-  download ·  10 % · 9.8 MB of 98.0 MB · 4.1 MB/s · 21 s left
+  download ·   1 % · 1.0 MB of 98.0 MB · 4.1 MB/s · 23 s left
+  download ·   5 % · 4.9 MB of 98.0 MB · 4.1 MB/s · 22 s left
   …
   download · 100 % · 98.0 MB
   download · abc123.m4a · 7260 s · 38.2 s

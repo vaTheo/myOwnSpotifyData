@@ -45,9 +45,12 @@ def reason_for(message: str) -> str:
     return f"Download failed: {first}"
 
 
-def progress_hook(line: Callable[[str], None], step: int = 10) -> Callable[[dict[str, Any]], None]:
-    """A yt-dlp progress hook that logs every `step` percent, then the end."""
-    state = {"next": step}
+def progress_hook(
+    line: Callable[[str], None], first: int = 1, step: int = 5
+) -> Callable[[dict[str, Any]], None]:
+    """A yt-dlp progress hook: one line at `first` percent, then every `step`
+    percent (at the real value when a jump crosses a step), then the end."""
+    state = {"next": first}
 
     def mb(n: Any) -> str:
         return f"{float(n) / 1_048_576:.1f} MB" if isinstance(n, (int, float)) else "? MB"
@@ -63,7 +66,7 @@ def progress_hook(line: Callable[[str], None], step: int = 10) -> Callable[[dict
             if percent < state["next"] or percent >= 100:
                 return
             while state["next"] <= percent:
-                state["next"] += step
+                state["next"] = step if state["next"] < step else state["next"] + step
             speed = d.get("speed")
             eta = d.get("eta")
             extra = ""
