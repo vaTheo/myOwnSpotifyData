@@ -667,46 +667,6 @@ details.card > summary {
   border-bottom: 1px solid var(--line);
 }
 
-/* Spec §6: the three Mix-screen additions. The player is built by the app
-   from the validated oEmbed src; a gap row's title reads muted-italic; the
-   `.src` provenance span rides in TrackRow's `badges` flex row and takes a
-   full basis, so it drops below the pills the way `.reach` does. */
-.mix-player {
-  width: 100%;
-  border: 0;
-  border-radius: 8px;
-}
-
-.list li.gap .title {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.mix .src {
-  flex-basis: 100%;
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-/* Spec §5/§6: the create-playlist "not found" disclosure on the Mix screen.
-   The base `details.card > summary` rule only styles card summaries; this
-   mirrors it for the inline disclosure — a pointer cursor and a ≥44px tap
-   target — while keeping the default `list-item` display so the triangle
-   marker stays. The list reuses `.list`; its rows get a readable line-height.
-   No other new CSS: the button reuses `.primary`, and the
-   prompt/progress/error lines reuse `.muted`/`.error`. */
-.mix details > summary {
-  cursor: pointer;
-  min-height: 44px;
-  padding: 10px 0;
-  color: var(--muted);
-}
-
-.mix details .list li {
-  padding: 4px 0;
-  font-size: 0.9rem;
-}
-
 /* The not-found list's store searches: one brand icon per site, each a 44px
    tap target like `.spotify-link`; six fit a 360px screen on one line. */
 .dig-links {
@@ -745,18 +705,6 @@ details.card > summary {
 .stamps th {
   color: var(--muted);
   font-weight: normal;
-}
-
-/* Mix: the "Identify on my computer" block (worker round) */
-.mix .identify {
-  margin: 0.5rem 0 0.75rem;
-}
-.mix .identify details {
-  margin-top: 0.25rem;
-}
-.mix .identify ul {
-  margin: 0.25rem 0 0;
-  padding-left: 1.25rem;
 }
 
 /* ---------- Spec 003 shared components (contracts/components.md) ---------- */
@@ -916,8 +864,8 @@ a.btn:where(:not(.btn-filled, .btn-outlined, .btn-text, .btn-danger)) {
 }
 
 .text-field:focus-visible {
-  outline: 2px solid var(--md-sys-color-primary);
-  outline-offset: -2px;
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
 }
 
 .text-field-label {
@@ -2896,47 +2844,6 @@ a {
   margin: 8px 0;
 }
 
-/* Rounds 003-004 (merged from main): styles for today's ui/Mix.tsx, on tokens,
-   until S08 replaces that screen. Clues read by the worker are third-party
-   text, rendered plain; the row view holds the sort and "heard once" filter. */
-.mix details.clues {
-  margin: 4px 0;
-  font: var(--md-sys-typescale-body-medium);
-}
-
-.mix details.clues summary {
-  color: var(--md-sys-color-on-surface-variant);
-  cursor: pointer;
-}
-
-.mix details.clues ul {
-  margin: 4px 0 0;
-  padding-left: 20px;
-}
-
-.mix details.clues li {
-  overflow-wrap: anywhere;
-  margin: 2px 0;
-}
-
-.mix .src.clue {
-  font-style: italic;
-  overflow-wrap: anywhere;
-}
-
-.mix .rowview {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-  margin: 8px 0;
-  font: var(--md-sys-typescale-body-medium);
-}
-
-.mix .rowview select {
-  min-height: var(--app-target);
-}
-
 /* ---- Mix workspace (spec 003 §12, T081–T084, T120) ----
  * The left pane beside the open mix from expanded windows, one column below.
  * Clues are third-party text: plain, wrapped anywhere, never links. */
@@ -3215,21 +3122,21 @@ details.mix-clues > summary:focus-visible {
   border-radius: var(--md-sys-shape-corner-extra-small);
 }
 
-.mix-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--app-target);
-}
-
 /* Table cells. */
+/* The source wraps rather than hide "not heard" or the origin: a row of
+   round 003 grows to two or three lines; others keep one. */
 .mix-source {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 2px 6px;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
+  padding: 4px 0;
+}
+
+.mix-conf {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .mix-source-icon {
@@ -3240,9 +3147,15 @@ details.mix-clues > summary:focus-visible {
 .mix-origin,
 .mix-quote {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-quote {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* Was `.mix .src.clue`: the candidate's clue, in its own words. */
@@ -3261,19 +3174,28 @@ details.mix-clues > summary:focus-visible {
   gap: 4px;
 }
 
-.mix-in {
-  color: var(--md-sys-color-on-surface-variant);
-  font: var(--md-sys-typescale-body-small);
-}
-
 .mix-actions {
   display: inline-flex;
   align-items: center;
 }
 
-.dt-item .mix-source {
+/* On a phone the source and a candidate's clue get a line of their own and
+   wrap, so a long comment never widens the page. */
+.dt-item-meta .dt-item-part:has(.mix-source) {
+  flex: 1 1 100%;
+  min-width: 0;
   white-space: normal;
+}
+
+.dt-item .mix-source {
   flex-wrap: wrap;
+  white-space: normal;
+}
+
+.dt-item .mix-origin,
+.dt-item .mix-quote {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* A row drawn whole: a gap separator or the row being edited. */

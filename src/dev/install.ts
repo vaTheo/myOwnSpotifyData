@@ -17,6 +17,7 @@ import {
   likeState,
   lookupState,
   mixError,
+  mixRows,
   mixState,
   reachState,
   rekordboxState,
@@ -50,6 +51,8 @@ const CONTROLLED: Record<string, Signal<unknown>> = {
   likeState,
   lookupState,
   mixError,
+  /** The open mix's working rows: round-003/004 rows before S08b seeds them. */
+  mixRows,
   mixState,
   reachState,
   rekordboxState,

@@ -31,6 +31,7 @@ import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
 import { TrackRow } from '../components/TrackRow';
 import { formatDate, plural } from '../format';
+import { Disclosure } from './Disclosure';
 
 /**
  * The link field's text, shared by the form and the Requests rows (a row
@@ -143,14 +144,13 @@ export function IdentifyRequest() {
       </Button>
       {status.line !== null && <p class="mix-caption">{status.line}</p>}
       {history.length > 1 && (
-        <details class="mix-section">
-          <summary>Earlier requests ({history.length - 1})</summary>
+        <Disclosure summary={<>Earlier requests ({history.length - 1})</>}>
           <ul class="mix-lines">
             {history.slice(1).map((v) => (
               <li key={v.id}>{requestStatusText(v, serverState.value).line}</li>
             ))}
           </ul>
-        </details>
+        </Disclosure>
       )}
     </div>
   );
@@ -384,14 +384,16 @@ export function RequestsCard() {
             >
               <RequestActions item={item} />
               {earlier.length > 0 && (
-                <details class="mix-section mix-earlier">
-                  <summary>Earlier requests ({earlier.length})</summary>
+                <Disclosure
+                  class="mix-earlier"
+                  summary={<>Earlier requests ({earlier.length})</>}
+                >
                   <ul class="mix-lines">
                     {earlier.map((v) => (
                       <li key={v.id}>{requestStatusText(v, server).line}</li>
                     ))}
                   </ul>
-                </details>
+                </Disclosure>
               )}
             </TrackRow>
           );
@@ -412,8 +414,7 @@ const WORKER_MANUAL =
  */
 export function WorkerHelp() {
   return (
-    <details class="mix-section mix-howto">
-      <summary>Run the worker on your computer</summary>
+    <Disclosure class="mix-howto" summary="Run the worker on your computer">
       <p>
         The worker takes the requests above, downloads the set, identifies it
         with Shazam and sends the tracklist back; the audio never leaves your
@@ -427,16 +428,14 @@ export function WorkerHelp() {
         server), start again, type your email and click the mail's link on that
         computer. It then checks for requests every minute until you close it.
       </p>
-      <details class="mix-section">
-        <summary>Windows 10/11</summary>
+      <Disclosure summary="Windows 10/11">
         <p>
           File <code>mix-worker-windows-x64.exe</code>. Double-click it; on
           "Windows protected your PC", choose More info → Run anyway (the file
           is not signed).
         </p>
-      </details>
-      <details class="mix-section">
-        <summary>macOS</summary>
+      </Disclosure>
+      <Disclosure summary="macOS">
         <p>
           File <code>mix-worker-macos-arm64</code> (Apple silicon: M1 and later)
           or <code>mix-worker-macos-x86_64</code> (Intel). In Terminal, in its
@@ -444,24 +443,22 @@ export function WorkerHelp() {
           it in Finder → Open the first time (unsigned), or run{' '}
           <code>./mix-worker-macos-arm64</code>.
         </p>
-      </details>
-      <details class="mix-section">
-        <summary>Linux</summary>
+      </Disclosure>
+      <Disclosure summary="Linux">
         <p>
           File <code>mix-worker-linux-x86_64</code>. In a terminal, in its
           folder: <code>chmod +x mix-worker-linux-x86_64</code> then{' '}
           <code>./mix-worker-linux-x86_64</code>.
         </p>
-      </details>
-      <details class="mix-section">
-        <summary>From the code (any system, Python 3.11–3.13 and uv)</summary>
+      </Disclosure>
+      <Disclosure summary="From the code (any system, Python 3.11–3.13 and uv)">
         <p>
           <code>cd worker</code>, copy <code>.env.example</code> to{' '}
           <code>.env</code> and fill the two values, then <code>uv sync</code>,{' '}
           <code>uv run mix-worker login</code> and{' '}
           <code>uv run mix-worker run --watch</code>.
         </p>
-      </details>
+      </Disclosure>
       <p>
         Don't run the worker on a VPN: Shazam counts calls per address, and a
         VPN's address is shared with many people, so it refuses often. If the
@@ -475,7 +472,7 @@ export function WorkerHelp() {
           Full manual ›
         </a>
       </p>
-    </details>
+    </Disclosure>
   );
 }
 

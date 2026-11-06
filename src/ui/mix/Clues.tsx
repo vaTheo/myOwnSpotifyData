@@ -1,5 +1,6 @@
 import type { Clue } from '../../db/schema';
 import { clueLine, setWideSummary } from './rowText';
+import { Disclosure } from './Disclosure';
 
 /**
  * A folded list of clues (round 003): comments, chapters and description
@@ -8,14 +9,13 @@ import { clueLine, setWideSummary } from './rowText';
  */
 export function Clues(p: { clues: readonly Clue[]; summary: string }) {
   return (
-    <details class="mix-clues">
-      <summary>{p.summary}</summary>
+    <Disclosure class="mix-clues" summary={p.summary}>
       <ul>
         {p.clues.map((c, i) => (
           <li key={i}>{clueLine(c)}</li>
         ))}
       </ul>
-    </details>
+    </Disclosure>
   );
 }
 

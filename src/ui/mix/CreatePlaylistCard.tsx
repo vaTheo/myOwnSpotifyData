@@ -15,6 +15,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { SpotifyLink } from '../components/SpotifyLink';
 import { StatusLine } from '../components/StatusLine';
 import { formatClock, plural } from '../format';
+import { Disclosure } from './Disclosure';
 
 /**
  * The create result's "not found" disclosure: each missed track once, with
@@ -25,11 +26,14 @@ function NotFound(p: { unmatched: UnmatchedRow[] }) {
   const rows = digRows(p.unmatched);
   const n = p.unmatched.length;
   return (
-    <details class="mix-section">
-      <summary>
-        {n} not found
-        {rows.length !== n && ` (${plural(rows.length, 'track')})`}
-      </summary>
+    <Disclosure
+      summary={
+        <>
+          {n} not found
+          {rows.length !== n && ` (${plural(rows.length, 'track')})`}
+        </>
+      }
+    >
       <ul class="mix-notfound">
         {rows.map((d, i) => (
           <li key={i}>
@@ -45,7 +49,7 @@ function NotFound(p: { unmatched: UnmatchedRow[] }) {
           </li>
         ))}
       </ul>
-    </details>
+    </Disclosure>
   );
 }
 
