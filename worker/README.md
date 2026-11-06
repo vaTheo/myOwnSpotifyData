@@ -77,7 +77,9 @@ claimed 6f1c2d3e · https://soundcloud.com/…
   send · 24510 bytes · 0.4 s
   clean · audio removed · 0.0 s
 done 6f1c2d3e
-queue empty
+queue empty · next look in 60 s
+alive · waiting for a request · next look in 30 s
+queue empty · next look in 60 s
 ```
 
 A request that fails (a private link, no track identified, the recognition service refusing) is
@@ -114,6 +116,7 @@ Only the first two are required.
 | `WORKER_PROXY` | none | an HTTP proxy for the recognition calls |
 | `WORKER_STALE_SECONDS` | 21600 | a request left "running" longer than this (a crash, a power cut) is taken again |
 | `WORKER_POLL_SECONDS` | 60 | `--watch`: seconds between two looks at the queue |
+| `WORKER_HEARTBEAT_SECONDS` | 30 | `--watch`: an "alive" line this often while waiting, so you can see it still runs |
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit; set a number of seconds to refuse longer sets before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 60 | one probe every N seconds of the set |
 | `WORKER_PROBE_SECONDS` | 10 | the length of each probe sent to Shazam, 2 to 12 (Shazam's own app sends 12) |

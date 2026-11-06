@@ -37,6 +37,7 @@ first start). A failed *request* is not a failed *run*: the worker marks it `fai
 | `WORKER_PROXY` | unset | HTTP proxy for the recognition calls only |
 | `WORKER_STALE_SECONDS` | 21600 | `claim_job`'s `p_stale_seconds` |
 | `WORKER_POLL_SECONDS` | 60 | `--watch` interval |
+| `WORKER_HEARTBEAT_SECONDS` | 30 | `--watch`: an "alive" line this often while waiting |
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit (owner's pick); a positive value refuses longer sets on the metadata, before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 60 | one probe every N seconds (D4) |
 | `WORKER_PROBE_SECONDS` | 10 | probe length sent to Shazam, 2–12 (owner's pick, 2026-11-06; D4) |
