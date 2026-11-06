@@ -26,7 +26,7 @@ MAX_COOLDOWN_SECONDS = 30.0
 SHAZAM_WINDOW_SECONDS = 900
 # Every wait (the pause before a call, a rate-limit pause, a network retry) is
 # spread by a random ± this percent, so calls never fall on a fixed rhythm.
-JITTER_PERCENT = 40
+JITTER_PERCENT = 30
 
 
 def spread(seconds: float) -> float:
