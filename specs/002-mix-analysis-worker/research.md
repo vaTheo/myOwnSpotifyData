@@ -77,7 +77,7 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
   the library's 12 s window is fingerprinted whole. The maintainer's measurement (issue #143: 71 % right at 10 s against 94 % at
   12 s on 234 songs) is recorded so the setting can go back to 12 if matches look thin. The worker logs one line per probe
   (NEW / same track / no match / skipped, with ISRC, label and confidence), the ffmpeg cut and any ffmpeg warning, and the
-  download in 10 % steps.
+  download at 1 %, then every 5 %.
 
 ## D5. Confidence and merging: the fork's formula, one row per run of matching probes
 

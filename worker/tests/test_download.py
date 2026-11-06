@@ -94,18 +94,25 @@ class Options(unittest.TestCase):
 
 
 class Progress(unittest.TestCase):
-    def test_every_ten_percent_then_the_end(self):
+    def test_one_percent_then_every_five_then_the_end(self):
         lines = []
         hook = progress_hook(lines.append)
         total = 100 * 1_048_576
-        for done in (0, 5, 9, 10, 11, 25, 99):
+        for done in (0, 1, 2, 4, 5, 6, 10, 23, 99):
             hook({"status": "downloading", "downloaded_bytes": done * 1_048_576, "total_bytes": total, "speed": 2 * 1_048_576, "eta": 30})
         hook({"status": "finished", "downloaded_bytes": total})
-        self.assertEqual(len(lines), 4)
-        self.assertTrue(lines[0].startswith("  download ·  10 % · 10.0 MB of 100.0 MB · 2.0 MB/s · 30 s left"))
-        self.assertIn(" 25 %", lines[1])  # crosses the 20 % step: logged once, at the real value
-        self.assertIn(" 99 %", lines[2])
-        self.assertEqual(lines[3], "  download · 100 % · 100.0 MB")
+        percents = [l.split("·")[1].strip() for l in lines]
+        self.assertEqual(percents, ["1 %", "5 %", "10 %", "23 %", "99 %", "100 %"])
+        self.assertEqual(lines[0], "  download ·   1 % · 1.0 MB of 100.0 MB · 2.0 MB/s · 30 s left")
+        self.assertEqual(lines[-1], "  download · 100 % · 100.0 MB")
+
+    def test_a_jump_logs_once_at_the_real_value(self):
+        lines = []
+        hook = progress_hook(lines.append)
+        hook({"status": "downloading", "downloaded_bytes": 37, "total_bytes": 100})
+        hook({"status": "downloading", "downloaded_bytes": 38, "total_bytes": 100})
+        hook({"status": "downloading", "downloaded_bytes": 40, "total_bytes": 100})
+        self.assertEqual([l.split("·")[1].strip() for l in lines], ["37 %", "40 %"])
 
     def test_estimate_and_missing_total(self):
         lines = []
