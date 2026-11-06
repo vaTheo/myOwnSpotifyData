@@ -2418,6 +2418,9 @@ a {
 .ym-scroll {
   position: relative; /* holds the visually hidden labels inside the scroll */
   max-width: 100%;
+  /* Room for the focus ring of a selected edge cell: with the 4 px border
+     spacing, 6 px clears its 5 px offset and 3 px outline. */
+  padding: 6px;
   overflow-x: auto;
 }
 
@@ -2445,13 +2448,18 @@ a {
   z-index: 1;
   padding-right: 8px;
   background: var(--md-sys-color-surface);
+  /* Covers the scroll padding and the border spacing on both sides, so a
+     cell scrolled under the year never peeks out beside it. */
+  box-shadow:
+    -10px 0 0 var(--md-sys-color-surface),
+    4px 0 0 var(--md-sys-color-surface);
   color: var(--md-sys-color-on-surface-variant);
   text-align: right;
 }
 
-.ym-cell,
-.ym-total,
-.ym-season {
+.ym-grid .ym-cell,
+.ym-grid .ym-total,
+.ym-grid .ym-season {
   display: block;
   width: 100%;
   min-width: var(--app-target);
@@ -2463,13 +2471,13 @@ a {
   cursor: pointer;
 }
 
-.ym-cell {
+.ym-grid .ym-cell {
   background-color: var(--md-sys-color-surface-container);
   color: var(--md-sys-color-on-surface);
 }
 
 /* Five levels against the busiest month; the count is printed as well. */
-.ym-cell.heat-1 {
+.ym-grid .ym-cell.heat-1 {
   background-color: color-mix(
     in srgb,
     var(--md-sys-color-primary) 12%,
@@ -2477,7 +2485,7 @@ a {
   );
 }
 
-.ym-cell.heat-2 {
+.ym-grid .ym-cell.heat-2 {
   background-color: color-mix(
     in srgb,
     var(--md-sys-color-primary) 25%,
@@ -2485,7 +2493,7 @@ a {
   );
 }
 
-.ym-cell.heat-3 {
+.ym-grid .ym-cell.heat-3 {
   background-color: color-mix(
     in srgb,
     var(--md-sys-color-primary) 65%,
@@ -2494,12 +2502,12 @@ a {
   color: var(--md-sys-color-on-primary);
 }
 
-.ym-cell.heat-4 {
+.ym-grid .ym-cell.heat-4 {
   background-color: var(--md-sys-color-primary);
   color: var(--md-sys-color-on-primary);
 }
 
-.ym-total {
+.ym-grid .ym-total {
   min-width: 56px;
   background: var(--md-sys-color-surface-container-high);
   color: var(--md-sys-color-on-surface);
@@ -2507,14 +2515,14 @@ a {
   text-align: right;
 }
 
-.ym-season {
+.ym-grid .ym-season {
   background: transparent;
   color: var(--md-sys-color-on-surface-variant);
   font-weight: 500;
 }
 
-.ym-season:hover,
-.ym-total:hover {
+.ym-grid .ym-season:hover,
+.ym-grid .ym-total:hover {
   background: color-mix(
     in srgb,
     var(--md-sys-color-on-surface) var(--md-sys-state-hover),
@@ -2522,31 +2530,48 @@ a {
   );
 }
 
-.ym-season[aria-pressed='true'] {
+.ym-grid .ym-season[aria-pressed='true'] {
   background: var(--md-sys-color-secondary-container);
   color: var(--md-sys-color-on-secondary-container);
 }
 
-/* The state layer over the heat shade, which stays readable under it. */
-.ym-cell:hover {
-  background-image: linear-gradient(
+/* Scoped under .ym-grid so the global button hover (0,2,1) never repaints
+   a heat cell. The state layer over the heat shade, which stays readable under it: an
+   inset shadow, so the contrast checker reads the heat colour itself. */
+.ym-grid .ym-cell {
+  --ym-layer: 0 0 0 0 transparent;
+}
+
+.ym-grid .ym-cell:hover {
+  --ym-layer: inset 0 0 0 100px
     color-mix(
       in srgb,
       var(--md-sys-color-on-surface) var(--md-sys-state-hover),
       transparent
-    ),
-    color-mix(
-      in srgb,
-      var(--md-sys-color-on-surface) var(--md-sys-state-hover),
-      transparent
-    )
-  );
+    );
+  box-shadow: var(--ym-layer);
 }
 
 /* The selection: every month it covers, and the total when it is the year.
-   A ring hugging the cell, so the focus outline (3 px, 2 px off) still
-   shows around it (FR-042). */
-.ym-cell.selected,
-.ym-total.selected {
-  box-shadow: 0 0 0 2px var(--md-sys-color-primary);
+   Two layers, a surface gap then a primary ring, so it shows on every heat
+   level, the busiest primary-filled cells included. A focused selected cell
+   draws its 3 px focus outline beyond that ring (FR-042), so the two never
+   merge. */
+.ym-grid .ym-cell.selected,
+.ym-grid .ym-total.selected {
+  box-shadow:
+    0 0 0 2px var(--md-sys-color-surface),
+    0 0 0 4px var(--md-sys-color-primary);
+}
+
+.ym-grid .ym-cell.selected {
+  box-shadow:
+    0 0 0 2px var(--md-sys-color-surface),
+    0 0 0 4px var(--md-sys-color-primary),
+    var(--ym-layer);
+}
+
+.ym-grid .ym-cell.selected:focus-visible,
+.ym-grid .ym-total.selected:focus-visible {
+  outline-offset: 5px;
 }

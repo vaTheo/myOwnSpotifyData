@@ -389,18 +389,29 @@ export const PAGES: ShotPage[] = [
     hash: '#/dev/charts',
     setup: async (page) => {
       // A click on the first bar of the 2026 chart: the tooltip must name
-      // the clicked month, not jump to the last one when focus arrives.
+      // the clicked month, not jump to the last one when focus arrives. Its
+      // text is kept, because the grid below takes the focus next.
       const chart = page.getByRole('img', { name: /^Plays per month/ }).nth(1);
       const box = await chart.boundingBox();
       if (box) {
         await page.mouse.click(box.x + box.width / 24, box.y + box.height / 2);
       }
+      await page.evaluate(() => {
+        const tip = document.querySelector('.chart-tip')?.textContent ?? '';
+        document.body.dataset.shotTip = tip;
+      });
+      // Nov 2026, the busiest (heat 4) cell: selected, then focused from
+      // the keyboard, so the selection ring and the focus ring both show.
+      await page.getByRole('button', { name: /^Nov 2026,/ }).click();
+      await page.keyboard.press('Shift+Tab');
+      // The pointer stays on the cell: its hover layer is checked too.
+      await page.keyboard.press('Tab');
     },
     expect: async (page) => {
-      const tip = await page.locator('.chart-tip').first().textContent();
+      const tip = await page.evaluate(() => document.body.dataset.shotTip);
       return tip?.startsWith('Jan 2026')
         ? []
-        : [`a click on Jan 2026 shows "${tip ?? 'no tooltip'}"`];
+        : [`a click on Jan 2026 shows "${tip || 'no tooltip'}"`];
     },
   },
 
