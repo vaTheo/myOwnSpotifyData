@@ -664,49 +664,75 @@ function SavedMixes() {
   );
 }
 
-function InfoCards() {
+const RELEASES = 'https://github.com/vaTheo/myOwnSpotifyData/releases';
+const WORKER_MANUAL =
+  'https://github.com/vaTheo/myOwnSpotifyData/blob/main/worker/README.md';
+
+/**
+ * How to start the worker on each system (worker round): the packaged
+ * executable per OS from a `worker-v…` release, or the code with uv. The
+ * full manual is worker/README.md.
+ */
+function WorkerHowTo() {
   return (
-    <>
-      <div class="card">
-        <h2>Automatic full scan (on your computer)</h2>
+    <div class="card howto">
+      <h2>Run the worker on your computer</h2>
+      <p>
+        The worker takes the requests above, downloads the set, identifies it
+        with Shazam and sends the tracklist back; the audio never leaves your
+        computer. Download the file for your system from the latest{' '}
+        <a href={RELEASES} target="_blank" rel="noopener">
+          worker-v… release
+        </a>{' '}
+        and put it in a folder of its own. The first start writes{' '}
+        <code>mix-worker.env</code> next to it: fill <code>SUPABASE_URL</code>{' '}
+        and <code>SUPABASE_KEY</code> (the same public values as the app's
+        server), start again, type your email and click the mail's link on that
+        computer. It then checks for requests every minute until you close it.
+      </p>
+      <details>
+        <summary>Windows 10/11</summary>
         <p>
-          This app only shows what public sources already know about a mix — it
-          never listens to the audio. To identify every track, ask your
-          computer: the Identify on my computer button above queues the set for
-          the worker, which scans it with Shazam and sends the tracklist back.
+          File <code>mix-worker-windows-x64.exe</code>. Double-click it; on
+          "Windows protected your PC", choose More info → Run anyway (the file
+          is not signed).
         </p>
+      </details>
+      <details>
+        <summary>macOS</summary>
         <p>
-          <a
-            href="https://github.com/vaTheo/myOwnSpotifyData/blob/main/worker/README.md"
-            target="_blank"
-            rel="noopener"
-          >
-            Run the worker on your computer ›
-          </a>
+          File <code>mix-worker-macos-arm64</code> (Apple silicon: M1 and later)
+          or <code>mix-worker-macos-x86_64</code> (Intel). In Terminal, in its
+          folder: <code>chmod +x mix-worker-macos-arm64</code>, then right-click
+          it in Finder → Open the first time (unsigned), or run{' '}
+          <code>./mix-worker-macos-arm64</code>.
         </p>
-        <p>Or scan a local file yourself with an open-source tool:</p>
+      </details>
+      <details>
+        <summary>Linux</summary>
         <p>
-          <a
-            href="https://github.com/marin-m/SongRec"
-            target="_blank"
-            rel="noopener"
-          >
-            SongRec ›
-          </a>
+          File <code>mix-worker-linux-x86_64</code>. In a terminal, in its
+          folder: <code>chmod +x mix-worker-linux-x86_64</code> then{' '}
+          <code>./mix-worker-linux-x86_64</code>.
         </p>
-        <p class="muted">
-          They run off your phone and use Shazam to recognise the audio.
-        </p>
-      </div>
-      <div class="card">
-        <h2>Auto Shazam</h2>
+      </details>
+      <details>
+        <summary>From the code (any system, Python 3.11–3.13 and uv)</summary>
         <p>
-          In Shazam on your phone, turn on "Sync to Spotify". A "My Shazam
-          Tracks" playlist then appears in Spotify — it shows up under Playlists
-          here and syncs like any other playlist.
+          <code>cd worker</code>, copy <code>.env.example</code> to{' '}
+          <code>.env</code> and fill the two values, then <code>uv sync</code>,{' '}
+          <code>uv run mix-worker login</code> and{' '}
+          <code>uv run mix-worker run --watch</code>.
         </p>
-      </div>
-    </>
+      </details>
+      <p class="muted">
+        YouTube links also need Node or Deno installed on the computer;
+        SoundCloud, Mixcloud and the others need nothing.{' '}
+        <a href={WORKER_MANUAL} target="_blank" rel="noopener">
+          Full manual ›
+        </a>
+      </p>
+    </div>
   );
 }
 
@@ -889,7 +915,7 @@ export function Mix() {
       {mixError.value !== null && <p class="error">{mixError.value}</p>}
       {state.status === 'idle' && <SavedMixes />}
       {state.status === 'ready' && <Ready view={state.view} />}
-      <InfoCards />
+      <WorkerHowTo />
     </section>
   );
 }

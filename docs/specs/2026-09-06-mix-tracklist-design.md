@@ -862,6 +862,8 @@ Each identified row is a `TrackRow`:
 
 ### 5.4 The two info cards
 
+> Replaced on 2026-11-06 by the "Run the worker on your computer" card (worker round, `specs/002-mix-analysis-worker/`).
+
 Both are plain `div.card`s at the foot of the screen, always present, purely
 informational — no run, no key, no promise.
 

@@ -136,7 +136,8 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   **To identify every track, ask your computer**: tap **Identify on my
   computer** under the link box (any set link yt-dlp supports, YouTube and
   Mixcloud included) and run the worker on your computer when you are back at
-  it; see "Identify a mix from your computer" below. You can also scan a local
+  it; see "Identify a mix from your computer" below (the bottom of the Mix
+  screen shows how to start it on Windows, macOS and Linux). You can also scan a local
   file with an open-source tool such as SongRec and import its JSON. Or, on
   the phone, open Shazam and turn on
   **Sync Shazam Library to Spotify** (Auto Shazam): a "My Shazam Tracks"
