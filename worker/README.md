@@ -66,15 +66,16 @@ claimed 6f1c2d3e · https://soundcloud.com/…
   download · 100 % · 98.0 MB
   download · abc123.m4a · 7260 s · 38.2 s
   scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 12 s probe every 15 s · 484 probes · cooldown 1.9 s (+0-30 %)
-  probe 1/484 · 00:00:00 · cut 375 KB 0.06 s · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
-  probe 2/484 · 00:00:15 · cut 375 KB 0.05 s · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
-  probe 3/484 · 00:00:30 · cut 375 KB 0.06 s · no match
+  probe 1/484 · 00:00:00 · cut 375 KB 0.06 s · shazam 1.1 s · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
+  probe 2/484 · 00:00:15 · cut 375 KB 0.05 s · shazam 0.9 s · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
+  probe 3/484 · 00:00:30 · cut 375 KB 0.06 s · shazam 1.0 s · no match
   …
   second pass · 210 probes found nothing · 104 places heard again (+7 s, speed ×1 then ×0.96 then ×1.04)
-  gap 1/104 · 00:00:37 ×1 · no match
-  gap 1/104 · 00:00:37 ×0.96 · NEW · Someone — Pitched Track · … · 91 %
+  gap 1/104 · 00:00:37 ×1 · shazam 1.2 s · no match
+  gap 1/104 · 00:00:37 ×0.96 · shazam 1.0 s · NEW · Someone — Pitched Track · … · 91 %
   …
   second pass · found 9 in 104 places
+  shazam · 524 answers · median 1.1 s · 31 over 5 s (6 %)
   scan · 48 tracks · 2410.3 s
   clues · 35 read in 3.2 s
   candidate · 00:51:32 · Space Above — Leave Home (Edit Select Remix) · deezer · NLCK41072412

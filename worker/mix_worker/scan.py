@@ -42,6 +42,8 @@ def spread(seconds: float) -> float:
 # One recognition (its own retries included) is cut off after this; the
 # library's default is aiohttp's 5 minutes, which once stalled a whole set.
 PROBE_TIMEOUT_SECONDS = 45.0
+# An answer slower than this counts as slow in the scan's summary line.
+SLOW_ANSWER_SECONDS = 5.0
 # A probe whose call times out or loses the network is tried this many times,
 # with NETWORK_WAIT_SECONDS × attempt between tries, then skipped.
 NETWORK_ATTEMPTS = 3
@@ -388,6 +390,12 @@ async def scan(
             kept = len(first_done)
             say(f"  scan · resuming at {hhmmss(max(first_done))} · {kept} probes kept from the stopped run")
 
+    answers: list[float] = []
+    last_answer: list[float] = [0.0]
+
+    def answered(where: str) -> str:
+        return f"{where} · shazam {last_answer[0]:.1f} s"
+
     async def ask(data: bytes, where: str) -> Any:
         """One recognition with the pacing and error rules; None when the
         probe is skipped (undecodable, or no answer after the retries)."""
@@ -411,9 +419,11 @@ async def scan(
             if shared is not None:
                 shared["calls"] = pace["calls"]
                 shared["last"] = clock()
+            asked_at = clock()
             try:
                 response = await recognise(data, skew)
             except Exception as err:  # classified, never swallowed silently
+                took = f" · shazam {clock() - asked_at:.1f} s"
                 kind = classify(err)
                 if kind == "skip":
                     say(f"  {where} · skipped (undecodable or silent)")
@@ -436,7 +446,7 @@ async def scan(
                         )
                     since_refusal[0] = 0
                     say(
-                        f"  {where} · rate limited ({n}/{max_pauses}) · pausing {int(wait)} s,"
+                        f"  {where}{took} · rate limited ({n}/{max_pauses}) · pausing {int(wait)} s,"
                         f" then this probe again at the same pace"
                     )
                     await pause_for(wait)
@@ -450,7 +460,7 @@ async def scan(
                     if tries < NETWORK_ATTEMPTS:
                         wait = NETWORK_WAIT_SECONDS * tries
                         wait += jitter(wait)
-                        say(f"  {where} · no answer ({reason}, {tries}/{NETWORK_ATTEMPTS}) · trying again in {int(wait)} s")
+                        say(f"  {where}{took} · no answer ({reason}, {tries}/{NETWORK_ATTEMPTS}) · trying again in {int(wait)} s")
                         await sleep(wait)
                         continue
                     pace["net_skips"] += 1
@@ -461,6 +471,11 @@ async def scan(
                     return None
                 raise
             pace["net_skips"] = 0
+            # Round 005 follow-up (owner, 2026-11-07): how long Shazam took to
+            # answer, on every probe line, to tell a slow Shazam from our pace.
+            answer = clock() - asked_at
+            answers.append(answer)
+            last_answer[0] = answer
             return response
 
     def record(t: int, entry: dict[str, Any], where: str, speed: float | None = None) -> bool:
@@ -508,6 +523,8 @@ async def scan(
                 f" · cut {len(data) // 1024} KB {clock() - began:.2f} s"
             )
             response = await ask(data, where)
+            if response is not None:
+                where = answered(where)
             entry = track_entry(response, hhmmss(t)) if response is not None else None
             if entry is not None:
                 record(t, entry, where)
@@ -572,6 +589,8 @@ async def scan(
                         continue
                     where = f"gap {n}/{len(remaining)} · {hhmmss(p)} ×{speed:g}"
                     response = await ask(data, where)
+                    if response is not None:
+                        where = answered(where)
                     entry = track_entry(response, hhmmss(p)) if response is not None else None
                     if entry is not None:
                         if record(p, entry, where, speed):
@@ -601,9 +620,17 @@ async def scan(
 
     if cut_at is not None and gap_step > 0 and not misses and stopped is None:
         say("  second pass · every probe found a track · nothing to hear again")
+    if answers:
+        ordered = sorted(answers)
+        slow = sum(1 for a in answers if a > SLOW_ANSWER_SECONDS)
+        say(
+            f"  shazam · {len(answers)} answers · median {ordered[len(ordered) // 2]:.1f} s"
+            f" · {slow} over {SLOW_ANSWER_SECONDS:g} s ({round(100 * slow / len(answers))} %)"
+        )
     if hits_out is not None:
         hits_out.extend(hits)
     if report is not None:
+        report["shazam_answers"] = {"count": len(answers), "slow": sum(1 for a in answers if a > SLOW_ANSWER_SECONDS)}
         report["second_pass"] = second
         report["stopped"] = stopped
         report["gaps"] = gaps_of(misses, [h.time for h in hits], step)
