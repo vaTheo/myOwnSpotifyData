@@ -65,6 +65,8 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
   fields (ISRC, `SONG` section label, album, Shazam link). `WORKER_SHAZAM_DEVICE` (default `android`) sends recognitions as
   Android through a small `Shazam` subclass overriding `send_recognize_request_v2` and the platform header (`scan.shazam_for`);
   `iphone` keeps the library's own request.
+  With Android holding (18 calls, no refusal), the default cooldown went back to 3 s (+0–50 %) at the owner's request; the
+  adaptive doubling and the growing pauses stay as the safety net.
 
 ## D4. Probes: 12 s every 60 s, cut by ffmpeg to mono 16 kHz WAV bytes, no temp files
 

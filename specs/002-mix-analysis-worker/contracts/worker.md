@@ -41,7 +41,7 @@ first start). A failed *request* is not a failed *run*: the worker marks it `fai
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit (owner's pick); a positive value refuses longer sets on the metadata, before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 60 | one probe every N seconds (D4) |
 | `WORKER_PROBE_SECONDS` | 10 | probe length sent to Shazam, 2–12 (owner's pick, 2026-11-06; D4) |
-| `WORKER_COOLDOWN_SECONDS` | 6.0 | sleep before every recognition call, + random 0–50 %, doubled after each `RateLimited` (30 s cap) (D3) |
+| `WORKER_COOLDOWN_SECONDS` | 3.0 | sleep before every recognition call, + random 0–50 %, doubled after each `RateLimited` (30 s cap) (D3) |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | pause after a `RateLimited`, × the number of pauses so far |
 | `WORKER_RATE_LIMIT_PAUSES` | 3 | pauses per set; one more `RateLimited` fails the request |
 | `WORKER_SHAZAM_DEVICE` | android | recognition profile, `android` or `iphone` (D3) |
