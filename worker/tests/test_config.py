@@ -44,7 +44,7 @@ class Defaults(unittest.TestCase):
         self.assertEqual(s.cooldown_seconds, 6.0)
         self.assertEqual(s.rate_limit_pause_seconds, 300.0)
         self.assertEqual(s.rate_limit_pauses, 3)
-        self.assertEqual(s.max_skew, 0.001)
+        self.assertEqual(s.max_skew, 0.1)
         self.assertEqual(s.shazam_device, "android")
         self.assertEqual(s.merge_gap_seconds, 180)
         self.assertEqual(s.result_max_bytes, 900000)

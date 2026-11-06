@@ -44,7 +44,7 @@ first start). A failed *request* is not a failed *run*: the worker marks it `fai
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | pause after a `RateLimited`, × the number of pauses so far |
 | `WORKER_RATE_LIMIT_PAUSES` | 3 | pauses per set; one more `RateLimited` fails the request |
 | `WORKER_SHAZAM_DEVICE` | android | recognition profile, `android` or `iphone` (D3) |
-| `WORKER_MAX_SKEW` | 0.001 | ShazamIO's `max_skew`; 0 disables (D5) |
+| `WORKER_MAX_SKEW` | 0.1 | ShazamIO's `max_skew` (max of the first match's time and frequency skew); 0 disables (D5) |
 | `WORKER_MERGE_GAP_SECONDS` | 180 | same track within this gap extends the row (D5) |
 | `WORKER_RESULT_MAX_BYTES` | 900000 | larger results fail "Result too large" |
 

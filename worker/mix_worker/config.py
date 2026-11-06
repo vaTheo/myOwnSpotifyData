@@ -202,7 +202,7 @@ def load_settings(
         rate_limit_pause_seconds=_float(values, "WORKER_RATE_LIMIT_PAUSE_SECONDS", 300.0, 0.0),
         rate_limit_pauses=_int(values, "WORKER_RATE_LIMIT_PAUSES", 3, 0),
         shazam_device=_device(values),
-        max_skew=_float(values, "WORKER_MAX_SKEW", 0.001, 0.0),
+        max_skew=_float(values, "WORKER_MAX_SKEW", 0.1, 0.0),
         merge_gap_seconds=_int(values, "WORKER_MERGE_GAP_SECONDS", 180, 1),
         result_max_bytes=_int(values, "WORKER_RESULT_MAX_BYTES", 900000, 1),
     )

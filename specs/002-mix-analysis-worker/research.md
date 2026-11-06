@@ -104,6 +104,12 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
 - **Alternatives**: a fixed 100 for every match (loses the one signal there is); the fork's "highest confidence wins the start
   time" (moves a track's start to a later probe; rejected).
 
+- **Revised 2026-11-06 after the first live set**: `max_skew` defaults to **0.1**, not 0.001. In a DJ set tracks are pitched:
+  a Kiosk Radio set matched Theo Muller at 25:00 with frequency skew −0.042 and time skew −0.044 (played about 4 % slow), and
+  0.001 had turned that and every other pitched match into "no match" (14 probes in a row). The library compares the larger
+  of the two skews of the first match. With equal time and frequency skews a match is a real track played at another speed, so
+  the skew-derived confidence reads low (57) for a correct row; it stays display only (F15: no threshold).
+
 ## D6. Metadata emitted per track (the F15 shape)
 
 `song_name` ← `track.title`; `artist` ← `track.subtitle`; `time_in_mix`; `confidence`; `duration: null`; `metadata.isrc`
