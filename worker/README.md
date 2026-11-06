@@ -96,8 +96,11 @@ part on the Mix screen, a tracklist without times shows once above the tracklist
 `Artist – Title` is looked up in Deezer, then MusicBrainz (a Discogs or Deezer link by its id). Every line of a **tracklist**
 (the description's, or a comment listing 3 tracks or more) becomes a row even when no catalogue knows it; a catalogue match only
 adds the ISRC. For a single comment answer, only an exact artist and title in a catalogue
-make a row, marked "from a comment · not heard"; it goes into Create playlist unless you delete it. A refusal during the second
-pass, or comments that cannot be read, never fail the request.
+make a row, marked "from a comment · not heard"; it goes into Create playlist unless you delete it. Last, the **years**: a heard
+track Shazam gave an ISRC but no release year is looked up by that ISRC in Deezer and MusicBrainz, and the earliest year either
+gives is written into the JSON (`release_date`, and `release_date_from` naming the catalogue); a valid year from Shazam is kept as is, an invalid one ("0000") is removed.
+These lookups share the `WORKER_LOOKUPS` cap with the clues (clues first); the log says "years · filled N of M by ISRC". A refusal
+during the second pass, comments that cannot be read, or a catalogue that does not answer never fail the request.
 
 A request that fails (a private link, no track identified, the recognition service refusing) is
 marked failed with that reason, the phone shows it, and the worker moves on. Sets of any length are taken. Ctrl-C during a request puts it back in the
@@ -153,12 +156,12 @@ Only the first two are required.
 | `WORKER_SECOND_PASS_SPEEDS` | 0.96,1.04 | speeds tried after normal speed, in order; empty = normal only |
 | `WORKER_CLUES` | 1 | read the description, chapters and comments; 0 = never |
 | `WORKER_CLUE_SECONDS` | 90 | reading them may take this long, then it is dropped |
-| `WORKER_LOOKUPS` | 100 | clues looked up by name per set (Deezer, then MusicBrainz); 0 = none, clues still shown |
+| `WORKER_LOOKUPS` | 100 | catalogue lookups per set (Deezer, then MusicBrainz): clues by name first, then years by ISRC; 0 = none, clues still shown |
 
 ## Where things go, what leaves the computer
 
-- Outbound hosts: your Supabase project, the platform of the link (through yt-dlp), `amp.shazam.com` (ShazamIO), and
-  the proxy if you set one. Never a Spotify host. The audio never leaves the computer; only the tracklist JSON is sent.
+- Outbound hosts: your Supabase project, the platform of the link (through yt-dlp), `amp.shazam.com` (ShazamIO),
+  `api.deezer.com`, `musicbrainz.org` and `api.discogs.com` (clues and years), and the proxy if you set one. Never a Spotify host. The audio never leaves the computer; only the tracklist JSON is sent.
 - On disk: the session file (mode 600), the work folder (emptied after each request), the kept JSON files, the log.
 - Inside the executables: yt-dlp, ShazamIO and a static ffmpeg built by [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)
   under the **GPL v3**, shipped unmodified through the `imageio-ffmpeg` package (BSD-2-Clause). The worker and the app are MIT.

@@ -390,3 +390,56 @@ class Round004Pipeline(unittest.TestCase):
             run_one(job(), settings, "tok", deps)
             self.assertEqual(seen["resume"]["first"], {"0": TRACK})
             self.assertFalse(runstate.path_for(settings.work_dir, url).exists())
+
+
+class Round005Years(unittest.TestCase):
+    """The year fill by ISRC runs after the clues, before the result is sent."""
+
+    def sent(self, deps):
+        return [c for c in deps.client.calls if c[0] == "finish"][-1][4]
+
+    def test_years_after_clues_and_in_mix_info(self):
+        from mix_worker.clues import Gathered
+
+        order = []
+        candidate = {"song_name": "C", "artist": "B", "time_in_mix": None, "origin": "clue", "clue": {"at": None, "author": "dj", "text": "B - C", "kind": "comment"}}
+
+        def clues(url, gaps, rows):
+            order.append("clues")
+            return Gathered(candidates=[candidate])
+
+        def years(tracks):
+            order.append(("years", [t["song_name"] for t in tracks]))
+            tracks[0].setdefault("metadata", {})["release_date"] = "1993"
+            tracks[0]["metadata"]["release_date_from"] = "deezer"
+            return {"asked": 1, "filled": 1}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d: [dict(TRACK, metadata={"isrc": "X"})])
+            deps.clues = clues
+            deps.years = years
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            body = self.sent(deps)["result"]
+        self.assertEqual(order, ["clues", ("years", ["T", "C"])])
+        self.assertEqual(body["mix_info"]["years"], {"asked": 1, "filled": 1})
+        self.assertEqual(body["tracks"][0]["metadata"], {"isrc": "X", "release_date": "1993", "release_date_from": "deezer"})
+
+    def test_a_raising_year_step_still_sends_the_set(self):
+        def years(tracks):
+            raise RuntimeError("boom")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp)
+            deps.years = years
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            body = self.sent(deps)["result"]
+        self.assertNotIn("years", body["mix_info"])
+        self.assertEqual(body["tracks"], [TRACK])
+        self.assertIn("  years · stopped: RuntimeError: boom", log.lines)
+
+    def test_nothing_asked_adds_no_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp)
+            deps.years = lambda tracks: None
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            self.assertNotIn("years", self.sent(deps)["result"]["mix_info"])
