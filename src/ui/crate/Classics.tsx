@@ -8,6 +8,7 @@ import {
 } from '../../model/crate';
 import { Badge } from '../components/Badge';
 import { Segmented } from '../components/Segmented';
+import { YearView, yearViewOf } from '../components/YearView';
 import { formatDate, plural } from '../format';
 import { classicSort } from './selections';
 import {
@@ -18,6 +19,7 @@ import {
   Strip,
   inNoPlaylist,
   spanYears,
+  rowYear,
   useCrateRows,
 } from './shared';
 
@@ -32,7 +34,8 @@ export function Classics() {
   const rows = useCrateRows();
   const span = spanYears(rows);
   const items = classics(rows, classicSort.value);
-  const shown = items.slice(0, limit.value);
+  const view = yearViewOf('crate-classics', items, (it) => rowYear(it.row));
+  const shown = view.shown.slice(0, limit.value);
   const caption =
     `Played ${CLASSIC_MIN_PLAYS_PER_YEAR}+ times in ` +
     `${CLASSIC_MIN_YEARS}+ of your ${span.length} years · ` +
@@ -50,6 +53,7 @@ export function Classics() {
           limit.value = PAGE_SIZE;
         }}
       />
+      <YearView screen="crate-classics" decades={view.decades} />
       <p class="caption">{caption}</p>
       {items.length === 0 ? (
         <p class="empty">
@@ -96,7 +100,7 @@ export function Classics() {
           </ul>
           <Paged
             shown={shown.length}
-            total={items.length}
+            total={view.shown.length}
             step={PAGE_SIZE}
             onMore={() => {
               limit.value += PAGE_SIZE;

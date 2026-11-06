@@ -11,6 +11,7 @@ import {
 } from '../../model/crate';
 import { Badge } from '../components/Badge';
 import { Segmented } from '../components/Segmented';
+import { YearView, yearViewOf } from '../components/YearView';
 import { formatDate, plural } from '../format';
 import { yearPeriod, yearSel } from './selections';
 import {
@@ -20,6 +21,7 @@ import {
   Strip,
   inNoPlaylist,
   monthLabel,
+  rowYear,
   useCrateRows,
 } from './shared';
 
@@ -101,7 +103,10 @@ export function ByYear({ period }: { period?: string }) {
   const selection = yearPeriod.value;
   const result = byYear(rows, year, selection);
   const label = selectionLabel(year, selection);
-  const shown = result.items.slice(0, limit.value);
+  // Round 005: the release year of each song, apart from the listening year
+  // this view picks above.
+  const view = yearViewOf('crate-year', result.items, (it) => rowYear(it.row));
+  const shown = view.shown.slice(0, limit.value);
   const caption =
     `${label} · ${plural(result.plays, 'play')} · ` +
     plural(result.tracks, 'track');
@@ -125,6 +130,7 @@ export function ByYear({ period }: { period?: string }) {
           limit.value = PAGE_SIZE;
         }}
       />
+      <YearView screen="crate-year" decades={view.decades} />
       <p class="caption">{caption}</p>
       {result.items.length === 0 ? (
         <p class="empty">No plays in {label}.</p>
@@ -171,7 +177,7 @@ export function ByYear({ period }: { period?: string }) {
           </ul>
           <Paged
             shown={shown.length}
-            total={result.items.length}
+            total={view.shown.length}
             step={PAGE_SIZE}
             onMore={() => {
               limit.value += PAGE_SIZE;

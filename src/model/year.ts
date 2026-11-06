@@ -8,7 +8,10 @@ export const MIN_YEAR = 1900;
  * a number, when it lies in 1900..current year + 1; otherwise null. Every
  * source goes through this, so a bad value is dropped, never shown as 0.
  */
-export function parseYear(value: unknown, now: number = Date.now()): number | null {
+export function parseYear(
+  value: unknown,
+  now: number = Date.now()
+): number | null {
   let year: number | null = null;
   if (typeof value === 'number' && Number.isInteger(value)) year = value;
   else if (typeof value === 'string') {
@@ -38,9 +41,11 @@ export function yearOf(model: Model, trackId: string): number | null {
   return null;
 }
 
-/** "90s", "2000s", "2010s": the label of the decade holding `year`. */
+/** "90s", "2000s", "1940s": short from the 50s to the 90s, full otherwise. */
 export function decadeLabel(decade: number): string {
-  return decade < 2000 ? `${String(decade).slice(2)}s` : `${decade}s`;
+  return decade >= 1950 && decade < 2000
+    ? `${String(decade).slice(2)}s`
+    : `${decade}s`;
 }
 
 export function decadeOf(year: number): number {

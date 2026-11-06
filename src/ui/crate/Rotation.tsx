@@ -14,6 +14,7 @@ import { historySummary } from '../../model/state';
 import { routeHref } from '../../router';
 import { Badge } from '../components/Badge';
 import { Segmented } from '../components/Segmented';
+import { YearView, yearViewOf } from '../components/YearView';
 import { plural } from '../format';
 import { staleMonthKey, windowLabel } from './labels';
 import { rotationMonths } from './selections';
@@ -25,6 +26,7 @@ import {
   Strip,
   inNoPlaylist,
   monthLabel,
+  rowYear,
   useCrateRows,
 } from './shared';
 
@@ -64,6 +66,7 @@ export function Rotation() {
   const months = rotationMonths.value;
   const keys = lastMonths(now, months);
   const items = heavyRotation(rows, now, months);
+  const view = yearViewOf('crate-rotation', items, (it) => rowYear(it.row));
   const caption = [rangeLabel(keys)];
   if (now.getDate() < 8) {
     const current = shortMonth(keys[keys.length - 1]);
@@ -81,6 +84,7 @@ export function Rotation() {
           shown.value = PAGE_SIZE;
         }}
       />
+      <YearView screen="crate-rotation" decades={view.decades} />
       <p class="caption">{caption.join(' · ')}</p>
       {items.length === 0 ? (
         <div class="empty">
@@ -115,7 +119,7 @@ export function Rotation() {
       ) : (
         <>
           <ul class="list">
-            {items.slice(0, shown.value).map((item, i) => {
+            {view.shown.slice(0, shown.value).map((item, i) => {
               const id = item.row.trackId;
               const cells = stripCells(item.row, keys);
               const month = hasMonthData(item.row)
@@ -158,7 +162,7 @@ export function Rotation() {
           </ul>
           <Paged
             shown={shown.value}
-            total={items.length}
+            total={view.shown.length}
             step={PAGE_SIZE}
             onMore={() => {
               shown.value += PAGE_SIZE;

@@ -91,6 +91,29 @@ describe('mapPlaylistItem', () => {
   });
 });
 
+describe('mapPlaylistItem — round 005 album year', () => {
+  const withDate = (release_date: unknown): ApiPlaylistItem => ({
+    ...track,
+    item: {
+      ...track.item!,
+      album: { name: 'Album', release_date },
+    } as never,
+  });
+
+  it('keeps the year of a day, month or year release date', () => {
+    expect(mapPlaylistItem(withDate('1993-05-17'))?.track.albumYear).toBe(1993);
+    expect(mapPlaylistItem(withDate('1971-11'))?.track.albumYear).toBe(1971);
+    expect(mapPlaylistItem(withDate('2004'))?.track.albumYear).toBe(2004);
+  });
+
+  it('leaves the field out when the date is missing or invalid', () => {
+    for (const date of [undefined, '', '0000', 'soon', 1993.5]) {
+      const mapped = mapPlaylistItem(withDate(date))!;
+      expect('albumYear' in mapped.track).toBe(false);
+    }
+  });
+});
+
 describe('buildEntries', () => {
   it('numbers positions and dedupes tracks', () => {
     const a = mapPlaylistItem(track)!;

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runCreatePlaylist } from './createPlaylist';
+import { applyYears, runCreatePlaylist } from './createPlaylist';
 import type { CreatePlaylistState } from '../../model/state';
 import type { Query, SpotifyClient } from '../../spotify/client';
 import type { ApiPlaylist } from '../../spotify/types';
@@ -52,13 +52,19 @@ function makeClient(opts: {
   getReject?: unknown;
   createReject?: unknown;
   itemsRejectOnCall?: number;
+  /** Round 005: album release date per title; absent = none. */
+  dates?: Record<string, string>;
+  /** Round 005: titles whose search rejects (the others answer). */
+  getRejectFor?: Set<string>;
 }) {
   const misses = opts.misses ?? new Set<string>();
   const get = vi.fn(async (_path: string, query?: Query) => {
     if (opts.getReject) throw opts.getReject;
     const q = String(query?.q ?? '');
     const hit = opts.matchable.find((title) => q.includes(title));
+    if (hit && opts.getRejectFor?.has(hit)) throw new ApiError(0, 'offline');
     if (!hit || misses.has(hit)) return { tracks: { items: [] } };
+    const date = opts.dates?.[hit];
     return {
       tracks: {
         items: [
@@ -67,6 +73,7 @@ function makeClient(opts: {
             id: hit,
             name: hit,
             artists: [{ id: null, name: ARTIST }],
+            ...(date ? { album: { name: 'Al', release_date: date } } : {}),
           },
         ],
       },
@@ -193,7 +200,7 @@ describe('runCreatePlaylist', () => {
     const batches = itemsBatches(post);
     expect(batches.map((b) => b.length)).toEqual([100, 100, 50]);
     expect(batches.flat()).toEqual(rows.map((r) => `spotify:track:${r.title}`));
-    expect(outcome).toEqual({
+    expect(outcome).toMatchObject({
       playlistId: 'PL',
       url: 'https://open.spotify.com/playlist/PL',
     });
@@ -252,7 +259,7 @@ describe('runCreatePlaylist', () => {
     if (err?.status !== 'error') throw new Error('expected error');
     expect(err.url).toBe('https://open.spotify.com/playlist/PL');
     expect(err.added).toBe(100); // batch 1 landed, batch 2 rejected
-    expect(outcome).toEqual({
+    expect(outcome).toMatchObject({
       playlistId: 'PL',
       url: 'https://open.spotify.com/playlist/PL',
     });
@@ -271,7 +278,7 @@ describe('runCreatePlaylist', () => {
     expect(post).toHaveBeenCalledTimes(1); // create attempted, no items call
     expect(itemsBatches(post)).toEqual([]);
     expect(states.at(-1)?.status).toBe('error');
-    expect(outcome).toEqual({ playlistId: null, url: null });
+    expect(outcome).toMatchObject({ playlistId: null, url: null });
   });
 
   it('errors before creating when a search fails; no POST is sent', async () => {
@@ -286,7 +293,7 @@ describe('runCreatePlaylist', () => {
 
     expect(post).not.toHaveBeenCalled();
     expect(states.at(-1)?.status).toBe('error');
-    expect(outcome).toEqual({ playlistId: null, url: null });
+    expect(outcome).toMatchObject({ playlistId: null, url: null });
   });
 
   it('drives the state sequence resolving*->creating->adding->done', async () => {
@@ -304,5 +311,91 @@ describe('runCreatePlaylist', () => {
       'adding',
       'done',
     ]);
+  });
+});
+
+describe('runCreatePlaylist — round 005 years', () => {
+  it('dates matched undated rows from Spotify; a dated row keeps its year', async () => {
+    const shazam: TracklistRow = {
+      ...id(t(1)),
+      year: 1993,
+      yearFrom: 'shazam',
+    };
+    const rows = [id(t(0)), shazam, id(t(2)), id(t(3)), gap];
+    const { client } = makeClient({
+      matchable: [t(0), t(1), t(2), t(3)],
+      misses: new Set([t(2)]),
+      dates: {
+        [t(0)]: '1987-06-01',
+        [t(1)]: '2010',
+        [t(2)]: '1999',
+        [t(3)]: 'n/a',
+      },
+    });
+    const { onState } = record();
+
+    const outcome = await runCreatePlaylist({ client, onState }, input(rows));
+
+    expect(outcome.years.size).toBe(1);
+    expect(outcome.rows[0]).toEqual({
+      ...rows[0],
+      year: 1987,
+      yearFrom: 'spotify',
+    });
+    expect(outcome.rows[1]).toBe(shazam); // dated: unchanged
+    expect(outcome.rows[2]).toBe(rows[2]); // unmatched: no year
+    expect(outcome.rows[3]).toBe(rows[3]); // no valid album date
+    expect(outcome.rows[4]).toBe(gap);
+    expect(rows[0].year).toBeUndefined(); // the input is never mutated
+  });
+
+  it('keeps the years learned before a search fails', async () => {
+    const rows = ids(3);
+    const { client, post } = makeClient({
+      matchable: rows.map((r) => r.title),
+      dates: { [t(0)]: '2001-01-01' },
+      getRejectFor: new Set([t(1)]),
+    });
+    const { states, onState } = record();
+
+    const outcome = await runCreatePlaylist({ client, onState }, input(rows));
+
+    expect(post).not.toHaveBeenCalled();
+    expect(states.at(-1)?.status).toBe('error');
+    expect(outcome.playlistId).toBeNull();
+    expect(outcome.rows[0]).toMatchObject({ year: 2001, yearFrom: 'spotify' });
+    expect(outcome.rows[1]).toBe(rows[1]);
+  });
+
+  it('keeps the years when the create fails', async () => {
+    const rows = ids(2);
+    const { client } = makeClient({
+      matchable: rows.map((r) => r.title),
+      dates: { [t(0)]: '1975', [t(1)]: '1976' },
+      createReject: new ApiError(403, 'Insufficient client scope'),
+    });
+    const { onState } = record();
+
+    const outcome = await runCreatePlaylist({ client, onState }, input(rows));
+
+    expect(outcome.playlistId).toBeNull();
+    expect(outcome.rows.map((r) => r.year)).toEqual([1975, 1976]);
+  });
+});
+
+describe('applyYears', () => {
+  it('sets years by row identity and leaves an edited or dated row alone', () => {
+    const a = id(t(0));
+    const b = id(t(1));
+    const years = new Map([
+      [a, 1990],
+      [b, 1991],
+    ]);
+    const edited = { ...b, title: 'Edited' };
+    const out = applyYears([a, edited], years);
+    expect(out[0]).toEqual({ ...a, year: 1990, yearFrom: 'spotify' });
+    expect(out[1]).toBe(edited);
+    const rows = [a];
+    expect(applyYears(rows, new Map())).toBe(rows);
   });
 });
