@@ -7,6 +7,8 @@ export function ProgressBar(p: {
   done: number;
   total: number;
   unit?: string;
+  /** false hides "done / total unit" when a line beside it already says it. */
+  showCount?: boolean;
 }) {
   const unit = p.unit ?? 'playlists';
   const known = p.total > 0;
@@ -24,7 +26,7 @@ export function ProgressBar(p: {
       >
         <div style={known ? { width: `${pct}%` } : undefined} />
       </div>
-      {known && (
+      {known && p.showCount !== false && (
         <div class="progress-count">
           {p.done} / {p.total} {unit}
         </div>

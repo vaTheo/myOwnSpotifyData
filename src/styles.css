@@ -2954,15 +2954,45 @@ details.mix-clues > summary:focus-visible {
   color: var(--md-sys-color-on-surface-variant);
 }
 
-/* Saved mixes and requests: the row, then its menu or actions. */
-.mix-saved .list > li {
+/* The Mixes list (T116, T123): the row and its menu, then the request's
+ * line, progress, actions and earlier requests. */
+.mix-item {
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.mix-item-head {
   display: flex;
   align-items: center;
 }
 
-.mix-saved .list > li > .row {
+.mix-item-head > .row {
   flex: 1;
   min-width: 0;
+  border-bottom: none;
+}
+
+/* A row that fills the link field reads like one that opens a saved mix. */
+.mix-item-head button.main {
+  font: inherit;
+  color: inherit;
+}
+
+.mix-item-line {
+  margin: 0;
+  padding: 0 4px 4px;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.mix-item-progress {
+  padding: 0 4px 8px;
+}
+
+/* The line above already starts with the step name; the bar keeps it as
+ * its accessible name (aria-label) only. */
+.mix-item-progress .progress-label {
+  display: none;
 }
 
 .mix-requests-head {

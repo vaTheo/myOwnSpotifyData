@@ -1,15 +1,17 @@
 import { signal } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
-import { requestKey } from '../../features/mix/url';
 import {
-  requestList,
-  requestStatusText,
-  type RequestListItem,
-} from '../../features/mix/worker';
+  mixListItems,
+  type MixChipKind,
+  type MixListItem,
+} from '../../features/mix/mixList';
+import { requestKey } from '../../features/mix/url';
+import { requestStatusText } from '../../features/mix/worker';
 import {
   closeMix,
   mixError,
   mixJobs,
+  mixQueueNote,
   mixState,
   removeMix,
   savedMixes,
@@ -26,9 +28,9 @@ import { routeHref } from '../../router';
 import { Button } from '../components/Button';
 import { FileDrop } from '../components/FileDrop';
 import { Flag, type FlagKind } from '../components/Flag';
+import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
-import { TrackRow } from '../components/TrackRow';
 import { formatDate, plural } from '../format';
 import { Disclosure } from './Disclosure';
 import { RowMenu } from './RowMenu';
@@ -98,8 +100,9 @@ export function LinkForm() {
 
 /**
  * The lookup's own lines, under Identify on my computer (so the error's
- * "the button above" stays true): Looking up the mix…, the not-SoundCloud
- * error and `mixError`, inline, never a banner.
+ * "the button above" stays true): Looking up the mix… and the
+ * not-SoundCloud error, inline, never a banner. `mixError` shows in the
+ * Mixes list (S08b), where the requests and saved mixes are.
  */
 export function LookupLines() {
   const state = mixState.value;
@@ -114,9 +117,6 @@ export function LookupLines() {
           here. Any set link can still be sent to your computer with the button
           above.
         </StatusLine>
-      )}
-      {mixError.value !== null && (
-        <StatusLine kind="error">{mixError.value}</StatusLine>
       )}
     </>
   );
@@ -182,169 +182,209 @@ function remove(url: string): void {
   })();
 }
 
-/** Saved mixes: title, "N tracks · saved 3 Nov", the open one selected. */
-export function SavedMixes() {
-  const mixes = savedMixes.value;
-  const open = openUrl();
+const CHIP_FLAG: Record<MixChipKind, FlagKind | undefined> = {
+  queued: undefined,
+  identifying: 'plays',
+  paused: 'pending',
+  stopping: 'pending',
+  found: 'new',
+  failed: 'skip',
+  rejected: 'todo',
+  saved: 'top',
+  playlist: 'top',
+};
+
+/** Move to top, Cancel, Stop (disabled while Stopping…) and Ask again. */
+function MixActions(p: { item: MixListItem }) {
+  const { item } = p;
+  const id = item.request?.id;
+  if (id === undefined) return null;
+  const buttons = [
+    item.canMoveToTop && (
+      <Button key="top" variant="text" onClick={() => void startMoveToTop(id)}>
+        Move to top
+      </Button>
+    ),
+    item.canCancel && (
+      <Button
+        key="cancel"
+        variant="text"
+        onClick={() => void startCancelRequest(id)}
+      >
+        Cancel
+      </Button>
+    ),
+    item.request?.status === 'claimed' && (
+      <Button
+        key="stop"
+        variant="text"
+        disabled={!item.canStop}
+        onClick={() => void startStopRequest(id)}
+      >
+        Stop
+      </Button>
+    ),
+    item.canAskAgain && (
+      <Button
+        key="again"
+        variant="text"
+        onClick={() => void startIdentifyRequest(item.key)}
+      >
+        Ask again
+      </Button>
+    ),
+  ].filter(Boolean);
+  if (buttons.length === 0) return null;
+  return <div class="mix-row-actions">{buttons}</div>;
+}
+
+/**
+ * One row of the Mixes list: title, chip and "saved 3 Nov" in the row's
+ * link (a saved mix) or button (fills the link field); Remove in the row
+ * menu of a saved mix; under it the request's line, the progress bar, the
+ * actions and the earlier requests, collapsed.
+ */
+function MixItem(p: { item: MixListItem; open: string | null }) {
+  const { item } = p;
+  const server = serverState.value;
+  const selected = item.key === p.open;
+  const main = (
+    <>
+      <span class="title">{item.title}</span>
+      {item.savedAt !== null && (
+        <span class="sub">saved {formatDate(item.savedAt)}</span>
+      )}
+      <div class="badges">
+        <Flag kind={CHIP_FLAG[item.chip.kind]}>{item.chip.text}</Flag>
+      </div>
+    </>
+  );
+  const running =
+    item.chip.kind === 'identifying' ||
+    item.chip.kind === 'paused' ||
+    item.chip.kind === 'stopping';
   return (
-    <section class="mix-saved" aria-labelledby="mix-saved-title">
-      <h2 id="mix-saved-title" class="mix-pane-title">
-        Saved mixes
+    <li class="mix-item">
+      <div class="mix-item-head">
+        <div class={selected ? 'row selected' : 'row'}>
+          {item.saved ? (
+            <a
+              class="main"
+              href={routeHref({ name: 'mix', key: item.key })}
+              data-row-id={item.key}
+              aria-current={selected ? 'page' : undefined}
+            >
+              {main}
+            </a>
+          ) : (
+            <button
+              type="button"
+              class="main"
+              data-row-id={item.key}
+              onClick={() => {
+                linkText.value = item.key;
+              }}
+            >
+              {main}
+            </button>
+          )}
+        </div>
+        {item.saved && (
+          <RowMenu
+            label={`More for ${item.title}`}
+            items={[{ label: 'Remove', onSelect: () => remove(item.key) }]}
+          />
+        )}
+      </div>
+      {item.line !== null && <p class="mix-item-line">{item.line}</p>}
+      {running && item.percent !== null && item.step !== null && (
+        <div class="mix-item-progress">
+          <ProgressBar
+            label={item.step}
+            done={Math.round(item.percent)}
+            total={100}
+            showCount={false}
+          />
+        </div>
+      )}
+      <MixActions item={item} />
+      {item.earlier.length > 0 && (
+        <Disclosure
+          class="mix-earlier"
+          summary={<>Earlier requests ({item.earlier.length})</>}
+        >
+          <ul class="mix-lines">
+            {item.earlier.map((v) => (
+              <li key={v.id}>{requestStatusText(v, server).line}</li>
+            ))}
+          </ul>
+        </Disclosure>
+      )}
+    </li>
+  );
+}
+
+/**
+ * The Mixes list (spec 003 §12, T116, T123): saved mixes and requests to
+ * your computer in one list, one row per link, in `mixListItems`' order
+ * (running, then waiting as the worker takes them, then the rest newest
+ * first). The header counts what waits or runs, with Check now; the queue
+ * note ('gone', ruling D4) and `mixError` show under it, inline. Statuses
+ * come from the last pull: the 60 s auto-pull refreshes them, no new poll.
+ */
+export function MixesList() {
+  const server = serverState.value;
+  const jobs = mixJobs.value;
+  const items = mixListItems(jobs, savedMixes.value, server, Date.now());
+  const open = openUrl();
+  const syncing = server.status === 'pushing' || server.status === 'pulling';
+  const requests = items.filter((i) => i.request !== null);
+  const active = items.filter(
+    (i) => i.request?.status === 'queued' || i.request?.status === 'claimed'
+  ).length;
+  return (
+    <section class="mix-list" aria-labelledby="mix-list-title">
+      <h2 id="mix-list-title" class="mix-pane-title">
+        Mixes
       </h2>
-      {mixes.length === 0 ? (
+      {requests.length > 0 && (
+        <div class="mix-requests-head">
+          <p class="mix-caption">
+            {active > 0
+              ? `${plural(active, 'request')} waiting or running · checked every minute.`
+              : 'Nothing waiting.'}
+          </p>
+          <Button
+            variant="text"
+            icon="sync"
+            disabled={syncing}
+            onClick={() => {
+              mixQueueNote.value = null;
+              void startServerSync();
+            }}
+          >
+            {syncing ? 'Checking…' : 'Check now'}
+          </Button>
+        </div>
+      )}
+      {mixQueueNote.value !== null && (
+        <StatusLine>{mixQueueNote.value}</StatusLine>
+      )}
+      {mixError.value !== null && (
+        <StatusLine kind="error">{mixError.value}</StatusLine>
+      )}
+      {items.length === 0 ? (
         <p class="mix-caption">No saved mixes yet.</p>
       ) : (
         <ul class="list">
-          {mixes.map((mix) => {
-            const n = mix.rows.filter((r) => !r.gap).length;
-            const title = mix.title ?? mix.url;
-            return (
-              <TrackRow
-                key={mix.url}
-                title={title}
-                subtitle={`${plural(n, 'track')} · saved ${formatDate(mix.savedAt)}`}
-                href={routeHref({ name: 'mix', key: mix.url })}
-                rowId={mix.url}
-                selected={mix.url === open}
-              >
-                <RowMenu
-                  label={`More for ${title}`}
-                  items={[{ label: 'Remove', onSelect: () => remove(mix.url) }]}
-                />
-              </TrackRow>
-            );
-          })}
+          {items.map((item) => (
+            <MixItem key={item.key} item={item} open={open} />
+          ))}
         </ul>
       )}
     </section>
   );
 }
-
-const REQUEST_FLAG: Record<RequestListItem['label'], FlagKind | undefined> = {
-  Waiting: undefined,
-  Identifying: 'plays',
-  Done: 'top',
-  Rejected: 'todo',
-  Failed: 'skip',
-};
-
-function RequestActions(p: { item: RequestListItem }) {
-  const { item } = p;
-  if (item.canAskAgain) {
-    return (
-      <div class="mix-row-actions">
-        <Button
-          variant="text"
-          onClick={() => void startIdentifyRequest(item.key)}
-        >
-          Ask again
-        </Button>
-      </div>
-    );
-  }
-  if (item.status === 'queued') {
-    return (
-      <div class="mix-row-actions">
-        <Button variant="text" onClick={() => void startMoveToTop(item.id)}>
-          Move to top
-        </Button>
-        <Button variant="text" onClick={() => void startCancelRequest(item.id)}>
-          Cancel
-        </Button>
-      </div>
-    );
-  }
-  if (item.status === 'claimed') {
-    return (
-      <div class="mix-row-actions">
-        <Button variant="text" onClick={() => void startStopRequest(item.id)}>
-          Stop
-        </Button>
-      </div>
-    );
-  }
-  return null;
-}
-
-/**
- * "Requests to your computer" (round 004, ported by T120): every link's
- * latest request, running first, then waiting, then finished; a chip per
- * state, the state line, the queue actions, and the link's earlier
- * requests collapsed. Selecting a row opens its saved mix, or fills the
- * link field when none is saved. Statuses come from the last pull; Check
- * now pulls again. S08b merges this list with Saved mixes.
- */
-export function RequestsCard() {
-  const server = serverState.value;
-  const items = requestList(mixJobs.value, savedMixes.value, server);
-  if (items.length === 0) return null;
-  const syncing = server.status === 'pushing' || server.status === 'pulling';
-  const active = items.filter(
-    (i) => i.label === 'Waiting' || i.label === 'Identifying'
-  ).length;
-  return (
-    <section class="mix-requests" aria-labelledby="mix-requests-title">
-      <h2 id="mix-requests-title" class="mix-pane-title">
-        Requests to your computer
-      </h2>
-      <div class="mix-requests-head">
-        <p class="mix-caption">
-          {active > 0
-            ? `${plural(active, 'request')} waiting or running · checked every minute.`
-            : 'Nothing waiting.'}
-        </p>
-        <Button
-          variant="text"
-          icon="sync"
-          disabled={syncing}
-          onClick={() => void startServerSync()}
-        >
-          {syncing ? 'Checking…' : 'Check now'}
-        </Button>
-      </div>
-      <ul class="list">
-        {items.map((item) => {
-          const earlier = (mixJobs.value[item.key] ?? []).slice(1);
-          return (
-            <TrackRow
-              key={item.key}
-              title={item.title}
-              subtitle={
-                item.tracks !== null && item.label === 'Done'
-                  ? `${item.line} · ${plural(item.tracks, 'track')}`
-                  : item.line
-              }
-              badges={<Flag kind={REQUEST_FLAG[item.label]}>{item.label}</Flag>}
-              onClick={() => {
-                if (item.saved) {
-                  location.hash = routeHref({ name: 'mix', key: item.key });
-                } else {
-                  linkText.value = item.key;
-                }
-              }}
-              selected={item.key === openUrl()}
-            >
-              <RequestActions item={item} />
-              {earlier.length > 0 && (
-                <Disclosure
-                  class="mix-earlier"
-                  summary={<>Earlier requests ({earlier.length})</>}
-                >
-                  <ul class="mix-lines">
-                    {earlier.map((v) => (
-                      <li key={v.id}>{requestStatusText(v, server).line}</li>
-                    ))}
-                  </ul>
-                </Disclosure>
-              )}
-            </TrackRow>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
 const RELEASES = 'https://github.com/vaTheo/myOwnSpotifyData/releases/latest';
 const WORKER_MANUAL =
   'https://github.com/vaTheo/myOwnSpotifyData/blob/main/worker/README.md';
@@ -419,19 +459,18 @@ export function WorkerHelp() {
 }
 
 /**
- * The left pane (spec 003 §12, T081), top to bottom: the link field,
- * Identify on my computer, the JSON import, Saved mixes, Requests to your
- * computer, and the worker help, collapsed.
+ * The left pane (spec 003 §12, T081, T116), top to bottom: the link field,
+ * Identify on my computer, the JSON import, the Mixes list, and the worker
+ * help, collapsed.
  */
 export function MixListPane() {
   return (
-    <div class="mix-pane">
+    <div class="mix-pane" id="mix-pane">
       <LinkForm />
       <IdentifyRequest />
       <LookupLines />
       <JsonImport />
-      <SavedMixes />
-      <RequestsCard />
+      <MixesList />
       <WorkerHelp />
     </div>
   );

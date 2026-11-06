@@ -426,7 +426,7 @@ describe('requestList', () => {
       saved: false,
     });
     expect(running?.line).toContain('Running on laptop');
-    expect(list[3]?.title).toBe('youtube.com · watch');
+    expect(list[3]?.title).toBe('youtube.com · x');
   });
 
   it('offers Ask again on a failed or rejected request only, and only when the server can take it', () => {

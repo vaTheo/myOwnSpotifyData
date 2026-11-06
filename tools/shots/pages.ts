@@ -52,76 +52,21 @@ const REACH_SUMMARY = {
   wellKnown: 290,
 };
 
-/** A worker tracklist from rounds 003–004, for the Mix pages (T120). */
-const ROUND_004_ROWS = [
-  {
-    startSec: 0,
-    endSec: 12,
-    artist: 'Darian Falk',
-    title: 'Dawn Paper',
-    label: null,
-    source: 'tracklistify',
-    gap: false,
-    detected: { artist: 'Darian Falk', title: 'Dawn Paper' },
-    referenceCount: null,
-    confidence: 91,
-    hits: 4,
-  },
-  {
-    startSec: 300,
-    endSec: 312,
-    artist: 'Amaru Prism',
-    title: 'Moon Mirror',
-    label: null,
-    source: 'tracklistify',
-    gap: false,
-    detected: { artist: 'Amaru Prism', title: 'Moon Mirror' },
-    referenceCount: null,
-    confidence: 64,
-    hits: 1,
-    origin: 'replay',
-    speedPercent: 4,
-  },
-  {
-    startSec: 600,
-    endSec: 900,
-    artist: '',
-    title: '',
-    label: null,
-    source: 'tracklistify',
-    gap: true,
-    detected: { artist: '', title: '' },
-    referenceCount: null,
-    clues: [
-      {
-        atSec: 640,
-        author: 'night_owl',
-        text: 'ID? sounds like Moreau Unit https://example.com/x',
-        kind: 'comment',
-      },
-      { atSec: 700, author: '', text: 'Chapter 3', kind: 'chapter' },
-    ],
-  },
-  {
-    startSec: 905,
-    endSec: null,
-    artist: 'Moreau Unit',
-    title: 'Silk Tide',
-    label: null,
-    source: 'tracklistify',
-    gap: false,
-    detected: { artist: 'Moreau Unit', title: 'Silk Tide' },
-    referenceCount: null,
-    confidence: null,
-    origin: 'clue',
-    clue: {
-      atSec: 640,
-      author: 'night_owl',
-      text: 'ID? sounds like Moreau Unit',
-      kind: 'comment',
-    },
-  },
-];
+/** A connected server, so Ask again shows on the Mix pages (S08b). */
+const SERVER_CONNECTED = {
+  status: 'connected',
+  lastSyncAt: DEMO_NOW - 60_000,
+  usedBytes: null,
+  stamps: [],
+  rejected: 0,
+};
+
+/** The Mixes list with a connected server: every chip and queue action. */
+async function mixesConnected(page: Page): Promise<void> {
+  await page.getByRole('heading', { name: 'Mixes', exact: true }).waitFor();
+  await setState(page, 'serverSession', SERVER_SESSION);
+  await setState(page, 'serverState', SERVER_CONNECTED);
+}
 
 async function tab(page: Page, name: string): Promise<void> {
   await page.getByRole('tab', { name, exact: true }).first().click();
@@ -406,13 +351,62 @@ export const PAGES: ShotPage[] = [
     hash: `#/mix/${enc('https://soundcloud.com/someone/not-saved-here')}`,
   },
   {
-    // Rounds 003–004 rows (T120): clip counts, second listen, a candidate
-    // "not heard" with its clue, a gap with clues; the Sort select shows.
+    // Rounds 003–004 rows, seeded (T120, T128): clip counts, second listen
+    // at +4 % and −4 %, a candidate "not heard" with its clue, a gap with
+    // clues, set-wide clues; the Sort select shows.
     id: 'mix-round004',
     hash: `#/mix/${enc('https://www.youtube.com/watch?v=demoSet0001')}`,
+  },
+  {
+    // The Mixes list (T116, T121, T123): running with progress (first pass,
+    // second pass ×1.04), paused, stale, stopping; two queued, the younger
+    // moved to the top; found, failed, rejected, stopped early with Ask
+    // again; saved and playlist made. The server is connected.
+    id: 'mix-queue',
+    hash: '#/mix',
+    setup: mixesConnected,
+  },
+  {
+    // The list scrolled to its finished rows: Failed with its reason,
+    // stopped early with Ask again, earlier requests collapsed.
+    id: 'mix-finished',
+    hash: '#/mix',
     setup: async (page) => {
-      await page.getByRole('grid', { name: 'Tracklist' }).waitFor();
-      await setState(page, 'mixRows', ROUND_004_ROWS);
+      await mixesConnected(page);
+      await page
+        .getByRole('button', { name: /festival-warm-up/ })
+        .scrollIntoViewIfNeeded();
+    },
+  },
+  {
+    // Cancel found the request already taken (ruling D4).
+    id: 'mix-gone-taken',
+    hash: '#/mix',
+    setup: async (page) => {
+      await mixesConnected(page);
+      await setState(page, 'mixQueueNote', 'Already taken by your computer');
+    },
+  },
+  {
+    // Stop found the request already finished (ruling D4).
+    id: 'mix-gone-finished',
+    hash: '#/mix',
+    setup: async (page) => {
+      await mixesConnected(page);
+      await setState(page, 'mixQueueNote', 'Already finished');
+    },
+  },
+  {
+    // A server without migration 0003 (ruling D5).
+    id: 'mix-migration',
+    hash: '#/mix',
+    setup: async (page) => {
+      await mixesConnected(page);
+      await setState(
+        page,
+        'mixError',
+        'Apply migration 0003 on the server to use Cancel, Move to top and Stop'
+      );
     },
   },
 

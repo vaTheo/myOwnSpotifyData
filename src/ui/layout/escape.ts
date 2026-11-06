@@ -9,8 +9,17 @@
  * field's (a search field clears itself on Escape), so it closes nothing.
  */
 
-/** Activity panel over the details sheet over the list–detail pane. */
-export const ESCAPE_RANK = { pane: 1, sheet: 2, activity: 3 } as const;
+/**
+ * Activity panel over the details sheet over the list–detail pane. `fold`:
+ * a list pane brought back over its detail (Mix, 840–1,599 px) folds before
+ * the detail closes.
+ */
+export const ESCAPE_RANK = {
+  pane: 1,
+  fold: 1.5,
+  sheet: 2,
+  activity: 3,
+} as const;
 
 export interface EscapeLayer {
   close: () => void;
