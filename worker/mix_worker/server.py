@@ -141,7 +141,20 @@ class ServerClient:
     # -- sign-in (research D8) -----------------------------------------------
 
     def send_otp(self, email: str) -> Result:
+        """The six-digit code mail (needs `{{ .Token }}` in the Magic Link template)."""
         return self._request("POST", "/auth/v1/otp", {"email": email, "create_user": False})
+
+    def request_link(self, email: str, redirect_to: str, code_challenge: str) -> Result:
+        """The magic link in the PKCE flow, as the app asks for it (research D8)."""
+        return self._request(
+            "POST",
+            "/auth/v1/otp?redirect_to=" + urllib.parse.quote(redirect_to, safe=""),
+            {"email": email, "create_user": False, "code_challenge": code_challenge, "code_challenge_method": "s256"},
+        )
+
+    def exchange_code(self, auth_code: str, code_verifier: str) -> Result:
+        r = self._request("POST", "/auth/v1/token?grant_type=pkce", {"auth_code": auth_code, "code_verifier": code_verifier})
+        return self._session_triple(r)
 
     def verify(self, email: str, code: str) -> Result:
         r = self._request("POST", "/auth/v1/verify", {"type": "email", "email": email, "token": code})

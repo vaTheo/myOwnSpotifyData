@@ -12,8 +12,8 @@ ISRC and label, sends the tracklist back in the shape the Tracklistify import re
 the rows on the saved mix; Create playlist from mix is unchanged; the request's state and reason are shown, with Ask again
 ([ADR-09](docs/architecture/700-adr/ADR-09-mix-identification-on-the-owners-computer.md), [spec](docs/specs/2026-11-06-mix-analysis-worker-design.md),
 the full round under `specs/002-mix-analysis-worker/`, the manual `worker/README.md`). No `DB_VERSION` bump, one new `meta`
-name, no new app dependency. After upgrading: apply `supabase/migrations/0002_jobs.sql`, add `Your code: {{ .Token }}` to the
-Magic Link email template, then `cd worker && uv sync && uv run mix-worker login`.
+name, no new app dependency. After upgrading: apply `supabase/migrations/0002_jobs.sql`, then `cd worker && uv sync && uv run
+mix-worker login` (the mail's link, clicked on that computer; no email template change: Supabase locks them on new Free projects).
 
 ## 2026-11-06 — A server and database holding the app's data
 

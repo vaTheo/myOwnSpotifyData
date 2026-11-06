@@ -89,7 +89,7 @@ ordered by `startSec` (nulls last, stable), so a re-run replaces the untouched s
 | Path (defaults) | Holds | Mode |
 |---|---|---|
 | `worker/.env` (git-ignored) | `SUPABASE_URL`, `SUPABASE_KEY` (the public ones), optional overrides | owner's |
-| `~/.config/myownspotifydata-worker/session.json` | `{ email, access_token, refresh_token, expires_at }` | 0600, written by `login`, refreshed in place |
+| `~/.config/myownspotifydata-worker/session.json` | `{ email, access_token, refresh_token, expires_at }` | 0600, written by `login` (the magic link caught on 127.0.0.1:5173, or `--code`), refreshed in place |
 | `~/.cache/myownspotifydata-worker/<job id>/` | the downloaded audio; removed after the request ends (probes are cut to memory, never to files) | temp |
 | `~/Music/mix-worker/<YYYY-MM-DD> <title> [<job id prefix>].json` | the result as sent (the hand-importable JSON, FR-016) | kept |
 | `~/.cache/myownspotifydata-worker/worker.log` | one line per step with duration and outcome (FR-017) | appended |

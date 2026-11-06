@@ -19,7 +19,7 @@ cd worker
 cp .env.example .env        # fill SUPABASE_URL and SUPABASE_KEY: the two public values of the app's .env
 uv sync                     # installs yt-dlp, ShazamIO and a static ffmpeg into .venv
 uv run mix-worker check     # what it resolved, nothing missing?
-uv run mix-worker login     # your email, then the 6-digit code from the mail (once per computer)
+uv run mix-worker login     # your email, then click the mail's link on this computer (once per computer)
 uv run mix-worker run --once      # process the queue, then exit
 uv run mix-worker run --watch     # keep polling every 60 s until Ctrl-C
 ```
@@ -35,18 +35,23 @@ Download the file for your system from the latest `worker-v…` release of the r
 | macOS Apple silicon / Intel | `mix-worker-macos-arm64` / `mix-worker-macos-x86_64` | right-click → Open the first time (unsigned) |
 
 The first start writes `mix-worker.env` beside the executable and exits. Fill `SUPABASE_URL` and `SUPABASE_KEY`, start
-again: it asks for your email and the code once, keeps the session in that folder (`session.json`, next to it), then polls
-until you close the window. The same commands work from a terminal: `mix-worker-windows-x64.exe check`, `… run --once`.
+again: it asks for your email, you open the mail on that computer and click its link (a tab says "mix-worker is signed in"),
+it keeps the session in that folder (`session.json`, next to it), then polls until you close the window. The same commands work from a terminal: `mix-worker-windows-x64.exe check`, `… run --once`.
 
 Only **YouTube** links need one more thing: a JavaScript runtime on the computer, [Node](https://nodejs.org) or
 [Deno](https://deno.com) (`check` says whether one is found). SoundCloud, Mixcloud and the rest need nothing.
 
 ## Before the first login (once, in the Supabase dashboard)
 
-1. Authentication → Email Templates → **Magic Link**: add a line `Your code: {{ .Token }}` under the existing link. The
-   app's own sign-in link keeps working; the worker uses the code.
-2. SQL editor: run `supabase/migrations/0002_jobs.sql` (after `0001_init.sql`). It adds the `claim_job` function the worker
-   calls and the `applied_at` column the app uses.
+SQL editor: run `supabase/migrations/0002_jobs.sql` (after `0001_init.sql`). It adds the `claim_job` function the worker
+calls and the `applied_at` column the app uses. Nothing else.
+
+How `login` works: it asks Supabase for the same magic link the app uses, with `http://127.0.0.1:5173/myOwnSpotifyData/` as
+the return address (a project of this app already allows it), and listens there for a minute or ten. Click the mail's link
+**on the computer running the worker**; the link opens a local page that says it is signed in. The app's dev server
+(`yarn dev`) must not be running at that moment, since it uses the same port. `login --code` types a 6-digit code instead,
+but only works when the project's Magic Link email template carries `{{ .Token }}`, which a Free project on Supabase's
+default mailer created after June 2026 cannot edit (custom SMTP unlocks it).
 
 ## What you see
 
@@ -116,7 +121,8 @@ Only the first two are required.
 
 ## Troubleshooting
 
-- **"not signed in"**: `mix-worker login`. The code mail needs the template line above; the code is valid one hour.
+- **"not signed in"**: `mix-worker login`, then click the mail's link on this computer within ten minutes.
+- **"could not listen on port 5173"**: stop `yarn dev` (or whatever holds the port) and run `login` again.
 - **"the project is paused"**: Supabase pauses a Free project after a week without traffic; resume it from the dashboard.
 - **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address; wait, or raise
   `WORKER_COOLDOWN_SECONDS`. The request can be asked again from the phone.

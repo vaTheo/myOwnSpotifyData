@@ -195,3 +195,26 @@ class Mapping(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LinkFlow(unittest.TestCase):
+    def test_request_link_posts_the_pkce_challenge_and_redirect(self):
+        c, o = client(FakeResponse(200, {}))
+        r = c.request_link("dj@example.com", "http://127.0.0.1:5173/myOwnSpotifyData/?link=worker", "CHALLENGE")
+        self.assertEqual(r.kind, "ok")
+        call = o.calls[0]
+        self.assertEqual(call["url"], BASE + "/auth/v1/otp?redirect_to=http%3A%2F%2F127.0.0.1%3A5173%2FmyOwnSpotifyData%2F%3Flink%3Dworker")
+        self.assertEqual(call["body"], {"email": "dj@example.com", "create_user": False, "code_challenge": "CHALLENGE", "code_challenge_method": "s256"})
+
+    def test_exchange_code(self):
+        c, o = client(FakeResponse(200, {"access_token": "a", "refresh_token": "r", "expires_in": 3600}))
+        r = c.exchange_code("CODE", "VERIFIER")
+        self.assertEqual(r.value, {"access_token": "a", "refresh_token": "r", "expires_in": 3600})
+        self.assertEqual(o.calls[0]["url"], BASE + "/auth/v1/token?grant_type=pkce")
+        self.assertEqual(o.calls[0]["body"], {"auth_code": "CODE", "code_verifier": "VERIFIER"})
+
+    def test_exchange_refused(self):
+        c, _ = client(http_error(400, b'{"error_code":"flow_state_not_found","msg":"invalid flow state"}'))
+        r = c.exchange_code("CODE", "VERIFIER")
+        self.assertEqual(r.kind, "error")
+        self.assertIn("flow state", r.message)

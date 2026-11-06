@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import os
+import secrets
 import time
+from urllib.parse import parse_qs, urlsplit
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -89,3 +93,25 @@ def ensure_fresh(
         clear(path)
         return None
     return r
+
+
+# -- the magic link in the PKCE flow (research D8) -----------------------------
+
+
+def new_verifier() -> str:
+    """A PKCE code verifier: 64 URL-safe characters."""
+    return secrets.token_urlsafe(48)
+
+
+def challenge_for(verifier: str) -> str:
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def code_from_redirect(path: str) -> str | None:
+    """The `code` of the link's redirect, or None (an error, another path)."""
+    parts = urlsplit(path)
+    codes = parse_qs(parts.query).get("code")
+    if not codes or not codes[0]:
+        return None
+    return codes[0]

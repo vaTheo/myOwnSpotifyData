@@ -301,7 +301,8 @@ and one PyInstaller executable per system built by `.github/workflows/worker-rel
 ([ADR-09](700-adr/ADR-09-mix-identification-on-the-owners-computer.md); the round's record under `specs/002-mix-analysis-worker/`;
 the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never calls a Spotify host.
 
-- `cli.py`: `check`, `login` (email code → `session.json` at mode 600), `logout`, `run --once|--watch`, `--config`, `--version`;
+- `cli.py`: `check`, `login` (the app's magic link in the PKCE flow, caught on `127.0.0.1:5173/myOwnSpotifyData/` → `session.json`
+  at mode 600; `--code` for a typed six-digit code), `logout`, `run --once|--watch`, `--config`, `--version`;
   no command = the double-click: login if needed, then watch; a packaged start without a settings file writes `mix-worker.env`
   and exits 6. Exit codes 0/2/3/4/5/6/130 (`contracts/worker.md`). Every dependency (environment, terminal, clock, client, the
   queue loop) is a `CliDeps` field, so `tests/test_cli.py` runs every command offline.

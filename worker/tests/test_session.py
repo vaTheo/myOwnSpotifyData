@@ -89,3 +89,24 @@ class Fresh(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Pkce(unittest.TestCase):
+    def test_verifier_and_challenge(self):
+        from mix_worker.session import challenge_for, new_verifier
+
+        v = new_verifier()
+        self.assertGreaterEqual(len(v), 43)
+        self.assertLessEqual(len(v), 128)
+        self.assertRegex(v, r"^[A-Za-z0-9_-]+$")
+        self.assertNotEqual(new_verifier(), v)
+        # RFC 7636 appendix B
+        self.assertEqual(challenge_for("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"), "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
+
+    def test_code_from_redirect(self):
+        from mix_worker.session import code_from_redirect
+
+        self.assertEqual(code_from_redirect("/myOwnSpotifyData/?link=worker&code=abc-123"), "abc-123")
+        self.assertIsNone(code_from_redirect("/myOwnSpotifyData/?link=worker"))
+        self.assertIsNone(code_from_redirect("/myOwnSpotifyData/?error=access_denied&error_description=Email+link+is+invalid"))
+        self.assertIsNone(code_from_redirect("/favicon.ico"))

@@ -115,19 +115,30 @@ needs only `song_name`, `artist`, `mix_info.title`, `mix_info.audio_filename`; e
 - **Alternatives**: a `yt-dlp` subprocess (rejected for the executable); `-x --audio-format m4a` (rejected: a re-encode and a
   second ffmpeg use for nothing).
 
-## D8. Sign-in: an email code typed in the terminal, a session file at 0600 (owner's pick, 2026-11-06)
+## D8. Sign-in: the app's magic link caught on the local dev address (default), the email code as the option; a session file at 0600
 
-- **Decision**: `mix-worker login` asks for the email, calls `POST /auth/v1/otp {email, create_user: false}`, asks for the
-  six-digit code, calls `POST /auth/v1/verify {type: "email", email, token}` and stores `{email, access_token, refresh_token,
+- **Decision (revised 2026-11-06, after the owner found the template locked)**: `mix-worker login` asks for the email,
+  generates a PKCE verifier, calls `POST /auth/v1/otp?redirect_to=http://127.0.0.1:5173/myOwnSpotifyData/?link=worker` with
+  `{email, create_user: false, code_challenge, code_challenge_method: "s256"}` (the app's own request), listens on
+  `127.0.0.1:5173` for the link's redirect (`?code=…`, up to ten minutes; the owner opens the mail on that computer), exchanges
+  it with `POST /auth/v1/token?grant_type=pkce {auth_code, code_verifier}`, and stores the session. Nothing to configure: that
+  address is the dev redirect URL every project already allows (ADR-01). `login --code` keeps the typed six-digit code
+  (`POST /auth/v1/otp`, then `POST /auth/v1/verify {type: "email", email, token}`) for a project whose template carries
+  `{{ .Token }}`. Both store `{email, access_token, refresh_token,
   expires_at}` in `WORKER_SESSION_FILE` (default `~/.config/myownspotifydata-worker/session.json` on Linux/macOS,
   `%APPDATA%\myownspotifydata-worker\session.json` on Windows; beside the executable when a `session.json` exists there),
   mode 0600. Every run refreshes when under 60 s of validity remain (`grant_type=refresh_token`); a 401 on refresh exits 4
-  ("run `mix-worker login` again"). `logout` calls `/auth/v1/logout` and deletes the file. Setup: one line `Your code: {{ .Token }}`
-  added to the Magic Link email template (Supabase: "Email OTPs use the same backend as Magic Links"; the code is six digits,
-  valid one hour by default, one request per 60 s); signups stay off; the app's PKCE link keeps working.
-- **Rationale**: no browser on a worker computer, no password (declined for the app), never the `service_role` key (the
-  owner's standing rule; it would bypass RLS). The session is an ordinary user session under the same RLS as the app's.
-- **Alternatives**: pasting the magic link (needs the PKCE verifier the app holds; fiddly); `service_role` (rejected).
+  ("run `mix-worker login` again"). `logout` calls `/auth/v1/logout` and deletes the file. No dashboard setup: Supabase locked
+  the auth email templates of new Free projects on its default mailer on 2026-06-03 (changelog "Changes to email template
+  customisation on Free tier"; custom SMTP unlocks them), and the owner's project of 2026-11-05 is one of them, so the
+  `{{ .Token }}` line cannot be added there; the link needs no template. Signups stay off; one mail per 60 s.
+- **Rationale**: the computer running the worker has a mail client and a browser, so the link lands where the verifier is;
+  no password (declined for the app), never the `service_role` key (the owner's standing rule; it would bypass RLS). The session
+  is an ordinary user session under the same RLS as the app's. Port 5173 is taken only during `login` and only when the app's
+  dev server is not running; the message says so and points at `--code`.
+- **Alternatives**: custom SMTP to unlock the template (a third-party mail account to keep; kept as the way to the `--code`
+  form if ever wanted); pasting the link's redirect URL into the terminal (fiddlier than the local catcher); `service_role`
+  (rejected).
 
 ## D9. Packaging: a `uv` project, stdlib tests, ffmpeg from a wheel, PyInstaller executables for three systems (owner's pick)
 

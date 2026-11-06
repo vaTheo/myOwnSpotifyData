@@ -10,7 +10,7 @@ Spotify host (FR-019).
 | Command | Does | Exit |
 |---|---|---|
 | `mix-worker check` | prints the settings it resolved (secrets masked), the ffmpeg it will use and its version, whether a JavaScript runtime is on PATH (YouTube only), whether a session exists; touches no network | 0, or 5 when a required setting is missing or ffmpeg cannot start |
-| `mix-worker login` | email → code → session file (D8) | 0; 2/3 server; 4 refused code |
+| `mix-worker login` | email → the magic link opened on this computer, caught on 127.0.0.1:5173 → session file (D8); `--code`: the typed six-digit code instead | 0; 2/3 server; 4 refused, timed out, or port 5173 busy |
 | `mix-worker logout` | revokes and deletes the session | 0 |
 | `mix-worker run --once` | claims and processes requests until the queue is empty, then exits | 0 |
 | `mix-worker run --watch [--interval N]` | as `--once`, then polls every N s (default `WORKER_POLL_SECONDS`) until stopped | 130 on Ctrl-C |
