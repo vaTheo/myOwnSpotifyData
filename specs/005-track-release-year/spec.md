@@ -1,4 +1,4 @@
-# Feature Specification: The release year of every track in a set
+# Feature Specification: The release year of every track
 
 **Feature Branch**: `005-track-release-year`
 
@@ -7,18 +7,27 @@
 **Status**: Draft
 
 **Input**: Owner, 2026-11-07: "New features I would like that you fetch the year of release of each track when you search for
-tracks." Picks: source = **Shazam + Spotify + catalogues**; on the Mix screen **sort by year** and **filter by decade**.
+tracks." Picks: source = **Shazam + Spotify + catalogues**; on the Mix screen **sort by year** and **filter by decade**. Then:
+"and it also must be added for the songs fetched from my Spotify playlists and listens"; "Can't you fetch those info with the
+BPM audio data?" → pick **with the BPM job**; screens: "on every song that is displayed".
 
 What is already there: Shazam answers a four-digit "Released" year for 402 of the 505 tracks of the ten sets saved on 2026-11-06
 (80 %); the worker writes it into the set's JSON (`metadata.release_date`) and the app drops it. The catalogues the worker already
 asks for clues (Deezer, MusicBrainz) know a release date for most ISRCs; Create playlist already runs one Spotify search per row,
-and its answer carries the album's release date.
+and its answer carries the album's release date. ReccoBeats, the keyless source the BPM and key run already asks by Spotify id
+or ISRC, lists every album a track appears on with its release date (probed 2026-11-07: *Stairway to Heaven* → the 1971 albums
+and the 2007 compilations), so the earliest is the original release; it costs one more call per track and covers the tracks the
+BPM run finds (45–62 % in the 2026-09-05 research).
 
 ## Constitution notice
 
 - **Principle III / ADR-02, ADR-03**: no new Spotify call. The year from Spotify is read from the answer of the search Create
   playlist already makes, on the owner's tap; nothing reads Spotify on load.
-- **ADR-04 / ADR-10**: the catalogue lookups are keyed on the ISRC Shazam returned, never on a name.
+- **ADR-04 / ADR-10**: the catalogue lookups are keyed on the ISRC Shazam returned, and the library's on the Spotify id or ISRC
+  the BPM run already sends ReccoBeats, never on a name; the library's lookups run only inside the BPM run started from Settings,
+  paced, resumable, and pinned by its pacing test.
+- **ADR-02**: the library's years never cost a Spotify call: ReccoBeats inside the BPM run, plus the album date the playlist and
+  Top syncs already download (on the owner's tap).
 - **Principle I / ADR-08**: the server stores the year with the saved mix (inside the row it already keeps); no migration.
 - **ADR-05**: the year is an optional field on a row; no `DB_VERSION` bump.
 
@@ -86,6 +95,50 @@ already had Shazam's year keeps it.
 2. **Given** a row Create playlist does not match, **Then** it stays without a year.
 3. **Given** Create playlist fails part-way, **Then** the years learned before the failure are kept.
 
+---
+
+### User Story 4 - Every track of the library knows its release year (Priority: P1)
+
+The BPM and key run in Settings also gives each track of the owner's playlists, listens and Top lists its **original release
+year**: the earliest release date ReccoBeats lists among the albums the track is on. A track ReccoBeats does not know takes the
+year of its album when the playlist or Top sync downloads it (no extra call). Like the BPM, the years survive a reload, the run
+resumes where it stopped, and only tracks without a year are asked again.
+
+**Why this priority**: the owner prepares sets from the library more than from scanned sets.
+
+**Independent Test**: run the BPM run on a library; a track on a 1971 album and a 2007 compilation shows 1971; a track
+ReccoBeats does not know but that is in a synced playlist shows its album's year; a track in neither shows nothing.
+
+**Acceptance Scenarios**:
+
+1. **Given** the BPM run, **When** it reaches a track with no year, **Then** it asks for its albums and keeps the earliest valid
+   year; a track with a year is not asked again.
+2. **Given** the run stopped (app closed, offline, ReccoBeats busy), **When** started again, **Then** it continues with the
+   tracks still without a year.
+3. **Given** ReccoBeats refuses or does not answer, **Then** the run behaves as it does for BPM today (waits, then stops with a
+   message in Settings) and the years already found are kept.
+4. **Given** a year from ReccoBeats and another from a playlist sync, **Then** ReccoBeats' (the earliest release) wins.
+5. **Given** Settings, **Then** the run's line counts the years found ("years: 3,120 of 4,980").
+
+---
+
+### User Story 5 - The year on every song shown, sortable and filterable (Priority: P1)
+
+Every screen that lists songs (Top and most played, a playlist ranked by plays, Crate, Match, Under the radar's tracks, a mix)
+shows the year of a dated song, and offers a **year sort** and a **decade filter** beside its current controls.
+
+**Why this priority**: the owner asked for it "on every song that is displayed".
+
+**Independent Test**: on each of those screens, a dated song shows its year; sort by year puts the oldest first and the undated
+last; choosing "90s" keeps only songs from 1990 to 1999; clearing the filter restores the list.
+
+**Acceptance Scenarios**:
+
+1. **Given** a screen whose songs are all undated, **Then** the year sort and the decade filter are not offered.
+2. **Given** a decade filter on a screen, **When** the owner changes screen and comes back, **Then** the filter is kept the same
+   way the screen keeps its other controls.
+3. **Given** the Crate's existing BPM and key filters, **When** a decade filter is added, **Then** only songs matching all show.
+
 ### Edge Cases
 
 - Shazam or a catalogue gives a full date ("1993-05-17") or a year only ("1993"): only the year is kept.
@@ -113,6 +166,14 @@ already had Shazam's year keeps it.
   already makes, and save it; a dated row keeps its year.
 - **FR-009**: The year MUST sync with the saved mix to the owner's other devices like every other row field.
 - **FR-010**: Saved mixes and set files from before this round MUST open unchanged.
+- **FR-011**: The BPM and key run MUST also look up the original release year (earliest album release date) of each library
+  track without one, from the same keyless source, by Spotify id or ISRC, within its existing pacing, resume and error handling.
+- **FR-012**: The playlist and Top syncs MUST keep the album's release year of each track they already download, with no new
+  call; it is used only when the BPM run found none.
+- **FR-013**: Every screen that lists songs MUST show the year of a dated song and offer the year sort and the decade filter,
+  combined with its existing controls; undated songs show no year.
+- **FR-014**: The library's years MUST be kept on the device across reloads and sync to the owner's server with the data they
+  belong to, like the BPM values.
 
 ### Key Entities
 
@@ -127,6 +188,9 @@ already had Shazam's year keeps it.
 - **SC-003**: Sorting a 60-track set by year or keeping one decade takes one tap and no network.
 - **SC-004**: No set fails or arrives later than one minute because of the year lookups.
 - **SC-005**: No undated row ever shows 0 or a placeholder year.
+- **SC-006**: After one BPM run, at least half of the library's tracks show a year, and a playlist synced since shows a year on
+  at least 90 % of its tracks.
+- **SC-007**: The year adds no Spotify call anywhere.
 
 ## Assumptions
 
@@ -134,3 +198,7 @@ already had Shazam's year keeps it.
 - The catalogue lookups share round 003's lookup cap (100 per set) and pace; year lookups come after the clue lookups.
 - Spotify's album date is "YYYY", "YYYY-MM" or "YYYY-MM-DD"; only the year is used.
 - Years are not looked up again for sets saved before this round; fetching a set again gets them.
+- The year lookup roughly doubles the BPM run's time on its first pass (one album call per track found); later runs ask only
+  new tracks. It runs after the BPM lookup of the same tracks, in the same run, not as a separate button.
+- A playlist synced before this round gets album years only when it changes or is synced again; the BPM run covers the rest.
+- Under the radar lists artists; its year applies where it shows songs.
