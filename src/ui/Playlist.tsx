@@ -50,6 +50,8 @@ import {
   titleColumn,
   topFlagsColumn,
 } from './table/columns';
+import { closeDetail, openDetail } from './details/navigate';
+import { TrackSheet } from './details/TrackDetails';
 import { DataTable, type Column } from './table/DataTable';
 import type { SortState } from './table/sort';
 
@@ -288,7 +290,8 @@ export function PlaylistActions({ id }: { id: string }) {
   );
 }
 
-export function Playlist({ id }: { id: string }) {
+/** `detail` is the entry position whose details sheet is open (`?d=`). */
+export function Playlist({ id, detail }: { id: string; detail?: string }) {
   const m = model.value;
   const playlist = m?.playlistsById.get(id);
   if (!m || !playlist) {
@@ -461,7 +464,30 @@ export function Playlist({ id }: { id: string }) {
         sortOf.value = id;
       }}
       resetKey={`${id} ${order.value} ${seedPosition ?? ''}`}
-      onOpen={matching ? (r) => setSeed(id, r.row) : undefined}
+      selectedKey={detail ?? null}
+      // In Match mode a row is a seed, as before; otherwise it opens its
+      // details, where "Match from this track" seeds from it.
+      onOpen={
+        matching
+          ? (r) => setSeed(id, r.row)
+          : (r) => openDetail(String(r.row.entry.position))
+      }
+    />
+  );
+
+  const opened = detail
+    ? ranked.find((r) => String(r.entry.position) === detail)
+    : undefined;
+  const sheet = opened && (
+    <TrackSheet
+      trackRef={{ playlistId: id, position: opened.entry.position }}
+      rowId={detail!}
+      onMatch={() => {
+        setSeed(id, opened);
+        order.value = 'match';
+        sort.value = DEFAULT_SORT;
+        closeDetail();
+      }}
     />
   );
 
@@ -472,6 +498,7 @@ export function Playlist({ id }: { id: string }) {
       {head}
       {seedBar}
       {table}
+      {sheet}
     </section>
   );
 }

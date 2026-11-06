@@ -8,20 +8,19 @@ import {
 } from '../../model/crate';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
+import { DetailsSection } from '../details/TrackDetails';
 import { plural } from '../format';
 import { finishTab } from './selections';
 import {
   CrateRow,
+  CrateSheet,
   Paged,
-  PlaylistLinks,
   inNoPlaylist,
   useCrateRows,
 } from './shared';
 
 type Tab = 'finished' | 'skipped';
 
-/** One row open at a time, keyed by track id. Reset when the tab changes. */
-const expanded = signal<string | null>(null);
 const limit = signal(PAGE_SIZE);
 
 const TAB_OPTIONS: { value: Tab; label: string }[] = [
@@ -50,11 +49,25 @@ function rateKind(pct: number): 'high' | 'skip' | undefined {
   return undefined;
 }
 
-export function Finish() {
+/** What the row used to expand into: the rate and its clear outcomes. */
+function FinishExtra({ item }: { item: FinishItem }) {
+  return (
+    <DetailsSection title="Finish rate">
+      <p class="details-note">
+        {percentFinished(item)}% finished ·{' '}
+        {(item.row.finished ?? 0).toLocaleString()} of{' '}
+        {plural(item.outcomes, 'clear outcome')}
+      </p>
+    </DetailsSection>
+  );
+}
+
+export function Finish({ detail }: { detail?: string }) {
   const rows = useCrateRows();
   const tab = finishTab.value;
   const items = finishRate(rows, tab);
   const shown = items.slice(0, limit.value);
+  const opened = items.find((item) => item.row.trackId === detail);
   // Control, caption and legend render before the data check, so an empty
   // result still leaves the Segmented reachable (spec section 3).
   return (
@@ -64,7 +77,6 @@ export function Finish() {
         value={tab}
         onChange={(v) => {
           finishTab.value = v;
-          expanded.value = null;
           limit.value = PAGE_SIZE;
         }}
       />
@@ -88,11 +100,7 @@ export function Finish() {
                   key={row.trackId}
                   rank={i + 1}
                   row={row}
-                  expanded={expanded.value === row.trackId}
-                  onToggle={() => {
-                    expanded.value =
-                      expanded.value === row.trackId ? null : row.trackId;
-                  }}
+                  selected={detail === row.trackId}
                   badge1={<Flag kind={rateKind(pct)}>{pct}% finished</Flag>}
                   badge2={
                     inNoPlaylist(row) ? (
@@ -104,18 +112,7 @@ export function Finish() {
                       </Flag>
                     )
                   }
-                >
-                  <p class="muted">
-                    {plural(row.plays, 'play')} ·{' '}
-                    {plural(row.attempts ?? 0, 'start')}
-                  </p>
-                  <p class="strip">
-                    {(row.finished ?? 0).toLocaleString()} finished ·{' '}
-                    {(row.skipped ?? 0).toLocaleString()} skipped ·{' '}
-                    {item.unclear.toLocaleString()} unclear
-                  </p>
-                  <PlaylistLinks row={row} />
-                </CrateRow>
+                />
               );
             })}
           </ul>
@@ -129,6 +126,10 @@ export function Finish() {
           />
         </>
       )}
+      <CrateSheet
+        detail={detail}
+        extra={opened && <FinishExtra item={opened} />}
+      />
     </>
   );
 }

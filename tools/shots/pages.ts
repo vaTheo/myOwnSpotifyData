@@ -13,7 +13,7 @@ export type Story =
   'US1' | 'US2' | 'US3' | 'US4' | 'US5' | 'US6' | 'US7' | 'US8';
 
 /** The stories whose screens exist; extended as each phase lands. */
-export const READY: readonly Story[] = [];
+export const READY: readonly Story[] = ['US3'];
 
 export interface ShotPage {
   id: string;
@@ -250,6 +250,40 @@ export const PAGES: ShotPage[] = [
       }),
   },
   { id: 'import', hash: '#/import' },
+
+  // Track details (US3): the side sheet over Top, Playlist, Artist, Crate
+  {
+    id: 'top-details',
+    hash: '#/top',
+    setup: firstRow,
+    since: 'US3',
+  },
+  {
+    // SC-001 with the sheet docked beside the 500-track playlist.
+    id: 'playlist-big-details',
+    hash: (ids) => `#/playlist/${enc(ids.bigPlaylist ?? '')}?d=0`,
+    expect: fifteenRows,
+    since: 'US3',
+  },
+  {
+    id: 'playlist-details',
+    hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
+    setup: firstRow,
+    since: 'US3',
+  },
+  {
+    id: 'artist-details',
+    hash: (ids) => `#/artist/${enc(ids.artist ?? '')}`,
+    setup: firstRow,
+    since: 'US3',
+  },
+  {
+    id: 'crate-rotation-details',
+    hash: '#/crate/rotation',
+    setup: (page) =>
+      page.getByRole('list').first().getByRole('button').first().click(),
+    since: 'US3',
+  },
 
   // Screens of later stories
   { id: 'overview', hash: '#/', since: 'US8' },

@@ -4,8 +4,52 @@ import {
   destinationOf,
   parseRoute,
   routeHref,
+  sameScreen,
   visitEntry,
+  withDetailOf,
 } from './router';
+
+describe('withDetailOf', () => {
+  it('sets and drops the detail of a list route', () => {
+    expect(withDetailOf({ name: 'top' }, 't1')).toEqual({
+      name: 'top',
+      detail: 't1',
+    });
+    expect(
+      withDetailOf({ name: 'playlist', id: 'p', detail: '3' }, undefined)
+    ).toEqual({ name: 'playlist', id: 'p' });
+    expect(
+      routeHref(withDetailOf({ name: 'artist', key: 'a', detail: 'x' }, null))
+    ).toBe('#/artist/a');
+  });
+
+  it('leaves a route without details alone', () => {
+    expect(withDetailOf({ name: 'settings' }, 't1')).toEqual({
+      name: 'settings',
+    });
+  });
+});
+
+describe('sameScreen', () => {
+  it('is true when only the detail differs', () => {
+    expect(sameScreen({ name: 'top' }, { name: 'top', detail: 't1' })).toBe(
+      true
+    );
+    expect(
+      sameScreen(
+        { name: 'crateView', view: 'year', period: '2026-08', detail: 'a' },
+        { name: 'crateView', view: 'year', period: '2026-08' }
+      )
+    ).toBe(true);
+  });
+
+  it('is false for another screen', () => {
+    expect(
+      sameScreen({ name: 'playlist', id: 'a' }, { name: 'playlist', id: 'b' })
+    ).toBe(false);
+    expect(sameScreen({ name: 'top' }, { name: 'crate' })).toBe(false);
+  });
+});
 
 describe('parseRoute', () => {
   it('defaults to top for empty or unknown hashes', () => {

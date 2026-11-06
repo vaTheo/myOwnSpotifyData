@@ -453,28 +453,6 @@ button.danger {
   padding: 32px 12px;
 }
 
-.sublist {
-  list-style: none;
-  margin: 0 0 0 38px;
-  padding: 0 0 8px;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-.sublist li {
-  min-height: 44px;
-  display: flex;
-  align-items: stretch;
-}
-
-.sublist li > a {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-}
-
-.sublist p a,
 .caption a {
   display: inline-block;
   padding: 13px 4px;
@@ -593,16 +571,6 @@ label.file input {
 .chev {
   color: var(--muted);
   flex: none;
-}
-
-.sublist ul {
-  list-style: none;
-  margin: 4px 0;
-  padding: 0;
-}
-
-.sublist p {
-  margin: 2px 0;
 }
 
 .pill {
@@ -1690,21 +1658,6 @@ a {
   min-height: 0;
 }
 
-.dt-expansion {
-  display: block;
-  min-height: 0;
-  padding: 0 var(--dt-pad);
-  background: var(--md-sys-color-surface-container-low);
-}
-
-.dt-expansion .sublist {
-  margin-left: 56px;
-}
-
-.dt-expansion .sublist li {
-  min-height: var(--app-target);
-}
-
 .dt-footer {
   display: flex;
   align-items: center;
@@ -2096,4 +2049,190 @@ a {
 .dt-group-note {
   color: var(--md-sys-color-on-surface-variant);
   font: var(--md-sys-typescale-body-medium);
+}
+
+/* ---- Track details: the side sheet (spec 003, US3, research D9) ----
+ * Large: docked at 400 px, the frame beside it shrinks (the table keeps its
+ * height, so SC-001 holds). Medium and expanded: a modal sheet over a scrim.
+ * Compact: a full-screen dialog. */
+
+.side-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--app-side-sheet), calc(100vw - 56px));
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface);
+  outline: none;
+}
+
+.side-sheet.docked {
+  z-index: 2;
+  border-left: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.frame:has(.side-sheet.docked) .frame-body {
+  margin-right: var(--app-side-sheet);
+}
+
+.side-sheet.modal {
+  border-radius: var(--md-sys-shape-corner-large) 0 0
+    var(--md-sys-shape-corner-large);
+  box-shadow: var(--md-sys-elevation-3);
+}
+
+.side-sheet.fullscreen {
+  left: 0;
+  width: auto;
+  background: var(--md-sys-color-surface);
+}
+
+.side-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  background: var(--md-sys-color-scrim);
+}
+
+.side-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--app-top-bar);
+  padding: 8px 8px 8px var(--app-gap);
+}
+
+.side-sheet.fullscreen .side-sheet-head {
+  padding-left: var(--app-margin);
+}
+
+/* A long title keeps three lines; the full name is its tooltip and the
+   dialog's accessible name (FR-023). */
+.side-sheet-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: var(--md-sys-typescale-title-large);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.side-sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--app-gap) 24px;
+}
+
+.side-sheet.fullscreen .side-sheet-body {
+  padding: 0 var(--app-margin) calc(24px + env(safe-area-inset-bottom));
+}
+
+.details-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.details-section:last-child {
+  border-bottom: 0;
+}
+
+.details-heading {
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.details-artists {
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-body-large);
+}
+
+.details-artists a,
+.details-links a,
+.details-note a {
+  display: inline-block;
+  min-height: var(--app-target);
+  line-height: var(--app-target);
+}
+
+.details-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 9em) minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.details-fact {
+  display: contents;
+}
+
+.details-fact dt {
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.details-fact dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.details-key,
+.details-plays {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.details-small {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-small);
+}
+
+.details-note {
+  margin: 0 0 4px;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.details-note p {
+  margin: 0;
+}
+
+.details-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.details-section .strip,
+.details-section > p {
+  margin: 0 0 4px;
+}
+
+.details-section .spotify-link-text {
+  margin-left: -4px;
+}
+
+.details-section > p > a {
+  display: inline-block;
+  min-height: var(--app-target);
+  line-height: var(--app-target);
+}
+
+.row.selected {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
 }

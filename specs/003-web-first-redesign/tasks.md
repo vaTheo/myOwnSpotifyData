@@ -286,22 +286,22 @@ sorting by BPM then plays keeps each rank; compact shows two-line items.
 **Independent Test**: on Top at 1440, select a track: the sheet shows album, duration, BPM, key, energy/source, plays, listening time,
 first/last play, finished/skipped, playlists, link; the list keeps its scroll; Escape closes and refocuses the row.
 
-- [ ] T054 [P] [US3] Write the failing test `src/ui/details/trackFacts.test.ts` for `trackFacts(model, ref)` (data-model §5):
+- [X] T054 [P] [US3] Write the failing test `src/ui/details/trackFacts.test.ts` for `trackFacts(model, ref)` (data-model §5):
   - every `ref` form: `{ trackId }`, `{ playlistId, position }` and `{ playRowId }`;
   - "Energy is read from the source row (`FeatureRow.reccobeats` or `.rekordbox`)";
   - the source is the one `resolveFeature` picks;
   - `plays` is null before an import;
   - playlists are found by id, then by artist and title (`playlistsOfRow`);
   - a local file gives `isLocal: true` and no `spotifyUrl`.
-- [ ] T055 [P] [US3] Implement `trackFacts` in `src/ui/details/trackFacts.ts`. Make T054 pass.
-- [ ] T056 [US3] Create `src/ui/layout/SideSheet.tsx`:
+- [X] T055 [P] [US3] Implement `trackFacts` in `src/ui/details/trackFacts.ts`. Make T054 pass.
+- [X] T056 [US3] Create `src/ui/layout/SideSheet.tsx`:
   - docked at 400 px on large, a modal with scrim and focus trap on medium and expanded, a full-screen dialog on compact (research D9);
   - opening pushes `?d=`; Escape or ✕ replaces the history entry without `?d=`, and back pops it;
   - focus returns to the row through a `data-row-id`.
-- [ ] T057 [US3] Create `src/ui/details/TrackDetails.tsx` with sections 1–5 of `contracts/screens.md` §11.
+- [X] T057 [US3] Create `src/ui/details/TrackDetails.tsx` with sections 1–5 of `contracts/screens.md` §11.
   - The History section shows today's text `Strip` until T075 swaps in the chart.
   - "Match from this track" shows when the sheet was opened from a playlist. It sets the seed and switches the order to Match.
-- [ ] T058 [US3] Make opening a row set `?d=` and render `TrackDetails` in `SideSheet`, in `src/ui/Top.tsx`, `src/ui/Playlist.tsx` (position), `src/ui/Artist.tsx` and the Crate rows in `src/ui/crate/shared.tsx` (`CrateRow` opens details). Then remove the in-place expansions: Top's `expanded`, Artist's `opened`/`OPEN_BY_DEFAULT`, and `CrateRow`'s `expanded` children. Their content (playlist links, strips, "N of M plays", "Open <month> ›") now lives in the details.
+- [X] T058 [US3] Make opening a row set `?d=` and render `TrackDetails` in `SideSheet`, in `src/ui/Top.tsx`, `src/ui/Playlist.tsx` (position), `src/ui/Artist.tsx` and the Crate rows in `src/ui/crate/shared.tsx` (`CrateRow` opens details). Then remove the in-place expansions: Top's `expanded`, Artist's `opened`/`OPEN_BY_DEFAULT`, and `CrateRow`'s `expanded` children. Their content (playlist links, strips, "N of M plays", "Open <month> ›") now lives in the details.
 - [ ] T059 [US3] Create `src/ui/layout/ListDetail.tsx`:
   - expanded and large with a selection: a 360 px `ListPane` plus the detail;
   - without a selection: the list at full width;

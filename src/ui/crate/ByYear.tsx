@@ -7,16 +7,18 @@ import {
   byYear,
   periodMonths,
   yearsWithPlays,
+  type YearItem,
   type YearPeriod,
 } from '../../model/crate';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
+import { DetailsSection } from '../details/TrackDetails';
 import { formatDate, plural } from '../format';
 import { yearPeriod, yearSel } from './selections';
 import {
   CrateRow,
+  CrateSheet,
   Paged,
-  PlaylistLinks,
   Strip,
   inNoPlaylist,
   monthLabel,
@@ -32,7 +34,6 @@ const PERIOD_OPTIONS = [
   ...MONTH_NAMES.map((label, i) => ({ value: String(i + 1), label })),
 ];
 
-const expanded = signal<string | null>(null);
 const limit = signal(PAGE_SIZE);
 
 /**
@@ -90,7 +91,31 @@ function monthCells(row: PlayRow, year: number, period: YearPeriod): string[] {
   return cells;
 }
 
-export function ByYear({ period }: { period?: string }) {
+/** What the row used to expand into: lifetime plays, the months of the selection. */
+function YearExtra(p: {
+  item: YearItem;
+  year: number;
+  selection: YearPeriod;
+  label: string;
+}) {
+  const row = p.item.row;
+  return (
+    <DetailsSection title={p.label}>
+      <p class="details-note">
+        {plural(row.plays, 'play')} lifetime · last {formatDate(row.lastTs)}
+      </p>
+      <Strip cells={monthCells(row, p.year, p.selection)} />
+    </DetailsSection>
+  );
+}
+
+export function ByYear({
+  period,
+  detail,
+}: {
+  period?: string;
+  detail?: string;
+}) {
   useEffect(() => {
     if (period) applyPeriod(period);
   }, [period]);
@@ -102,6 +127,7 @@ export function ByYear({ period }: { period?: string }) {
   const result = byYear(rows, year, selection);
   const label = selectionLabel(year, selection);
   const shown = result.items.slice(0, limit.value);
+  const opened = result.items.find((item) => item.row.trackId === detail);
   const caption =
     `${label} · ${plural(result.plays, 'play')} · ` +
     plural(result.tracks, 'track');
@@ -136,13 +162,7 @@ export function ByYear({ period }: { period?: string }) {
                 key={item.row.trackId}
                 rank={i + 1}
                 row={item.row}
-                expanded={expanded.value === item.row.trackId}
-                onToggle={() => {
-                  expanded.value =
-                    expanded.value === item.row.trackId
-                      ? null
-                      : item.row.trackId;
-                }}
+                selected={detail === item.row.trackId}
                 badge1={
                   <Flag kind="plays">
                     {plural(item.selectionPlays, 'play')}
@@ -159,14 +179,7 @@ export function ByYear({ period }: { period?: string }) {
                     </Flag>
                   )
                 }
-              >
-                <p class="muted">
-                  {plural(item.row.plays, 'play')} lifetime · last{' '}
-                  {formatDate(item.row.lastTs)}
-                </p>
-                <Strip cells={monthCells(item.row, year, selection)} />
-                <PlaylistLinks row={item.row} />
-              </CrateRow>
+              />
             ))}
           </ul>
           <Paged
@@ -179,6 +192,19 @@ export function ByYear({ period }: { period?: string }) {
           />
         </>
       )}
+      <CrateSheet
+        detail={detail}
+        extra={
+          opened && (
+            <YearExtra
+              item={opened}
+              year={year}
+              selection={selection}
+              label={label}
+            />
+          )
+        }
+      />
     </>
   );
 }

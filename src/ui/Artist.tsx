@@ -24,16 +24,11 @@ import {
   spotifyLinkColumn,
   titleColumn,
 } from './table/columns';
+import { openDetail } from './details/navigate';
+import { TrackSheet } from './details/TrackDetails';
 import { DataTable, type Column } from './table/DataTable';
 import type { SortState } from './table/sort';
 
-/**
- * Rows toggled away from their default. The default is "the first three are
- * open": one or two tracks stay answered at a glance, forty stop scrolling.
- * Kept until the details sheet (US3) replaces it.
- */
-const opened = signal<Record<string, boolean>>({});
-const OPEN_BY_DEFAULT = 3;
 const sort = signal<SortState>({ columnId: null, direction: 'asc' });
 
 /**
@@ -174,7 +169,14 @@ function trackColumns(m: Model): Column<ArtistTrack>[] {
   ];
 }
 
-export function Artist({ artistKey }: { artistKey: string }) {
+/** `detail` is the track key whose details sheet is open (`?d=`). */
+export function Artist({
+  artistKey,
+  detail,
+}: {
+  artistKey: string;
+  detail?: string;
+}) {
   const m = model.value;
   const agg = m?.artistsByKey.get(artistKey);
   // A top-list artist you have saved nothing from is in no playlist, so it has
@@ -189,14 +191,9 @@ export function Artist({ artistKey }: { artistKey: string }) {
       </div>
     );
   }
-  // Named apart from the `id` the playlist sublist binds below.
   const artistId = agg?.id ?? top?.id ?? null;
   const url = artistUrl(artistId);
   const tracks = agg ? artistTracks(m, artistKey) : [];
-  const place = new Map(tracks.map((t, i) => [t.track.key, i]));
-  const isOpen = (t: ArtistTrack) =>
-    opened.value[t.track.key] ??
-    (place.get(t.track.key) ?? 0) < OPEN_BY_DEFAULT;
   return (
     <section>
       <p class="detail-meta artist-meta">
@@ -227,24 +224,11 @@ export function Artist({ artistKey }: { artistKey: string }) {
             sort.value = s;
           }}
           resetKey={artistKey}
-          onOpen={(t) => {
-            opened.value = { ...opened.value, [t.track.key]: !isOpen(t) };
-          }}
-          expanded={(t) =>
-            isOpen(t) ? (
-              <ul class="sublist">
-                {t.playlistIds.map((id) => (
-                  <li key={id}>
-                    <a href={routeHref({ name: 'playlist', id })}>
-                      {m.playlistsById.get(id)?.name ?? id}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : null
-          }
+          selectedKey={detail ?? null}
+          onOpen={(t) => openDetail(t.track.key)}
         />
       )}
+      {detail && <TrackSheet trackRef={{ trackId: detail }} rowId={detail} />}
     </section>
   );
 }

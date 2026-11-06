@@ -34,6 +34,17 @@ export function formatDate(value: string | number): string {
   return new Date(value).toLocaleDateString([], { dateStyle: 'medium' });
 }
 
+/** Listening time: `45 min`, `2 h 6 min`, `1,234 h` (rounded to minutes). */
+export function formatListening(ms: number): string {
+  const minutes = Math.round(Math.max(0, ms) / 60_000);
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0
+    ? `${h.toLocaleString()} h`
+    : `${h.toLocaleString()} h ${m} min`;
+}
+
 export function plural(n: number, word: string): string {
   return `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
 }
