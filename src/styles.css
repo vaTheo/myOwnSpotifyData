@@ -2936,3 +2936,431 @@ a {
 .mix .rowview select {
   min-height: var(--app-target);
 }
+
+/* ---- Mix workspace (spec 003 §12, T081–T084, T120) ----
+ * The left pane beside the open mix from expanded windows, one column below.
+ * Clues are third-party text: plain, wrapped anywhere, never links. */
+
+.mix-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100dvh - var(--app-top-bar) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+
+.mix-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mix-pane-title {
+  margin: 0 0 4px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface);
+}
+
+.mix-caption {
+  margin: 4px 0;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.mix-link,
+.mix-identify {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mix-link-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mix-link-form .text-field {
+  flex: 1 1 220px;
+  width: auto;
+}
+
+.mix-identify > .btn {
+  align-self: flex-start;
+}
+
+/* A collapsed section: a 48 px summary with its own marker. */
+details.mix-section > summary,
+details.mix-clues > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--app-target);
+  cursor: pointer;
+  list-style: none;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-on-surface);
+}
+
+details.mix-section > summary::-webkit-details-marker,
+details.mix-clues > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.mix-section > summary::before,
+details.mix-clues > summary::before {
+  content: '▸';
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+details.mix-section[open] > summary::before,
+details.mix-clues[open] > summary::before {
+  content: '▾';
+}
+
+details.mix-section > summary:focus-visible,
+details.mix-clues > summary:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+.mix-howto > p,
+.mix-howto details > p {
+  margin: 8px 0;
+  font: var(--md-sys-typescale-body-medium);
+  overflow-wrap: anywhere;
+}
+
+.mix-howto details {
+  padding-left: 16px;
+}
+
+.mix-lines {
+  margin: 0;
+  padding-left: 20px;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Saved mixes and requests: the row, then its menu or actions. */
+.mix-saved .list > li {
+  display: flex;
+  align-items: center;
+}
+
+.mix-saved .list > li > .row {
+  flex: 1;
+  min-width: 0;
+}
+
+.mix-requests-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+
+.mix-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 8px 4px;
+}
+
+.mix-earlier {
+  padding: 0 8px 4px;
+}
+
+.row-menu {
+  position: relative;
+  flex: none;
+}
+
+.row-menu-list {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 2;
+  min-width: 160px;
+  padding: 4px 0;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  background: var(--md-sys-color-surface-container);
+  box-shadow: var(--md-sys-elevation-2);
+}
+
+.row-menu-list button {
+  display: block;
+  width: 100%;
+  min-height: var(--app-target);
+  padding: 0 16px;
+  text-align: start;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.row-menu-list button:hover,
+.row-menu-list button:focus-visible {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+/* The open mix. */
+.mix-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mix-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mix-head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mix-head-text .mix-caption {
+  margin: 0;
+}
+
+.mix-title {
+  margin: 8px 0 0;
+  font: var(--md-sys-typescale-title-large);
+  overflow-wrap: anywhere;
+}
+
+.mix-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mix-provenance .status {
+  margin: 4px 0;
+}
+
+/* A link in a caption keeps a 48 px target. */
+.mix-out {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--app-target);
+  overflow-wrap: anywhere;
+}
+
+.mix-player-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.mix-player {
+  width: 100%;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-small);
+}
+
+.mix-player-box .btn[aria-pressed='true'] {
+  color: var(--md-sys-color-primary);
+}
+
+.mix-clues {
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.mix-clues ul {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.mix-clues li {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+/* Round 004's view controls (was `.mix .rowview`). */
+.mix-rowview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.mix-rowview select {
+  min-height: var(--app-target);
+  padding: 0 8px;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+.mix-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--app-target);
+}
+
+/* Table cells. */
+.mix-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.mix-source-icon {
+  display: inline-flex;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-origin,
+.mix-quote {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Was `.mix .src.clue`: the candidate's clue, in its own words. */
+.mix-quote {
+  font-style: italic;
+}
+
+.mix-source .flag {
+  flex: none;
+}
+
+.mix-library {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.mix-in {
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-small);
+}
+
+.mix-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+.dt-item .mix-source {
+  white-space: normal;
+  flex-wrap: wrap;
+}
+
+/* A row drawn whole: a gap separator or the row being edited. */
+.dt-full {
+  display: block;
+  padding: 4px var(--dt-pad);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.dt-full:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+.mix-gap {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mix-gap-text {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  min-width: 0;
+  min-height: var(--app-target);
+}
+
+.mix-gap-title {
+  font-style: italic;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-gap-span {
+  font-variant-numeric: tabular-nums;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-gap .mix-clues {
+  flex-basis: 100%;
+}
+
+.mix-edit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.mix-edit-actions {
+  display: flex;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.mix-under {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mix-create {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mix-notfound {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mix-notfound li {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.mix-paste {
+  min-height: 112px;
+  padding: 12px 16px;
+  margin: 4px 0 8px;
+  resize: vertical;
+}
