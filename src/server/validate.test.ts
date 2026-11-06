@@ -283,9 +283,13 @@ describe('validateJobRow (worker round)', () => {
       finished_at: null,
     };
     expect(validateJobRow(queued)).toEqual(queued);
-    expect(validateJobRow({ ...full, status: 'failed', error: 'No track identified' })?.error).toBe(
-      'No track identified'
-    );
+    expect(
+      validateJobRow({
+        ...full,
+        status: 'failed',
+        error: 'No track identified',
+      })?.error
+    ).toBe('No track identified');
   });
   it('rejects a non-uuid id, a fifth status, long strings, bad dates, a bad payload, a non-object', () => {
     expect(validateJobRow({ ...full, id: 'nope' })).toBeNull();
@@ -294,13 +298,17 @@ describe('validateJobRow (worker round)', () => {
     expect(validateJobRow({ ...full, error: 'x'.repeat(201) })).toBeNull();
     expect(validateJobRow({ ...full, created_at: 'yesterday' })).toBeNull();
     expect(validateJobRow({ ...full, claimed_at: 12 })).toBeNull();
-    expect(validateJobRow({ ...full, payload: { url: 'http://x.y/z' } })).toBeNull();
+    expect(
+      validateJobRow({ ...full, payload: { url: 'http://x.y/z' } })
+    ).toBeNull();
     expect(validateJobRow({ ...full, payload: {} })).toBeNull();
     expect(validateJobRow(null)).toBeNull();
     expect(validateJobRow('row')).toBeNull();
   });
   it('keeps claimed_by and error at exactly 200 characters', () => {
-    expect(validateJobRow({ ...full, claimed_by: 'x'.repeat(200) })).not.toBeNull();
+    expect(
+      validateJobRow({ ...full, claimed_by: 'x'.repeat(200) })
+    ).not.toBeNull();
   });
 });
 
@@ -325,7 +333,10 @@ describe('validateMix — round 003 fields', () => {
       { ...mixRow, rows: [{ ...r0, origin: 'guess' }] },
       { ...mixRow, rows: [{ ...r0, speedPercent: Number.NaN }] },
       { ...mixRow, rows: [{ ...r0, clue: { ...clue, kind: 'html' } }] },
-      { ...mixRow, rows: [{ ...r0, clues: [{ ...clue, text: 'x'.repeat(1001) }] }] },
+      {
+        ...mixRow,
+        rows: [{ ...r0, clues: [{ ...clue, text: 'x'.repeat(1001) }] }],
+      },
       { ...mixRow, rows: [{ ...r0, clues: Array(31).fill(clue) }] },
       { ...mixRow, clues: [{ ...clue, author: 3 }] },
     ]) {

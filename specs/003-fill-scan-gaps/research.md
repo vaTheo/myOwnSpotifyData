@@ -4,7 +4,14 @@ Checked on 2026-11-06 on the owner's computer (worker 0.2.0, yt-dlp 2026.10.26, 
 live public endpoints named below. Every decision keeps the worker's rules (`worker/CLAUDE.md`): one recognition at a time,
 everything external injected in tests, no Spotify host, no key.
 
-## R1. Gaps and the replay schedule (owner's rule)
+## R1. Gaps and the replay schedule
+
+- **Revised at implementation (owner's pick, 2026-11-06)**: the worker already held the owner's first draft of a second pass;
+  the owner chose to keep it: `gap_positions` — a place 7 s after each probe that found nothing, at most one every 30 s — each
+  heard at ×1, then ×0.96, then ×1.04 (`cut_probe(speed=…)`, R2), stopping at the first match. Cost: up to 3 calls a place,
+  about one place per two unmatched probes at a 15 s step. Settings `WORKER_SECOND_PASS_STEP_SECONDS` (30, 0 = off),
+  `WORKER_SECOND_PASS_OFFSET_SECONDS` (7), `WORKER_SECOND_PASS_SPEEDS` (0.96,1.04). The rest of this section is the plan as
+  first written.
 
 - **Decision**: after the first pass, a **gap** is a maximal run of consecutive probes that produced no hit (no match or
   skipped), bounded by hits or by the set's start or end. In each run, probes 1, 3, 5… (counted from the run's start) are
@@ -112,11 +119,11 @@ everything external injected in tests, no Spotify host, no key.
 
 | Set | What it holds | Expected |
 |---|---|---|
-| `whomp023-mars-o10c` | the DJ's tracklist in one comment, ` // ` separated (one DJ's habit, not a standard), with `???`, `Unreleased`, a two-dash line | 15 set-wide lines found by the split search; `???` and `Von Riu - Unreleased` not looked up |
+| `whomp023-mars-o10c` | the DJ's tracklist in one comment, ` // ` separated (one DJ's habit, not a standard), with `???`, `Unreleased`, a two-dash line | 15 set-wide pieces (14 tracks and `???`) found by the split search; `???` and `Von Riu - Unreleased` not looked up |
 | `vault-sessions-105-tauceti` | "track id?" answered by the DJ `@someone: Space Above - Leave Home Edit Select Remix` at 51:32; a question naming another time ("starts at 27:23") | one candidate at 51:32 (Deezer, ISRC NLCK41072412); the question stays a clue |
 | `tauceti-artaphine-series-092` | replies `@someone: JALA - Not Surrender` at 12:05, `@someone: Rrose - onceless` at 4:02 | two candidates (MusicBrainz; Deezer) |
 | `naone-the-lot-radio-01-11-2025` | `@someone The Real - Mary Mac. Vinyl only` at 8:15 (no colon), a Discogs master link at 41:59, many "ID?" | candidate The Real – Mary Mac (MusicBrainz, after the sentence cut); the Discogs clue enriched, no candidate |
-| `closing-at-nuits-sonores-…` | 30 `Artist - Title` lines in the description, no times | 30 set-wide lines; candidates where a catalogue has the exact pair (Nigm – Sunken via MusicBrainz) |
+| `closing-at-nuits-sonores-…` | 31 `Artist - Title` lines in the description, no times | 31 set-wide lines; candidates where a catalogue has the exact pair (Nigm – Sunken via MusicBrainz) |
 
 ## R6. A refused second pass keeps what was found
 

@@ -22,10 +22,13 @@ one PyInstaller executable per system.
   decision (ADR-06). `uv.lock` is committed; `uv sync --frozen` in CI.
 - Every network call, subprocess, clock, sleep and library object is injected through `deps`; no test touches the network,
   Shazam, yt-dlp or a real download. `python -m unittest discover -s tests` is green before every commit.
-- No Spotify host, ever: the outbound hosts are the owner's project, the platform of the link and `amp.shazam.com` (plus the
-  optional proxy). `test_pipeline.py` asserts the fake client saw only the project's host.
+- No Spotify host, ever: the outbound hosts are the owner's project, the platform of the link, `amp.shazam.com` (plus the
+  optional proxy) and, for clue lookups only (round 003, ADR-10), `api.deezer.com`, `musicbrainz.org`, `api.discogs.com`. `test_pipeline.py` asserts the fake client saw only the project's host.
 - One probe at a time: `sleep(WORKER_COOLDOWN_SECONDS)` before every `recognize`; a `RateLimited` pauses once, twice fails the
   request; never a retry loop against a paused or unreachable server (exit 2/3).
+- Round 003: the second pass and the clue step never fail a request (a refusal stops the second pass and keeps its hits; a
+  clue failure is one log line). A name lookup only for a clue without identifier, equality by `match.py` only (its cases are
+  shared with the app: `src/features/mix/match.cases.json`, `parse.cases.json`); a candidate is always `origin: "clue"`.
 - A result is sent whole or not at all; the JSON on disk is written before it is sent; the audio and the request folder are
   deleted on every path; `tracks` empty is a failed request ("No track identified"), never `done` with an empty list.
 - The result keeps the F15 shape pinned by `tests/test_scan.py` against the app's fixture keys; absent metadata is omitted,

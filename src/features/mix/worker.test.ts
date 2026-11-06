@@ -465,7 +465,12 @@ describe('resultToRows — round 003 additions', () => {
           artist: 'Space Above',
           time_in_mix: null,
           origin: 'clue',
-          clue: { at: null, author: 'dj', text: 'Space Above - Leave Home', kind: 'comment' },
+          clue: {
+            at: null,
+            author: 'dj',
+            text: 'Space Above - Leave Home',
+            kind: 'comment',
+          },
           metadata: { isrc: 'NLCK41072412' },
         },
       ],
