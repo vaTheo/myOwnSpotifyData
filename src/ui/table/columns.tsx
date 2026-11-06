@@ -279,7 +279,9 @@ export function playsColumn<Row>(
 
 /**
  * The number of playlists holding the track, or the "not in a playlist" flag
- * at 0 when the owner has any playlist at all. Most first. Priority 2.
+ * at 0 when the owner has any playlist at all. Most first. Priority 2. On a
+ * phone the item shows the flag only (the owner's to-do signal), not the
+ * count.
  */
 export function playlistsColumn<Row>(
   countOf: (row: Row) => number,
@@ -299,10 +301,10 @@ export function playlistsColumn<Row>(
       return n === 0 && hasPlaylists ? (
         <Flag kind="todo">not in a playlist</Flag>
       ) : (
-        <span>{n.toLocaleString()}</span>
+        <span class="dt-wide">{n.toLocaleString()}</span>
       );
     },
-    compact: 'hidden',
+    compact: 'meta',
     ...over,
   };
 }
@@ -383,7 +385,11 @@ export function keyColumn<Row>(
   };
 }
 
-/** The "Open in Spotify" icon button, 48 px. Priority 2; the trail of a phone's item. */
+/**
+ * The "Open in Spotify" icon button, 48 px; the trail of a phone's item.
+ * Priority 1, so the link stays reachable on medium windows until the
+ * details sheet (US3) carries it.
+ */
 export function spotifyLinkColumn<Row>(
   urlOf: (row: Row) => string | null | undefined,
   over: Over<Row> = {}
@@ -392,7 +398,7 @@ export function spotifyLinkColumn<Row>(
     id: 'spotify',
     header: 'Open in Spotify',
     headerHidden: true,
-    priority: 2,
+    priority: 1,
     width: '64px',
     cell: (row) => <SpotifyLink href={urlOf(row)} />,
     compact: 'trail',
