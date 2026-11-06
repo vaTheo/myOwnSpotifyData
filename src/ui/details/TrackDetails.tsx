@@ -2,22 +2,21 @@ import type { ComponentChildren } from 'preact';
 import { formatKey, type KeyNotation } from '../../model/keys';
 import { historySummary, keyNotation, model } from '../../model/state';
 import { routeHref } from '../../router';
+import { MonthBars } from '../charts/MonthBars';
+import { MiniYearGrid } from '../charts/YearMonthGrid';
+import { historyKeys, monthSeries, yearTotals } from '../charts/series';
 import { Button } from '../components/Button';
 import { BpmText, KeyPill } from '../components/KeyPill';
 import { NoData } from '../components/NoData';
 import { SpotifyLink } from '../components/SpotifyLink';
-import { NoPlaylistNote, OpenMonthLink, Strip } from './parts';
+import { NoPlaylistNote, OpenMonthLink } from './parts';
 import { formatDate, formatListening, plural } from '../format';
 import { Icon } from '../icons';
 import { SideSheet } from '../layout/SideSheet';
+import { windowClass } from '../layout/windowClass';
 import { formatDuration } from '../table/columnValues';
 import { closeDetail } from './navigate';
-import {
-  historyCells,
-  trackFacts,
-  type TrackFacts,
-  type TrackRef,
-} from './trackFacts';
+import { trackFacts, type TrackFacts, type TrackRef } from './trackFacts';
 
 const NOTATIONS: KeyNotation[] = ['camelot', 'open', 'classic'];
 
@@ -168,14 +167,22 @@ function Plays({ facts }: { facts: TrackFacts }) {
   );
 }
 
-/** The text strip until T075 swaps in the chart; open the peak month. */
+/**
+ * Plays per month over the whole imported history (FR-019, FR-025), a mini
+ * year x month grid beside it on a large window, and the peak month's link.
+ */
 function History({ facts }: { facts: TrackFacts }) {
   if (!facts.months) return null;
-  const cells = historyCells(facts.months);
-  if (cells.length === 0) return null;
+  const range = historySummary.value?.range ?? null;
+  const keys = historyKeys(facts.months, range);
+  if (keys.length === 0) return null;
+  const years = [...new Set(keys.map((k) => Number(k.slice(0, 4))))];
   return (
     <DetailsSection title="History">
-      <Strip cells={cells} />
+      <MonthBars series={monthSeries(facts.months, keys, range)} />
+      {windowClass.value === 'large' && (
+        <MiniYearGrid totals={yearTotals(facts.months, years, range)} />
+      )}
       {facts.peakMonth && <OpenMonthLink month={facts.peakMonth} />}
     </DetailsSection>
   );
