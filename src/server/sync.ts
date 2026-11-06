@@ -29,11 +29,7 @@ import {
 import type { ServerStatus } from './types';
 import { validateMix, validateRow, validateSummary } from './validate';
 import { validateJobRow, type MixJobRow } from './validate';
-import {
-  jobView,
-  mergeWorkerRows,
-  resultToRows,
-} from '../features/mix/worker';
+import { jobView, mergeWorkerRows, resultToRows } from '../features/mix/worker';
 
 /**
  * The two runners of the server sync (research D5–D7). Both take injected
@@ -559,6 +555,12 @@ export async function runPull(
 const JOB_KIND = 'identify-mix';
 const JOB_FIELDS =
   'id,payload,status,claimed_by,claimed_at,finished_at,error,created_at,applied_at';
+/** Round 004's columns (migration 0003); read only when the server has them. */
+const JOB_FIELDS_0003 = `${JOB_FIELDS},progress,priority,stop_requested_at`;
+/** A server without 0003 answers "column … does not exist" (PostgREST 42703). */
+function missingColumn(message: string): boolean {
+  return /does not exist|42703/i.test(message);
+}
 /** Requests kept per link on the Mix screen (FR-003). */
 export const JOB_HISTORY_MAX = 20;
 const UNEXPECTED_JOB_ROW =
@@ -592,7 +594,8 @@ export async function requestIdentify(
   );
   if (!created.ok) return created;
   const view = jobView(created.value);
-  if (view === null) return { ok: false, kind: 'error', message: UNEXPECTED_JOB_ROW };
+  if (view === null)
+    return { ok: false, kind: 'error', message: UNEXPECTED_JOB_ROW };
   return ok(view);
 }
 
@@ -613,6 +616,10 @@ function mixWithResult(
       author: local.author ?? parsed.author,
       sources: { ...local.sources, worker: true },
       rows: mergeWorkerRows(local.rows, parsed.rows),
+      // Set-wide clues come from the worker alone: a new result replaces them.
+      ...(parsed.clues.length > 0
+        ? { clues: parsed.clues }
+        : { clues: undefined }),
       identifyJobId: row.id,
       identifiedAt,
       savedAt: now,
@@ -632,6 +639,7 @@ function mixWithResult(
       worker: true,
     },
     rows: parsed.rows,
+    ...(parsed.clues.length > 0 ? { clues: parsed.clues } : {}),
     identifyJobId: row.id,
     identifiedAt,
     savedAt: now,
@@ -651,13 +659,25 @@ async function pullJobs(
 ): Promise<ServerResult<{ rejected: number; applied: number }>> {
   const rows: MixJobRow[] = [];
   let rejected = 0;
+  let fields = JOB_FIELDS_0003;
   for (let from = 0; ; from += PAGE_SIZE) {
-    const page = await deps.client.select<unknown>(
+    let page = await deps.client.select<unknown>(
       'jobs',
-      { select: JOB_FIELDS, kind: `eq.${JOB_KIND}`, order: 'created_at.desc' },
+      { select: fields, kind: `eq.${JOB_KIND}`, order: 'created_at.desc' },
       token,
       [from, from + PAGE_SIZE - 1]
     );
+    if (!page.ok && fields !== JOB_FIELDS && missingColumn(page.message)) {
+      // Migration 0003 not applied yet: the requests still sync, without
+      // progress or queue order.
+      fields = JOB_FIELDS;
+      page = await deps.client.select<unknown>(
+        'jobs',
+        { select: fields, kind: `eq.${JOB_KIND}`, order: 'created_at.desc' },
+        token,
+        [from, from + PAGE_SIZE - 1]
+      );
+    }
     if (!page.ok) return page;
     for (const raw of page.value.rows) {
       const valid = validateJobRow(raw);
@@ -769,4 +789,63 @@ export async function readUsage(deps: SyncDeps): Promise<ServerResult<number>> {
   return Number.isFinite(n)
     ? ok(n)
     : { ok: false, kind: 'error', message: 'storage_used() gave no number.' };
+}
+
+/* ---------- queue control from the phone (round 004) ---------- */
+
+/** Removes a waiting request; a request already taken is left alone. */
+export async function cancelRequest(
+  client: ServerClient,
+  token: string,
+  id: string
+): Promise<ServerResult<void>> {
+  return client.remove('jobs', { id: `eq.${id}`, status: 'eq.queued' }, token);
+}
+
+/** Makes a waiting request the next one the worker takes. */
+export async function moveRequestToTop(
+  client: ServerClient,
+  token: string,
+  id: string
+): Promise<ServerResult<'moved' | 'gone'>> {
+  const top = await client.select<{ priority: number }>(
+    'jobs',
+    {
+      select: 'priority',
+      kind: `eq.${JOB_KIND}`,
+      status: 'eq.queued',
+      order: 'priority.desc',
+    },
+    token,
+    [0, 0]
+  );
+  if (!top.ok) return top;
+  const highest = top.value.rows[0]?.priority;
+  const next =
+    (typeof highest === 'number' && Number.isFinite(highest) ? highest : 0) + 1;
+  const res = await client.update<unknown>(
+    'jobs',
+    { id: `eq.${id}`, status: 'eq.queued' },
+    { priority: next },
+    token
+  );
+  if (!res.ok) return res;
+  return ok(res.value.length > 0 ? 'moved' : 'gone');
+}
+
+/** Asks the worker to stop a running request; it keeps what it found. */
+export async function stopRequest(
+  client: ServerClient,
+  token: string,
+  id: string,
+  now: number
+): Promise<ServerResult<'asked' | 'gone'>> {
+  const res = await client.update<unknown>(
+    'jobs',
+    { id: `eq.${id}`, status: 'eq.claimed' },
+    { stop_requested_at: new Date(now).toISOString() },
+    token
+  );
+  if (!res.ok) return res;
+  return ok(res.value.length > 0 ? 'asked' : 'gone');
 }

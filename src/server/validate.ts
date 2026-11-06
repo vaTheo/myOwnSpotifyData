@@ -125,6 +125,29 @@ export function validateRow<S extends StoreName>(
   return { ok: true, row: row as AllRows[S][number] };
 }
 
+const CLUE_KINDS = new Set(['comment', 'chapter', 'description']);
+const CLUE_TEXT_MAX = 1000;
+const CLUE_AUTHOR_MAX = 200;
+
+/** A worker clue (round 003): plain strings within their caps. */
+function clueOk(c: unknown): boolean {
+  if (!obj(c)) return false;
+  return (
+    typeof c.text === 'string' &&
+    c.text.length <= CLUE_TEXT_MAX &&
+    typeof c.author === 'string' &&
+    c.author.length <= CLUE_AUTHOR_MAX &&
+    (c.atSec === null || finite(c.atSec)) &&
+    typeof c.kind === 'string' &&
+    CLUE_KINDS.has(c.kind)
+  );
+}
+
+function cluesOk(v: unknown, max: number): boolean {
+  if (v === undefined) return true;
+  return Array.isArray(v) && v.length <= max && v.every(clueOk);
+}
+
 export function validateMix(row: unknown): Valid<MixRow> {
   if (!obj(row)) return fail('not an object');
   if (!nonEmpty(row.url)) return fail('mixes.url');
@@ -148,7 +171,19 @@ export function validateMix(row: unknown): Valid<MixRow> {
     if (!optFinite(t.startSec) || !optFinite(t.endSec))
       return fail('mixes.row.time');
     if (!optHttps(t.shazamUrl)) return fail('mixes.row.shazamUrl');
+    if (t.origin !== undefined && t.origin !== 'replay' && t.origin !== 'clue')
+      return fail('mixes.row.origin');
+    if (t.speedPercent !== undefined && !finite(t.speedPercent))
+      return fail('mixes.row.speedPercent');
+    if (
+      t.hits !== undefined &&
+      !(typeof t.hits === 'number' && Number.isInteger(t.hits) && t.hits >= 1)
+    )
+      return fail('mixes.row.hits');
+    if (t.clue !== undefined && !clueOk(t.clue)) return fail('mixes.row.clue');
+    if (!cluesOk(t.clues, 30)) return fail('mixes.row.clues');
   }
+  if (!cluesOk(row.clues, 200)) return fail('mixes.clues');
   return { ok: true, row: row as unknown as MixRow };
 }
 
@@ -181,6 +216,65 @@ export interface MixJobRow {
   error: string | null;
   created_at: string;
   applied_at: string | null;
+  /** Round 004 (migration 0003); absent when the migration is not applied. */
+  progress?: JobProgress | null;
+  priority?: number;
+  stop_requested_at?: string | null;
+}
+
+/** What the worker says about a running request (round 004). */
+export interface JobProgress {
+  step: string;
+  done: number | null;
+  total: number | null;
+  percent: number | null;
+  minutes_left: number | null;
+  paused_until: string | null;
+  warning: string | null;
+  at: string | null;
+}
+
+const PROGRESS_TEXT_MAX = 200;
+
+function optNum(v: unknown): number | null | undefined {
+  if (v === undefined || v === null) return null;
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
+function optShort(v: unknown): string | null | undefined {
+  if (v === undefined || v === null) return null;
+  return typeof v === 'string' && v.length <= PROGRESS_TEXT_MAX ? v : undefined;
+}
+
+/** A worker's progress object, or null when absent or malformed (shown as none). */
+export function validateProgress(v: unknown): JobProgress | null {
+  if (!obj(v) || typeof v.step !== 'string' || v.step.length > 40) return null;
+  const done = optNum(v.done);
+  const total = optNum(v.total);
+  const percent = optNum(v.percent);
+  const minutes = optNum(v.minutes_left);
+  const paused = optShort(v.paused_until);
+  const warning = optShort(v.warning);
+  const at = optShort(v.at);
+  if (
+    [done, total, percent, minutes, paused, warning, at].some(
+      (x) => x === undefined
+    )
+  )
+    return null;
+  if (paused !== null && Number.isNaN(Date.parse(paused as string)))
+    return null;
+  if (at !== null && Number.isNaN(Date.parse(at as string))) return null;
+  return {
+    step: v.step,
+    done: done as number | null,
+    total: total as number | null,
+    percent: percent as number | null,
+    minutes_left: minutes as number | null,
+    paused_until: paused as string | null,
+    warning: warning as string | null,
+    at: at as string | null,
+  };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -234,5 +328,15 @@ export function validateJobRow(value: unknown): MixJobRow | null {
     error: value.error ?? null,
     created_at: value.created_at,
     applied_at: value.applied_at ?? null,
+    progress: validateProgress(value.progress),
+    priority:
+      typeof value.priority === 'number' && Number.isInteger(value.priority)
+        ? value.priority
+        : 0,
+    stop_requested_at:
+      typeof value.stop_requested_at === 'string' &&
+      !Number.isNaN(Date.parse(value.stop_requested_at))
+        ? value.stop_requested_at
+        : null,
   };
 }

@@ -41,9 +41,11 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 Each spec has an "Out of scope" block; the main ones:
 
 - Any server of the owner's own, Cloudflare Worker or paid service; the one exception is the owner's free-tier database with sign-in, declared by one second setting ([ADR-08](700-adr/ADR-08-owner-server-free-tier.md), which supersedes [ADR-01](700-adr/ADR-01-browser-only-pkce.md) on this point).
-- Name search for artists or tracks in the reach and lookup jobs ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)).
+- Name search for artists or tracks in the reach and lookup jobs ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)); the one
+  exception is the worker's lookup of a clue without identifier, exact equality only and marked as such
+  ([ADR-10](700-adr/ADR-10-name-lookup-for-clues.md)).
 - Any audio fetch, fingerprinting or recognition **in the app or on the server**; the worker on the owner's computer does it
-  ([ADR-09](700-adr/ADR-09-mix-identification-on-the-owners-computer.md)). MixesDB/1001Tracklists scraping.
+  ([ADR-09](700-adr/ADR-09-mix-identification-on-the-owners-computer.md)). MixesDB/1001Tracklists scraping (the worker reads the set's own description and comments through yt-dlp only).
 - Adding to an existing playlist, editing a created playlist, public playlists, cover images.
 - Charts, adjustable Crate thresholds, a single blended reach score, a reach number on track rows.
 - Commit hooks, Dependabot, branch protection, PR templates, a docs checker ([ADR-06](700-adr/ADR-06-lean-tooling.md)).

@@ -178,6 +178,11 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 - `worker.ts` (pure, worker round): `resultToRows` (the worker's result through `parseTracklistifyJson`, re-checked), `mergeWorkerRows`
   (a new result replaces untouched scan rows only), `jobView` and `requestStatusText` (the one wording of the Identify button and the
   request's state line for every server and request state). `url.ts` gains `requestKey`, the canonical link of a request.
+  Round 003: `resultToRows` also maps a track's `origin` (`replay` with `speedPercent`, `clue` with its `clue`), builds gap
+  rows (with `clues`) from `mix_info.gaps` and returns the set-wide `clues` (stored on `MixRow.clues`); `toClue` keeps only
+  plain strings within their caps. The Mix screen shows "second listen · ±4 %", "from a comment · not heard" with the clue's
+  text, a folded "N clues around here" on a gap row and a folded set-wide tracklist; clue text is always rendered as text.
+  `match.cases.json` and `parse.cases.json` are shared with the worker's tests so its Python ports read the same way.
 - `digLinks.ts` (`digRows`): a track Search did not find is listed under the result, repeats grouped by name with every time in the mix,
   five store/preview search links (Beatport, Bandcamp, Discogs, SoundCloud, YouTube) plus Tracklistify's Shazam page (kept by the parser
   only when it is an https `shazam.com` URL, dropped once the row is edited), drawn as Simple Icons (CC0) by `ui/components/DigLinks.tsx`.
@@ -243,7 +248,9 @@ every failure inline (never a banner, never touching the sync lock) and is reset
 
 Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
 (`ACCOUNT_SWITCH_CONFIRM`, `:714`), an import that covers less than the stored history (`replaceQuestion`, `:765`), Remove server data
-(`REMOVE_SERVER_DATA_CONFIRM`, `:337`); and Disconnect, asked by its button in `ui/settings/DangerZone.tsx` (`:26`). Non-destructive, in
+(`REMOVE_SERVER_DATA_CONFIRM`, `:337`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:1616`) and Stop a running scan
+(`STOP_REQUEST_CONFIRM`, `:1631`, round 004; the scan keeps its tracks); and Disconnect, asked by its button in
+`ui/settings/DangerZone.tsx` (`:26`). Non-destructive, in
 `state.ts`: Like all songs' count (`:1407`) and the four "replace the working list" questions of the Mix screen (`:1051`, `:1080`,
 `:1111`, `:1133`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
 old behaviour.
@@ -279,12 +286,21 @@ One Supabase Free project, for the owner alone, that stores every dataset the ap
 - Server side: `supabase/migrations/0001_init.sql` creates `datasets`, `dataset_rows`, `mixes`, `jobs` and `storage_used()`, enables
   Row Level Security on `owner_id = auth.uid()` and revokes every default privilege from `anon`; `0002_jobs.sql` (worker round) adds
   `jobs.applied_at`, an index and `claim_job(p_worker, p_stale_seconds)` (security invoker: the oldest queued request, or one left
-  running past the stale limit, marked claimed under `for update skip locked`).
+  running past the stale limit, marked claimed under `for update skip locked`); `0003_job_control.sql` (round 004) adds
+  `progress`, `priority`, `stop_requested_at` and makes `claim_job` take the highest priority first, then the oldest.
 - Identify requests (worker round, §17): `requestIdentify` (one open request per link, else one insert of `{kind: 'identify-mix',
   payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history per link validated (`validateJobRow`) into the
   `mixJobs` meta (newest first, 20 per link), then every done, unapplied result applied oldest first: `resultToRows`, the saved mix
   merged or created, `serverPending.mixes` set, `applied_at` marked with an `is.null` guard so another device skips it; a refused
   result is counted and flagged `rejected` locally.
+- Round 004 (`specs/004-worker-progress-control/`, migration 0003): `pullJobs` also reads `progress`, `priority`,
+  `stop_requested_at` (and falls back to the old fields when the server answers "column does not exist"); `validateJobRow`
+  keeps a well-formed progress or drops it; `progressLine` words it on the Requests card ("First pass · 47 % · about 25 min
+  left", "Paused by Shazam until 20:35", the VPN warning, "the computer stopped sending news" after 10 minutes).
+  `cancelRequest` (deletes a queued row), `moveRequestToTop` (priority above the highest queued), `stopRequest`
+  (`stop_requested_at` on a claimed row), behind `startCancelRequest`, `startMoveToTop`, `startStopRequest`. Heard rows carry
+  `hits` (clips matched) beside `confidence` (best score); `viewRows` sorts by time, clips or score and filters "heard once"
+  in the view only.
 - Wiring in `model/state.ts`: `serverState` (rendered by the Settings server card), `recordConnectedAccount` (one `/me` on the Connect
   tap, `:346`), `queueServerPush` (flags `serverPending` first, one push at a time), `startServerPull` (joins `jobsBusy()`, ends in
   `loadFromDb()` and `loadSavedMixes()`), `startServerSync` (pending pushes, then the pull: the open, the card's button and `autoSync.ts`),
@@ -315,11 +331,25 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   `finish` → `PATCH jobs?id=eq.&status=eq.claimed&claimed_by=eq.` with `return=representation` ("taken" when it answers no
   row), `release`), every call a `Result`, the error mapping of `client.ts`. `session.py`: load/save/refresh with a 60 s margin.
 - `download.py`: `yt_dlp.YoutubeDL` in-process, `bestaudio/best`, no playlist, no live, no post-processing; the error text
-  mapped to one-line reasons. `scan.py`: `probe_times` (one probe every 60 s), `cut_probe` (ffmpeg → mono 16 kHz WAV through a
+  mapped to one-line reasons. `scan.py`: `probe_times` (one 12 s probe every 15 s), `cut_probe` (ffmpeg → mono 16 kHz WAV through a
   scratch file), `recognize(bytes, max_skew)` one at a time behind a cooldown (a `RateLimited` pauses once, then `ScanRefused`),
   `confidence_of` (the skew formula), `track_entry` (the F15 entry with ISRC, label, Shazam link), `merge` (one row per run of
   hits within the gap), `write_result` (the JSON, saved before it is sent). `pipeline.py`: `run_one` (validate → download → scan →
   write → send → clean, every path logged and the folder removed) and `log.py` (one line per step; tracebacks to the file only).
+- Round 003 (`specs/003-fill-scan-gaps/`): `scan.scan` runs a **second pass** (`gap_positions`: 7 s after the misses, one
+  place every 30 s, heard at ×1, ×0.96, ×1.04 through `cut_probe(speed=…)`'s `asetrate`), marks its hits `origin: "replay"`,
+  keeps them when refused, and reports the still-empty `gaps`; `run_scan` returns `ScanOutput`. `clues.py` reads the
+  description, chapters and comments (`read`: one yt-dlp call without download, in a thread, 90 s at most), parses them
+  (`split_tracklist` tries every separator and item start, keeps the cleanest split), places them on gaps (`attach`) and
+  turns a clue naming one track into a candidate (`Lookups`: Deezer, then MusicBrainz, Discogs/Deezer links by id; equality
+  by `match.py`, ADR-10). `pipeline.run_one` adds `mix_info.second_pass`, `gaps`, `clues` and the candidates, and `trim`s
+  clues to fit the size limit.
+- Round 004: `merge` counts `hits` per row; the scan reports progress through `pipeline._Progress` (`ServerClient.progress`,
+  at most once a minute and at each step; a failed write turns it off for the run), sees a Stop in the answer
+  (`StopRequested`, also within 30 s during a refusal pause), warns once when two refusals come closer than
+  `WORKER_REFUSAL_WARN_CALLS`, runs the second pass speed by speed, and saves what it heard after every probe
+  (`runstate.Recorder`, `<work_dir>/runs/<sha1(link)>.json`) so Ask again on a stopped set resumes it
+  (`WORKER_RESUME_DAYS`, same probe settings); a complete run deletes it.
 - The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
 
 ## Links

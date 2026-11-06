@@ -42,12 +42,21 @@ class Defaults(unittest.TestCase):
         self.assertEqual(s.max_duration_seconds, 0)
         self.assertEqual(s.probe_step_seconds, 15)
         self.assertEqual(s.probe_seconds, 12)
-        self.assertEqual(s.cooldown_seconds, 2.5)
-        self.assertEqual(s.rate_limit_pause_seconds, 300.0)
-        self.assertEqual(s.rate_limit_pauses, 3)
+        self.assertEqual(s.cooldown_seconds, 1.5)
+        self.assertEqual((s.cooldown_spread_percent, s.rate_limit_pause_spread_percent), (30.0, 40.0))
+        self.assertEqual(s.rate_limit_pause_seconds, 180.0)
+        self.assertEqual(s.rate_limit_pauses, 8)
         self.assertEqual(s.max_skew, 0.1)
         self.assertEqual(s.shazam_device, "android")
         self.assertEqual(s.merge_gap_seconds, 180)
+        self.assertEqual(s.second_pass_step_seconds, 30)
+        self.assertEqual(s.second_pass_offset_seconds, 7)
+        self.assertEqual(s.second_pass_speeds, (0.96, 1.04))
+        self.assertTrue(s.clues)
+        self.assertEqual(s.clue_seconds, 90)
+        self.assertEqual(s.lookups, 100)
+        self.assertEqual((s.refusal_warn_calls, s.resume_days), (150, 7))
+        self.assertEqual((s.break_every_calls, s.break_seconds), (0, 120.0))
         self.assertEqual(s.result_max_bytes, 900000)
 
     def test_windows_paths(self):
@@ -130,3 +139,19 @@ class Version(unittest.TestCase):
         root = Path(__file__).resolve().parent.parent
         with open(root / "pyproject.toml", "rb") as f:
             self.assertEqual(tomllib.load(f)["project"]["version"], __version__)
+
+
+class Round003Settings(unittest.TestCase):
+    def test_speeds_and_switches(self):
+        s = load({**GOOD, "WORKER_SECOND_PASS_SPEEDS": "1.03, 0.97", "WORKER_CLUES": "0", "WORKER_LOOKUPS": "0", "WORKER_SECOND_PASS_STEP_SECONDS": "0"})
+        self.assertEqual(s.second_pass_speeds, (1.03, 0.97))
+        self.assertFalse(s.clues)
+        self.assertEqual((s.lookups, s.second_pass_step_seconds), (0, 0))
+
+    def test_bad_speed(self):
+        from mix_worker.config import SettingsError
+
+        with self.assertRaises(SettingsError):
+            load({**GOOD, "WORKER_SECOND_PASS_SPEEDS": "2"})
+        with self.assertRaises(SettingsError):
+            load({**GOOD, "WORKER_SECOND_PASS_SPEEDS": "fast"})

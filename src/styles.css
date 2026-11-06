@@ -2895,3 +2895,44 @@ a {
 .import .file-drop {
   margin: 8px 0;
 }
+
+/* Rounds 003-004 (merged from main): styles for today's ui/Mix.tsx, on tokens,
+   until S08 replaces that screen. Clues read by the worker are third-party
+   text, rendered plain; the row view holds the sort and "heard once" filter. */
+.mix details.clues {
+  margin: 4px 0;
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.mix details.clues summary {
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+}
+
+.mix details.clues ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+.mix details.clues li {
+  overflow-wrap: anywhere;
+  margin: 2px 0;
+}
+
+.mix .src.clue {
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.mix .rowview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 8px 0;
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.mix .rowview select {
+  min-height: var(--app-target);
+}

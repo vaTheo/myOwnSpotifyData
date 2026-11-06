@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-- Version change: 2.0.1 → 2.0.2 (PATCH: Principle IV names where recognition by audio may happen, per ADR-09)
+- Version change: 2.0.2 → 2.1.0 (MINOR: Principle IV gains one bounded exception, a name lookup in the worker, per ADR-10)
 - Modified principles: IV (one sentence added; title unchanged)
 - Added sections: none
 - Removed sections: none
@@ -58,7 +58,10 @@ looked up by Spotify ids or ISRCs, never by name search. Clients MUST NOT throw:
 failure is a value the caller renders. Long jobs start only from Settings and MUST
 resume after a reload. The reach pacing split is pinned by a test that MUST stay green.
 Recognition by audio happens only in the worker on the owner's computer, keyless and one
-probe at a time; the app and the server never fetch or analyse audio (ADR-09).
+probe at a time; the app and the server never fetch or analyse audio (ADR-09). The one name
+search allowed is the worker's, for a clue (a description line, chapter or comment) that carries
+no identifier: keyless catalogues only, accepted on exact artist and title equality, and the row
+is always marked as coming from the clue, never as heard (ADR-10).
 
 Rationale: name search mismatches tracks; an API key is a secret (Principle I); a job
 that cannot resume is lost on the phone.
@@ -139,4 +142,4 @@ When the two disagree, the ADR index is corrected first and this file follows.
 - Runtime guidance for agents stays in `CLAUDE.md` and the local `CLAUDE.md` files;
   this file does not duplicate their routing.
 
-**Version**: 2.0.2 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-06
+**Version**: 2.1.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-06

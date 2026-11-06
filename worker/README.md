@@ -65,12 +65,20 @@ claimed 6f1c2d3e · https://soundcloud.com/…
   …
   download · 100 % · 98.0 MB
   download · abc123.m4a · 7260 s · 38.2 s
-  scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 10 s probe every 60 s · 121 probes · cooldown 3.0 s
-  probe 1/121 · 00:00:00 · cut 312 KB 0.06 s · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
-  probe 2/121 · 00:01:00 · cut 312 KB 0.05 s · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
-  probe 3/121 · 00:02:00 · cut 312 KB 0.06 s · no match
+  scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 12 s probe every 15 s · 484 probes · cooldown 1.5 s (+0-30 %)
+  probe 1/484 · 00:00:00 · cut 375 KB 0.06 s · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
+  probe 2/484 · 00:00:15 · cut 375 KB 0.05 s · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
+  probe 3/484 · 00:00:30 · cut 375 KB 0.06 s · no match
   …
-  scan · 41 tracks · 540.3 s
+  second pass · 210 probes found nothing · 104 places heard again (+7 s, speed ×1 then ×0.96 then ×1.04)
+  gap 1/104 · 00:00:37 ×1 · no match
+  gap 1/104 · 00:00:37 ×0.96 · NEW · Someone — Pitched Track · … · 91 %
+  …
+  second pass · found 9 in 104 places
+  scan · 48 tracks · 2410.3 s
+  clues · 35 read in 3.2 s
+  candidate · 00:51:32 · Space Above — Leave Home (Edit Select Remix) · deezer · NLCK41072412
+  clues · 12 on gaps · 15 set-wide · 3 candidates · 18 looked up
   write · 2026-11-06 Some set [6f1c2d3e].json · 0.0 s
   send · 24510 bytes · 0.4 s
   clean · audio removed · 0.0 s
@@ -79,6 +87,17 @@ queue empty · next look in 60 s
 alive · waiting for a request · next look in 30 s
 queue empty · next look in 60 s
 ```
+
+After the first pass, the **second pass** listens again where nothing was found (not inside a stretch with the same track
+just before and after it, up to 3 minutes: that is the same track): 7 s later than the probe that missed, at
+normal speed, then 4 % slower, then 4 % faster (a DJ's pitch fader), stopping at the first match. Then the worker reads the
+set's **description, chapters and comments** (the clues): the ones written around a part still without a track show on that
+part on the Mix screen, a tracklist without times shows once above the tracklist, and a clue that reads as one
+`Artist – Title` is looked up in Deezer, then MusicBrainz (a Discogs or Deezer link by its id). Every line of a **tracklist**
+(the description's, or a comment listing 3 tracks or more) becomes a row even when no catalogue knows it; a catalogue match only
+adds the ISRC. For a single comment answer, only an exact artist and title in a catalogue
+make a row, marked "from a comment · not heard"; it goes into Create playlist unless you delete it. A refusal during the second
+pass, or comments that cannot be read, never fail the request.
 
 A request that fails (a private link, no track identified, the recognition service refusing) is
 marked failed with that reason, the phone shows it, and the worker moves on. Sets of any length are taken. Ctrl-C during a request puts it back in the
@@ -118,13 +137,23 @@ Only the first two are required.
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit; set a number of seconds to refuse longer sets before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 15 | one probe every N seconds; with 12 s probes, 15 hears 80 % of the set (a 2 h set: 480 probes, about 40 minutes), 12 all of it, 30 or 60 for a quicker scan |
 | `WORKER_PROBE_SECONDS` | 12 | the length of each probe sent to Shazam, 2 to 12 (Shazam fingerprints 12 s at most; 10 s matched 71 % against 94 %) |
-| `WORKER_COOLDOWN_SECONDS` | 2.5 | the pause before every recognition call, give or take a random 50 % (1.25 to 3.75 s); doubled after each rate limit, 30 s at most |
-| `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | the pause after a "rate limited" answer; the second pause is twice as long, the third three times |
-| `WORKER_RATE_LIMIT_PAUSES` | 3 | pauses allowed per set; one more refusal fails the request |
+| `WORKER_COOLDOWN_SECONDS` | 1.5 | the pause before every recognition call, plus a random 0–30 % (`WORKER_COOLDOWN_SPREAD_PERCENT`): 1.5 to 1.95 s; a network retry is spread the same; not slowed after a refusal |
+| `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 180 | the pause after a "rate limited" answer, the same each time, plus a random 0–40 % (`WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`): 3:00 to 4:12 |
+| `WORKER_REFUSAL_WARN_CALLS` | 150 | two refusals closer than this many calls: warn once (a VPN or a shared network?); 0 = never |
+| `WORKER_RESUME_DAYS` | 7 | Ask again on a stopped set continues it within this many days; 0 = always start over |
+| `WORKER_RATE_LIMIT_PAUSES` | 8 | pauses allowed per set; one more refusal stops the scan, and the tracks found are sent ("stopped early") |
 | `WORKER_SHAZAM_DEVICE` | android | the phone Shazam sees; `iphone` is the library's own default and was refused after three calls in testing |
 | `WORKER_MAX_SKEW` | 0.1 | rejects a match more than 10 % off in pitch or speed; a DJ pitches tracks a few %, so keep it well above that; 0 disables |
 | `WORKER_MERGE_GAP_SECONDS` | 180 | the same track heard again within this gap stays one row |
-| `WORKER_RESULT_MAX_BYTES` | 900000 | larger results fail with "Result too large" |
+| `WORKER_RESULT_MAX_BYTES` | 900000 | larger results fail with "Result too large"; clues are left out first to fit |
+| `WORKER_BREAK_EVERY_CALLS` | 0 | a planned break after this many recognition calls; 0 = none (the default: breaks did not prevent refusals) |
+| `WORKER_BREAK_SECONDS` | 120 | that break's length, exactly |
+| `WORKER_SECOND_PASS_STEP_SECONDS` | 30 | one place heard again every N seconds of a part without a track; 0 = no second pass |
+| `WORKER_SECOND_PASS_OFFSET_SECONDS` | 7 | that place is this far after the probe that found nothing |
+| `WORKER_SECOND_PASS_SPEEDS` | 0.96,1.04 | speeds tried after normal speed, in order; empty = normal only |
+| `WORKER_CLUES` | 1 | read the description, chapters and comments; 0 = never |
+| `WORKER_CLUE_SECONDS` | 90 | reading them may take this long, then it is dropped |
+| `WORKER_LOOKUPS` | 100 | clues looked up by name per set (Deezer, then MusicBrainz); 0 = none, clues still shown |
 
 ## Where things go, what leaves the computer
 
@@ -136,11 +165,26 @@ Only the first two are required.
 
 ## Troubleshooting
 
+- **Don't run the worker on a VPN.** Shazam counts calls per address, and a VPN's address is shared with many people. On the
+  test day of 6 November 2026, on a VPN Shazam refused every 24 to 380 calls whatever the pace; on home Wi-Fi without it, once
+  in 282 calls, and a 2 h 10 set finished in 54 minutes with no refusal. When two refusals come less than 150 calls apart
+  (`WORKER_REFUSAL_WARN_CALLS`), the log and the phone say "Shazam refuses often: a VPN or a shared network?".
+- **Stop, Cancel, Move to top** on the phone need migration `supabase/migrations/0003_job_control.sql` applied (as 0002);
+  without it the worker logs "progress · not sent … is migration 0003 applied?" once per set and works as before.
+- **Ask again continues a stopped set** (Stop, Ctrl-C, too many refusals) when it is the same link, on the same computer, with
+  the same probe settings, within `WORKER_RESUME_DAYS` (7): the log says "resuming at 01:15:00 · 300 probes kept". A set that
+  finished normally is scanned afresh.
+
 - **"not signed in"**: `mix-worker login`, then click the mail's link on this computer within ten minutes.
 - **"could not listen on port 5173"**: stop `yarn dev` (or whatever holds the port) and run `login` again.
 - **"the project is paused"**: Supabase pauses a Free project after a week without traffic; resume it from the dashboard.
-- **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address three times in one set; wait, or raise
-  `WORKER_COOLDOWN_SECONDS`. The request can be asked again from the phone.
+- **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address four times before any track was
+  found; wait, or raise `WORKER_COOLDOWN_SECONDS`. Once something was found, a refusal no longer fails the request: it is
+  **done** with "Stopped early at 47:00 (rate limited); ask again later for the rest".
+- **How the worker waits**: 1.5 s + 0–30 % (1.5 to 1.95 s) between calls, never slowed; after a refusal a 3-minute pause + 0–40 %, then the same
+  pace, up to 8 times a set (Shazam refused at 1.3 and at 8.8 calls a minute alike, so pacing does not avoid it); a call without
+  answer (45 s, or a Shazam server error) tried again after 10 s then 20 s (+ 0–30 %); a send to your server tried again after 30 s,
+  1 min and 2 min; Deezer or MusicBrainz busy, after 2 s then 4 s. The Shazam library itself never retries silently. Planned breaks are off by default (`WORKER_BREAK_EVERY_CALLS`).
 - **"no answer (TimeoutError…)" in the log**: one recognition took over 45 s; the probe is tried 3 times (10 s, then 20 s
   apart), then skipped and the scan goes on. Three probes in a row with no answer fail the request with "Recognition service
   did not answer; try later" (check the connection, then ask again).

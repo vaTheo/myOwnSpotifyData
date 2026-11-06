@@ -27,6 +27,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
   - [ADR-07 — Play counts from the history export](architecture/700-adr/ADR-07-play-counts-from-export.md)
   - [ADR-08 — One server for the owner, on a free tier](architecture/700-adr/ADR-08-owner-server-free-tier.md)
   - [ADR-09 — Mix identification on the owner's computer](architecture/700-adr/ADR-09-mix-identification-on-the-owners-computer.md)
+  - [ADR-10 — Name lookup for clues without identifier](architecture/700-adr/ADR-10-name-lookup-for-clues.md)
 - [800 — Limits and roadmap](architecture/800-limits-roadmap.md)
 
 ## Dev guide

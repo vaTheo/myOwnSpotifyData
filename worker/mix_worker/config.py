@@ -48,6 +48,19 @@ class Settings:
     max_skew: float
     merge_gap_seconds: int
     result_max_bytes: int
+    # Round 003 (gaps): defaults here so a hand-built Settings stays valid.
+    second_pass_step_seconds: int = 30
+    second_pass_offset_seconds: int = 7
+    second_pass_speeds: tuple[float, ...] = (0.96, 1.04)
+    clues: bool = True
+    clue_seconds: int = 90
+    lookups: int = 100
+    break_every_calls: int = 0
+    cooldown_spread_percent: float = 30.0
+    rate_limit_pause_spread_percent: float = 40.0
+    refusal_warn_calls: int = 150
+    resume_days: int = 7
+    break_seconds: float = 120.0
 
 
 def template_text() -> str:
@@ -139,6 +152,24 @@ def _probe_seconds(values: Mapping[str, str]) -> int:
     return value
 
 
+def _speeds(values: Mapping[str, str]) -> tuple[float, ...]:
+    raw = values.get("WORKER_SECOND_PASS_SPEEDS")
+    if raw is None:
+        return (0.96, 1.04)
+    out: list[float] = []
+    for part in raw.replace(" ", "").split(","):
+        if not part:
+            continue
+        try:
+            value = float(part)
+        except ValueError as err:
+            raise SettingsError("WORKER_SECOND_PASS_SPEEDS", f"not a number: {part!r}") from err
+        if not 0.8 <= value <= 1.2:
+            raise SettingsError("WORKER_SECOND_PASS_SPEEDS", "each speed must be between 0.8 and 1.2")
+        out.append(value)
+    return tuple(out)
+
+
 def _device(values: Mapping[str, str]) -> str:
     value = values.get("WORKER_SHAZAM_DEVICE", "android").strip().lower()
     if value not in ("android", "iphone"):
@@ -200,11 +231,23 @@ def load_settings(
         max_duration_seconds=_int(values, "WORKER_MAX_DURATION_SECONDS", 0, 0),
         probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 15, 1),
         probe_seconds=_probe_seconds(values),
-        cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 2.5, 0.0),
-        rate_limit_pause_seconds=_float(values, "WORKER_RATE_LIMIT_PAUSE_SECONDS", 300.0, 0.0),
-        rate_limit_pauses=_int(values, "WORKER_RATE_LIMIT_PAUSES", 3, 0),
+        cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 1.5, 0.0),
+        rate_limit_pause_seconds=_float(values, "WORKER_RATE_LIMIT_PAUSE_SECONDS", 180.0, 0.0),
+        rate_limit_pauses=_int(values, "WORKER_RATE_LIMIT_PAUSES", 8, 0),
         shazam_device=_device(values),
         max_skew=_float(values, "WORKER_MAX_SKEW", 0.1, 0.0),
         merge_gap_seconds=_int(values, "WORKER_MERGE_GAP_SECONDS", 180, 1),
         result_max_bytes=_int(values, "WORKER_RESULT_MAX_BYTES", 900000, 1),
+        second_pass_step_seconds=_int(values, "WORKER_SECOND_PASS_STEP_SECONDS", 30, 0),
+        second_pass_offset_seconds=_int(values, "WORKER_SECOND_PASS_OFFSET_SECONDS", 7, 0),
+        second_pass_speeds=_speeds(values),
+        clues=_int(values, "WORKER_CLUES", 1, 0) > 0,
+        clue_seconds=_int(values, "WORKER_CLUE_SECONDS", 90, 5),
+        lookups=_int(values, "WORKER_LOOKUPS", 100, 0),
+        break_every_calls=_int(values, "WORKER_BREAK_EVERY_CALLS", 0, 0),
+        cooldown_spread_percent=_float(values, "WORKER_COOLDOWN_SPREAD_PERCENT", 30.0, 0.0),
+        rate_limit_pause_spread_percent=_float(values, "WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT", 40.0, 0.0),
+        refusal_warn_calls=_int(values, "WORKER_REFUSAL_WARN_CALLS", 150, 0),
+        resume_days=_int(values, "WORKER_RESUME_DAYS", 7, 0),
+        break_seconds=_float(values, "WORKER_BREAK_SECONDS", 120.0, 0.0),
     )
