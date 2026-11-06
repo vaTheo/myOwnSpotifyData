@@ -243,7 +243,7 @@ every failure inline (never a banner, never touching the sync lock) and is reset
 
 Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
 (`ACCOUNT_SWITCH_CONFIRM`, `:714`), an import that covers less than the stored history (`replaceQuestion`, `:765`), Remove server data
-(`REMOVE_SERVER_DATA_CONFIRM`, `:337`); and Disconnect, asked by its button in `ui/Settings.tsx` (`:567`). Non-destructive, in
+(`REMOVE_SERVER_DATA_CONFIRM`, `:337`); and Disconnect, asked by its button in `ui/settings/DangerZone.tsx` (`:26`). Non-destructive, in
 `state.ts`: Like all songs' count (`:1407`) and the four "replace the working list" questions of the Mix screen (`:1051`, `:1080`,
 `:1111`, `:1133`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
 old behaviour.

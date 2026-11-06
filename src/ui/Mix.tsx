@@ -376,7 +376,7 @@ function CreatePlaylistPanel(p: { view: MixView }) {
         <>
           <p class="muted">
             This app cannot create playlists yet — connect again to allow it.
-            Your saved mixes stay on this phone.
+            Your saved mixes stay on this browser.
           </p>
           <button type="button" onClick={() => auth.logout()}>
             Connect again to allow playlists

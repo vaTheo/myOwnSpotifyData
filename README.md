@@ -79,7 +79,7 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   what is stored, the app asks before replacing it.
 - **BPM and key** show as two small pills on every track row, once you have
   filled them in from the **Audio data** card in Settings.
-  `Look up (ReccoBeats)` fetches Spotify's own tempo and key for the tracks
+  `Look up BPM and key` fetches Spotify's own tempo and key for the tracks
   ReccoBeats knows, and the `.xml` file input takes a rekordbox collection
   export (_File > Export Collection in xml format_), which wins wherever it
   has a value of its own. Neither starts by itself, and both pick up where
