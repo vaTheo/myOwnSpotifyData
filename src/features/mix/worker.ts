@@ -284,6 +284,13 @@ const STEP_NAMES: Record<string, string> = {
   paused: 'Paused by Shazam',
 };
 
+/** A progress step as the owner reads it: "First pass", "Second pass ×1.04". */
+export function stepName(step: string): string {
+  return step.startsWith('second')
+    ? `Second pass ${step.slice('second'.length).trim()}`.trim()
+    : (STEP_NAMES[step] ?? step);
+}
+
 function clock(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { timeStyle: 'short' });
 }
@@ -297,9 +304,7 @@ export function progressLine(view: MixJobView, now: number): string | null {
   const p = view.progress;
   if (!p) return null;
   const parts: string[] = [];
-  const name = p.step.startsWith('second')
-    ? `Second pass ${p.step.slice('second'.length).trim()}`.trim()
-    : (STEP_NAMES[p.step] ?? p.step);
+  const name = stepName(p.step);
   if (p.step === 'paused' && p.pausedUntil !== null) {
     parts.push(`Paused by Shazam until ${clock(p.pausedUntil)}`);
   } else {
@@ -401,7 +406,8 @@ export interface RequestListItem {
   canAskAgain: boolean;
 }
 
-function shortLink(key: string): string {
+/** A link without a title: its host and last path part. */
+export function shortLink(key: string): string {
   try {
     const u = new URL(key);
     const last = u.pathname.split('/').filter(Boolean).pop();
@@ -425,10 +431,30 @@ function labelOf(view: MixJobView): RequestListItem['label'] {
   }
 }
 
+/** When a request last changed: finished, else claimed, else created. */
+export function requestAt(v: MixJobView): number {
+  return v.finishedAt ?? v.claimedAt ?? v.createdAt;
+}
+
 /**
- * Every link's latest request, for the card: the running ones first, then
- * the waiting ones oldest first (the order the worker takes them), then the
- * finished ones newest first.
+ * The queue's order (T121): running first; then waiting in the order the
+ * worker takes them (`claim_job`: priority high to low, then oldest first),
+ * so Move to top shows the request first; then the finished ones, newest
+ * first. A comparator for `sort`.
+ */
+export function queueOrder(a: MixJobView, b: MixJobView): number {
+  const rank = (v: MixJobView): number =>
+    v.status === 'claimed' ? 0 : v.status === 'queued' ? 1 : 2;
+  const r = rank(a) - rank(b);
+  if (r !== 0) return r;
+  if (a.status === 'queued') {
+    return (b.priority ?? 0) - (a.priority ?? 0) || a.createdAt - b.createdAt;
+  }
+  return requestAt(b) - requestAt(a);
+}
+
+/**
+ * Every link's latest request, for the card, in `queueOrder`.
  */
 export function requestList(
   jobs: Record<string, MixJobView[]>,
@@ -439,20 +465,12 @@ export function requestList(
   }[],
   server: ServerStatus
 ): RequestListItem[] {
-  const rank = (v: MixJobView): number =>
-    v.status === 'claimed' ? 0 : v.status === 'queued' ? 1 : 2;
   const latest = Object.entries(jobs)
     .map(([key, history]) => ({ key, view: history[0] }))
     .filter(
       (e): e is { key: string; view: MixJobView } => e.view !== undefined
     );
-  latest.sort((a, b) => {
-    const r = rank(a.view) - rank(b.view);
-    if (r !== 0) return r;
-    if (a.view.status === 'queued') return a.view.createdAt - b.view.createdAt;
-    const at = (v: MixJobView) => v.finishedAt ?? v.claimedAt ?? v.createdAt;
-    return at(b.view) - at(a.view);
-  });
+  latest.sort((a, b) => queueOrder(a.view, b.view));
   return latest.map(({ key, view }) => {
     const mix = mixes.find((m) => m.url === key);
     const label = labelOf(view);
