@@ -495,3 +495,54 @@ class LessCalls(unittest.TestCase):
 
         run(scan(60, step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=cut_at, speeds=(), sleep=sleep, classify=classify, clock=lambda: 0.0))
         self.assertEqual(cuts, [52])
+
+
+class Retries(unittest.TestCase):
+    """Owner, 2026-11-06: the pace recovers; a first-pass refusal keeps the hits."""
+
+    def test_pace_recovers_after_calm_calls(self):
+        from mix_worker.scan import RECOVER_AFTER_CALLS
+
+        answers = [RateLimited()] + [NO_MATCH] * (RECOVER_AFTER_CALLS + 5)
+        sleeps = []
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        async def sleep(s):
+            sleeps.append(s)
+
+        lines = []
+        run(scan(15 * (RECOVER_AFTER_CALLS + 5), step=15, cooldown=3.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, clock=lambda: 0.0))
+        cooldowns = [s for s in sleeps if s > 0]
+        self.assertEqual(cooldowns[:2], [3.0, 6.0])  # doubled after the refusal
+        self.assertEqual(cooldowns[-1], 3.0)  # back to the base pace
+        self.assertTrue(any("cooldown back to 3 s" in x for x in lines))
+
+    def test_first_pass_refusal_keeps_the_hits(self):
+        answers = [CASSETTE, NO_MATCH, RateLimited(), RateLimited()]
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        async def sleep(s):
+            pass
+
+        report = {}
+        rows = run(scan(120, step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=lambda t, s: b"x" * 5000, sleep=sleep, classify=classify, max_pauses=1, report=report, clock=lambda: 0.0))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(report["stopped"], {"at": "00:00:30", "reason": "rate limited"})
+        self.assertEqual(report["second_pass"]["places"], 0)  # no second pass after a stop
+
+    def test_shazam_server_error_is_a_visible_retry(self):
+        class FailedDecodeJson(Exception):
+            pass
+
+        self.assertEqual(default_classify(FailedDecodeJson("Failed to decode json (status=502): <html>")), "network")
+        self.assertEqual(default_classify(FailedDecodeJson("Failed to decode json (status=200): x")), "raise")

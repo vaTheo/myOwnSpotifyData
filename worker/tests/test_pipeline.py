@@ -69,6 +69,7 @@ def make(tmp, *, client=None, download=None, scan=None, result_max_bytes=900000,
         now=lambda: 1_793_959_500.0,  # 2026-11-06T10:05:00Z
         today=lambda: "2026-11-06",
         log=log,
+        sleep=lambda s: None,
     )
     return settings, deps, log
 
@@ -209,11 +210,25 @@ class Failures(unittest.TestCase):
 
     def test_server_away_during_send(self):
         with tempfile.TemporaryDirectory() as tmp:
-            settings, deps, log = make(tmp, client=FakeClient([Result("offline", None, None, "net")]))
+            settings, deps, log = make(tmp, client=FakeClient([Result("offline", None, None, "net")] * 4))
+            waits = []
+            deps.sleep = waits.append
             outcome = run_one(job(), settings, "tok", deps)
             self.assertEqual(outcome.status, "server")
             self.assertEqual(outcome.server.kind, "offline")
+            self.assertEqual(waits, [30.0, 60.0, 120.0])
             self.assertEqual(len(list((Path(tmp) / "json").iterdir())), 1)
+
+    def test_a_send_that_works_on_a_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, client=FakeClient([Result("error", None, 502, "bad gateway"), Result("ok", "done", 200)]))
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            self.assertTrue(any("send · error: bad gateway · trying again in 30 s (1/3)" in x for x in log.lines))
+
+    def test_a_paused_project_is_not_retried(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, client=FakeClient([Result("paused", None, 503, "paused")]))
+            self.assertEqual(run_one(job(), settings, "tok", deps).server.kind, "paused")
 
 
 if __name__ == "__main__":
@@ -283,3 +298,13 @@ class Round003(unittest.TestCase):
             body = self.sent(deps)["result"]
             self.assertLessEqual(len(json.dumps(body, ensure_ascii=False).encode()), 8000)
             self.assertTrue(any("clues left out" in x for x in log.lines))
+
+    def test_stopped_early_is_done_with_a_note(self):
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d: ScanOutput(rows=[TRACK], stopped={"at": "00:47:00", "reason": "rate limited"}))
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            body = self.sent(deps)
+            self.assertEqual(body["error"], "Stopped early at 00:47:00 (rate limited); ask again later for the rest")
+            self.assertEqual(body["result"]["mix_info"]["stopped_early"], {"at": "00:47:00", "reason": "rate limited"})

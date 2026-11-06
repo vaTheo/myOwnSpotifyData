@@ -377,8 +377,10 @@ class Lookups:
         line: Callable[[str], None],
         budget: int,
         clock: Callable[[], float] = time.monotonic,
+        jitter: Callable[[float], float] = lambda seconds: 0.0,
     ) -> None:
         self.fetch = fetch
+        self.jitter = jitter
         self.sleep = sleep
         self.say = line
         self.budget = budget
@@ -400,7 +402,8 @@ class Lookups:
             except urllib.error.HTTPError as err:
                 if err.code not in (429, 503) or attempt == len(BUSY_WAITS):
                     raise
-                self.sleep(BUSY_WAITS[attempt])
+                wait = BUSY_WAITS[attempt]
+                self.sleep(wait + self.jitter(wait))
         raise AssertionError("unreachable")
 
     def _deezer(self, artist: str, title: str) -> Candidate | None:

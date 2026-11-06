@@ -61,7 +61,7 @@ def code_for(result: Result) -> int:
 def build_deps(settings: Settings) -> Deps:
     from .download import download as do_download
     from .log import Log
-    from .scan import run_scan
+    from .scan import run_scan, spread
 
     log = Log(settings.log_file)
     return Deps(
@@ -69,6 +69,7 @@ def build_deps(settings: Settings) -> Deps:
         download=lambda url, dest: do_download(url, dest, settings, line=log.line, max_duration=settings.max_duration_seconds or None),
         scan=lambda path, duration: run_scan(path, duration, settings, line=log.line),
         log=log,
+        jitter=spread,
         clues=(lambda url, gaps, rows: gather_clues(settings, log, url, gaps, rows)) if settings.clues else None,
     )
 
@@ -79,11 +80,11 @@ def gather_clues(settings: Settings, log: Any, url: str, gaps: list[tuple[int, i
     import yt_dlp  # type: ignore[import-untyped]
 
     from .clues import Lookups, fetch_json, gather, read
-    from .scan import hhmmss
+    from .scan import hhmmss, spread
 
     agent = f"myOwnSpotifyData-worker/{__version__} (https://github.com/vaTheo/myOwnSpotifyData)"
     lookups = (
-        Lookups(fetch=lambda u: fetch_json(u, user_agent=agent), sleep=time.sleep, line=log.line, budget=settings.lookups)
+        Lookups(fetch=lambda u: fetch_json(u, user_agent=agent), sleep=time.sleep, line=log.line, budget=settings.lookups, jitter=spread)
         if settings.lookups > 0
         else None
     )
