@@ -107,6 +107,12 @@ export function DataTable<Row>(p: {
    * re-sorts, and the group headings stay.
    */
   presorted?: boolean;
+  /**
+   * A row drawn whole across the columns instead of cell by cell (Mix: a
+   * gap separator, a row being edited); null for an ordinary row. It keeps
+   * its place in the keyboard order.
+   */
+  fullRow?: (row: Row) => ComponentChildren | null;
 }) {
   const compact = p.compact ?? windowClass.value === 'compact';
   const [shown, setShown] = useState(PAGE_SIZE);
@@ -217,6 +223,7 @@ export function DataTable<Row>(p: {
       onClick: (e: MouseEvent) => onRowClick(e, row, index),
       onFocus: () => setActive(index),
     };
+    const full = p.fullRow?.(row);
     return (
       <Fragment key={key}>
         {heading && (
@@ -226,7 +233,13 @@ export function DataTable<Row>(p: {
             </div>
           </div>
         )}
-        {compact ? (
+        {full !== null && full !== undefined ? (
+          <div {...common} class={selected ? 'dt-full selected' : 'dt-full'}>
+            <div role="gridcell" data-span="true">
+              {full}
+            </div>
+          </div>
+        ) : compact ? (
           <div {...common} class={selected ? 'dt-item selected' : 'dt-item'}>
             <CompactItem columns={p.columns} row={row} rank={rank} />
           </div>
