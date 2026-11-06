@@ -56,15 +56,15 @@ top of a dark page.
 **Computer**: a feed of cards in three columns. Each card has a title, its figures, one link to its screen, and its state line
 when something needs attention.
 
-| Card | Figures | Link | When the data is missing |
-|---|---|---|---|
-| Listening | history range, total plays, total listening time, imported date; the stale-history warning | Crate | "No listening history yet" + Import history |
-| Heavy rotation | top five tracks of the current window, with their plays in the window and a `MonthBars` each | Heavy rotation | the Crate gate card (import or re-import) |
-| Top this month | the 4-week top five tracks, with BPM and key | Top | "No top lists yet" + Sync in Settings |
-| Library | playlists, tracks, last sync; the quota lock with its retry time, or the pending playlists | Playlists | "No playlists yet" + Sync in Settings |
-| Coverage | share of tracks with BPM or key (`coverage`), share of artists with reach (`reachCoverage`), as-of dates | Settings · Audio data / Artist reach | the share reads 0 of N, with Look up in Settings |
-| Last saved mix | title, track count, saved date, whether a playlist was made | `#/mix/<key>` | "No saved mixes yet" + Mix |
-| Server (only when set up) | last sync, pending datasets, paused or offline state | Settings · Server | not shown when no server is configured |
+| Card                      | Figures                                                                                                  | Link                                 | When the data is missing                         |
+| ------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------ |
+| Listening                 | history range, total plays, total listening time, imported date; the stale-history warning               | Crate                                | "No listening history yet" + Import history      |
+| Heavy rotation            | top five tracks of the current window, with their plays in the window and a `MonthBars` each             | Heavy rotation                       | the Crate gate card (import or re-import)        |
+| Top this month            | the 4-week top five tracks, with BPM and key                                                             | Top                                  | "No top lists yet" + Sync in Settings            |
+| Library                   | playlists, tracks, last sync; the quota lock with its retry time, or the pending playlists               | Playlists                            | "No playlists yet" + Sync in Settings            |
+| Coverage                  | share of tracks with BPM or key (`coverage`), share of artists with reach (`reachCoverage`), as-of dates | Settings · Audio data / Artist reach | the share reads 0 of N, with Look up in Settings |
+| Last saved mix            | title, track count, saved date, whether a playlist was made                                              | `#/mix/<key>`                        | "No saved mixes yet" + Mix                       |
+| Server (only when set up) | last sync, pending datasets, paused or offline state                                                     | Settings · Server                    | not shown when no server is configured           |
 
 **Phone**: one column, in the same order.
 
@@ -91,25 +91,25 @@ when something needs attention.
 - Toolbar: period segmented buttons (4 weeks · 6 months · All time), Tracks/Artists segmented buttons, a **Compare periods**
   toggle, and the filter bar (BPM, key) on Tracks.
 
-| Tracks column | Priority | Sort first |
-|---|---|---|
-| # (Spotify rank) | 1 | ascending (default) |
-| Cover | 3 | — |
-| Title | 1 | A→Z |
-| Artists | 2 | A→Z |
-| Plays | 1 | most first |
-| Playlists (count; the "not in a playlist" flag at 0) | 2 | most first |
-| BPM | 1 | ascending |
-| Key | 1 | Camelot order |
-| Spotify link | 2 | — |
+| Tracks column                                        | Priority | Sort first          |
+| ---------------------------------------------------- | -------- | ------------------- |
+| # (Spotify rank)                                     | 1        | ascending (default) |
+| Cover                                                | 3        | —                   |
+| Title                                                | 1        | A→Z                 |
+| Artists                                              | 2        | A→Z                 |
+| Plays                                                | 1        | most first          |
+| Playlists (count; the "not in a playlist" flag at 0) | 2        | most first          |
+| BPM                                                  | 1        | ascending           |
+| Key                                                  | 1        | Camelot order       |
+| Spotify link                                         | 2        | —                   |
 
-| Artists column | Priority | Sort first |
-|---|---|---|
-| # | 1 | ascending (default) |
-| Image | 3 | — |
-| Name | 1 | A→Z |
-| Saved tracks | 1 | most first |
-| Playlists | 2 | most first |
+| Artists column | Priority | Sort first          |
+| -------------- | -------- | ------------------- |
+| #              | 1        | ascending (default) |
+| Image          | 3        | —                   |
+| Name           | 1        | A→Z                 |
+| Saved tracks   | 1        | most first          |
+| Playlists      | 2        | most first          |
 
 **Compare periods** (large windows only): three narrow ranked columns, one per period. Hovering or focusing an item outlines the
 same item in the other columns. Selecting a track opens its details.
@@ -134,13 +134,13 @@ above them.
 - Below it, five cards in a three-column grid. Each card has an icon (`trending_up`, `diamond`, `star`, `calendar_month`,
   `skip_next`), its name, a one-line description, its track count, its current setting, its top track, and a small chart:
 
-| Card | Chart |
-|---|---|
-| Heavy rotation | plays per month in the window |
-| Forgotten gems | the top gem's lifetime plays per year |
-| All-time classics | how many tracks played in N+ years |
-| By year | a mini year × month grid |
-| Finish rate | the top track's meter |
+| Card              | Chart                                 |
+| ----------------- | ------------------------------------- |
+| Heavy rotation    | plays per month in the window         |
+| Forgotten gems    | the top gem's lifetime plays per year |
+| All-time classics | how many tracks played in N+ years    |
+| By year           | a mini year × month grid              |
+| Finish rate       | the top track's meter                 |
 
 The whole card is one link.
 
@@ -165,13 +165,13 @@ The whole card is one link.
 - A table, then the paging footer.
 - Selecting a row opens track details, which carries the playlist links and "Open <month> ›".
 
-| View | Columns beyond #, Title, Artist, BPM, Key | Chart column |
-|---|---|---|
-| Heavy rotation | Plays in window · Lifetime · Flag ("New", or "not in a playlist") | `MonthBars` over the window |
-| Forgotten gems | Plays · Last played (month) · Flag | `MonthBars` over the last 24 months |
-| All-time classics | Years played ("6 of 9") · Plays · Flag | plays per year across the span (a dash year as a gap) |
-| By year | Plays in selection · Of year / all time · Flag | `MonthBars` over the selected year (Winter adds the previous December) |
-| Finish rate | `Meter` (% finished) · Finished of outcomes · Skipped · Unclear | — |
+| View              | Columns beyond #, Title, Artist, BPM, Key                         | Chart column                                                           |
+| ----------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Heavy rotation    | Plays in window · Lifetime · Flag ("New", or "not in a playlist") | `MonthBars` over the window                                            |
+| Forgotten gems    | Plays · Last played (month) · Flag                                | `MonthBars` over the last 24 months                                    |
+| All-time classics | Years played ("6 of 9") · Plays · Flag                            | plays per year across the span (a dash year as a gap)                  |
+| By year           | Plays in selection · Of year / all time · Flag                    | `MonthBars` over the selected year (Winter adds the previous December) |
+| Finish rate       | `Meter` (% finished) · Finished of outcomes · Skipped · Unclear   | —                                                                      |
 
 - **By year on medium and wider**: the two chip rows give way to a `YearMonthGrid` above the table. Clicking a month, a year's
   total or a season header selects that period. The table follows.
@@ -218,25 +218,27 @@ The whole card is one link.
 - **Toolbar**: the order segmented buttons (By plays · Playlist order · Match) and the filter bar (text, BPM, key).
 - **No play counts yet**: the "No play counts yet — import your history" line stays under the toolbar.
 
-| Column | Priority | Sort first |
-|---|---|---|
-| # (rank in the current order) | 1 | default |
-| Title | 1 | A→Z |
-| Artists | 2 | A→Z |
-| Album | 4 | A→Z |
-| Duration | 4 | shortest first |
-| Added | 4 | newest first |
-| Plays (with "by artist and title" as a tooltip and an icon) | 1 | most first |
-| Top (flags for 4 weeks, 6 months, all time) | 3 | — |
-| BPM | 1 | ascending |
-| Key | 1 | Camelot order |
-| Spotify link | 2 | — |
+| Column                                                      | Priority | Sort first     |
+| ----------------------------------------------------------- | -------- | -------------- |
+| # (rank in the current order)                               | 1        | default        |
+| Title                                                       | 1        | A→Z            |
+| Artists                                                     | 2        | A→Z            |
+| Album                                                       | 4        | A→Z            |
+| Duration                                                    | 4        | shortest first |
+| Added                                                       | 4        | newest first   |
+| Plays (with "by artist and title" as a tooltip and an icon) | 1        | most first     |
+| Top (flags for 4 weeks, 6 months, all time)                 | 3        | —              |
+| BPM                                                         | 1        | ascending      |
+| Key                                                         | 1        | Camelot order  |
+| Spotify link                                                | 2        | —              |
 
 **Match mode**:
 
 - A seed bar replaces the caption: "Matching: Nightdrive · 126 BPM · 8A", with **Clear**.
 - Before a seed is chosen, it reads "Select a track to match against" and a row click sets the seed, as today.
 - Two columns appear after Plays: **Relation** (same key, relative, boost, +1, −1) and **ΔBPM** ("+1.6%").
+- On larger windows they take the place of **Album** and **Added**, which Match drops so the title stays readable (ruling, S02
+  review).
 - The order is `rankMatches`'s, unchanged. Out-of-tolerance rows keep ΔBPM and lose Relation, as today.
 - The "No BPM or key for this track yet" and "No BPM for this track — matching by key alone" notes are kept.
 - A row's details also offer **Match from this track**, so a seed can be set without switching mode first.
@@ -259,17 +261,17 @@ The whole card is one link.
 - Toolbar: view segmented buttons (Saved tracks · Under the radar) and the filter.
 - One artist table. Selecting an artist opens it beside the list (`#/artist/<key>`), as Playlists does.
 
-| Column | Saved tracks | Under the radar | Sort first |
-|---|---|---|---|
-| # (rank over the full list) | ✓ | ✓ | default |
-| Name | ✓ | ✓ | A→Z |
-| Tracks | ✓ | ✓ | most first |
-| Playlists | ✓ | ✓ | most first |
-| Plays | once a history is imported | once a history is imported | most first (= "Most played") |
-| Listeners (ListenBrainz) | once reach data exists | ✓ | fewest first (= "Fewest listeners") |
-| Fans (Deezer) | once reach data exists | ✓ | fewest first (= "Fewest fans") |
-| Wikipedia (languages · monthly views) | — | Well known rows only | — |
-| Spotify link | ✓ | ✓ | — |
+| Column                                | Saved tracks               | Under the radar            | Sort first                          |
+| ------------------------------------- | -------------------------- | -------------------------- | ----------------------------------- |
+| # (rank over the full list)           | ✓                          | ✓                          | default                             |
+| Name                                  | ✓                          | ✓                          | A→Z                                 |
+| Tracks                                | ✓                          | ✓                          | most first                          |
+| Playlists                             | ✓                          | ✓                          | most first                          |
+| Plays                                 | once a history is imported | once a history is imported | most first (= "Most played")        |
+| Listeners (ListenBrainz)              | once reach data exists     | ✓                          | fewest first (= "Fewest listeners") |
+| Fans (Deezer)                         | once reach data exists     | ✓                          | fewest first (= "Fewest fans")      |
+| Wikipedia (languages · monthly views) | —                          | Well known rows only       | —                                   |
+| Spotify link                          | ✓                          | ✓                          | —                                   |
 
 **Under the radar keeps**:
 
@@ -358,21 +360,21 @@ aggregate.
   - **The player**, 166 px tall: SoundCloud's compact height on large, the full 400 px on request.
   - **The tracklist table**:
 
-| Column | Notes |
-|---|---|
-| Time | start, `formatClock` |
-| Artist – Title | — |
-| Label | — |
-| Source | trackid, description, pasted, manual, tracklistify, or worker, as an icon with a tooltip |
-| Confidence / references | "87% match", "12 other mixes" |
-| In your library | BPM and key when matched |
-| Actions | Edit, Delete; the row becomes text fields with Save and Cancel when edited |
+| Column                  | Notes                                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| Time                    | start, `formatClock`                                                                     |
+| Artist – Title          | —                                                                                        |
+| Label                   | —                                                                                        |
+| Source                  | trackid, description, pasted, manual, tracklistify, or worker, as an icon with a tooltip |
+| Confidence / references | "87% match", "12 other mixes"                                                            |
+| In your library         | BPM and key when matched                                                                 |
+| Actions                 | Edit, Delete; the row becomes text fields with Save and Cancel when edited               |
 
-  - Gap rows are separators with Delete.
-  - Under the table: **Add track** and **Save mix** (filled, with "Saved ✓" kept).
-  - **Create playlist** as a card: button, progress, result, the "not found" disclosure with its dig links, and every failure
-    inline.
-  - **Paste a tracklist** as a collapsed section.
+- Gap rows are separators with Delete.
+- Under the table: **Add track** and **Save mix** (filled, with "Saved ✓" kept).
+- **Create playlist** as a card: button, progress, result, the "not found" disclosure with its dig links, and every failure
+  inline.
+- **Paste a tracklist** as a collapsed section.
 - **No mix open**: the right pane shows an `EmptyState`: "Paste a link, import a JSON, or pick a saved mix".
 
 **Phone**: one column in this order: link field, open mix (if any), Identify, JSON import, saved mixes, requests, worker help.
@@ -401,15 +403,15 @@ bottom.
   - the last error or warning;
   - actions, with the main one filled.
 
-| Section | Status | Actions | Kept rules |
-|---|---|---|---|
-| Spotify account | signed in; scopes missing (Like, Create playlist) | Connect again | "Nothing on this computer is deleted" (the wording drops "phone") |
-| Spotify sync | last sync; running progress; quota lock with pending count and retry time (warning); cancelled; error | **Sync now** | disabled while busy or reach runs; lock until `retryAt` |
-| Listening history | `historyLine`, the zone at import, the stale warning | Import history / Update import → `#/import` | — |
-| Audio data | `coverageLine`; lookup progress (pass, done/total); Rekordbox progress and summary; errors | **Look up BPM and key**; Rekordbox XML (`FileDrop`); **Key notation** (segmented: Camelot · Open Key · Classic) | long jobs start only here |
-| Artist reach | `reachCoverageLine`; step and progress; run summary; per-step warnings; as-of | **Look up artists** | 45–50 min per 1,000 artists text kept |
-| Server | unset, signed out, offline, paused (dashboard link), pushing or pulling progress, connected with stamps table | Sign in by link; Sync now; Remove server data (`confirm()` kept) | — |
-| Danger zone | the consequence in one sentence | **Disconnect** (outlined, error colour; `confirm()` word for word) | disabled while a job runs |
+| Section           | Status                                                                                                        | Actions                                                                                                         | Kept rules                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Spotify account   | signed in; scopes missing (Like, Create playlist)                                                             | Connect again                                                                                                   | "Nothing on this computer is deleted" (the wording drops "phone") |
+| Spotify sync      | last sync; running progress; quota lock with pending count and retry time (warning); cancelled; error         | **Sync now**                                                                                                    | disabled while busy or reach runs; lock until `retryAt`           |
+| Listening history | `historyLine`, the zone at import, the stale warning                                                          | Import history / Update import → `#/import`                                                                     | —                                                                 |
+| Audio data        | `coverageLine`; lookup progress (pass, done/total); Rekordbox progress and summary; errors                    | **Look up BPM and key**; Rekordbox XML (`FileDrop`); **Key notation** (segmented: Camelot · Open Key · Classic) | long jobs start only here                                         |
+| Artist reach      | `reachCoverageLine`; step and progress; run summary; per-step warnings; as-of                                 | **Look up artists**                                                                                             | 45–50 min per 1,000 artists text kept                             |
+| Server            | unset, signed out, offline, paused (dashboard link), pushing or pulling progress, connected with stamps table | Sign in by link; Sync now; Remove server data (`confirm()` kept)                                                | —                                                                 |
+| Danger zone       | the consequence in one sentence                                                                               | **Disconnect** (outlined, error colour; `confirm()` word for word)                                              | disabled while a job runs                                         |
 
 - App version as the last line.
 
