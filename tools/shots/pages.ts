@@ -165,6 +165,17 @@ export const PAGES: ShotPage[] = [
   { id: 'crate-classics', hash: '#/crate/classics' },
   { id: 'crate-year', hash: '#/crate/year' },
   { id: 'crate-year-month', hash: '#/crate/year/2026-08' },
+  {
+    // Winter: the grid's season header on wider windows, the chip on a
+    // phone; the rows' charts open with the previous December.
+    id: 'crate-year-winter',
+    hash: '#/crate/year',
+    setup: async (page) => {
+      const season = page.getByRole('button', { name: /^Winter \d{4},/ });
+      if (await season.count()) await season.first().click();
+      else await tab(page, 'Winter');
+    },
+  },
   { id: 'crate-finish', hash: '#/crate/finish' },
 
   // Library: Playlists
@@ -299,8 +310,21 @@ export const PAGES: ShotPage[] = [
   {
     id: 'crate-rotation-details',
     hash: '#/crate/rotation',
-    setup: (page) =>
-      page.getByRole('list').first().getByRole('button').first().click(),
+    setup: firstRow,
+    since: 'US3',
+  },
+  {
+    // The details History (T075): plays per month over the whole history,
+    // the mini year × month grid on large windows, the peak month's link.
+    id: 'details-history',
+    hash: '#/crate/rotation',
+    setup: async (page) => {
+      await firstRow(page);
+      await page.evaluate(() => {
+        const body = document.querySelector('.side-sheet-body');
+        if (body) body.scrollTop = body.scrollHeight;
+      });
+    },
     since: 'US3',
   },
   {

@@ -342,25 +342,25 @@ for screen readers; with `old-import`, the hub shows the re-import card.
   - the cells, the year totals and the season headers are buttons labelled "Aug 2026, 143 plays";
   - the selection is outlined in `primary`;
   - selecting calls `onSelect(year, period)`, where `period` is a month 1–12, a season or `all`, following the existing By year rules (Winter includes the previous December).
-- [ ] T068 [US4] Rework `src/ui/crate/shared.tsx` for tables:
+- [X] T068 [US4] Rework `src/ui/crate/shared.tsx` for tables:
   - `CrateShell`: the back link and title go to the top bar;
   - `CrateRow` becomes a `DataTable` row factory with the common columns (#, Title, Artist, BPM, Key, Flag);
   - `Paged` folds into the `DataTable` footer;
   - keep `trackLabel`, `playlistsOfRow`, `inNoPlaylist` and `spanYears`.
-- [ ] T069 [US4] Rewrite `src/ui/crate/CrateHub.tsx` per §5:
+- [X] T069 [US4] Rewrite `src/ui/crate/CrateHub.tsx` per §5:
   - the import status line (range · plays · imported date · Update import, or the stale warning);
   - five `Card`s in a 3/2/1-column grid, each with its icon (`trending_up`, `diamond`, `star`, `calendar_month`, `skip_next`), a one-line description, its count, its setting, its top track and a mini chart. Each whole card is a link;
   - `CrateEmpty` when `crateStatus` is not `ready`.
-- [ ] T070 [P] [US4] Rewrite `src/ui/crate/Rotation.tsx` as a table per §6: Plays in window, Lifetime, a Flag with today's precedence (New, then not in a playlist), and `MonthBars` over the window. Keep the caption, the day-of-month note, "Try 6 months" and the stale empty text word for word.
-- [ ] T071 [P] [US4] Rewrite `src/ui/crate/Gems.tsx` as a table per §6: Plays, Last played (month), Flag, and `MonthBars` over the last 24 months. Keep the caption and the empty texts.
-- [ ] T072 [P] [US4] Rewrite `src/ui/crate/Classics.tsx` as a table per §6: Years played ("6 of 9"), Plays, Flag, and plays per year across the span (a year with no plays shown as a gap). Keep the sort `SegmentedButtons` (Most years · Most plays) and the caption.
-- [ ] T073 [P] [US4] Rewrite `src/ui/crate/ByYear.tsx` per §6:
+- [X] T070 [P] [US4] Rewrite `src/ui/crate/Rotation.tsx` as a table per §6: Plays in window, Lifetime, a Flag with today's precedence (New, then not in a playlist), and `MonthBars` over the window. Keep the caption, the day-of-month note, "Try 6 months" and the stale empty text word for word.
+- [X] T071 [P] [US4] Rewrite `src/ui/crate/Gems.tsx` as a table per §6: Plays, Last played (month), Flag, and `MonthBars` over the last 24 months. Keep the caption and the empty texts.
+- [X] T072 [P] [US4] Rewrite `src/ui/crate/Classics.tsx` as a table per §6: Years played ("6 of 9"), Plays, Flag, and plays per year across the span (a year with no plays shown as a gap). Keep the sort `SegmentedButtons` (Most years · Most plays) and the caption.
+- [X] T073 [P] [US4] Rewrite `src/ui/crate/ByYear.tsx` per §6:
   - on medium and wider, `YearMonthGrid` above the table replaces the two chip rows; on compact, the chip rows stay;
   - keep `applyPeriod` once per mount and `selectionLabel`;
   - columns: Plays in selection, Of year or all time, Flag, and `MonthBars` over the selected year (Winter adds the previous December).
-- [ ] T074 [P] [US4] Rewrite `src/ui/crate/Finish.tsx` per §6: a `Meter` (% finished), Finished of outcomes, Skipped and Unclear. Turn the legend into band swatches with the words "65%+ green · under 35% red". Keep the Finished/Skipped `SegmentedButtons` and the caption.
-- [ ] T075 [US4] Replace the interim strip in the History section of `src/ui/details/TrackDetails.tsx` with `MonthBars` over the whole history (and a mini `YearMonthGrid` on large windows), plus "Open <month> ›" for the peak month.
-- [ ] T076 [US4] Add pages to `tools/shots/pages.ts`: the hub (`full` and `old-import`), every view, and By year with a month and Winter selected. Run the visual loop, and check by hand that each hub card's count equals its view. The owner approves, and these become baselines. Commit.
+- [X] T074 [P] [US4] Rewrite `src/ui/crate/Finish.tsx` per §6: a `Meter` (% finished), Finished of outcomes, Skipped and Unclear. Turn the legend into band swatches with the words "65%+ green · under 35% red". Keep the Finished/Skipped `SegmentedButtons` and the caption.
+- [X] T075 [US4] Replace the interim strip in the History section of `src/ui/details/TrackDetails.tsx` with `MonthBars` over the whole history (and a mini `YearMonthGrid` on large windows), plus "Open <month> ›" for the peak month.
+- [X] T076 [US4] Add pages to `tools/shots/pages.ts`: the hub (`full` and `old-import`), every view, and By year with a month and Winter selected. Run the visual loop, and check by hand that each hub card's count equals its view. The owner approves, and these become baselines. Commit.
 
 ---
 
