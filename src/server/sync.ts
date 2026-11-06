@@ -798,8 +798,14 @@ export async function cancelRequest(
   client: ServerClient,
   token: string,
   id: string
-): Promise<ServerResult<void>> {
-  return client.remove('jobs', { id: `eq.${id}`, status: 'eq.queued' }, token);
+): Promise<ServerResult<'cancelled' | 'gone'>> {
+  const res = await client.removeReturning<unknown>(
+    'jobs',
+    { id: `eq.${id}`, status: 'eq.queued', select: 'id' },
+    token
+  );
+  if (!res.ok) return res;
+  return ok(res.value.length > 0 ? 'cancelled' : 'gone');
 }
 
 /** Makes a waiting request the next one the worker takes. */
