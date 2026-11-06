@@ -6,6 +6,7 @@ import {
   mergeWorkerRows,
   requestList,
   viewRows,
+  progressLine,
   requestStatusText,
   resultToRows,
 } from './worker';
@@ -228,6 +229,9 @@ describe('jobView', () => {
       finishedAt: null,
       error: null,
       appliedAt: null,
+      progress: null,
+      priority: 0,
+      stopRequestedAt: null,
     });
   });
   it('is null for a row the validator refuses', () => {
@@ -595,5 +599,64 @@ describe('viewRows', () => {
   it('sorts by clips or best score, rows without the number last', () => {
     expect(viewRows(rows, 'clips', false)).toEqual([1, 0, 3, 2]);
     expect(viewRows(rows, 'score', false)).toEqual([3, 1, 0, 2]);
+  });
+});
+
+describe('progressLine', () => {
+  const now = Date.parse('2026-11-06T21:00:00Z');
+  const v = (
+    progress: MixJobView['progress'],
+    over: Partial<MixJobView> = {}
+  ): MixJobView => ({
+    id: 'x',
+    status: 'claimed',
+    createdAt: 0,
+    claimedBy: 'laptop',
+    claimedAt: now - 60_000,
+    finishedAt: null,
+    error: null,
+    appliedAt: null,
+    progress,
+    stopRequestedAt: null,
+    ...over,
+  });
+  const p = (over: Partial<NonNullable<MixJobView['progress']>>) => ({
+    step: 'first',
+    done: 211,
+    total: 519,
+    percent: 41,
+    minutesLeft: 18,
+    pausedUntil: null,
+    warning: null,
+    at: now - 30_000,
+    ...over,
+  });
+  it('words a step, its percent and the time left', () => {
+    expect(progressLine(v(p({})), now)).toBe(
+      'First pass · 41 % · about 18 min left'
+    );
+    expect(
+      progressLine(
+        v(p({ step: 'second ×0.96', percent: 50, minutesLeft: null })),
+        now
+      )
+    ).toBe('Second pass ×0.96 · 50 %');
+  });
+  it('says a pause, the network warning, stale news and a stop', () => {
+    expect(
+      progressLine(v(p({ step: 'paused', pausedUntil: now + 300_000 })), now)
+    ).toMatch(/^Paused by Shazam until /);
+    expect(progressLine(v(p({ warning: 'refuses often' })), now)).toContain(
+      'a VPN or a shared network?'
+    );
+    expect(progressLine(v(p({ at: now - 11 * 60_000 })), now)).toContain(
+      'the computer stopped sending news'
+    );
+    expect(progressLine(v(p({}), { stopRequestedAt: now }), now)).toContain(
+      'stopping…'
+    );
+  });
+  it('is null without progress', () => {
+    expect(progressLine(v(null), now)).toBeNull();
   });
 });

@@ -345,6 +345,21 @@ export interface MixJobView {
   appliedAt: number | null;
   /** Local only: the result failed the safety check and was not merged. */
   rejected?: true;
+  /** Round 004: the worker's last progress on a running request. */
+  progress?: {
+    step: string;
+    done: number | null;
+    total: number | null;
+    percent: number | null;
+    minutesLeft: number | null;
+    pausedUntil: number | null;
+    warning: string | null;
+    at: number | null;
+  } | null;
+  /** Round 004: queue order (Move to top raises it). */
+  priority?: number;
+  /** Round 004: when Stop was asked, epoch ms, or null. */
+  stopRequestedAt?: number | null;
 }
 export type MixJobs = Record<string, MixJobView[]>;
 /** Mixes deleted here and not yet pushed as tombstones (server sync, US2). */

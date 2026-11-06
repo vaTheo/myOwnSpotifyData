@@ -236,6 +236,20 @@ export function jobView(row: unknown): MixJobView | null {
     finishedAt: epoch(valid.finished_at),
     error: valid.error,
     appliedAt: epoch(valid.applied_at),
+    progress: valid.progress
+      ? {
+          step: valid.progress.step,
+          done: valid.progress.done,
+          total: valid.progress.total,
+          percent: valid.progress.percent,
+          minutesLeft: valid.progress.minutes_left,
+          pausedUntil: epoch(valid.progress.paused_until),
+          warning: valid.progress.warning,
+          at: epoch(valid.progress.at),
+        }
+      : null,
+    priority: valid.priority ?? 0,
+    stopRequestedAt: epoch(valid.stop_requested_at ?? null),
   };
 }
 
@@ -259,12 +273,62 @@ function when(ms: number | null): string {
   });
 }
 
+/** Progress older than this is stale: the computer stopped sending news. */
+export const PROGRESS_STALE_MS = 10 * 60 * 1000;
+
+const STEP_NAMES: Record<string, string> = {
+  download: 'Downloading',
+  first: 'First pass',
+  clues: 'Reading the comments',
+  send: 'Sending',
+  paused: 'Paused by Shazam',
+};
+
+function clock(ms: number): string {
+  return new Date(ms).toLocaleTimeString(undefined, { timeStyle: 'short' });
+}
+
+/**
+ * Round 004: what a running request is doing, from the worker's progress:
+ * "First pass · 47 % · about 25 min left", "Paused by Shazam until 20:35",
+ * plus the network warning and a note when news stopped coming.
+ */
+export function progressLine(view: MixJobView, now: number): string | null {
+  const p = view.progress;
+  if (!p) return null;
+  const parts: string[] = [];
+  const name = p.step.startsWith('second')
+    ? `Second pass ${p.step.slice('second'.length).trim()}`.trim()
+    : (STEP_NAMES[p.step] ?? p.step);
+  if (p.step === 'paused' && p.pausedUntil !== null) {
+    parts.push(`Paused by Shazam until ${clock(p.pausedUntil)}`);
+  } else {
+    parts.push(name);
+    if (p.percent !== null) parts.push(`${Math.round(p.percent)} %`);
+    if (p.minutesLeft !== null)
+      parts.push(`about ${Math.max(1, Math.round(p.minutesLeft))} min left`);
+  }
+  if (p.warning === 'refuses often') {
+    parts.push('Shazam refuses often: a VPN or a shared network?');
+  }
+  if (p.at !== null && now - p.at > PROGRESS_STALE_MS) {
+    parts.push(`last news ${clock(p.at)}: the computer stopped sending news`);
+  }
+  if (view.stopRequestedAt !== null && view.stopRequestedAt !== undefined) {
+    parts.push('stopping…');
+  }
+  return parts.join(' · ');
+}
+
 function stateLine(view: MixJobView): string {
   switch (view.status) {
     case 'queued':
       return `Waiting for your computer since ${when(view.createdAt)}`;
     case 'claimed':
-      return `Running on ${view.claimedBy ?? 'your computer'} since ${when(view.claimedAt ?? view.createdAt)}`;
+      return (
+        progressLine(view, Date.now()) ??
+        `Running on ${view.claimedBy ?? 'your computer'} since ${when(view.claimedAt ?? view.createdAt)}`
+      );
     case 'done':
       return view.rejected
         ? 'Result rejected — ask again'
@@ -320,6 +384,9 @@ export function requestStatusText(
 export interface RequestListItem {
   /** The request key (`requestKey` output): the link the worker downloads. */
   key: string;
+  /** Round 004: the latest request's id and status, for Cancel, Move to top, Stop. */
+  id: string;
+  status: MixJobView['status'];
   /** The saved mix's title, else the link's host and last path part. */
   title: string;
   /** Short state badge. */
@@ -392,6 +459,8 @@ export function requestList(
     const text = requestStatusText(view, server);
     return {
       key,
+      id: view.id,
+      status: view.status,
       title: mix?.title ?? shortLink(key),
       label,
       line: text.line ?? '',

@@ -36,7 +36,10 @@ import {
   savedMixes,
   serverState,
   startCreatePlaylist,
+  startCancelRequest,
   startIdentifyRequest,
+  startMoveToTop,
+  startStopRequest,
   startServerSync,
   startMixLookup,
   startTracklistifyImport,
@@ -945,6 +948,32 @@ function RequestsCard(p: { onPick: (url: string) => void }) {
                   onClick={() => void startIdentifyRequest(item.key)}
                 >
                   Ask again
+                </button>
+              </div>
+            )}
+            {item.status === 'queued' && (
+              <div class="actions">
+                <button
+                  type="button"
+                  onClick={() => void startMoveToTop(item.id)}
+                >
+                  Move to top
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void startCancelRequest(item.id)}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+            {item.status === 'claimed' && (
+              <div class="actions">
+                <button
+                  type="button"
+                  onClick={() => void startStopRequest(item.id)}
+                >
+                  Stop
                 </button>
               </div>
             )}
