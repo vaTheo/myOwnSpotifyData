@@ -18,7 +18,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "shots": "PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 playwright test -c tools/shots/playwright.config.ts",
-    "shots:sheet": "node tools/shots/contact-sheet.ts"
+    "shots:sheet": "node tools/shots/contact-sheet.ts",
+    "shots:summary": "node tools/shots/summary.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

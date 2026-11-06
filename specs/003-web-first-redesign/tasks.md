@@ -23,6 +23,9 @@ on:
    `yarn shots --update-snapshots`.
 6. Commit as `type(scope): summary`.
 
+**Execution** (from 2026-11-06, T046 on): one subagent per step, as [execution.md](execution.md) describes; the main
+conversation only dispatches, reviews and keeps the ledger.
+
 **Organization**: grouped by user story (spec US1–US8). Setup is the plan's step 0; Foundational is steps 1 and 3; the stories
 follow the plan's steps 2 and 4–10; Polish is step 11.
 

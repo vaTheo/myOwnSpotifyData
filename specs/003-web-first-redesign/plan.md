@@ -221,6 +221,9 @@ The "Check" column names the quickstart sections run on top of the loop.
 - Limits and roadmap ("light theme: not built, owner's choice");
 - `docs/README.md`, which lists the new pages.
 
+From T046 on, the steps run one subagent each: [execution.md](execution.md) holds the step table, the rules every subagent
+follows and the controller loop.
+
 ## Complexity Tracking
 
 No violation to justify.
