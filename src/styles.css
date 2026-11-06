@@ -1655,10 +1655,14 @@ a {
   color: var(--md-sys-color-on-surface-variant);
 }
 
+/* Top flags on one line: a flag that does not fit whole wraps to a second
+   line the cell hides, so no stub of it shows; the tooltip names them all. */
 .dt-flags {
   display: flex;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 8px 4px;
   min-width: 0;
+  max-height: 24px;
   overflow: hidden;
 }
 
@@ -1666,6 +1670,12 @@ a {
 .dt-flags .flag {
   flex: none;
   white-space: nowrap;
+}
+
+/* FR-023: the keyboard focus shows every flag, the row grows to fit. */
+.dt-row:focus-visible .dt-flags {
+  row-gap: 4px;
+  max-height: none;
 }
 
 .dt-unit {
