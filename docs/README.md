@@ -1,7 +1,7 @@
 # Documentation
 
 > **Status**: Living
-> **Last updated**: 2026-11-06
+> **Last updated**: 2026-11-07
 
 The map of the app's documentation, kept by hand: every page is listed here, in its section. How pages are named, headed and linked:
 [Contributing](dev-guide/000-contributing.md), section "Documentation".
@@ -64,6 +64,7 @@ One design document per feature round, dated. The first one is the base model; l
 
 ## Research (verified external facts)
 
+- [2026-11-07 — ReccoBeats release years](research/2026-11-07-reccobeats-release-years.md)
 - [2026-09-05 — Artist reach sources](research/2026-09-05-artist-reach-sources.md)
 - [2026-09-05 — BPM and key sources](research/2026-09-05-bpm-key-sources.md)
 - [2026-09-04 — Streaming history semantics](research/2026-09-04-history-export-semantics.md)

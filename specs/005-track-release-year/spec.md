@@ -124,7 +124,7 @@ ReccoBeats does not know but that is in a synced playlist shows its album's year
 
 ### User Story 5 - The year on every song shown, sortable and filterable (Priority: P1)
 
-Every screen that lists songs (Top and most played, a playlist ranked by plays, Crate, Match, Under the radar's tracks, a mix)
+Every screen that lists songs (Top tracks, a playlist ranked by plays, an artist's songs, every Crate view, a mix; Under the radar lists artists, whose songs show on the Artist screen)
 shows the year of a dated song, and offers a **year sort** and a **decade filter** beside its current controls.
 
 **Why this priority**: the owner asked for it "on every song that is displayed".
@@ -198,7 +198,8 @@ last; choosing "90s" keeps only songs from 1990 to 1999; clearing the filter res
 - The catalogue lookups share round 003's lookup cap (100 per set) and pace; year lookups come after the clue lookups.
 - Spotify's album date is "YYYY", "YYYY-MM" or "YYYY-MM-DD"; only the year is used.
 - Years are not looked up again for sets saved before this round; fetching a set again gets them.
-- The year lookup roughly doubles the BPM run's time on its first pass (one album call per track found); later runs ask only
+- The year lookup adds one call per track ReccoBeats knows, at the run's one request per second: about 45 minutes the first time for a
+  5,000-track library (about half found); later runs ask only
   new tracks. It runs after the BPM lookup of the same tracks, in the same run, not as a separate button.
 - A playlist synced before this round gets album years only when it changes or is synced again; the BPM run covers the rest.
 - Under the radar lists artists; its year applies where it shows songs.

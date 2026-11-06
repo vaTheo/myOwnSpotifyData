@@ -3,6 +3,16 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-07 — The release year of every song (worker 0.5.0)
+
+Every song list shows the year a song came out, beside BPM and key, with "Sort by year" (oldest first, undated last) and decade
+chips on Top (Tracks), a playlist, an artist and every Crate view; the Mix screen sorts by year and keeps one decade, with "heard
+once". Years come from the album a sync downloads (`album(name,release_date)`; resync an older playlist to get them), from a new
+third pass of Settings · Audio data · Look up (ReccoBeats' earliest album year, about 45 minutes the first time for 5,000 tracks),
+from Shazam on identified sets, from the worker (Deezer then MusicBrainz by ISRC, within `WORKER_LOOKUPS`) and from the album
+Create playlist matched. A pulled row with an invalid year loses that field, not the row. Spec: `specs/005-track-release-year/`.
+No `DB_VERSION` bump, no migration, no new host.
+
 ## 2026-11-06 — See, steer and trust the worker's scans (worker 0.4.0)
 
 Each heard track shows how many 12-second clips matched it and its best score ("heard 3× · best 91 %"), sortable, with a
