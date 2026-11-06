@@ -195,7 +195,7 @@ class Scan(unittest.TestCase):
     def test_cooldown_is_capped_and_jitter_added(self):
         calls, cut, recognise, sleep = self.make([RateLimited(), CASSETTE])
         run(scan(60, step=60, cooldown=20.0, pause=1.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify, jitter=lambda c: c / 4))
-        self.assertEqual(calls["sleeps"], [25.0, 1.0, 37.5])
+        self.assertEqual(calls["sleeps"], [25.0, 1.25, 37.5])  # the pause is spread too
 
     def test_one_more_than_the_allowed_pauses_refuses(self):
         calls, cut, recognise, sleep = self.make([RateLimited(), RateLimited(), RateLimited()])
@@ -287,7 +287,7 @@ class Lines(unittest.TestCase):
 
         with self.assertRaises(ScanRefused):
             run(scan(60, step=60, cooldown=3.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, max_pauses=1, clock=lambda: 0.0))
-        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited (1/1) · pausing 300 s, then this probe again · cooldown now 6 s", "  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited again · giving up after 1 pauses"])
+        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited (1/1) · pausing 300 s, then this probe again · cooldown now 6 s (±40 %)", "  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited again · giving up after 1 pauses"])
 
 
 class Device(unittest.TestCase):

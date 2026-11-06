@@ -21,6 +21,15 @@ PROBE_SECONDS = 12
 MIN_PROBE_BYTES = 1000
 # A cooldown doubled after each rate limit never grows past this.
 MAX_COOLDOWN_SECONDS = 30.0
+# Every wait (the pause before a call, a rate-limit pause, a network retry) is
+# spread by a random ± this percent, so calls never fall on a fixed rhythm.
+JITTER_PERCENT = 40
+
+
+def spread(seconds: float) -> float:
+    """The random part added to a wait of `seconds`: ± `JITTER_PERCENT` %."""
+    f = JITTER_PERCENT / 100
+    return random.uniform(-f * seconds, f * seconds)  # noqa: S311 - pacing, not crypto
 # One recognition (its own retries included) is cut off after this; the
 # library's default is aiohttp's 5 minutes, which once stalled a whole set.
 PROBE_TIMEOUT_SECONDS = 45.0
@@ -278,9 +287,10 @@ async def scan(
                         raise ScanRefused() from err
                     pace["cooldown"] = min(max(pace["cooldown"] * 2, 1.0), MAX_COOLDOWN_SECONDS)
                     wait = pause * n
+                    wait += jitter(wait)  # every wait gets the same random spread (owner, 2026-11-06)
                     say(
                         f"  {where} · rate limited ({n}/{max_pauses}) · pausing {int(wait)} s,"
-                        f" then this probe again · cooldown now {pace['cooldown']:g} s"
+                        f" then this probe again · cooldown now {pace['cooldown']:g} s (±{JITTER_PERCENT} %)"
                     )
                     await sleep(wait)
                     continue  # the same probe again, after the pause
@@ -289,6 +299,7 @@ async def scan(
                     reason = type(err).__name__
                     if tries < NETWORK_ATTEMPTS:
                         wait = NETWORK_WAIT_SECONDS * tries
+                        wait += jitter(wait)
                         say(f"  {where} · no answer ({reason}, {tries}/{NETWORK_ATTEMPTS}) · trying again in {int(wait)} s")
                         await sleep(wait)
                         continue
@@ -567,7 +578,7 @@ def run_scan(
     say(
         f"  scan · ffmpeg {ffmpeg} · one {settings.probe_seconds} s probe every {settings.probe_step_seconds} s"
         f" · {len(probe_times(duration, settings.probe_step_seconds)) if duration else '?'} probes"
-        f" · as {settings.shazam_device} · cooldown {settings.cooldown_seconds} s (±50 %) · up to {settings.rate_limit_pauses} pauses"
+        f" · as {settings.shazam_device} · cooldown {settings.cooldown_seconds} s (±{JITTER_PERCENT} %) · up to {settings.rate_limit_pauses} pauses"
     )
 
     report: dict[str, Any] = {}
@@ -595,7 +606,7 @@ def run_scan(
                 classify=default_classify,
                 line=say,
                 max_pauses=settings.rate_limit_pauses,
-                jitter=lambda cooldown: random.uniform(-cooldown / 2, cooldown / 2),  # noqa: S311 - pacing, not crypto
+                jitter=spread,
                 cut_at=lambda t, speed: cut_probe(ffmpeg, file, t, settings.probe_seconds, say, speed=speed),
                 gap_step=getattr(settings, "second_pass_step_seconds", 0),
                 gap_offset=getattr(settings, "second_pass_offset_seconds", 7),
