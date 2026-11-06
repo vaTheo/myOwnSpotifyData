@@ -68,9 +68,10 @@ def build_deps(settings: Settings) -> Deps:
     return Deps(
         client=ServerClient(settings.supabase_url, settings.supabase_key),
         download=lambda url, dest: do_download(url, dest, settings, line=log.line, max_duration=settings.max_duration_seconds or None),
-        scan=lambda path, duration: run_scan(path, duration, settings, line=log.line, shared=shazam_calls),
+        scan=lambda path, duration, **hooks: run_scan(path, duration, settings, line=log.line, shared=shazam_calls, **hooks),
         log=log,
         jitter=spread,
+        scan_hooks=True,
         clues=(lambda url, gaps, rows: gather_clues(settings, log, url, gaps, rows)) if settings.clues else None,
     )
 

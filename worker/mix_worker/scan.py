@@ -171,6 +171,8 @@ class ScanOutput:
     second_pass: dict[str, Any] | None = None
     gaps: list[tuple[int, int]] = field(default_factory=list)
     stopped: dict[str, Any] | None = None  # {"at": "HH:MM:SS", "reason"} when the first pass stopped early
+    warnings: list[str] = field(default_factory=list)  # round 004: "refuses often"
+    resumed: dict[str, Any] | None = None  # round 004: {"probes_kept", "from"}
 
 
 @dataclass(frozen=True)
@@ -790,6 +792,9 @@ def run_scan(
     settings: Any,
     line: Callable[[str], None] | None = None,
     shared: dict[str, float] | None = None,
+    progress: Callable[[dict[str, Any]], None] | None = None,
+    resume: dict[str, Any] | None = None,
+    remember: Callable[[str, str, dict[str, Any] | None], None] | None = None,
 ) -> "ScanOutput":
     """The pipeline's `scan` seam: builds the Shazam client lazily and runs
     the async scan with the real cutter and sleeps, second pass included."""
@@ -842,6 +847,10 @@ def run_scan(
                 break_every=getattr(settings, "break_every_calls", 0),
                 break_seconds=getattr(settings, "break_seconds", 0.0),
                 shared=shared,
+                progress=progress,
+                resume=resume,
+                remember=remember,
+                warn_calls=getattr(settings, "refusal_warn_calls", 0),
             )
         finally:
             # The library only closes a client it created itself; ours is
@@ -850,4 +859,7 @@ def run_scan(
             await client.close()
 
     rows = asyncio.run(go())
-    return ScanOutput(rows=rows, second_pass=report.get("second_pass"), gaps=report.get("gaps", []), stopped=report.get("stopped"))
+    return ScanOutput(
+        rows=rows, second_pass=report.get("second_pass"), gaps=report.get("gaps", []), stopped=report.get("stopped"),
+        warnings=report.get("warnings") or [], resumed=report.get("resumed"),
+    )

@@ -308,3 +308,85 @@ class Round003(unittest.TestCase):
             body = self.sent(deps)
             self.assertEqual(body["error"], "Stopped early at 00:47:00 (rate limited); ask again later for the rest")
             self.assertEqual(body["result"]["mix_info"]["stopped_early"], {"at": "00:47:00", "reason": "rate limited"})
+
+
+class Round004Pipeline(unittest.TestCase):
+    def sent(self, deps):
+        return [c for c in deps.client.calls if c[0] == "finish"][-1][4]
+
+    def client_with_progress(self, answers):
+        c = FakeClient()
+        c.progress_answers = list(answers)
+        c.progress_calls = []
+
+        def progress(token, job_id, worker, body):
+            c.progress_calls.append(body)
+            return c.progress_answers.pop(0) if c.progress_answers else Result("ok", {"stop": False, "taken": False}, 200)
+
+        c.progress = progress
+        return c
+
+    def test_progress_steps_and_a_failed_write_turns_it_off(self):
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            c = self.client_with_progress([Result("ok", {"stop": False, "taken": False}, 200), Result("error", None, 400, "column progress does not exist")])
+
+            def scan(p, d, progress=None, resume=None, remember=None):
+                progress({"step": "first", "done": 1, "total": 2})
+                return ScanOutput(rows=[TRACK])
+
+            settings, deps, log = make(tmp, client=c, scan=scan)
+            deps.scan_hooks = True
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            self.assertEqual(c.progress_calls[0]["step"], "download")
+            self.assertTrue(any("is migration 0003 applied" in x for x in log.lines))
+            self.assertEqual(len(c.progress_calls), 2)  # off after the failure
+
+    def test_stop_with_tracks_is_done_stopped_early_by_you(self):
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d, **k: ScanOutput(rows=[TRACK], stopped={"at": "00:47:00", "reason": "by you"}))
+            deps.scan_hooks = True
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            self.assertEqual(self.sent(deps)["error"], "Stopped early at 00:47:00 (by you); ask again later for the rest")
+
+    def test_stop_before_any_track_fails_with_its_reason(self):
+        from mix_worker.scan import StopRequested
+
+        def scan(p, d, **k):
+            raise StopRequested()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=scan)
+            deps.scan_hooks = True
+            run_one(job(), settings, "tok", deps)
+            self.assertEqual(self.sent(deps)["error"], "Stopped by you before any track was found")
+
+    def test_resume_state_kept_when_stopped_and_cleared_after_a_full_run(self):
+        from mix_worker import runstate
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            seen = {}
+
+            def stopped_scan(p, d, progress=None, resume=None, remember=None):
+                remember("first", "0", dict(TRACK))
+                return ScanOutput(rows=[TRACK], stopped={"at": "00:00:15", "reason": "by you"})
+
+            settings, deps, log = make(tmp, scan=stopped_scan)
+            deps.scan_hooks = True
+            run_one(job(), settings, "tok", deps)
+            url = job()["payload"]["url"]
+            self.assertTrue(runstate.path_for(settings.work_dir, url).exists())
+
+            def full_scan(p, d, progress=None, resume=None, remember=None):
+                seen["resume"] = resume
+                return ScanOutput(rows=[TRACK])
+
+            deps.scan = full_scan
+            deps.client = FakeClient()
+            run_one(job(), settings, "tok", deps)
+            self.assertEqual(seen["resume"]["first"], {"0": TRACK})
+            self.assertFalse(runstate.path_for(settings.work_dir, url).exists())
