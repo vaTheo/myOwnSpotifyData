@@ -10,7 +10,7 @@ Extends `specs/002-mix-analysis-worker/contracts/worker.md`. Unchanged: commands
 | `WORKER_SECOND_PASS_OFFSET_SECONDS` | 7 | the place is this far after a probe that found nothing |
 | `WORKER_SECOND_PASS_SPEEDS` | 0.96,1.04 | speeds tried after normal speed, in order |
 | `WORKER_BREAK_EVERY_CALLS` | 80 | a planned break after this many calls (first and second pass); 0 = none |
-| `WORKER_BREAK_SECONDS` | 180 | the break, ± 40 %; a rate-limit pause counts as a break |
+| `WORKER_BREAK_SECONDS` | 180 | the break, exact (no spread); a rate-limit pause counts as a break |
 | `WORKER_CLUES` | 1 | read the description, chapters and comments; 0 = never |
 | `WORKER_CLUE_SECONDS` | 90 | how long reading clues may take before it is dropped |
 | `WORKER_LOOKUPS` | 100 | name lookups per set at most; 0 = none (clues are still attached) |

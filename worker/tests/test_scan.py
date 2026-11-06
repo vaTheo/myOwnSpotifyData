@@ -577,3 +577,17 @@ class AcrossSets(unittest.TestCase):
         shared = {"calls": 2, "last": 0.0}
         sleeps, _ = self.go(shared, 5000.0)  # long after the window
         self.assertEqual(sleeps, [1.0, 1.0])
+
+
+class ExactBreak(unittest.TestCase):
+    def test_the_planned_break_has_no_spread(self):
+        sleeps = []
+
+        async def sleep(s):
+            sleeps.append(s)
+
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        run(scan(45, step=15, cooldown=1.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, clock=lambda: 0.0, break_every=2, break_seconds=180.0, jitter=lambda s: s * 0.4))
+        self.assertEqual(sleeps, [1.4, 1.4, 180.0, 1.4])  # calls spread, the break exact
