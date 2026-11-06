@@ -64,10 +64,11 @@ def build_deps(settings: Settings) -> Deps:
     from .scan import run_scan, spread
 
     log = Log(settings.log_file)
+    shazam_calls: dict[str, float] = {}  # one count of Shazam calls for every set of this run
     return Deps(
         client=ServerClient(settings.supabase_url, settings.supabase_key),
         download=lambda url, dest: do_download(url, dest, settings, line=log.line, max_duration=settings.max_duration_seconds or None),
-        scan=lambda path, duration: run_scan(path, duration, settings, line=log.line),
+        scan=lambda path, duration: run_scan(path, duration, settings, line=log.line, shared=shazam_calls),
         log=log,
         jitter=spread,
         clues=(lambda url, gaps, rows: gather_clues(settings, log, url, gaps, rows)) if settings.clues else None,

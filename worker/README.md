@@ -170,7 +170,8 @@ Only the first two are required.
 - **How the worker waits** (every wait ± 40 %): 3 s between calls; a 3-minute break every 80 calls; after a refusal a 5, 10,
   then 15-minute pause and twice the gap between calls, halved again after every 40 calls without refusal; a call without
   answer (45 s, or a Shazam server error) tried again after 10 s then 20 s; a send to your server tried again after 30 s,
-  1 min and 2 min; Deezer or MusicBrainz busy, after 2 s then 4 s. The Shazam library itself never retries silently.
+  1 min and 2 min; Deezer or MusicBrainz busy, after 2 s then 4 s. The Shazam library itself never retries silently. The count toward the planned break runs across sets while the worker
+  runs (15 minutes without a call starts it afresh).
 - **"no answer (TimeoutError…)" in the log**: one recognition took over 45 s; the probe is tried 3 times (10 s, then 20 s
   apart), then skipped and the scan goes on. Three probes in a row with no answer fail the request with "Recognition service
   did not answer; try later" (check the connection, then ask again).

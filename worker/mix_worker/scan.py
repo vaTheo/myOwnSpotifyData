@@ -24,6 +24,9 @@ MAX_COOLDOWN_SECONDS = 30.0
 # After a refusal the pace doubles; this many calls without refusal halve it
 # again, back to the base pace at most (owner, 2026-11-06).
 RECOVER_AFTER_CALLS = 40
+# Calls made within this long before a set count toward its first planned
+# break (Shazam's refusals came about 15 minutes of calls apart).
+SHAZAM_WINDOW_SECONDS = 900
 # Every wait (the pause before a call, a rate-limit pause, a network retry) is
 # spread by a random ± this percent, so calls never fall on a fixed rhythm.
 JITTER_PERCENT = 40
@@ -272,6 +275,7 @@ async def scan(
     report: dict[str, Any] | None = None,
     break_every: int = 0,
     break_seconds: float = 0.0,
+    shared: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
     (+ `jitter(cooldown)`) before each. A `rate_limited` error doubles the
@@ -297,6 +301,14 @@ async def scan(
     times = probe_times(duration, step) if known else None
     skew = max_skew if max_skew > 0 else None
     pace = {"cooldown": cooldown, "pauses": 0, "net_skips": 0, "calls": 0, "calm": 0}
+    # The planned-break count runs across sets while the worker runs (owner,
+    # 2026-11-06): Shazam counts calls over a window, not per set. A quiet
+    # spell of SHAZAM_WINDOW_SECONDS since the last call starts it afresh.
+    if shared is not None:
+        if clock() - shared.get("last", -1e12) < SHAZAM_WINDOW_SECONDS:
+            pace["calls"] = int(shared.get("calls", 0))
+            if pace["calls"]:
+                say(f"  pace · {pace['calls']} calls already made in the last minutes (previous set) · they count toward the next break")
     first_keys: dict[int, str] = {}  # first-pass probe time → track key (hits only)
 
     async def ask(data: bytes, where: str) -> Any:
@@ -311,9 +323,14 @@ async def scan(
                 say(f"  break · {pace['calls']} calls · pausing {int(wait)} s (±{JITTER_PERCENT} %) before Shazam refuses")
                 await sleep(wait)
                 pace["calls"] = 0
+                if shared is not None:
+                    shared["calls"] = 0
             c = pace["cooldown"]
             await sleep(c + jitter(c))
             pace["calls"] += 1
+            if shared is not None:
+                shared["calls"] = pace["calls"]
+                shared["last"] = clock()
             try:
                 response = await recognise(data, skew)
             except Exception as err:  # classified, never swallowed silently
@@ -337,6 +354,8 @@ async def scan(
                     )
                     await sleep(wait)
                     pace["calls"] = 0  # the pause was a break too
+                    if shared is not None:
+                        shared["calls"] = 0
                     continue  # the same probe again, after the pause
                 if kind == "network":
                     tries += 1
@@ -362,7 +381,7 @@ async def scan(
                 say(f"  pace · {RECOVER_AFTER_CALLS} calls without refusal · cooldown back to {pace['cooldown']:g} s (±{JITTER_PERCENT} %)")
             return response
 
-    def record(t: int, entry: dict[str, Any], where: str, speed: float | None = None) -> None:
+    def record(t: int, entry: dict[str, Any], where: str, speed: float | None = None) -> bool:
         if speed is not None:
             # Heard on the second pass: say so, and at which speed (R7).
             entry["origin"] = "replay"
@@ -372,6 +391,7 @@ async def scan(
         mark = "same track" if key in seen else "NEW"
         seen.add(key)
         say(f"  {where} · {mark} · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
+        return mark == "NEW"
 
     index = 0
     stopped: dict[str, Any] | None = None
@@ -432,8 +452,8 @@ async def scan(
                     response = await ask(data, where)
                     entry = track_entry(response, hhmmss(p)) if response is not None else None
                     if entry is not None:
-                        record(p, entry, where, speed)
-                        second["found"] += 1
+                        if record(p, entry, where, speed):
+                            second["found"] += 1  # new tracks only, not a known one heard again
                         break
                     if response is not None:
                         say(f"  {where} · no match")
@@ -442,7 +462,7 @@ async def scan(
         except ScanUnreachable:
             second["stopped"] = "no answer"
         say(
-            f"  second pass · found {second['found']} in {second['places']} places"
+            f"  second pass · {second['found']} new track{'' if second['found'] == 1 else 's'} in {second['places']} places"
             + (f" · stopped early ({second['stopped']}), what was found is kept" if second["stopped"] else "")
         )
 
@@ -636,6 +656,7 @@ def run_scan(
     duration: int | None,
     settings: Any,
     line: Callable[[str], None] | None = None,
+    shared: dict[str, float] | None = None,
 ) -> "ScanOutput":
     """The pipeline's `scan` seam: builds the Shazam client lazily and runs
     the async scan with the real cutter and sleeps, second pass included."""
@@ -685,6 +706,7 @@ def run_scan(
                 report=report,
                 break_every=getattr(settings, "break_every_calls", 0),
                 break_seconds=getattr(settings, "break_seconds", 0.0),
+                shared=shared,
             )
         finally:
             # The library only closes a client it created itself; ours is

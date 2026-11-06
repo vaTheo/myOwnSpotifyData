@@ -258,7 +258,9 @@ def read(
         "skip_download": True,
         "getcomments": True,
         "socket_timeout": 20,
-        "extractor_args": {"youtube": {"max_comments": ["500"]}},
+        # YouTube: the 100 newest top-level comments, no replies (owner,
+        # 2026-11-06): a popular video's full thread ran past the 90 s limit.
+        "extractor_args": {"youtube": {"max_comments": ["100", "100", "0", "0"], "comment_sort": ["new"]}},
     }
 
     def work() -> None:

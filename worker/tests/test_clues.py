@@ -264,6 +264,7 @@ class Read(unittest.TestCase):
 
             def extract_info(self, url, download):
                 assert download is False and self.opts["getcomments"] is True
+                assert self.opts["extractor_args"]["youtube"] == {"max_comments": ["100", "100", "0", "0"], "comment_sort": ["new"]}
                 return behaviour()
 
         return Ydl

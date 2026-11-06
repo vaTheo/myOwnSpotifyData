@@ -391,9 +391,9 @@ class SecondPass(unittest.TestCase):
         self.assertEqual(asked_cuts, [(7, 1.0), (7, 0.96), (37, 1.0), (37, 0.96), (37, 1.04), (67, 1.0)])
         self.assertEqual(rows[0]["origin"], "replay")
         self.assertEqual(rows[0]["speed_percent"], -4)
-        self.assertEqual(report["second_pass"], {"places": 3, "found": 2, "stopped": None})
+        self.assertEqual(report["second_pass"], {"places": 3, "found": 1, "stopped": None})  # the 2nd hit is the same track
         self.assertEqual(report["gaps"], [(15, 60), (75, 90)])
-        self.assertTrue(any("second pass · found 2 in 3 places" in x for x in lines))
+        self.assertTrue(any("second pass · 1 new track in 3 places" in x for x in lines))
 
     def test_refusal_keeps_what_was_found(self):
         answers = [CASSETTE, NO_MATCH, NO_MATCH, NO_MATCH, RateLimited(), RateLimited()]
@@ -546,3 +546,34 @@ class Retries(unittest.TestCase):
 
         self.assertEqual(default_classify(FailedDecodeJson("Failed to decode json (status=502): <html>")), "network")
         self.assertEqual(default_classify(FailedDecodeJson("Failed to decode json (status=200): x")), "raise")
+
+
+class AcrossSets(unittest.TestCase):
+    """Owner, 2026-11-06: the planned-break count runs across sets."""
+
+    def go(self, shared, now):
+        sleeps = []
+
+        async def sleep(s):
+            sleeps.append(s)
+
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        lines = []
+        run(scan(30, step=15, cooldown=1.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, clock=lambda: now, break_every=3, break_seconds=60.0, shared=shared))
+        return sleeps, lines
+
+    def test_count_carries_into_the_next_set(self):
+        shared = {}
+        first, _ = self.go(shared, 1000.0)
+        self.assertEqual(first, [1.0, 1.0])
+        self.assertEqual(shared["calls"], 2)
+        second, lines = self.go(shared, 1100.0)  # 100 s later: same window
+        self.assertEqual(second, [1.0, 60.0, 1.0])  # break after the 3rd call overall
+        self.assertTrue(any("2 calls already made" in x for x in lines))
+
+    def test_a_quiet_spell_starts_afresh(self):
+        shared = {"calls": 2, "last": 0.0}
+        sleeps, _ = self.go(shared, 5000.0)  # long after the window
+        self.assertEqual(sleeps, [1.0, 1.0])
