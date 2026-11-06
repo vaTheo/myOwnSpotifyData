@@ -1,8 +1,8 @@
 # 100 — Feature inventory
 
 > **Status**: Living
-> **Last verified**: 2026-11-06 against `task/general-dev`
-> **Last updated**: 2026-11-06
+> **Last verified**: 2026-11-07 against `task/general-dev`
+> **Last updated**: 2026-11-07
 
 Every feature the app has today, where it lives and what state it is in. One row per feature the owner can see. Update this page in the
 same commit as any feature change ([Contributing](../dev-guide/000-contributing.md), "One change, several files"). How each piece works:
@@ -26,18 +26,19 @@ same commit as any feature change ([Contributing](../dev-guide/000-contributing.
 | F5 | Playlists ranked by play count | Playlists, Playlist screen | `playlistRanking` `src/model/aggregate.ts:202`, `src/ui/Playlist.tsx` | [app](../specs/2026-09-04-spotify-dj-webapp-design.md) | 2026-09-04 `93c8668` | ✅ | Play counts only after F3 |
 | F6 | Artists ranked by saved tracks | Artists · Saved tracks, Artist screen | `artistTracks` `src/model/aggregate.ts:305`, `src/ui/Artists.tsx`, `src/ui/Artist.tsx` | [app](../specs/2026-09-04-spotify-dj-webapp-design.md) | 2026-09-04 `9ac386b` | ✅ | — |
 | F7 | Crate: Heavy rotation, Forgotten gems, All-time classics, By year, Finish rate | Crate tab, `#/crate/<view>` | `src/model/crate.ts`, `src/ui/crate/CrateView.tsx` | [Crate](../specs/2026-09-04-crate-history-views-design.md) | 2026-09-04 `78ea685` | ⚠️ | Gated on `historySummary.version === 2`: an older import must be redone once |
-| F8 | BPM and key pills (ReccoBeats lookup, Rekordbox XML import, key notation) | Settings · Audio data; every track row | `runLookup` `src/features/lookup.ts:121`, `runRekordboxImport` `src/features/rekordboxImport.ts:35`, `src/model/keys.ts` | [BPM and key](../specs/2026-09-05-bpm-key-design.md) | 2026-09-05 `797b66e` | ⚠️ | ReccoBeats knows only part of the catalogue; 1 request/s |
+| F8 | BPM and key pills (ReccoBeats lookup, Rekordbox XML import, key notation) | Settings · Audio data; every track row | `runLookup` `src/features/lookup.ts:155`, `runRekordboxImport` `src/features/rekordboxImport.ts:35`, `src/model/keys.ts` | [BPM and key](../specs/2026-09-05-bpm-key-design.md) | 2026-09-05 `797b66e` | ⚠️ | ReccoBeats knows only part of the catalogue; 1 request/s |
 | F9 | Match mode (re-rank a playlist around a seed track) | Playlist screen, third control | `rankMatches` `src/model/match.ts:63` | [BPM and key](../specs/2026-09-05-bpm-key-design.md) | 2026-09-05 `797b66e` | ✅ | Only tracks with BPM/key data rank by them |
 | F10 | Safety and recovery: Connect again, account-switch confirm, narrower-import confirm, DB hand-over and slow-open banners | Settings, banners | `src/model/state.ts`, `src/model/banner.ts`, `src/db/repo.ts` | [app](../specs/2026-09-04-spotify-dj-webapp-design.md) (amended after the UX pass), plan [ux-polish](../plans/2026-09-05-ux-polish.md) | 2026-09-05 `1bd11c7`, 2026-09-06 `b250160` | ✅ | — |
 | F11 | Artist reach: Under the radar (ListenBrainz listeners, Deezer fans, Well known) | Settings · Artist reach; Artists · Under the radar; Artist screen | `runReach` `src/features/reachRun.ts:132`, `rankUnderTheRadar` `src/model/reach.ts:192`, `src/ui/UnderRadar.tsx` | [Artist reach](../specs/2026-09-05-artist-reach-design.md) | 2026-09-06 `d3a11d1` | ⚠️ | 45–50 min per 1,000 artists; artists without a Spotify id are absent; numbers are small platform audiences, not Spotify listeners |
 | F12 | Mix tracklist (SoundCloud oEmbed + TrackId.net + paste box, short links, saved mixes) | Mix tab → `#/mix` | `lookupMix` `src/features/mix/lookup.ts:51`, `startMixLookup` `src/model/state.ts:665`, `src/ui/Mix.tsx` | [Mix tracklist](../specs/2026-09-06-mix-tracklist-design.md) | 2026-09-06 `a7a546e`, short links `fc1e241` `d60afd7` | ⚠️ | A draft with holes: TrackId identified 32.6% of one measured mix; fresh uploads often absent |
-| F13 | Create playlist from mix (private, confident matches only) | `#/mix` | `runCreatePlaylist` `src/features/mix/createPlaylist.ts:39`, `pickMatch` in `src/features/mix/spotifySearch.ts` | [Mix playlist](../specs/2026-09-06-mix-playlist-design.md) | 2026-09-07 `54e1ff7` | ✅ | Needs one re-login for `playlist-modify-private`; every tap makes a new playlist |
+| F13 | Create playlist from mix (private, confident matches only) | `#/mix` | `runCreatePlaylist` `src/features/mix/createPlaylist.ts:63`, `pickMatch` in `src/features/mix/spotifySearch.ts` | [Mix playlist](../specs/2026-09-06-mix-playlist-design.md) | 2026-09-07 `54e1ff7` | ✅ | Needs one re-login for `playlist-modify-private`; every tap makes a new playlist |
 | F14 | Like all songs (save a synced playlist's songs to Liked Songs) | Playlist screen | `runLikePlaylist` `src/features/like/likePlaylist.ts:86`, `startLikePlaylist` `src/model/state.ts:1072` | [Like all songs](../specs/2026-09-25-like-playlist-design.md) | 2026-09-25 `c9d0862` | ✅ | Needs one re-login for the two library scopes; uses the last sync, not a live read |
 | F15 | Tracklistify JSON import + ISRC-exact Search | `#/mix` | `parseTracklistifyJson` `src/features/mix/tracklistify.ts:89`, `startTracklistifyImport` `src/model/state.ts:753` | [Tracklistify import](../specs/2026-09-28-tracklistify-import-design.md) | 2026-09-28 `0fde8ed`, `8b4ba63` | ✅ | The scan itself runs off the phone (Tracklistify) |
 | F16 | Dig links for tracks Search did not find | `#/mix`, under a created playlist | `digRows` `src/features/mix/digLinks.ts:90`, `src/ui/components/DigLinks.tsx` | none (commit `db78e6a` and its tests) | 2026-09-29 `db78e6a` | ✅ | Links out only; nothing is fetched |
 | F17 | Stricter Search matching (whole-word artist runs, version tails, Mixed copies) | `#/mix` (F13) | `pickMatch`, `artistRuns`, `artistCore`, `isMixedCopy` in `src/features/mix/spotifySearch.ts` | none (commits and `spotifySearch.test.ts`); rule in [How it works](000-how-it-works.md) §10 | 2026-09-29 `175804e`…`cb5e1e8` | ✅ | Prefers "not found" to a wrong track |
 | F19 | Identify a mix on my computer (the worker: yt-dlp + ShazamIO on the owner's computer; request button, states and history on the Mix screen, a Requests to your computer card listing every request; round 003: a second listen at ±4 %, comments and description read as clues, candidates looked up by name (ADR-10); round 004: clip count and best score per track, progress on the card, Cancel / Move to top / Stop, resume a stopped set; one executable per system) | `#/mix` · Identify on my computer; `worker/` | `startIdentifyRequest` in `src/model/state.ts`, `pullJobs`/`requestIdentify` in `src/server/sync.ts`, `src/features/mix/worker.ts`, `worker/mix_worker/pipeline.py` | [Mix analysis worker](../specs/2026-11-06-mix-analysis-worker-design.md) | 2026-11-06 | ⚠️ | Shazam's quota is undocumented (a refusal fails the request); executables unsigned; YouTube needs Node or Deno on the computer; the owner's validation on the live project pending |
 | F18 | Server sync (the owner's Supabase project, magic link, newer wins per dataset, mixes by row) | Settings · Server | `runPush`/`runPull` `src/server/sync.ts`, `startServerPull`/`queueServerPush` in `src/model/state.ts`, `ServerCard` in `src/ui/Settings.tsx` | [Backend data sync](../specs/2026-11-05-backend-data-sync-design.md) | 2026-11-06 | ⚠️ | Free project pauses after a week idle (resume from the dashboard); no backups on Free; sign-in link opens in the browser that asked |
+| F20 | Release year of every song (round 005): a year pill beside BPM/key on every song list; "Sort by year" and decade chips on Top (Tracks), Playlist, Artist, every Crate view; on Mix a "by year" sort and a Decade menu; years from the syncs' album dates, a third "release years" pass of the BPM run (ReccoBeats' earliest album), Shazam and the worker's ISRC lookup on sets, the matched album on Create playlist | every song list; Settings · Audio data · Look up; `#/mix` | `yearOf` `src/model/year.ts`, `applyYearView` `src/model/yearView.ts`, `src/ui/components/YearView.tsx`, `PASS_YEARS` in `src/features/lookup.ts`, `fetchAlbumYear` `src/features/reccobeats.ts`, `fill_years` `worker/mix_worker/clues.py` | `specs/005-track-release-year/spec.md` | 2026-11-07 `6f7a2c2`, `69678f0` | ⚠️ | A year is only as good as its source (an album year can be a remaster's); the first BPM run with years takes about 45 min for a 5,000-track library; a playlist synced before the round has album years only once resynced; undated songs sort last |
 
 ## 2. What leaves the browser
 
@@ -45,11 +46,13 @@ same commit as any feature change ([Contributing](../dev-guide/000-contributing.
 |---|---|---|---|
 | F1, F2, F13, F14 | Spotify Web API | the token, reads, and the two writes below | on a button only |
 | F8 | ReccoBeats | track ids, ISRCs | Settings · Audio data · Look up |
+| F20 | ReccoBeats `/v1/track?ids=`, `/v1/track/{id}/album` | track ids, ReccoBeats' own track ids (no new host) | the same Look up, third pass |
 | F11 | MusicBrainz, ListenBrainz, Deezer, Wikidata, Wikimedia | artist ids, ISRCs, article titles | Settings · Artist reach · Look up artists |
 | F12 | SoundCloud (oEmbed, player), TrackId.net | the pasted mix URL | `#/mix` · Look up |
 | F18 | the owner's own Supabase project | every dataset the app builds: library and playlists, play counts, BPM and key, artist reach, saved mixes; never the Spotify token | after each job and on open, when signed in to the server |
 | F19 | the owner's own Supabase project | the link of a set to identify (a request); the worker on the owner's computer sends back the tracklist JSON; the audio never leaves that computer | on the Identify on my computer tap; the worker, when the owner runs it |
 | F19 (worker, round 003) | Deezer search and tracks, MusicBrainz recordings, Discogs releases (keyless) | from the owner's computer only: an artist and title written in a set's comment or description, or a Discogs/Deezer id from a link | per set, at most `WORKER_LOOKUPS` clues |
+| F20 (worker 0.5.0) | Deezer `/track/isrc:`, MusicBrainz `/isrc/` (keyless, no new host) | from the owner's computer only: the ISRC of a heard track Shazam did not date | per set, after the clues, within the same `WORKER_LOOKUPS` |
 
 No Spotify token ever leaves the browser; the listening history goes only to the owner's own server, when one is set up.
 
@@ -66,7 +69,8 @@ Nothing else writes to the owner's Spotify account ([ADR-03](700-adr/ADR-03-libr
 
 - `main` is at `cb5e1e8` (2026-09-29); every `origin/feat/*` branch is merged into it; CI deploys `main` to GitHub Pages.
 - `yarn typecheck` and `yarn lint` are clean; `yarn test`: 47 files, 643 tests passing (2026-11-05).
-- Last feature round: F19 (2026-11-06, the worker), after F18 (2026-11-06, the server). Nothing is in progress on `main`.
+- Last feature round: F20 (2026-11-07, release years, round 005, worker 0.5.0), after F19 (2026-11-06, the worker) and F18
+  (2026-11-06, the server).
 - `DB_VERSION` 4; `SCOPES` include the two write scopes, so a pre-2026-09-25 session needs **Connect again** once.
 
 ## Links

@@ -86,6 +86,18 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   they stopped. The key pill follows the notation chosen on the same card:
   Camelot, Open Key or classic names. Audio data via ReccoBeats (Spotify
   audio features).
+- **Release year** shows as a small pill beside BPM and key on every song.
+  It comes from the album Spotify lists when you sync (a playlist synced
+  before this feature gets it once it is synced again), and better from the
+  same `Look up (ReccoBeats)`: it now also asks ReccoBeats which albums each
+  song is on and keeps the earliest year, the original release rather than a
+  remaster or a compilation. The first run takes about 45 minutes for a
+  5,000-track library (one request a second); later runs ask only new songs.
+  The Audio data card says how many are dated ("Release years: N of M
+  tracks"). Top (Tracks), a playlist, an artist and every Crate view have
+  **Sort by year** (oldest first, undated last) and decade chips (80s, 90s,
+  2000s…); tap a chip again or **All** to clear it. A song with no year shows
+  none, never a 0.
 - **Match** is the third control on a playlist. Tap a track and the list
   re-ranks around it: everything within ±6% BPM first, ordered by key relation
   (`same key`, `relative`, `+1`, `−1`, `boost`) and then by BPM distance, then
@@ -185,7 +197,11 @@ playlist unless you delete it. While a set is analysed, the card shows where it 
 top** and **Cancel**, a running one **Stop** (it keeps the tracks found, and Ask
 again continues it later). Each heard track shows how many 12-second clips
 matched it and its best score ("heard 3× · best 91 %"); sort by them, or show
-only the tracks heard once to judge them; nothing is removed for you. Run the
+only the tracks heard once to judge them; nothing is removed for you. Each
+track also shows its release year (Shazam's, or the earliest Deezer or
+MusicBrainz give for its ISRC); sort **by year** or keep one **Decade**, also
+with "heard once". A hidden track still goes into Create playlist, which also
+dates the undated rows from the Spotify album it matched. Run the
 worker without a VPN: Shazam refuses far more often on one. The **Requests to your computer** card lists every
 link sent: running first, then waiting in the order the worker takes them, then
 done and failed, each with its state; **Check now** asks the server again, a

@@ -834,6 +834,7 @@ Open questions:
 ## Links
 
 - Spec: [2026-09-05-bpm-key-design.md](../specs/2026-09-05-bpm-key-design.md)
+- Release years from ReccoBeats' albums (round 005): [2026-11-07-reccobeats-release-years.md](2026-11-07-reccobeats-release-years.md)
 - [Limits and roadmap](../architecture/800-limits-roadmap.md)
 - [ADR index](../architecture/700-adr/README.md)
 - [Documentation map](../README.md)

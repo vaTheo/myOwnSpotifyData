@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-06
+> **Last updated**: 2026-11-07
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -96,7 +96,9 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 - `mixes` is deliberately **not** in `AllRows`, `getAllRows` or `buildModel`: nothing but `Mix.tsx` reads a mix, so it is reached
   through `getMixes`, `putMix`, `deleteMix`, never through the model rebuild.
 - Optional fields added with **no** version bump read back `undefined` on old rows: `MixRow.playlistUrl?`/`playlistId?`,
-  `PlayRow.months`/`attempts`/`finished`/`skipped`, `TracklistRow.confidence?`/`isrc?`/`shazamUrl?`.
+  `PlayRow.months`/`attempts`/`finished`/`skipped`, `TracklistRow.confidence?`/`isrc?`/`shazamUrl?`; round 005's years:
+  `TrackRow.albumYear?`, `TopTrackItem.albumYear?`, `FeatureRow.releaseYear?` (`{year | null, checkedAt}`), `FeatureValue.rid?`,
+  `TracklistRow.year?`/`yearFrom?`.
 - One connection per tab, and it hands over: `openDb` closes its connection when a newer version opens in another tab (`blocking`) and
   reports a blocked upgrade (`blocked`) through `setDbEvents`; `state.ts` turns both into banners. Without this a version bump hangs on
   "Loading your library…" while an old tab lives. A database that has not opened after eight seconds says so.
@@ -106,7 +108,9 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 Planner (a pure diff on `snapshot_id`), item mapper, and runner (`runSync`, `src/sync/runner.ts:181`). The runner commits one playlist
 per transaction, persists `locked`/`error` state in meta (`syncState`, `lastSyncAt`, `accountId`), and on a different Spotify account asks
 before wiping (`ACCOUNT_SWITCH_CONFIRM`). Sync never runs on load ([ADR-02](700-adr/ADR-02-no-spotify-reads-on-load.md)): only from the
-Settings button or a playlist's own button.
+Settings button or a playlist's own button. The playlist item field filter asks `album(name,release_date)` and the Top tracks
+answer full tracks, so both keep the album's year (`albumYearField`, `src/sync/items.ts`, round 005); a playlist synced before that
+round gets it when it changes or is synced again.
 
 ## 8. `history/`
 
@@ -126,8 +130,14 @@ The acquisition layer behind two Settings cards. Both run only from Settings, wr
 that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local rules: `src/features/CLAUDE.md`.
 
 **Audio data** (BPM and key):
-- ReccoBeats lookup: `reccobeats.ts` maps the API, `lookup.ts` drives it (`runLookup`, `src/features/lookup.ts:121`): batches of 40 ids,
-  one request per second, an ISRC second pass, `notFound` markers with a 90-day TTL.
+- ReccoBeats lookup: `reccobeats.ts` maps the API, `lookup.ts` drives it (`runLookup`, `src/features/lookup.ts:155`): batches of 40 ids,
+  one request per second, an ISRC second pass, `notFound` markers with a 90-day TTL. Round 005 adds a third pass, "release
+  years" (`PASS_YEARS`): every track with a ReccoBeats value and no fresh `releaseYear` gets its ReccoBeats id (`rid`, kept from
+  pass 1's answer, else `fetchTrackRids`, `GET /v1/track?ids=` per 40), then one `fetchAlbumYear` (`GET /v1/track/{rid}/album?size=50`),
+  whose earliest valid year is the original release ([research](../research/2026-11-07-reccobeats-release-years.md)). Same
+  one request per second across the three passes (about 45 minutes the first time for the ~2,500 tracks ReccoBeats knows of a
+  5,000-track library), rows written every 10 tracks and on an error, a "none" asked again after 90 days. The done state counts
+  `years`; the Audio data card shows "Release years: N of M tracks".
 - Rekordbox Collection XML import: `rekordbox.ts` scanner, `rekordbox-match.ts` title/artist/duration matching, `rekordbox.worker.ts`,
   `rekordboxImport.ts` (`runRekordboxImport`). A rekordbox value wins wherever it has one.
 
@@ -172,9 +182,12 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
     version tail (so "Losing It" takes "Losing It (Ted Remix)" but "One" never takes "One More Time", "One (Part 2)" or "One (Reprise)");
   - a title that cleans to empty matches nothing; an equal title anywhere in the up-to-10 results beats an earlier version; an original
     beats a "(Mixed)" compilation copy (`isMixedCopy`).
-- `createPlaylist.ts` (`runCreatePlaylist`, `src/features/mix/createPlaylist.ts:39`): resolve every identified row,
+- `createPlaylist.ts` (`runCreatePlaylist`, `src/features/mix/createPlaylist.ts:63`): resolve every identified row,
   `POST /me/playlists` (private), then `POST /playlists/{id}/items` with the matched URIs in batches of ≤100, driving an `onState`
-  callback and never throwing.
+  callback and never throwing. Round 005: `searchTrack` also returns the matched album's year (same answer, no extra call);
+  `runCreatePlaylist` returns the years on every exit path and `applyYears` writes them, `yearFrom: 'spotify'`, on the undated
+  rows only (a row edited meanwhile is left alone); `startCreatePlaylist` puts them on the open rows and, on a saved mix, saves them even when
+  the playlist creation then fails.
 - `worker.ts` (pure, worker round): `resultToRows` (the worker's result through `parseTracklistifyJson`, re-checked), `mergeWorkerRows`
   (a new result replaces untouched scan rows only), `jobView` and `requestStatusText` (the one wording of the Identify button and the
   request's state line for every server and request state). `url.ts` gains `requestKey`, the canonical link of a request.
@@ -183,6 +196,9 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   plain strings within their caps. The Mix screen shows "second listen · ±4 %", "from a comment · not heard" with the clue's
   text, a folded "N clues around here" on a gap row and a folded set-wide tracklist; clue text is always rendered as text.
   `match.cases.json` and `parse.cases.json` are shared with the worker's tests so its Python ports read the same way.
+  Round 005: a heard track's `metadata.release_date` becomes `year` (`yearFrom` `shazam`, or `catalogue` when
+  `release_date_from` names Deezer or MusicBrainz); `viewRows` gains the year sort (oldest first, undated last) and a decade
+  filter combined with "heard once", both in the view only, so hidden rows still go to Create playlist.
 - `digLinks.ts` (`digRows`): a track Search did not find is listed under the result, repeats grouped by name with every time in the mix,
   five store/preview search links (Beatport, Bandcamp, Discogs, SoundCloud, YouTube) plus Tracklistify's Shazam page (kept by the parser
   only when it is an https `shazam.com` URL, dropped once the row is edited), drawn as Simple Icons (CC0) by `ui/components/DigLinks.tsx`.
@@ -204,6 +220,10 @@ also saves episodes, albums and playlists; a song already liked is never re-save
   prints the same message, and `visibleBanner` suppresses it there.
 - `crate.ts`: the pure Crate computations `heavyRotation`, `forgottenGems`, `classics`, `byYear`, `finishRate`, each one pass over
   `PlayRow[]`, and their thresholds (`src/model/crate.ts:3-10`).
+- `year.ts` (round 005): `parseYear` (the whole year of a date or number in 1900..next year, else null: every source goes
+  through it, so a year is never shown as 0), `yearOf` (a library track's year: ReccoBeats' earliest, else the playlist album
+  year, else a Top item's), `decadeOf`, `decadeLabel`; `yearView.ts`: `applyYearView` (stable year sort, undated last, decade
+  filter), `decadesPresent`, `effectiveYearView` (a decade absent from the list is dropped, never empties it).
 - `keys.ts` (Camelot, Open Key and classic names, `parseKeyText`, `keyRelation`, `bpmDeltaPct`), `features.ts` (`resolveFeature`,
   `featureFor`), `match.ts` (`rankMatches`: ±6% BPM first, then key relation, then BPM distance).
 - `reach.ts`: `reachFor`, `isWellKnown`, `hasHistory`, `rankUnderTheRadar` and `reachCoverage` (the last two memoised on `Model` identity).
@@ -221,6 +241,10 @@ One Preact component per screen plus small shared components (`ui/components/`).
   `radarSort`, `radarFilter`. Under the radar is gated on `artistReachSummary.version === 1`; **Well known** is a heading at the bottom,
   never a filter that removes rows.
 - `Mix.tsx` is the `#/mix` screen, reusing `TrackRow`, `FeaturePills` and `SpotifyLink`, raising no banner (every failure inline).
+  Its sort menu has "by year, oldest first" and a Decade menu beside "heard once" when a row is dated (round 005).
+- Round 005: `FeaturePills` adds the year pill (`YearPill`, from `trackYear`, `yearOf` cached per model); `components/YearView.tsx`
+  is the "Sort by year" toggle and decade chips, with one module-level view per screen (never persisted), on Top (Tracks),
+  Playlist (after the plays, playlist or Match order), Artist and the five Crate views. Under the radar lists artists, so has none.
 - A new navigation scrolls to the top; back and forward do not: `installRouter` stamps `history.state` with `djVisited` (`visitEntry`)
   and only calls `scrollTo(0, 0)` on an unstamped entry.
 - The shell paints before anything is awaited: `main.tsx` calls `render` before `completeLogin` and `loadFromDb`, and drives
@@ -278,6 +302,9 @@ One Supabase Free project, for the owner alone, that stores every dataset the ap
   (newer wins, never by push time), `batches` (500), `rowKey`, and `planMixes` (per row by `savedAt`, with tombstones).
 - `validate.ts` (pure): every pulled row and summary checked before it is written or rendered (keys, finite numbers, `https:` links,
   `open.spotify.com` links, `SC_PLAYER_PREFIX`, the gate versions); a failing row is dropped and counted (security review S3).
+  The one exception (round 005): an invalid optional year field (`albumYear`, `releaseYear`, `reccobeats.rid`, a mix row's
+  `year`/`yearFrom`) is removed from a copy of the row and the row is kept: a year is display data and must not cost its BPM,
+  plays or tracklist.
 - `sync.ts`: `runPush` (rows in batches under a new generation, then the `datasets` stamp, then the generation before the previous
   one is dropped, so one bad push stays recoverable), `runPull` (stamps, pages of `dataset_rows`, validation, `replaceDataset` with the
   summary in one transaction, `serverStamps` recorded), the mixes branch (`select=*` once, filtered in the client), `runRemoveAll` (the
@@ -349,6 +376,11 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   `WORKER_REFUSAL_WARN_CALLS`, runs the second pass speed by speed, and saves what it heard after every probe
   (`runstate.Recorder`, `<work_dir>/runs/<sha1(link)>.json`) so Ask again on a stopped set resumes it
   (`WORKER_RESUME_DAYS`, same probe settings); a complete run deletes it.
+- Round 005 (worker 0.5.0, `specs/005-track-release-year/`): after the clues, `clues.fill_years` dates every heard track with
+  an ISRC and no valid `release_date` through `Lookups.release_year` (Deezer `GET /track/isrc:{ISRC}`, then MusicBrainz
+  `GET /ws/2/isrc/{ISRC}?inc=releases&fmt=json`; earliest valid year, `release_date_from` naming the catalogue), on the same
+  per-set `WORKER_LOOKUPS` budget as the clues (clues first). An invalid year ("0000") is removed; a catalogue failure stops
+  the step with one log line and never fails the set.
 - The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
 
 ## Links
