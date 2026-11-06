@@ -428,3 +428,75 @@ describe('requestList', () => {
     expect(offline.some((i) => i.canAskAgain)).toBe(false);
   });
 });
+
+describe('resultToRows — round 003 additions', () => {
+  const base = resultFixture() as {
+    mix_info: Record<string, unknown>;
+    tracks: Record<string, unknown>[];
+  };
+  function with3(): unknown {
+    return {
+      mix_info: {
+        ...base.mix_info,
+        second_pass: { places: 9, found: 1, stopped: null },
+        gaps: [
+          {
+            start: 600,
+            end: 900,
+            clues: [
+              { at: 610.4, author: 'x', text: 'ID? <b>', kind: 'comment' },
+              { at: 'later', author: 'y', text: 'bad', kind: 'comment' },
+            ],
+          },
+          { start: 1000, end: 1015, clues: [] },
+        ],
+        clues: [
+          { at: null, author: 'dj', text: 'B - C', kind: 'description' },
+          { at: null, author: 'dj', text: 'x'.repeat(1500), kind: 'comment' },
+          { at: null, author: 'dj', text: 'nope', kind: 'html' },
+        ],
+      },
+      tracks: [
+        { ...base.tracks[0], origin: 'replay', speed_percent: 4 },
+        { song_name: '', artist: '' },
+        ...base.tracks.slice(1),
+        {
+          song_name: 'Leave Home (Edit Select Remix)',
+          artist: 'Space Above',
+          time_in_mix: null,
+          origin: 'clue',
+          clue: { at: null, author: 'dj', text: 'Space Above - Leave Home', kind: 'comment' },
+          metadata: { isrc: 'NLCK41072412' },
+        },
+      ],
+    };
+  }
+
+  it('marks replays and candidates, builds gap rows with their clues, keeps set-wide clues', () => {
+    const r = resultToRows(with3());
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows[0]).toMatchObject({ origin: 'replay', speedPercent: 4 });
+    const candidate = r.rows.find((x) => x.origin === 'clue');
+    expect(candidate).toMatchObject({
+      artist: 'Space Above',
+      isrc: 'NLCK41072412',
+      startSec: null,
+      clue: { atSec: null, kind: 'comment' },
+    });
+    expect(r.rows[r.rows.length - 1]).toBe(candidate); // no time: last
+    const gaps = r.rows.filter((x) => x.gap);
+    expect(gaps).toHaveLength(1); // the gap without clues is left out
+    expect(gaps[0]).toMatchObject({ startSec: 600, endSec: 900 });
+    expect(gaps[0].clues).toEqual([
+      { atSec: 610.4, author: 'x', text: 'ID? <b>', kind: 'comment' },
+    ]);
+    expect(r.clues.map((c) => c.text.length)).toEqual([5, 1000]);
+  });
+
+  it('a result without additions reads as before', () => {
+    const r = resultToRows(resultFixture());
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows.some((x) => x.origin !== undefined || x.gap)).toBe(false);
+    expect(r.clues).toEqual([]);
+  });
+});

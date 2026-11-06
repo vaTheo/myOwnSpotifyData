@@ -613,6 +613,8 @@ function mixWithResult(
       author: local.author ?? parsed.author,
       sources: { ...local.sources, worker: true },
       rows: mergeWorkerRows(local.rows, parsed.rows),
+      // Set-wide clues come from the worker alone: a new result replaces them.
+      ...(parsed.clues.length > 0 ? { clues: parsed.clues } : { clues: undefined }),
       identifyJobId: row.id,
       identifiedAt,
       savedAt: now,
@@ -632,6 +634,7 @@ function mixWithResult(
       worker: true,
     },
     rows: parsed.rows,
+    ...(parsed.clues.length > 0 ? { clues: parsed.clues } : {}),
     identifyJobId: row.id,
     identifiedAt,
     savedAt: now,

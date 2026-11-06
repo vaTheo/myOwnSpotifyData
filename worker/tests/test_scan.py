@@ -8,7 +8,10 @@ from mix_worker.scan import (
     Hit,
     ScanRefused,
     ScanUnreachable,
+    cut_probe,
     default_classify,
+    gap_positions,
+    gaps_of,
     confidence_of,
     hhmmss,
     merge,
@@ -346,3 +349,101 @@ class Result(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SecondPass(unittest.TestCase):
+    """Round 003: the gaps heard again (+7 s, every 30 s, ×1 then ×0.96 then ×1.04)."""
+
+    def kw(self, **over):
+        base = dict(step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, sleep=self.sleep, classify=classify, clock=lambda: 0.0)
+        base.update(over)
+        return base
+
+    async def sleep(self, s):
+        pass
+
+    def test_positions(self):
+        self.assertEqual(gap_positions([0, 15, 30, 45, 60, 75], 30, 7), [7, 37, 67])
+        self.assertEqual(gap_positions([300], 30, 7), [307])
+
+    def test_gaps_of(self):
+        self.assertEqual(gaps_of([0, 15, 30, 90], [], 15), [(0, 45), (90, 105)])
+        self.assertEqual(gaps_of([0, 15, 30], [22], 15), [(0, 15), (30, 45)])
+        self.assertEqual(gaps_of([], [0], 15), [])
+
+    def test_hit_at_a_corrected_speed_is_marked_and_the_rest_reported(self):
+        # 6 first-pass probes, all no match; then positions 7, 37, 67:
+        # 7 → ×1 no, ×0.96 hit; 37 → ×1, ×0.96, ×1.04 no; 67 → ×1 hit.
+        answers = [NO_MATCH] * 6 + [NO_MATCH, CASSETTE, NO_MATCH, NO_MATCH, NO_MATCH, CASSETTE]
+        asked_cuts = []
+
+        async def recognise(data, skew):
+            return answers.pop(0)
+
+        def cut_at(t, speed):
+            asked_cuts.append((t, speed))
+            return b"x" * 5000
+
+        report = {}
+        lines = []
+        rows = run(scan(90, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=cut_at, report=report, line=lines.append, **self.kw()))
+        self.assertEqual(asked_cuts, [(7, 1.0), (7, 0.96), (37, 1.0), (37, 0.96), (37, 1.04), (67, 1.0)])
+        self.assertEqual(rows[0]["origin"], "replay")
+        self.assertEqual(rows[0]["speed_percent"], -4)
+        self.assertEqual(report["second_pass"], {"places": 3, "found": 2, "stopped": None})
+        self.assertEqual(report["gaps"], [(15, 60), (75, 90)])
+        self.assertTrue(any("second pass · found 2 in 3 places" in x for x in lines))
+
+    def test_refusal_keeps_what_was_found(self):
+        answers = [CASSETTE, NO_MATCH, NO_MATCH, NO_MATCH, RateLimited(), RateLimited()]
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        report = {}
+        rows = run(scan(60, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=lambda t, s: b"x" * 5000, report=report, max_pauses=1, **self.kw()))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(report["second_pass"]["stopped"], "rate limited")
+
+    def test_off(self):
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        cuts = []
+        report = {}
+        run(scan(30, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=lambda t, s: cuts.append(t) or b"", gap_step=0, report=report, **self.kw()))
+        self.assertEqual(cuts, [])
+        self.assertEqual(report["second_pass"]["places"], 0)
+
+
+class CutProbeSpeed(unittest.TestCase):
+    def test_ffmpeg_arguments(self):
+        import subprocess
+        import tempfile
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            audio = Path(tmp) / "a.m4a"
+            audio.write_bytes(b"x")
+            seen = []
+
+            def fake_run(cmd, **kw):
+                seen.append(cmd)
+                Path(cmd[-1]).write_bytes(b"RIFF" + b"x" * 2000)
+                return subprocess.CompletedProcess(cmd, 0, b"", b"")
+
+            with mock.patch("mix_worker.scan.subprocess.run", fake_run):
+                cut_probe("ffmpeg", audio, 60, 12)
+                cut_probe("ffmpeg", audio, 60, 12, speed=1.04)
+                cut_probe("ffmpeg", audio, 60, 12, speed=0.96)
+        plain, fast, slow = seen
+        self.assertNotIn("-af", plain)
+        self.assertEqual(plain[plain.index("-t") + 1], "12")
+        self.assertLess(fast.index("-t"), fast.index("-i"))
+        self.assertEqual(fast[fast.index("-t") + 1], "12.48")
+        self.assertEqual(fast[fast.index("-af") + 1], "aresample=16000,asetrate=16640,aresample=16000")
+        self.assertEqual(slow[slow.index("-t") + 1], "11.52")
+        self.assertEqual(slow[slow.index("-af") + 1], "aresample=16000,asetrate=15360,aresample=16000")

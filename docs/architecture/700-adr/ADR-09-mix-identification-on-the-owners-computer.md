@@ -40,5 +40,6 @@ runtime on the computer; a library that mimics a phone app may break with the se
   `specs/002-mix-analysis-worker/`)
 - [ADR-08](ADR-08-owner-server-free-tier.md) (the queue, the worker outside the server), [ADR-04](ADR-04-keyless-sources-by-id.md)
   (keyless sources in the app), [ADR-03](ADR-03-library-writes-on-tap.md) (two write sites)
+- [ADR-10](ADR-10-name-lookup-for-clues.md) (round 003: clues and name lookups in the worker)
 - Constitution: `.specify/memory/constitution.md` Principle IV
 - [ADR index](README.md) · [Limits and roadmap](../800-limits-roadmap.md)

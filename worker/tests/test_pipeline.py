@@ -218,3 +218,68 @@ class Failures(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Round003(unittest.TestCase):
+    """Second pass summary, clues on gaps and candidates in the result."""
+
+    def sent(self, deps):
+        return [c for c in deps.client.calls if c[0] == "finish"][-1][4]
+
+    def test_scan_output_and_clues_go_into_the_result(self):
+        from mix_worker.clues import Gathered
+        from mix_worker.scan import ScanOutput
+
+        replay = dict(TRACK, song_name="R", time_in_mix="00:20:00", origin="replay", speed_percent=4)
+        candidate = {"song_name": "C", "artist": "B", "time_in_mix": None, "origin": "clue", "clue": {"at": None, "author": "dj", "text": "B - C", "kind": "description"}}
+        seen = {}
+
+        def clues(url, gaps, rows):
+            seen["args"] = (url, gaps, [r["song_name"] for r in rows])
+            return Gathered(
+                gaps=[{"start": 600, "end": 900, "clues": [{"at": 610.0, "author": "x", "text": "ID?", "kind": "comment"}]}, {"start": 1500, "end": 1515, "clues": []}],
+                clues=[{"at": None, "author": "dj", "text": "B - C", "kind": "description"}],
+                candidates=[candidate],
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d: ScanOutput(rows=[TRACK, replay], second_pass={"places": 9, "found": 1, "stopped": None}, gaps=[(600, 900), (1500, 1515)]))
+            deps.clues = clues
+            outcome = run_one(job(), settings, "tok", deps)
+            self.assertEqual(outcome.status, "done")
+            body = self.sent(deps)["result"]
+        self.assertEqual(seen["args"], ("https://www.youtube.com/watch?v=abc123", [(600, 900), (1500, 1515)], ["T", "R"]))
+        info = body["mix_info"]
+        self.assertEqual(info["second_pass"], {"places": 9, "found": 1, "stopped": None})
+        self.assertEqual([g["start"] for g in info["gaps"]], [600])  # empty gaps are left out
+        self.assertEqual(info["clues"][0]["text"], "B - C")
+        self.assertEqual([t["song_name"] for t in body["tracks"]], ["T", "R", "C"])  # set-wide candidate last
+        self.assertEqual(info["track_count"], 3)
+
+    def test_a_refused_second_pass_is_still_done(self):
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d: ScanOutput(rows=[TRACK], second_pass={"places": 4, "found": 0, "stopped": "rate limited"}))
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            self.assertEqual(self.sent(deps)["result"]["mix_info"]["second_pass"]["stopped"], "rate limited")
+
+    def test_candidates_alone_make_a_done_request(self):
+        from mix_worker.clues import Gathered
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d: [])
+            deps.clues = lambda url, gaps, rows: Gathered(candidates=[{"song_name": "C", "artist": "B", "time_in_mix": None, "origin": "clue", "clue": {"at": None, "author": "dj", "text": "B - C", "kind": "comment"}}])
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+
+    def test_clues_are_cut_to_fit(self):
+        from mix_worker.clues import Gathered
+
+        many = [{"at": None, "author": "x", "text": "y" * 900, "kind": "comment"} for _ in range(50)]
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, result_max_bytes=8000)
+            deps.clues = lambda url, gaps, rows: Gathered(clues=list(many))
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+            body = self.sent(deps)["result"]
+            self.assertLessEqual(len(json.dumps(body, ensure_ascii=False).encode()), 8000)
+            self.assertTrue(any("clues left out" in x for x in log.lines))

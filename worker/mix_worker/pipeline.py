@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 from .config import Settings
 from .download import DownloadFailure, Downloaded
-from .scan import ScanRefused, ScanUnreachable
+from .scan import ScanOutput, ScanRefused, ScanUnreachable
 from .server import Result
 
 REFUSED_REASON = "Recognition service refused (rate limited); try later"
@@ -29,10 +29,12 @@ BAD_LINK_REASON = "Request has no valid link"
 class Deps:
     client: Any
     download: Callable[[str, Path], Downloaded | DownloadFailure]
-    scan: Callable[[Path, int | None], list[dict[str, Any]]]
+    scan: Callable[[Path, int | None], Any]  # rows, or a ScanOutput (round 003)
     now: Callable[[], float] = time.time
     today: Callable[[], str] = lambda: time.strftime("%Y-%m-%d")
     log: Any = None
+    # Round 003: (url, gaps, rows) → Gathered; None = no clue step.
+    clues: Callable[[str, list[tuple[int, int]], list[dict[str, Any]]], Any] | None = None
 
 
 @dataclass
@@ -104,14 +106,29 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
 
         started = deps.now()
         try:
-            tracks = deps.scan(got.path, got.duration)
+            out = deps.scan(got.path, got.duration)
         except ScanRefused:
             steps.done("scan", "refused", started)
             return _fail(deps, settings, token, job_id, REFUSED_REASON)
         except ScanUnreachable:
             steps.done("scan", "no answer", started)
             return _fail(deps, settings, token, job_id, UNREACHABLE_REASON)
+        tracks = list(out.rows) if isinstance(out, ScanOutput) else list(out)
+        second_pass = out.second_pass if isinstance(out, ScanOutput) else None
+        gaps = list(out.gaps) if isinstance(out, ScanOutput) else []
         steps.done("scan", f"{len(tracks)} tracks", started)
+
+        extra: dict[str, Any] = {}
+        if second_pass is not None:
+            extra["second_pass"] = second_pass
+        if deps.clues is not None:
+            started = deps.now()
+            gathered = deps.clues(url, gaps, tracks)
+            steps.done("clues", f"{len(gathered.candidates)} candidates", started)
+            tracks = tracks + gathered.candidates
+            extra["gaps"] = [g for g in gathered.gaps if g["clues"]]
+            if gathered.clues:
+                extra["clues"] = gathered.clues
         if not tracks:
             return _fail(deps, settings, token, job_id, NO_TRACK_REASON)
 
@@ -128,6 +145,9 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
             duration=got.duration,
             date=deps.today(),
             tracks=tracks,
+            extra=extra,
+            max_bytes=settings.result_max_bytes,
+            line=deps.log.line if deps.log is not None else None,
         )
         steps.done("write", json_path.name, started)
         size = len(json.dumps(result, ensure_ascii=False).encode("utf-8"))
