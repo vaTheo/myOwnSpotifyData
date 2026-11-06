@@ -1,31 +1,48 @@
+import type { Signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import type { PlayRow } from '../../db/schema';
 import type { Model } from '../../model/aggregate';
 import { hasMonthData } from '../../model/crate';
+import { featureFor } from '../../model/features';
 import { nameKey } from '../../model/normalize';
 import { historySummary, model } from '../../model/state';
-import { FeaturePills } from '../components/FeaturePills';
-import { TrackRow } from '../components/TrackRow';
+import { MonthBars } from '../charts/MonthBars';
+import { seriesLabel, yearSpan, type MonthPoint } from '../charts/series';
 import { openDetail } from '../details/navigate';
 import { TrackSheet } from '../details/TrackDetails';
-import { yearSpan } from '../charts/series';
 import { artistNames } from '../format';
+import {
+  bpmColumn,
+  keyColumn,
+  rankColumn,
+  titleColumn,
+} from '../table/columns';
+import { DataTable, type Column } from '../table/DataTable';
+import type { SortState } from '../table/sort';
 
 // The details' shared pieces, re-exported for the Crate views.
-export {
-  NoPlaylistNote,
-  OpenMonthLink,
-  Strip,
-  monthLabel,
-} from '../details/parts';
+export { NoPlaylistNote, OpenMonthLink, monthLabel } from '../details/parts';
 
 /** A play row from an import that recorded month buckets. */
 export type CrateRowData = PlayRow & { months: Record<string, number> };
+
+/** Every Crate view's item carries its play row. */
+export interface CrateItem {
+  row: PlayRow;
+}
+
+/** Each view keeps its sort per visit to the app, like its setting. */
+export const DEFAULT_SORT: SortState = { columnId: null, direction: 'asc' };
 
 /** Every Crate view works on these rows; older rows are simply absent. */
 export function useCrateRows(): CrateRowData[] {
   const m = model.value;
   return m ? m.plays.filter(hasMonthData) : [];
+}
+
+/** The import's range, for the charts' gaps (null: every month inside). */
+export function historyRange() {
+  return historySummary.value?.range ?? null;
 }
 
 /**
@@ -34,11 +51,7 @@ export function useCrateRows(): CrateRowData[] {
  * years that happen to have rows. Both `of N years` phrases count from it.
  */
 export function spanYears(rows: PlayRow[]): number[] {
-  return yearSpan(
-    rows,
-    historySummary.value?.range ?? null,
-    new Date().getFullYear()
-  );
+  return yearSpan(rows, historyRange(), new Date().getFullYear());
 }
 
 /**
@@ -57,10 +70,6 @@ export function trackLabel(row: PlayRow): {
   };
 }
 
-export function trackUrl(row: PlayRow): string {
-  return `https://open.spotify.com/track/${row.trackId}`;
-}
-
 /** By id first, then by artist and title, so a relinked id still matches. */
 export function playlistsOfRow(m: Model, row: PlayRow): string[] {
   const byId = m.playlistsOfTrack.get(row.trackId);
@@ -72,54 +81,123 @@ export function playlistsOfRow(m: Model, row: PlayRow): string[] {
   return byName ? [...byName] : [];
 }
 
-/** The amber badge stays silent until a playlist has actually been synced. */
+/** The amber flag stays silent until a playlist has actually been synced. */
 export function inNoPlaylist(row: PlayRow): boolean {
   const m = model.value;
   return !!m && m.playlists.length > 0 && playlistsOfRow(m, row).length === 0;
 }
 
 /**
- * Badge 2 is passed in already decided: the amber rule competes with `New`
- * on Heavy rotation, so the precedence belongs to each screen, not here.
- *
- * The feature pills are appended once, for all five views. Spec §5: the
- * "never a third badge" rule covers the sort and context badges only, and the
- * pills are a separate group after them. `FeaturePills` draws nothing until
- * a lookup or a Rekordbox import has given this track a value, so an
- * un-enriched Crate looks exactly as it does today.
+ * A row's small bars (24 px, no tab stop). The bars are hidden from
+ * assistive technology, so the cell carries the series as text: the row
+ * reads its values (FR-026). A short series keeps narrow bars instead of
+ * stretching one bar across the column.
  */
-export function CrateRow(p: {
-  rank: number;
-  row: PlayRow;
-  badge1: ComponentChildren;
-  badge2?: ComponentChildren;
-  /** The row whose details sheet is open (`?d=`). */
-  selected: boolean;
-}) {
-  const label = trackLabel(p.row);
-  return (
-    <TrackRow
-      rank={p.rank}
-      title={label.title}
-      subtitle={label.subtitle}
-      spotifyUrl={trackUrl(p.row)}
-      onClick={() => openDetail(p.row.trackId)}
-      rowId={p.row.trackId}
-      selected={p.selected}
-      badges={
-        <>
-          {p.badge1}
-          {p.badge2}
-          <FeaturePills trackId={p.row.trackId} />
-        </>
+export function chartColumn<Item extends CrateItem>(
+  header: string,
+  title: string,
+  seriesOf: (item: Item) => MonthPoint[],
+  /** How many bars the series has: the column is sized from it. */
+  points: number
+): Column<Item> {
+  return {
+    id: 'chart',
+    header,
+    priority: 3,
+    width: `${Math.min(192, Math.max(112, points * 12)) + 16}px`,
+    cell: (item) => {
+      const series = seriesOf(item);
+      return (
+        <span class="dt-chart" style={{ maxWidth: `${series.length * 20}px` }}>
+          <MonthBars compact series={series} title={title} />
+          <span class="visually-hidden">{seriesLabel(title, series)}</span>
+        </span>
+      );
+    },
+    compact: 'hidden',
+  };
+}
+
+/**
+ * The columns every Crate view shares (spec 003, screens.md §6): #, Title,
+ * Artist, then the view's own figures and chart, its flag, BPM and Key. The
+ * flag's precedence belongs to each view (Heavy rotation's `New` beats
+ * "not in a playlist"), so it is passed in already decided; `null` leaves
+ * the cell empty.
+ */
+export function crateColumns<Item extends CrateItem>(spec: {
+  metrics: Column<Item>[];
+  chart?: Column<Item>;
+  flag: (item: Item) => ComponentChildren | null;
+}): Column<Item>[] {
+  const m = model.value;
+  const featureOf = (item: Item) =>
+    m ? featureFor(m, item.row.trackId) : null;
+  return [
+    rankColumn({ compact: 'lead' }),
+    titleColumn((item) => trackLabel(item.row).title),
+    titleColumn(
+      (item) => trackLabel(item.row).subtitle,
+      { header: 'Artist' },
+      {
+        id: 'artist',
+        priority: 2,
+        width: 'minmax(0, 1.5fr)',
+        compact: 'subtitle',
       }
+    ),
+    ...spec.metrics,
+    ...(spec.chart ? [spec.chart] : []),
+    {
+      id: 'flag',
+      header: 'Flag',
+      headerHidden: true,
+      priority: 2,
+      width: '168px',
+      cell: (item) => spec.flag(item),
+      compact: 'meta',
+    },
+    bpmColumn(featureOf),
+    keyColumn(featureOf),
+  ];
+}
+
+/**
+ * A Crate view's table: ranked as the view ranks, 100 rows a page with the
+ * footer's count, a row opening the track's details (`?d=`).
+ */
+export function CrateTable<Item extends CrateItem>(p: {
+  label: string;
+  items: Item[];
+  columns: Column<Item>[];
+  sort: Signal<SortState>;
+  /** The view's setting: a change goes back to the first page. */
+  resetKey: string;
+  detail: string | undefined;
+}) {
+  return (
+    <DataTable
+      label={p.label}
+      noun="track"
+      columns={p.columns}
+      rows={p.items}
+      rowKey={(item) => item.row.trackId}
+      sort={p.sort.value}
+      onSort={(s) => {
+        p.sort.value = s;
+      }}
+      resetKey={p.resetKey}
+      selectedKey={p.detail ?? null}
+      follow={p.detail !== undefined}
+      onOpen={(item) => openDetail(item.row.trackId)}
     />
   );
 }
 
 /**
  * The details sheet of a Crate view (spec 003, US3): the track's facts, and
- * `extra`, the view's own figures for it that the row used to expand into.
+ * `extra`, the view's own figures and chart for it (on a phone the chart
+ * lives only here).
  */
 export function CrateSheet(p: {
   detail: string | undefined;
@@ -141,27 +219,5 @@ export function CrateSheet(p: {
  * `layout/titles.ts`), drawn before any data check as before.
  */
 export function CrateShell(p: { children?: ComponentChildren }) {
-  return <section>{p.children}</section>;
-}
-
-/** List footer: spec §3 renders PAGE_SIZE rows, then grows on demand. */
-export function Paged(p: {
-  shown: number;
-  total: number;
-  step: number;
-  onMore: () => void;
-}) {
-  if (p.total <= p.shown) return null;
-  return (
-    <>
-      <p class="footer-note">
-        Showing the top {p.shown.toLocaleString()} of {p.total.toLocaleString()}
-      </p>
-      <div class="actions">
-        <button type="button" onClick={p.onMore}>
-          Show {p.step.toLocaleString()} more
-        </button>
-      </div>
-    </>
-  );
+  return <section class="crate-view">{p.children}</section>;
 }

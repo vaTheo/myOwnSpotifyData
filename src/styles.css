@@ -491,15 +491,6 @@ label.file input {
   opacity: 0;
 }
 
-.provenance {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  color: var(--muted);
-  font-size: 0.9rem;
-  margin: 0 0 10px;
-}
-
 .caption {
   color: var(--muted);
   font-size: 0.85rem;
@@ -513,59 +504,33 @@ label.file input {
   margin: -4px 0 8px;
 }
 
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* The Finish rate bands, as the meters draw them. */
+.swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+.swatch-high {
+  background: var(--app-color-band-high);
+}
+
+.swatch-low {
+  background: var(--md-sys-color-error);
+}
+
 .footer-note {
   color: var(--muted);
   font-size: 0.85rem;
   margin: 10px 0 8px;
-}
-
-.strip {
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.5;
-  margin: 4px 0;
-}
-
-/* One year/month pair per span: a line breaks only after a separator. */
-.strip span {
-  white-space: nowrap;
-}
-
-.hub-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  width: 100%;
-  min-height: 64px;
-  padding: 10px 4px;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  text-decoration: none;
-}
-
-.hub-row .main {
-  flex: 1;
-  min-width: 0;
-}
-
-.hub-row .name {
-  display: block;
-  font-weight: 600;
-}
-
-.hub-row .sub {
-  display: block;
-  font-size: 0.85rem;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .chev {
@@ -1399,9 +1364,11 @@ a {
 
 /* ---- Data tables (spec 003, FR-015–FR-018, FR-022, FR-023) ---- */
 
-/* A screen with a table, or Compare periods, uses the whole window (FR-005). */
+/* A screen with a table, Compare periods or the Crate hub's cards uses the
+   whole window (FR-005). */
 .screen:has(.dt-wrap),
-.screen:has(.compare) {
+.screen:has(.compare),
+.screen:has(.hub-grid) {
   max-width: none;
 }
 
@@ -2296,7 +2263,6 @@ a {
   padding: 0;
 }
 
-.details-section .strip,
 .details-section > p {
   margin: 0 0 4px;
 }
@@ -2418,8 +2384,8 @@ a {
 .ym-scroll {
   position: relative; /* holds the visually hidden labels inside the scroll */
   max-width: 100%;
-  /* Room for the focus ring of a selected edge cell: with the 4 px border
-     spacing, 6 px clears its 5 px offset and 3 px outline. */
+  /* Room for the focus ring of a selected edge cell: with the cells' own
+     2 px side padding, 6 px clears its 5 px offset and 3 px outline. */
   padding: 6px;
   overflow-x: auto;
 }
@@ -2453,15 +2419,21 @@ a {
 }
 
 /* The year column and the header corners stay put while the grid
-   scrolls; the left shadow paints over the scroll padding, so nothing
-   scrolled under them shows beside them. */
+   scrolls. The left shadow paints over the scroll padding, and the
+   vertical ones over the 4 px row gaps above and below, so nothing scrolled
+   under them (a selected cell's ring included) shows beside them. */
 .ym-grid .ym-year,
 .ym-grid .ym-corner {
   position: sticky;
   left: 0;
   z-index: 1;
   background: var(--md-sys-color-surface);
-  box-shadow: -6px 0 0 var(--md-sys-color-surface);
+  box-shadow:
+    -6px 0 0 var(--md-sys-color-surface),
+    0 -4px 0 var(--md-sys-color-surface),
+    0 4px 0 var(--md-sys-color-surface),
+    -6px -4px 0 var(--md-sys-color-surface),
+    -6px 4px 0 var(--md-sys-color-surface);
 }
 
 .ym-year {
@@ -2587,4 +2559,186 @@ a {
 .ym-grid .ym-cell.selected:focus-visible,
 .ym-grid .ym-total.selected:focus-visible {
   outline-offset: 5px;
+}
+
+/* ---------- Crate (spec 003, screens.md §5–§6) ---------- */
+
+.import-line {
+  margin: 0 0 12px;
+}
+
+/* Five cards: three columns on large windows, two on medium, one on phones. */
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 1200px) {
+  .hub-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.hub-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.hub-card:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    var(--md-sys-color-surface-container)
+  );
+}
+
+.hub-card > h2 {
+  margin: 0;
+}
+
+.hub-card .card-description {
+  margin: 0;
+}
+
+/* The name's link covers the whole card; its ring is the card's. */
+.hub-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--app-target);
+  color: inherit;
+  text-decoration: none;
+}
+
+.hub-link .icon {
+  color: var(--md-sys-color-primary);
+}
+
+.hub-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.hub-link:focus-visible {
+  outline: none;
+}
+
+.hub-card:has(.hub-link:focus-visible) {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.hub-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.hub-top {
+  margin: 0;
+  overflow: hidden;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hub-chart {
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.hub-chart .month-bars-svg.compact {
+  height: 32px;
+}
+
+/* Below 400 px a card keeps its words and drops its chart. */
+@media (max-width: 399px) {
+  .hub-chart {
+    display: none;
+  }
+}
+
+.crate-empty {
+  max-width: 640px;
+}
+
+.crate-empty .actions {
+  flex-wrap: wrap;
+  margin: 8px 0 0;
+}
+
+/* A row's small bars: the cell's width, or less for a short series. */
+.dt-chart {
+  display: block;
+  width: 100%;
+}
+
+.crate-view .ym-scroll {
+  margin: 0 0 8px -6px;
+}
+
+/* The mini year × month grid (hub card, track details on large). */
+.ym-mini {
+  display: grid;
+  gap: 2px;
+  font: var(--md-sys-typescale-label-small);
+  color: var(--md-sys-color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.ym-mini-row {
+  display: grid;
+  grid-template-columns: 4ch repeat(12, minmax(0, 1fr));
+  gap: 2px;
+  align-items: center;
+}
+
+.ym-mini-cell {
+  height: 10px;
+  border-radius: 2px;
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+.ym-mini-cell.out {
+  background: transparent;
+}
+
+.ym-mini-cell.heat-1 {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 25%,
+    var(--md-sys-color-surface-container-highest)
+  );
+}
+
+.ym-mini-cell.heat-2 {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 50%,
+    var(--md-sys-color-surface-container-highest)
+  );
+}
+
+.ym-mini-cell.heat-3 {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 75%,
+    var(--md-sys-color-surface-container-highest)
+  );
+}
+
+.ym-mini-cell.heat-4 {
+  background: var(--md-sys-color-primary);
+}
+
+.details-section .ym-mini {
+  margin: 8px 0;
 }

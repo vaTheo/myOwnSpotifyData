@@ -3,29 +3,38 @@ import type { PlayRow } from '../../db/schema';
 import {
   GEM_WINDOWS,
   MIN_GEM_PLAYS,
-  PAGE_SIZE,
   forgottenGems,
   hasMonthData,
+  lastMonths,
   monthKey,
   type GemItem,
 } from '../../model/crate';
+import { MonthBars } from '../charts/MonthBars';
+import { monthSeries } from '../charts/series';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
 import { DetailsSection } from '../details/TrackDetails';
 import { formatDate, plural } from '../format';
+import { countColumn } from '../table/columns';
 import { gemMonths } from './selections';
 import {
-  CrateRow,
   CrateSheet,
+  CrateTable,
+  DEFAULT_SORT,
   OpenMonthLink,
-  Paged,
+  chartColumn,
+  crateColumns,
+  historyRange,
   inNoPlaylist,
   monthLabel,
   spanYears,
   useCrateRows,
 } from './shared';
 
-const shown = signal(PAGE_SIZE);
+const sort = signal(DEFAULT_SORT);
+
+/** The chart's reach: two years, so a gem's last busy months show. */
+const CHART_MONTHS = 24;
 
 function gemLabel(months: number): string {
   if (months === 6) return '6 months';
@@ -58,18 +67,19 @@ function yearsActive(row: PlayRow): number {
   return years.size;
 }
 
-/** What the row used to expand into: the span, the years, the last month. */
-function GemExtra(p: { item: GemItem; span: number }) {
+/** The view's figures for the opened track: the span, the years, the last month. */
+function GemExtra(p: { item: GemItem; span: number; keys: string[] }) {
   const row = p.item.row;
   return (
     <DetailsSection title="Forgotten gems">
       <p class="details-note">
         {plural(row.plays, 'play')} · {spanLabel(row, p.item.lastPlayed)}
       </p>
-      <p class="strip">
+      <p class="details-note">
         {yearsActive(row).toLocaleString()} of {plural(p.span, 'year')} · last{' '}
         {formatDate(row.lastTs)}
       </p>
+      <MonthBars series={monthSeries(row.months, p.keys, historyRange())} />
       <OpenMonthLink month={monthKey(p.item.lastPlayed)} />
     </DetailsSection>
   );
@@ -81,18 +91,48 @@ export function Gems({ detail }: { detail?: string }) {
   const months = gemMonths.value;
   const items = forgottenGems(rows, now, months);
   const span = spanYears(rows).length;
+  const keys = lastMonths(now, CHART_MONTHS);
   const opened = items.find((item) => item.row.trackId === detail);
   const since = monthLabel(cutoffMonth(now, months));
+  const columns = crateColumns<GemItem>({
+    metrics: [
+      countColumn('plays', 'Plays', (item) => item.row.plays, {
+        unit: ['play', 'plays'],
+      }),
+      {
+        id: 'last',
+        header: 'Last played',
+        align: 'end',
+        priority: 3,
+        width: '120px',
+        sortValue: (item) => item.lastPlayed.getTime(),
+        firstDirection: 'desc',
+        cell: (item) => <span>{monthLabel(monthKey(item.lastPlayed))}</span>,
+        compact: 'hidden',
+      },
+    ],
+    chart: chartColumn(
+      'Last 2 years',
+      'Plays per month',
+      (item) => monthSeries(item.row.months, keys, historyRange()),
+      keys.length
+    ),
+    flag: (item) =>
+      inNoPlaylist(item.row) ? (
+        <Flag kind="todo">not in a playlist</Flag>
+      ) : null,
+  });
   return (
     <>
-      <SegmentedButtons
-        options={OPTIONS}
-        value={String(months)}
-        onChange={(v) => {
-          gemMonths.value = Number(v);
-          shown.value = PAGE_SIZE;
-        }}
-      />
+      <div class="toolbar">
+        <SegmentedButtons
+          options={OPTIONS}
+          value={String(months)}
+          onChange={(v) => {
+            gemMonths.value = Number(v);
+          }}
+        />
+      </div>
       <p class="caption">
         Played {MIN_GEM_PLAYS}+ times, nothing since {since} ·{' '}
         {plural(items.length, 'track')}
@@ -109,7 +149,6 @@ export function Gems({ detail }: { detail?: string }) {
               type="button"
               onClick={() => {
                 gemMonths.value = 6;
-                shown.value = PAGE_SIZE;
               }}
             >
               Try 6 months
@@ -117,44 +156,18 @@ export function Gems({ detail }: { detail?: string }) {
           )}
         </div>
       ) : (
-        <>
-          <ul class="list">
-            {items.slice(0, shown.value).map((item, i) => {
-              const id = item.row.trackId;
-              const month = monthKey(item.lastPlayed);
-              return (
-                <CrateRow
-                  key={id}
-                  rank={i + 1}
-                  row={item.row}
-                  badge1={
-                    <Flag kind="plays">{plural(item.row.plays, 'play')}</Flag>
-                  }
-                  badge2={
-                    inNoPlaylist(item.row) ? (
-                      <Flag kind="todo">not in a playlist</Flag>
-                    ) : (
-                      <Flag>last {monthLabel(month)}</Flag>
-                    )
-                  }
-                  selected={detail === id}
-                />
-              );
-            })}
-          </ul>
-          <Paged
-            shown={shown.value}
-            total={items.length}
-            step={PAGE_SIZE}
-            onMore={() => {
-              shown.value += PAGE_SIZE;
-            }}
-          />
-        </>
+        <CrateTable
+          label={`Forgotten gems, unplayed for ${gemLabel(months)}`}
+          items={items}
+          columns={columns}
+          sort={sort}
+          resetKey={String(months)}
+          detail={detail}
+        />
       )}
       <CrateSheet
         detail={detail}
-        extra={opened && <GemExtra item={opened} span={span} />}
+        extra={opened && <GemExtra item={opened} span={span} keys={keys} />}
       />
     </>
   );

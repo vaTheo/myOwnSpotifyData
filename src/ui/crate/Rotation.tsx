@@ -1,36 +1,38 @@
 import { signal } from '@preact/signals';
-import type { PlayRow } from '../../db/schema';
 import {
   MIN_ROTATION_PLAYS,
   MONTH_NAMES,
-  PAGE_SIZE,
   ROTATION_WINDOWS,
-  hasMonthData,
   heavyRotation,
   lastMonths,
   peakMonth,
   type RotationItem,
 } from '../../model/crate';
-import { historySummary } from '../../model/state';
 import { routeHref } from '../../router';
+import { MonthBars } from '../charts/MonthBars';
+import { monthSeries } from '../charts/series';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
 import { DetailsSection } from '../details/TrackDetails';
 import { plural } from '../format';
+import { countColumn } from '../table/columns';
+import { historySummary } from '../../model/state';
 import { staleMonthKey, windowLabel } from './labels';
 import { rotationMonths } from './selections';
 import {
-  CrateRow,
   CrateSheet,
+  CrateTable,
+  DEFAULT_SORT,
   OpenMonthLink,
-  Paged,
-  Strip,
+  chartColumn,
+  crateColumns,
+  historyRange,
   inNoPlaylist,
   monthLabel,
   useCrateRows,
 } from './shared';
 
-const shown = signal(PAGE_SIZE);
+const sort = signal(DEFAULT_SORT);
 
 const OPTIONS = ROTATION_WINDOWS.map((n) => ({
   value: String(n),
@@ -51,27 +53,28 @@ function rangeLabel(keys: string[]): string {
   return `${monthLabel(first)} – ${monthLabel(last)}`;
 }
 
-function stripCells(row: PlayRow, keys: string[]): string[] {
-  if (!hasMonthData(row)) return [];
-  return keys.map((key) => {
-    const n = row.months[key] ?? 0;
-    return `${shortMonth(key)} ${n > 0 ? n.toLocaleString() : '—'}`;
-  });
+function windowSeries(item: RotationItem, keys: string[]) {
+  return monthSeries(item.row.months, keys, historyRange());
 }
 
-/** What the row used to expand into: the window's plays, month by month. */
+/** `New` first, then "not in a playlist" (today's precedence). */
+function rotationFlag(item: RotationItem) {
+  if (item.isNew) return <Flag kind="top">New</Flag>;
+  if (inNoPlaylist(item.row)) return <Flag kind="todo">not in a playlist</Flag>;
+  return null;
+}
+
+/** The view's figures for the opened track: the window, month by month. */
 function RotationExtra(p: { item: RotationItem; keys: string[] }) {
-  const cells = stripCells(p.item.row, p.keys);
-  const month = hasMonthData(p.item.row)
-    ? peakMonth(p.item.row.months, p.keys)
-    : null;
+  const months = p.item.row.months;
+  const month = months ? peakMonth(months, p.keys) : null;
   return (
     <DetailsSection title="Heavy rotation">
       <p class="details-note">
         {p.item.windowPlays.toLocaleString()} of{' '}
         {plural(p.item.row.plays, 'play')}
       </p>
-      {cells.length > 0 && <Strip cells={cells} />}
+      <MonthBars series={windowSeries(p.item, p.keys)} />
       {month && <OpenMonthLink month={month} />}
     </DetailsSection>
   );
@@ -91,16 +94,38 @@ export function Rotation({ detail }: { detail?: string }) {
   caption.push(`${MIN_ROTATION_PLAYS}+ plays`, plural(items.length, 'track'));
   const opened = items.find((item) => item.row.trackId === detail);
   const stale = staleMonthKey(historySummary.value?.range, now);
+  const columns = crateColumns<RotationItem>({
+    metrics: [
+      countColumn('window', 'Plays in window', (item) => item.windowPlays, {
+        unit: ['play', 'plays'],
+      }),
+      countColumn(
+        'lifetime',
+        'Lifetime',
+        (item) => item.row.plays,
+        {},
+        { priority: 3, width: '96px', compact: 'hidden' }
+      ),
+    ],
+    chart: chartColumn(
+      `Last ${windowLabel(months)}`,
+      'Plays per month',
+      (item) => windowSeries(item, keys),
+      keys.length
+    ),
+    flag: rotationFlag,
+  });
   return (
     <>
-      <SegmentedButtons
-        options={OPTIONS}
-        value={String(months)}
-        onChange={(v) => {
-          rotationMonths.value = Number(v);
-          shown.value = PAGE_SIZE;
-        }}
-      />
+      <div class="toolbar">
+        <SegmentedButtons
+          options={OPTIONS}
+          value={String(months)}
+          onChange={(v) => {
+            rotationMonths.value = Number(v);
+          }}
+        />
+      </div>
       <p class="caption">{caption.join(' · ')}</p>
       {items.length === 0 ? (
         <div class="empty">
@@ -123,7 +148,6 @@ export function Rotation({ detail }: { detail?: string }) {
                   type="button"
                   onClick={() => {
                     rotationMonths.value = 6;
-                    shown.value = PAGE_SIZE;
                   }}
                 >
                   Try 6 months
@@ -133,41 +157,14 @@ export function Rotation({ detail }: { detail?: string }) {
           )}
         </div>
       ) : (
-        <>
-          <ul class="list">
-            {items.slice(0, shown.value).map((item, i) => {
-              const id = item.row.trackId;
-              return (
-                <CrateRow
-                  key={id}
-                  rank={i + 1}
-                  row={item.row}
-                  badge1={
-                    <Flag kind="plays">{plural(item.windowPlays, 'play')}</Flag>
-                  }
-                  badge2={
-                    item.isNew ? (
-                      <Flag kind="top">New</Flag>
-                    ) : inNoPlaylist(item.row) ? (
-                      <Flag kind="todo">not in a playlist</Flag>
-                    ) : (
-                      <Flag>{item.row.plays.toLocaleString()} lifetime</Flag>
-                    )
-                  }
-                  selected={detail === id}
-                />
-              );
-            })}
-          </ul>
-          <Paged
-            shown={shown.value}
-            total={items.length}
-            step={PAGE_SIZE}
-            onMore={() => {
-              shown.value += PAGE_SIZE;
-            }}
-          />
-        </>
+        <CrateTable
+          label={`Heavy rotation, last ${windowLabel(months)}`}
+          items={items}
+          columns={columns}
+          sort={sort}
+          resetKey={String(months)}
+          detail={detail}
+        />
       )}
       <CrateSheet
         detail={detail}
