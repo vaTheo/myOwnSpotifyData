@@ -238,17 +238,17 @@ sorting by BPM then plays keeps each rank; compact shows two-line items.
   - **Paging**: `shown` starts at `PAGE_SIZE` (100) and grows by 100, with the footer "Showing the top 100 of N" and "Show 100 more". It resets on a change of sort, filter or setting.
   - **Interim expansion**: an optional `expanded(row)` slot keeps today's in-place details until US3 replaces them.
   - **Performance and announcements**: `content-visibility: auto` on rows; an `aria-live="polite"` region announcing a sort change.
-- [ ] T046 [P] [US2] Create the shared column builders in `src/ui/table/columns.tsx`:
+- [X] T046 [P] [US2] Create the shared column builders in `src/ui/table/columns.tsx`:
   - rank, cover, title, artists, album, duration, added;
   - plays, with the "by artist and title" note as an icon and a tooltip;
   - playlists, a count or the "not in a playlist" flag;
   - Top flags; BPM (`BpmText` or `NoData`); key (`KeyPill` or `NoData`, sorted in Camelot order); Spotify link.
-- [ ] T047 [US2] Add the table styles to `src/styles.css`: the header in `surface-container-high`, 52 px rows (72 px two-line), a `primary-container` selected row, `outline-variant` separators, and the container-query breakpoints for priorities 2–4.
-- [ ] T048 [US2] Rewrite `src/ui/Top.tsx` as tables, per `contracts/screens.md` §4.
+- [X] T047 [US2] Add the table styles to `src/styles.css`: the header in `surface-container-high`, 52 px rows (72 px two-line), a `primary-container` selected row, `outline-variant` separators, and the container-query breakpoints for priorities 2–4.
+- [X] T048 [US2] Rewrite `src/ui/Top.tsx` as tables, per `contracts/screens.md` §4.
   - **Toolbar**: `ScreenTabs`, then the period and kind `SegmentedButtons`.
   - **Tables**: the Tracks and Artists columns with the priorities and first sort directions of §4.
   - **Rows**: a track row keeps today's playlists sublist through `expanded` until US3. An artist row opens `#/artist/<key>`.
-- [ ] T049 [US2] Create `src/ui/top/ComparePeriods.tsx` and add a "Compare periods" toggle (large windows only) to `src/ui/Top.tsx`: three narrow ranked columns (4 weeks, 6 months, all time); hovering or focusing an item outlines the same id in the other columns.
+- [X] T049 [US2] Create `src/ui/top/ComparePeriods.tsx` and add a "Compare periods" toggle (large windows only) to `src/ui/Top.tsx`: three narrow ranked columns (4 weeks, 6 months, all time); hovering or focusing an item outlines the same id in the other columns.
 - [ ] T050 [US2] Rewrite `src/ui/Playlist.tsx` per §8.
   - **Header**: the cover at 64 px, the name, and "N tracks · Open in Spotify".
   - **Actions**: Sync this playlist and Like all songs as top-bar actions, with today's labels and disabled rules.
@@ -501,7 +501,17 @@ outside `127.0.0.1`; with the `empty` demo each card shows its explanation and o
   - `docs/architecture/100-features.md`: add row F20, the redesign, linked to the spec; change F4 so it is no longer "Top (default route)";
   - `docs/architecture/800-limits-roadmap.md`: add "Light theme: not built, the owner's choice".
 - [ ] T109 [P] Update `README.md` (the owner's manual: navigation, Overview, tables and sorting, details, search, filters, Compare periods), `CHANGELOG.md`, and `docs/README.md` (list the new pages).
-- [ ] T110 Final gate: run `yarn typecheck && yarn lint && yarn test && yarn build && yarn shots` and check every exit code is 0. Then ask the owner for the OK to merge and push to `main`.
+- [ ] T110 Final gate: run `yarn typecheck && yarn lint && yarn test && yarn build && yarn shots` and check every exit code is 0. The OK to merge is asked after Phase 12.
+
+## Phase 12: Non-regression — every feature still works (owner's request, 2026-11-06)
+
+The redesign changes how things look, never what they do (FR-049). This phase proves it, feature by feature, before the merge.
+
+- [ ] T111 Write `specs/003-web-first-redesign/regression.md`: one row per feature of `docs/architecture/100-features.md` §1 and §3 (the two Spotify writes), plus every old address (`#/top`, `#/playlists`, …) from `contracts/routes.md`. Each row says how to exercise the feature in demo mode, what must happen, and which test covers it (T112, T113, or the owner in T115).
+- [ ] T112 Add an end-to-end regression suite `tools/shots/regression.spec.ts` (dev-only, demo data, every request outside 127.0.0.1 blocked, as in `all.shots.ts`), run by a new script `yarn regression`. One test per row of `regression.md` that the demo can drive. It drives the real UI and asserts results, not looks: every route and old address opens the right screen; sorting and the default order; the details sheet; Crate views and gates (`historySummary.version === 2`); Match; Under the radar (Well known a heading at the bottom, listeners and fans side by side, a missing number never printed as zero); the Mix tracklist; Settings imports with a fixture history file; search and filters; Overview links. For Like all and Create playlist: the buttons exist, are gated by `hasScope`, and no request leaves 127.0.0.1. Every `confirm()` met is captured, and its text must equal the list in how-it-works §14. Zero blocked external requests and zero console errors per test.
+- [ ] T113 Add the static invariant check `tools/shots/invariants.ts` (`yarn invariants`), comparing the branch with `main`. It fails if any of these change: `DB_VERSION`; any `confirm()` text; the external hosts named in `src/`; the dependencies (except the approved Playwright and axe dev ones); a unit test name present on `main` that is now missing (a moved test is listed by its new file). It also runs the ranking, Crate, Match and Under the radar functions of `src/model/` on the demo dataset at `main` (a temporary `git worktree` in the scratchpad) and at `HEAD`, and fails if the JSON outputs differ (FR-049).
+- [ ] T114 Run everything: `yarn typecheck`, `yarn lint`, `yarn test`, `yarn build`, `yarn shots`, `yarn regression` (Chromium, Firefox and WebKit), `yarn invariants`. Fix each regression found (one `fix(scope)` commit each, with a unit or regression test that fails before the fix) and run again until every exit code is 0. Record the results and any fix in `regression.md`.
+- [ ] T115 Write in `regression.md` the short checklist only the owner can run on the real profile: sign-in, a sync, the history import, Like all and Create playlist on the real account, server sync on two devices, Lighthouse (T101). Then ask the owner for the OK to merge and push to `main`.
 
 ---
 

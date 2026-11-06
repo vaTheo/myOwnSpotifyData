@@ -77,6 +77,8 @@ export function layoutChecks(): Finding[] {
         n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim() !== ''
     );
     if (!ownText) continue;
+    // Screen-reader-only text is clipped to 1 px on purpose.
+    if (el.closest('.visually-hidden')) continue;
     const style = getComputedStyle(el);
     if (style.display === 'inline') continue;
     if (style.overflowX === 'auto' || style.overflowX === 'scroll') continue;
