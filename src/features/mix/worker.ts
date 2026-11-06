@@ -1,4 +1,4 @@
-import type { Clue, MixJobView, TracklistRow } from '../../db/schema';
+import type { Clue, MixJobView, MixRun, TracklistRow } from '../../db/schema';
 import type { ServerStatus } from '../../server/types';
 import { validateJobRow, type MixJobRow } from '../../server/validate';
 import { parseTracklistifyJson } from './tracklistify';
@@ -18,6 +18,8 @@ export type WorkerResult =
       rows: TracklistRow[];
       /** Round 003: set-wide clues (empty when none). */
       clues: Clue[];
+      /** T124: what the worker said about its run, absent when nothing. */
+      run?: MixRun;
     }
   | { ok: false; message: string };
 
@@ -176,12 +178,118 @@ export function resultToRows(result: unknown): WorkerResult {
     typeof mixInfo?.artist === 'string' && mixInfo.artist.trim() !== ''
       ? mixInfo.artist.trim()
       : null;
+  const run = toRun(info);
   return {
     ok: true,
     title: parsed.title,
     author: artist,
     rows: mergeWorkerRows([], rows),
     clues: toClues(mixInfo?.clues, SET_CLUES_MAX),
+    ...(run ? { run } : {}),
+  };
+}
+
+/** Caps on the run's worker text (third-party to the app, kept short). */
+export const RUN_TEXT_MAX = 200;
+export const RUN_WARNINGS_MAX = 10;
+
+function count(v: unknown): number | null {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null;
+}
+
+function shortText(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() !== ''
+    ? cut(v.trim(), RUN_TEXT_MAX)
+    : null;
+}
+
+/**
+ * T124 (owner's D3): the run's facts from `mix_info` — the second pass
+ * (`places`, or round 003's `replays`), the resume, the early stop and
+ * the warnings. A malformed part is dropped, never fixed up; undefined
+ * when nothing is left.
+ */
+export function toRun(info: unknown): MixRun | undefined {
+  if (typeof info !== 'object' || info === null) return undefined;
+  const i = info as Record<string, unknown>;
+  const run: MixRun = {};
+  const sp = i.second_pass;
+  if (typeof sp === 'object' && sp !== null) {
+    const s = sp as Record<string, unknown>;
+    const places = count(s.places ?? s.replays);
+    const found = count(s.found);
+    const stopped = s.stopped === null ? null : shortText(s.stopped);
+    if (
+      places !== null &&
+      found !== null &&
+      (s.stopped === null || stopped !== null)
+    ) {
+      run.secondPass = { places, found, stopped };
+    }
+  }
+  const re = i.resumed;
+  if (typeof re === 'object' && re !== null) {
+    const kept = count((re as Record<string, unknown>).probes_kept);
+    if (kept !== null && kept > 0) run.resumed = { probesKept: kept };
+  }
+  const se = i.stopped_early;
+  if (typeof se === 'object' && se !== null) {
+    const s = se as Record<string, unknown>;
+    const at = typeof s.at === 'string' && CLOCK.test(s.at) ? s.at : null;
+    const reason = shortText(s.reason);
+    if (at !== null && reason !== null) run.stoppedEarly = { at, reason };
+  }
+  if (Array.isArray(i.warnings)) {
+    const warnings = i.warnings
+      .map(shortText)
+      .filter((w): w is string => w !== null)
+      .slice(0, RUN_WARNINGS_MAX);
+    if (warnings.length > 0) run.warnings = warnings;
+  }
+  return Object.keys(run).length > 0 ? run : undefined;
+}
+
+/** A worker clock, "01:12:00" (hours may have one digit). */
+export const CLOCK = /^\d{1,2}:\d{2}:\d{2}$/;
+
+/** The worker's warning codes as the owner reads them. */
+const WARNING_TEXT: Record<string, string> = {
+  'refuses often': 'Shazam refuses often: a VPN or a shared network?',
+};
+
+export interface RunLineText {
+  /** "Second pass: 41 places · 3 found · Resumed (120 clips kept)", or null. */
+  line: string | null;
+  /** "Stopped early at 01:12:00 (rate limited)", or null. */
+  stoppedEarly: string | null;
+  /** One sentence per warning. */
+  warnings: string[];
+}
+
+/** T124: the open mix's run line, or null for a mix without a run. */
+export function runLine(run: MixRun | undefined): RunLineText | null {
+  if (!run) return null;
+  const parts: string[] = [];
+  const sp = run.secondPass;
+  if (sp) {
+    parts.push(
+      `Second pass: ${sp.places} ${sp.places === 1 ? 'place' : 'places'} · ${sp.found} found` +
+        (sp.stopped !== null ? ` · stopped (${sp.stopped})` : '')
+    );
+  }
+  if (run.resumed) {
+    parts.push(`Resumed (${run.resumed.probesKept} clips kept)`);
+  }
+  const stoppedEarly = run.stoppedEarly
+    ? `Stopped early at ${run.stoppedEarly.at} (${run.stoppedEarly.reason})`
+    : null;
+  const warnings = (run.warnings ?? []).map((w) => WARNING_TEXT[w] ?? w);
+  if (parts.length === 0 && stoppedEarly === null && warnings.length === 0)
+    return null;
+  return {
+    line: parts.length > 0 ? parts.join(' · ') : null,
+    stoppedEarly,
+    warnings,
   };
 }
 

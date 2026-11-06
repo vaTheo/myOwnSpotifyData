@@ -184,7 +184,48 @@ export function validateMix(row: unknown): Valid<MixRow> {
     if (!cluesOk(t.clues, 30)) return fail('mixes.row.clues');
   }
   if (!cluesOk(row.clues, 200)) return fail('mixes.clues');
+  if (row.run !== undefined && !runOk(row.run)) return fail('mixes.run');
   return { ok: true, row: row as unknown as MixRow };
+}
+
+const RUN_TEXT_MAX = 200;
+const RUN_WARNINGS_MAX = 10;
+
+function count(v: unknown): boolean {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0;
+}
+
+function runText(v: unknown): boolean {
+  return typeof v === 'string' && v.length > 0 && v.length <= RUN_TEXT_MAX;
+}
+
+/** The worker's run (T124): every part optional, each well formed. */
+function runOk(run: unknown): boolean {
+  if (!obj(run)) return false;
+  const { secondPass, resumed, stoppedEarly, warnings } = run;
+  if (secondPass !== undefined) {
+    if (!obj(secondPass)) return false;
+    if (!count(secondPass.places) || !count(secondPass.found)) return false;
+    if (secondPass.stopped !== null && !runText(secondPass.stopped))
+      return false;
+  }
+  if (resumed !== undefined && !(obj(resumed) && count(resumed.probesKept)))
+    return false;
+  if (stoppedEarly !== undefined) {
+    if (!obj(stoppedEarly)) return false;
+    if (
+      typeof stoppedEarly.at !== 'string' ||
+      !/^\d{1,2}:\d{2}:\d{2}$/.test(stoppedEarly.at) ||
+      !runText(stoppedEarly.reason)
+    )
+      return false;
+  }
+  if (warnings !== undefined) {
+    if (!Array.isArray(warnings) || warnings.length > RUN_WARNINGS_MAX)
+      return false;
+    if (!warnings.every(runText)) return false;
+  }
+  return true;
 }
 
 /** The summary a dataset's stamp carries, as the screens' gates expect it. */

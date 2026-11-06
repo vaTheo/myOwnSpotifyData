@@ -620,6 +620,8 @@ function mixWithResult(
       ...(parsed.clues.length > 0
         ? { clues: parsed.clues }
         : { clues: undefined }),
+      // The run describes the last result only: replaced wholesale (T124).
+      run: parsed.run,
       identifyJobId: row.id,
       identifiedAt,
       savedAt: now,
@@ -640,6 +642,7 @@ function mixWithResult(
     },
     rows: parsed.rows,
     ...(parsed.clues.length > 0 ? { clues: parsed.clues } : {}),
+    ...(parsed.run ? { run: parsed.run } : {}),
     identifyJobId: row.id,
     identifiedAt,
     savedAt: now,

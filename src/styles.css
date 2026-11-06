@@ -3016,6 +3016,27 @@ details.mix-clues > summary:focus-visible {
   padding: 0 8px 4px;
 }
 
+/* The open mix's running request and its run line (T124). */
+.mix-open-request,
+.mix-run {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.mix-open-request .mix-item-progress {
+  align-self: stretch;
+  padding: 0 0 4px;
+}
+
+.mix-run-stopped {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+}
+
 .mix-earlier {
   padding: 0 8px 4px;
 }

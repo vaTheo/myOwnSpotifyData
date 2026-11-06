@@ -9,6 +9,7 @@ import {
   progressLine,
   requestStatusText,
   resultToRows,
+  runLine,
 } from './worker';
 
 /** The F15 shape as the worker writes it (data-model.md "Scan result"). */
@@ -672,5 +673,94 @@ describe('progressLine', () => {
   });
   it('is null without progress', () => {
     expect(progressLine(v(null), now)).toBeNull();
+  });
+});
+
+describe('resultToRows — the run (T124, owner D3)', () => {
+  const base = resultFixture() as {
+    mix_info: Record<string, unknown>;
+    tracks: unknown[];
+  };
+  const withInfo = (info: Record<string, unknown>): unknown => ({
+    ...base,
+    mix_info: { ...base.mix_info, ...info },
+  });
+
+  it('keeps the second pass, the resume, the early stop and the warnings', () => {
+    const r = resultToRows(
+      withInfo({
+        second_pass: { places: 41, found: 3, stopped: null },
+        resumed: { probes_kept: 120, from: '00:35:00' },
+        stopped_early: { at: '01:12:00', reason: 'rate limited' },
+        warnings: ['refuses often'],
+      })
+    );
+    expect(r.ok && r.run).toEqual({
+      secondPass: { places: 41, found: 3, stopped: null },
+      resumed: { probesKept: 120 },
+      stoppedEarly: { at: '01:12:00', reason: 'rate limited' },
+      warnings: ['refuses often'],
+    });
+  });
+
+  it('reads `replays` as the places of round 003', () => {
+    const r = resultToRows(
+      withInfo({ second_pass: { replays: 9, found: 1, stopped: 'no answer' } })
+    );
+    expect(r.ok && r.run).toEqual({
+      secondPass: { places: 9, found: 1, stopped: 'no answer' },
+    });
+  });
+
+  it('has no run without those keys, and drops malformed parts', () => {
+    const none = resultToRows(base);
+    expect(none.ok && none.run).toBeUndefined();
+    const bad = resultToRows(
+      withInfo({
+        second_pass: { places: 'many', found: 1, stopped: null },
+        resumed: { probes_kept: -1 },
+        stopped_early: { at: 72, reason: 'rate limited' },
+        warnings: ['refuses often', 3, ''],
+      })
+    );
+    expect(bad.ok && bad.run).toEqual({ warnings: ['refuses often'] });
+    const empty = resultToRows(withInfo({ resumed: null, warnings: [] }));
+    expect(empty.ok && empty.run).toBeUndefined();
+  });
+});
+
+describe('runLine (T124)', () => {
+  it('words the passes, the resume, the early stop and the warnings', () => {
+    expect(
+      runLine({
+        secondPass: { places: 41, found: 3, stopped: null },
+        resumed: { probesKept: 120 },
+        stoppedEarly: { at: '01:12:00', reason: 'rate limited' },
+        warnings: ['refuses often'],
+      })
+    ).toEqual({
+      line: 'Second pass: 41 places · 3 found · Resumed (120 clips kept)',
+      stoppedEarly: 'Stopped early at 01:12:00 (rate limited)',
+      warnings: ['Shazam refuses often: a VPN or a shared network?'],
+    });
+  });
+
+  it('says why a second pass stopped, and keeps an unknown warning as sent', () => {
+    expect(
+      runLine({
+        secondPass: { places: 1, found: 0, stopped: 'rate limited' },
+        warnings: ['disk almost full'],
+      })
+    ).toEqual({
+      line: 'Second pass: 1 place · 0 found · stopped (rate limited)',
+      stoppedEarly: null,
+      warnings: ['disk almost full'],
+    });
+  });
+
+  it('is null for a mix without a run or with an empty one', () => {
+    expect(runLine(undefined)).toBeNull();
+    expect(runLine({})).toBeNull();
+    expect(runLine({ warnings: [] })).toBeNull();
   });
 });

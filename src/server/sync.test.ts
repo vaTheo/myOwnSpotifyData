@@ -1251,6 +1251,45 @@ describe('identify requests (worker round)', () => {
     expect(merged?.sources.worker).toBe(true);
   });
 
+  it('replaces the run wholesale with each result (T124)', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(
+      doneJob({
+        result: {
+          ...RESULT,
+          mix_info: {
+            ...RESULT.mix_info,
+            second_pass: { places: 41, found: 3, stopped: null },
+          },
+        },
+      })
+    );
+    const existing = mix(JOB_URL, 100, 'Kept title');
+    existing.run = {
+      stoppedEarly: { at: '01:12:00', reason: 'by you' },
+      warnings: ['refuses often'],
+    };
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' }, [
+      existing,
+    ]);
+    expect((await runPull(deps(fake, repo).d)).ok).toBe(true);
+    expect(state.mixes.find((m) => m.url === JOB_URL)?.run).toEqual({
+      secondPass: { places: 41, found: 3, stopped: null },
+    });
+  });
+
+  it('a result without a run clears the old one (T124)', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(doneJob());
+    const existing = mix(JOB_URL, 100, 'Kept title');
+    existing.run = { warnings: ['refuses often'] };
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' }, [
+      existing,
+    ]);
+    expect((await runPull(deps(fake, repo).d)).ok).toBe(true);
+    expect(state.mixes.find((m) => m.url === JOB_URL)?.run).toBeUndefined();
+  });
+
   it('a second device skips an applied result and gets the mix through the mixes sync', async () => {
     const fake = seededServer();
     fake.tables.jobs.push(doneJob());
