@@ -14,6 +14,7 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.parse
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
