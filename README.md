@@ -174,7 +174,12 @@ sends the tracklist back (ISRC and label when Shazam knows them) and deletes
 the audio. The next sync shows the rows on the Mix screen, where you review
 them and tap Create playlist from mix as before. The request's state is shown
 under the button (waiting, running on which computer, done, failed with the
-reason) with Ask again.
+reason) with Ask again. The **Requests to your computer** card lists every
+link sent: running first, then waiting in the order the worker takes them, then
+done and failed, each with its state; **Check now** asks the server again, a
+done row opens its saved mix (ready for Create playlist), a failed one has Ask
+again. Every identified set stays under **Saved mixes** (Mix screen, no mix
+open), on this phone and on the server.
 
 Two ways to run it, both in the worker's manual, [`worker/README.md`](worker/README.md):
 

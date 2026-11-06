@@ -14,7 +14,9 @@ the rows on the saved mix; Create playlist from mix is unchanged; the request's 
 the full round under `specs/002-mix-analysis-worker/`, the manual `worker/README.md`). No `DB_VERSION` bump, one new `meta`
 name, no new app dependency. After upgrading: apply `supabase/migrations/0002_jobs.sql`, then `cd worker && uv sync && uv run
 mix-worker login` (the mail's link, clicked on that computer; no email template change: Supabase locks them on new Free projects). A recognition that
-hangs is cut off after 45 s and its probe retried, then skipped, so one slow answer never loses a whole set.
+hangs is cut off after 45 s and its probe retried, then skipped, so one slow answer never loses a whole set. The Mix screen lists every
+request in a **Requests to your computer** card (state, Check now, Ask again, a done row opens its saved mix), and the
+saved list gets its **Saved mixes** heading.
 
 ## 2026-11-06 — A server and database holding the app's data
 
