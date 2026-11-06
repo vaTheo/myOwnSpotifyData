@@ -271,11 +271,30 @@ class Lines(unittest.TestCase):
             pass
 
         run(scan(240, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, clock=lambda: 0.0))
-        self.assertEqual(len(lines), 4)
-        self.assertEqual(lines[0], "  probe 1/4 · 00:00:00 · cut 4 KB 0.00 s · NEW · Gloria Gaynor — I Will Survive · USUR10200634 · Polydor · 100 %")
-        self.assertIn("probe 2/4 · 00:01:00 · cut 4 KB 0.00 s · same track · Gloria Gaynor", lines[1])
-        self.assertEqual(lines[2], "  probe 3/4 · 00:02:00 · cut 4 KB 0.00 s · no match")
+        self.assertEqual(len(lines), 5)
+        self.assertEqual(lines[0], "  probe 1/4 · 00:00:00 · cut 4 KB 0.00 s · shazam 0.0 s · NEW · Gloria Gaynor — I Will Survive · USUR10200634 · Polydor · 100 %")
+        self.assertIn("probe 2/4 · 00:01:00 · cut 4 KB 0.00 s · shazam 0.0 s · same track · Gloria Gaynor", lines[1])
+        self.assertEqual(lines[2], "  probe 3/4 · 00:02:00 · cut 4 KB 0.00 s · shazam 0.0 s · no match")
         self.assertEqual(lines[3], "  probe 4/4 · 00:03:00 · cut 4 KB 0.00 s · skipped (undecodable or silent)")
+        self.assertEqual(lines[4], "  shazam · 3 answers · median 0.0 s · 0 over 5 s (0 %)")
+
+    def test_answer_time_on_each_line_and_in_the_summary(self):
+        # Round 005 follow-up: the clock moves 6.8 s during a slow answer, 1.2 s during a fast one.
+        now = [0.0]
+        answers = [6.8, 1.2, 7.0]
+        lines = []
+
+        async def recognise(data, max_skew):
+            now[0] += answers.pop(0)
+            return NO_MATCH
+
+        async def sleep(s):
+            pass
+
+        run(scan(180, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, clock=lambda: now[0]))
+        self.assertIn("· shazam 6.8 s · no match", lines[0])
+        self.assertIn("· shazam 1.2 s · no match", lines[1])
+        self.assertEqual(lines[-1], "  shazam · 3 answers · median 6.8 s · 2 over 5 s (67 %)")
 
     def test_rate_limit_lines(self):
         responses = [RateLimited(), RateLimited()]
@@ -289,7 +308,7 @@ class Lines(unittest.TestCase):
 
         with self.assertRaises(ScanRefused):
             run(scan(60, step=60, cooldown=3.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, max_pauses=1, clock=lambda: 0.0))
-        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited (1/1) · pausing 300 s, then this probe again at the same pace", "  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited again · giving up after 1 pauses"])
+        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · shazam 0.0 s · rate limited (1/1) · pausing 300 s, then this probe again at the same pace", "  probe 1/1 · 00:00:00 · cut 4 KB 0.00 s · rate limited again · giving up after 1 pauses"])
 
 
 class Device(unittest.TestCase):

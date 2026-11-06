@@ -11,6 +11,9 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.5.1: every probe line says how long Shazam took to answer (`· shazam 6.8 s`), and the scan ends with a summary
+  (`shazam · 712 answers · median 1.1 s · 140 over 5 s (20 %)`). On 2026-11-06 a call took 3 s in some hours and 9 s in others,
+  with the clip cut unchanged: this tells a slow Shazam from our own pace.
 - 0.5.0: each heard track carries its release year. Shazam's year is kept (an invalid one, like "0000", is removed); a track with an ISRC and no year gets the earliest
   year Deezer or MusicBrainz give for that ISRC (`release_date`, with `release_date_from`). These lookups share the
   `WORKER_LOOKUPS` cap with the clues (clues first; 0 turns both off); a catalogue that does not answer leaves the year out,

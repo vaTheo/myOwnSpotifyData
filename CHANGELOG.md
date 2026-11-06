@@ -3,6 +3,12 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-07 — Shazam's answer time in the worker log (worker 0.5.1)
+
+Each probe line of the worker log says how long Shazam took to answer, and each scan ends with the median and the share of answers
+over 5 s. The Kune scan (3 h) ran at about 3.3 s a call in some hours and 9 s in others, with the clip cut unchanged at 0.14 s: the
+extra time was inside the Shazam call. The next sets will show whether slow answers follow the number of calls or the hour.
+
 ## 2026-11-07 — The release year of every song (worker 0.5.0)
 
 Every song list shows the year a song came out, beside BPM and key, with "Sort by year" (oldest first, undated last) and decade
