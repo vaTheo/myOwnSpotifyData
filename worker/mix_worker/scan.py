@@ -371,6 +371,8 @@ async def scan(
             + (f" · stopped early ({second['stopped']}), what was found is kept" if second["stopped"] else "")
         )
 
+    if cut_at is not None and gap_step > 0 and not misses:
+        say("  second pass · every probe found a track · nothing to hear again")
     if hits_out is not None:
         hits_out.extend(hits)
     if report is not None:

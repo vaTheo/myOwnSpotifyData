@@ -26,6 +26,7 @@ from typing import Any
 from .match import artist_matches, normalize, title_matches
 
 TEXT_MAX = 1000
+HEARTBEAT_SECONDS = 15  # a "still reading" line this often, so a slow page never looks stalled
 GAP_CLUES_MAX = 30
 SET_CLUES_MAX = 200
 MARGIN_SECONDS = 30
@@ -268,9 +269,16 @@ def read(
             box["error"] = err
 
     started = time.monotonic()
+    line(f"  clues · reading the description, chapters and comments ({int(timeout)} s at most)")
     worker = threading.Thread(target=work, daemon=True)
     worker.start()
-    worker.join(timeout)
+    while worker.is_alive():
+        left = timeout - (time.monotonic() - started)
+        if left <= 0:
+            break
+        worker.join(min(HEARTBEAT_SECONDS, left))
+        if worker.is_alive() and timeout - (time.monotonic() - started) > 0:
+            line(f"  clues · still reading · {int(time.monotonic() - started)} s")
     if worker.is_alive():
         line(f"  clues · dropped after {int(timeout)} s")
         return None
@@ -475,17 +483,21 @@ class Lookups:
         if not has_link and (clue.line is None or not names_a_track(clue.line)):
             return None
         self.used += 1
+        what = clue.text[:60] if has_link or clue.line is None else f"{clue.line.artist} — {clue.line.title}"
         try:
             if has_link:
                 found, note = self.from_link(clue)
                 if note:
                     clue.text = _cut(f"{clue.text} ({note})")
-                return found
-            assert clue.line is not None
-            return self.confirm(clue.line)
+            else:
+                assert clue.line is not None
+                found = self.confirm(clue.line)
         except Exception as err:  # a catalogue down is never fatal
-            self.say(f"  lookup · {clue.text[:60]!r} · {type(err).__name__}")
+            self.say(f"  lookup {self.used}/{self.budget} · {what} · {type(err).__name__}")
             return None
+        if found is None:
+            self.say(f"  lookup {self.used}/{self.budget} · {what} · not found as written")
+        return found
 
 
 def candidate_track(c: Candidate, clue: Clue, hhmmss: Callable[[int], str]) -> dict[str, Any]:

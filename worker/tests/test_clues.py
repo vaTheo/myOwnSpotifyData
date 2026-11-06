@@ -237,7 +237,7 @@ class Lookup(unittest.TestCase):
         self.assertEqual(len(self.fake.urls), n)
         lk = self.make(FakeCatalogues(fail=True))
         self.assertIsNone(lk.candidate(self.clue("Rrose - onceless")))
-        self.assertTrue(self.lines and "OSError" in self.lines[0])
+        self.assertTrue(any("OSError" in x for x in self.lines))
 
     def test_candidate_track_shape(self):
         lk = self.make()
