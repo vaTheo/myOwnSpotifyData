@@ -7,6 +7,9 @@ import {
   type MixRow,
   type ServerPending,
   type ServerStamps,
+  MIX_JOBS_META,
+  type MixJobs,
+  type MixJobView,
 } from '../db/schema';
 import { ACCOUNT_META, ACCOUNT_MISMATCH_NOTICE } from '../sync/runner';
 import type { ServerClient, ServerResult } from './client';
@@ -25,6 +28,12 @@ import {
 } from './datasets';
 import type { ServerStatus } from './types';
 import { validateMix, validateRow, validateSummary } from './validate';
+import { validateJobRow, type MixJobRow } from './validate';
+import {
+  jobView,
+  mergeWorkerRows,
+  resultToRows,
+} from '../features/mix/worker';
 
 /**
  * The two runners of the server sync (research D5–D7). Both take injected
@@ -535,9 +544,184 @@ export async function runPull(
   const mixes = await pullMixes(deps, token.value, account);
   if (!mixes.ok) return mixes;
   outcome.rejected += mixes.value.rejected;
-  if (mixes.value.changed) outcome.pulled.push('mixes');
+  const jobs = await pullJobs(deps, token.value);
+  if (!jobs.ok) return jobs;
+  outcome.rejected += jobs.value.rejected;
+  if (mixes.value.changed || jobs.value.applied > 0) {
+    outcome.pulled.push('mixes');
+  }
   await deps.repo.putMeta(SERVER_LAST_SYNC_META, deps.now());
   return ok(outcome);
+}
+
+/* ---------- identify requests (worker round, contracts/client-api.md) ---------- */
+
+const JOB_KIND = 'identify-mix';
+const JOB_FIELDS =
+  'id,payload,status,claimed_by,claimed_at,finished_at,error,created_at,applied_at';
+/** Requests kept per link on the Mix screen (FR-003). */
+export const JOB_HISTORY_MAX = 20;
+const UNEXPECTED_JOB_ROW =
+  'The server answered an unexpected request row. Sync and try again.';
+
+/**
+ * The "Identify on my computer" tap: one open request per link (FR-004),
+ * else one insert. Never a Spotify call, never a fetch of the platform.
+ */
+export async function requestIdentify(
+  client: ServerClient,
+  token: string,
+  url: string
+): Promise<ServerResult<MixJobView | 'exists'>> {
+  const open = await client.select<{ id: string }>(
+    'jobs',
+    {
+      select: 'id',
+      kind: `eq.${JOB_KIND}`,
+      'payload->>url': `eq.${url}`,
+      status: 'in.(queued,claimed)',
+    },
+    token
+  );
+  if (!open.ok) return open;
+  if (open.value.rows.length > 0) return ok('exists');
+  const created = await client.insert<unknown>(
+    'jobs',
+    { kind: JOB_KIND, payload: { url } },
+    token
+  );
+  if (!created.ok) return created;
+  const view = jobView(created.value);
+  if (view === null) return { ok: false, kind: 'error', message: UNEXPECTED_JOB_ROW };
+  return ok(view);
+}
+
+/** The saved mix a result lands on: merged into the local one, or new. */
+function mixWithResult(
+  local: MixRow | undefined,
+  url: string,
+  row: MixJobRow,
+  parsed: Extract<ReturnType<typeof resultToRows>, { ok: true }>,
+  now: number
+): MixRow {
+  const identifiedAt =
+    row.finished_at !== null ? Date.parse(row.finished_at) : now;
+  if (local) {
+    return {
+      ...local,
+      title: local.title ?? parsed.title,
+      author: local.author ?? parsed.author,
+      sources: { ...local.sources, worker: true },
+      rows: mergeWorkerRows(local.rows, parsed.rows),
+      identifyJobId: row.id,
+      identifiedAt,
+      savedAt: now,
+    };
+  }
+  return {
+    url,
+    title: parsed.title,
+    author: parsed.author,
+    playerSrc: null,
+    slug: null,
+    sources: {
+      trackid: false,
+      description: false,
+      pasted: false,
+      linkOut: null,
+      worker: true,
+    },
+    rows: parsed.rows,
+    identifyJobId: row.id,
+    identifiedAt,
+    savedAt: now,
+  };
+}
+
+/**
+ * The request history per link (validated, newest first, capped) and the
+ * apply of every done, unapplied result, oldest first: the rows join the
+ * saved mix, the next push carries it, and `applied_at` is set with an
+ * `is.null` guard so a second device skips it (data-model.md). A result the
+ * safety check refuses is counted, flagged `rejected` locally, never marked.
+ */
+async function pullJobs(
+  deps: SyncDeps,
+  token: string
+): Promise<ServerResult<{ rejected: number; applied: number }>> {
+  const rows: MixJobRow[] = [];
+  let rejected = 0;
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const page = await deps.client.select<unknown>(
+      'jobs',
+      { select: JOB_FIELDS, kind: `eq.${JOB_KIND}`, order: 'created_at.desc' },
+      token,
+      [from, from + PAGE_SIZE - 1]
+    );
+    if (!page.ok) return page;
+    for (const raw of page.value.rows) {
+      const valid = validateJobRow(raw);
+      if (valid === null) rejected++;
+      else rows.push(valid);
+    }
+    if (page.value.rows.length < PAGE_SIZE) break;
+  }
+  const previous = (await deps.repo.getMeta<MixJobs>(MIX_JOBS_META)) ?? {};
+  const wasRejected = new Set(
+    Object.values(previous)
+      .flat()
+      .filter((v) => v.rejected)
+      .map((v) => v.id)
+  );
+  const jobs: MixJobs = {};
+  const views = new Map<string, MixJobView>();
+  for (const row of rows) {
+    const list = (jobs[row.payload.url] ??= []);
+    if (list.length >= JOB_HISTORY_MAX) continue;
+    const view = jobView(row);
+    if (view === null) continue;
+    if (wasRejected.has(view.id)) view.rejected = true;
+    list.push(view);
+    views.set(view.id, view);
+  }
+  let applied = 0;
+  const pending = rows
+    .filter((r) => r.status === 'done' && r.applied_at === null)
+    .reverse();
+  for (const row of pending) {
+    const view = views.get(row.id);
+    const res = await deps.client.select<{ result: unknown }>(
+      'jobs',
+      { select: 'result', id: `eq.${row.id}` },
+      token
+    );
+    if (!res.ok) return res;
+    const parsed = resultToRows(res.value.rows[0]?.result);
+    if (!parsed.ok) {
+      rejected++;
+      if (view) view.rejected = true;
+      continue;
+    }
+    const url = row.payload.url;
+    const local = (await deps.repo.getMixes()).find((m) => m.url === url);
+    const now = deps.now();
+    await deps.repo.putMix(mixWithResult(local, url, row, parsed, now));
+    const flags =
+      (await deps.repo.getMeta<ServerPending>(SERVER_PENDING_META)) ?? {};
+    flags.mixes = true;
+    await deps.repo.putMeta(SERVER_PENDING_META, flags);
+    const marked = await deps.client.update<unknown>(
+      'jobs',
+      { id: `eq.${row.id}`, applied_at: 'is.null' },
+      { applied_at: new Date(now).toISOString() },
+      token
+    );
+    if (!marked.ok) return marked;
+    if (view && marked.value.length > 0) view.appliedAt = now;
+    applied++;
+  }
+  await deps.repo.putMeta(MIX_JOBS_META, jobs);
+  return ok({ rejected, applied });
 }
 
 /** The four tables, children first; a filter every visible row matches. */
@@ -547,6 +731,7 @@ const SERVER_METAS = [
   SERVER_PENDING_META,
   SERVER_LAST_SYNC_META,
   MIX_DELETED_META,
+  MIX_JOBS_META,
 ] as const;
 
 /**

@@ -178,6 +178,50 @@ describe('data calls', () => {
     ]);
   });
 
+  it('insert posts one row with return=representation and returns it (worker round)', async () => {
+    const { c, fetchFn } = client(() =>
+      json([{ id: 'u1', kind: 'identify-mix' }], 201)
+    );
+    const res = await c.insert<{ id: string }>(
+      'jobs',
+      { kind: 'identify-mix', payload: { url: 'https://x.y/z' } },
+      'tok'
+    );
+    expect(res).toEqual({ ok: true, value: { id: 'u1', kind: 'identify-mix' } });
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe(`${BASE}/rest/v1/jobs`);
+    expect(init?.method).toBe('POST');
+    expect(headersOf(init).prefer).toBe('return=representation');
+    expect(JSON.parse(init?.body as string)).toEqual({
+      kind: 'identify-mix',
+      payload: { url: 'https://x.y/z' },
+    });
+  });
+
+  it('insert answered with no row is an error', async () => {
+    const { c } = client(() => json([], 201));
+    const res = await c.insert('jobs', { kind: 'x' }, 'tok');
+    expect(res.ok).toBe(false);
+  });
+
+  it('update sends PATCH with the filters and returns the changed rows (worker round)', async () => {
+    const { c, fetchFn } = client(() => json([{ id: 'u1' }], 200));
+    const res = await c.update<{ id: string }>(
+      'jobs',
+      { id: 'eq.u1', applied_at: 'is.null' },
+      { applied_at: '2026-11-06T10:00:00.000Z' },
+      'tok'
+    );
+    expect(res).toEqual({ ok: true, value: [{ id: 'u1' }] });
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe(`${BASE}/rest/v1/jobs?id=eq.u1&applied_at=is.null`);
+    expect(init?.method).toBe('PATCH');
+    expect(headersOf(init).prefer).toBe('return=representation');
+    expect(JSON.parse(init?.body as string)).toEqual({
+      applied_at: '2026-11-06T10:00:00.000Z',
+    });
+  });
+
   it('select sends the filters, the Range header, and parses Content-Range', async () => {
     const { c, fetchFn } = client(() =>
       json([{ key: 'a' }], 206, { 'Content-Range': '0-0/1234' })
