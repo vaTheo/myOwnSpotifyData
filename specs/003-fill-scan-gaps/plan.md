@@ -9,7 +9,8 @@
 After the worker's first pass (12 s every 15 s, worker 0.2.0), the parts of the set without a hit become gaps. The worker
 replays one unmatched probe out of two at +4 % and −4 % speed alternately (the owner's rule), reads the set's description,
 chapters and timed comments through the yt-dlp it already ships, attaches the clues to the gaps they fall in, and turns a
-clue that reads as one `Artist – Title` into a candidate row when Deezer's keyless search holds exactly that artist and title.
+clue that reads as one `Artist – Title` into a candidate row when Deezer's or MusicBrainz's keyless search holds exactly that
+artist and title (a Discogs or Deezer link is read by its id).
 The result keeps the F15 shape with optional additions; the app shows replays, candidates ("from a comment") and the clues on
 gap rows, and Create playlist includes the candidates. A refused second pass keeps what was found. Worker 0.3.0.
 
@@ -18,7 +19,7 @@ gap rows, and Create playlist includes the candidates. A refused second pass kee
 **Language/Version**: worker Python 3.11–3.13 (`uv`); app TypeScript ~6.0.3, Preact. Unchanged.
 
 **Primary Dependencies**: none new. yt-dlp (`getcomments`, `description`, `chapters`), the packaged ffmpeg (`asetrate` for the
-speed correction), the standard library's `urllib` for Deezer (R5).
+speed correction), the standard library's `urllib` for Deezer, MusicBrainz and Discogs (R5, R8).
 
 **Storage**: the result JSON on the server (`jobs.result`, existing) and on the owner's computer; the app's `mixes` store gains
 optional fields (no `DB_VERSION` bump); the server's `mixes` rows carry them (validated on pull).
