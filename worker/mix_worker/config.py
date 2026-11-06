@@ -56,7 +56,7 @@ class Settings:
     clue_seconds: int = 90
     lookups: int = 100
     break_every_calls: int = 80
-    break_seconds: float = 180.0
+    break_seconds: float = 120.0
 
 
 def template_text() -> str:
@@ -241,5 +241,5 @@ def load_settings(
         clue_seconds=_int(values, "WORKER_CLUE_SECONDS", 90, 5),
         lookups=_int(values, "WORKER_LOOKUPS", 100, 0),
         break_every_calls=_int(values, "WORKER_BREAK_EVERY_CALLS", 80, 0),
-        break_seconds=_float(values, "WORKER_BREAK_SECONDS", 180.0, 0.0),
+        break_seconds=_float(values, "WORKER_BREAK_SECONDS", 120.0, 0.0),
     )

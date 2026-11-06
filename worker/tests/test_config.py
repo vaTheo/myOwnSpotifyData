@@ -54,6 +54,7 @@ class Defaults(unittest.TestCase):
         self.assertTrue(s.clues)
         self.assertEqual(s.clue_seconds, 90)
         self.assertEqual(s.lookups, 100)
+        self.assertEqual((s.break_every_calls, s.break_seconds), (80, 120.0))
         self.assertEqual(s.result_max_bytes, 900000)
 
     def test_windows_paths(self):

@@ -143,7 +143,7 @@ Only the first two are required.
 | `WORKER_MERGE_GAP_SECONDS` | 180 | the same track heard again within this gap stays one row |
 | `WORKER_RESULT_MAX_BYTES` | 900000 | larger results fail with "Result too large"; clues are left out first to fit |
 | `WORKER_BREAK_EVERY_CALLS` | 80 | a planned break after this many recognition calls, before Shazam refuses; 0 = none |
-| `WORKER_BREAK_SECONDS` | 180 | that break's length, exactly |
+| `WORKER_BREAK_SECONDS` | 120 | that break's length, exactly |
 | `WORKER_SECOND_PASS_STEP_SECONDS` | 30 | one place heard again every N seconds of a part without a track; 0 = no second pass |
 | `WORKER_SECOND_PASS_OFFSET_SECONDS` | 7 | that place is this far after the probe that found nothing |
 | `WORKER_SECOND_PASS_SPEEDS` | 0.96,1.04 | speeds tried after normal speed, in order; empty = normal only |
@@ -167,7 +167,7 @@ Only the first two are required.
 - **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address four times before any track was
   found; wait, or raise `WORKER_COOLDOWN_SECONDS`. Once something was found, a refusal no longer fails the request: it is
   **done** with "Stopped early at 47:00 (rate limited); ask again later for the rest".
-- **How the worker waits** (every wait ± 40 %, except the planned break): 3 s between calls; an exact 3-minute break every 80 calls; after a refusal a 5, 10,
+- **How the worker waits** (every wait ± 40 %, except the planned break): 3 s between calls; an exact 2-minute break every 80 calls; after a refusal a 5, 10,
   then 15-minute pause and twice the gap between calls, halved again after every 40 calls without refusal; a call without
   answer (45 s, or a Shazam server error) tried again after 10 s then 20 s; a send to your server tried again after 30 s,
   1 min and 2 min; Deezer or MusicBrainz busy, after 2 s then 4 s. The Shazam library itself never retries silently. The count toward the planned break runs across sets while the worker
