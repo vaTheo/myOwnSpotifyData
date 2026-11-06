@@ -9,17 +9,22 @@ export const CRATE_VIEWS = [
 
 export type CrateView = (typeof CRATE_VIEWS)[number];
 
+/**
+ * `detail` is the track whose details sheet is open over a list (spec 003,
+ * contracts/routes.md): `?d=<id>` in the address, so a selection can be
+ * bookmarked and closed with back. `key` on `mix` is an open saved mix.
+ */
 export type Route =
-  | { name: 'top' }
+  | { name: 'top'; detail?: string }
   | { name: 'playlists' }
-  | { name: 'playlist'; id: string }
+  | { name: 'playlist'; id: string; detail?: string }
   | { name: 'artists' }
-  | { name: 'artist'; key: string }
+  | { name: 'artist'; key: string; detail?: string }
   | { name: 'import' }
   | { name: 'settings' }
-  | { name: 'mix' }
+  | { name: 'mix'; key?: string }
   | { name: 'crate' }
-  | { name: 'crateView'; view: CrateView; period?: string };
+  | { name: 'crateView'; view: CrateView; period?: string; detail?: string };
 
 /** decodeURIComponent throws on a malformed escape; keep the raw segment. */
 function decodeSegment(segment: string): string {
@@ -35,7 +40,25 @@ function isCrateView(value: string): value is CrateView {
 }
 
 export function parseRoute(hash: string): Route {
-  const path = hash.replace(/^#\/?/, '');
+  const raw = hash.replace(/^#\/?/, '');
+  const at = raw.indexOf('?');
+  const route = parsePath(at === -1 ? raw : raw.slice(0, at));
+  if (at === -1) return route;
+  const detail = new URLSearchParams(raw.slice(at + 1)).get('d');
+  if (!detail) return route;
+  switch (route.name) {
+    case 'top':
+    case 'playlist':
+    case 'artist':
+    case 'crateView':
+      return { ...route, detail };
+    default:
+      return route;
+  }
+}
+
+/** The path, without its `?d=` part; the detail parses on its own. */
+function parsePath(path: string): Route {
   const [head, ...rest] = path.split('/');
   const tail = rest.join('/');
   switch (head) {
@@ -66,24 +89,72 @@ export function parseRoute(hash: string): Route {
     case 'settings':
       return { name: 'settings' };
     case 'mix':
-      return { name: 'mix' };
+      return tail ? { name: 'mix', key: decodeSegment(tail) } : { name: 'mix' };
     default:
       return { name: 'top' };
   }
 }
 
+function withDetail(href: string, detail: string | undefined): string {
+  return detail ? `${href}?d=${encodeURIComponent(detail)}` : href;
+}
+
 export function routeHref(route: Route): string {
   switch (route.name) {
+    case 'top':
+      return withDetail('#/top', route.detail);
     case 'playlist':
-      return `#/playlist/${encodeURIComponent(route.id)}`;
+      return withDetail(
+        `#/playlist/${encodeURIComponent(route.id)}`,
+        route.detail
+      );
     case 'artist':
-      return `#/artist/${encodeURIComponent(route.key)}`;
+      return withDetail(
+        `#/artist/${encodeURIComponent(route.key)}`,
+        route.detail
+      );
     case 'crateView':
-      return route.period
-        ? `#/crate/${route.view}/${encodeURIComponent(route.period)}`
-        : `#/crate/${route.view}`;
+      return withDetail(
+        route.period
+          ? `#/crate/${route.view}/${encodeURIComponent(route.period)}`
+          : `#/crate/${route.view}`,
+        route.detail
+      );
+    case 'mix':
+      return route.key ? `#/mix/${encodeURIComponent(route.key)}` : '#/mix';
     default:
       return `#/${route.name}`;
+  }
+}
+
+/** The five places of the navigation (contracts/routes.md, Destinations). */
+export type Destination =
+  'overview' | 'listening' | 'library' | 'mix' | 'settings';
+
+export type DestinationTab = 'top' | 'crate' | 'playlists' | 'artists';
+
+/** Where a route sits in the navigation, and the tab it opens there. */
+export function destinationOf(route: Route): {
+  destination: Destination;
+  tab?: DestinationTab;
+} {
+  switch (route.name) {
+    case 'top':
+      return { destination: 'listening', tab: 'top' };
+    case 'crate':
+    case 'crateView':
+      return { destination: 'listening', tab: 'crate' };
+    case 'playlists':
+    case 'playlist':
+      return { destination: 'library', tab: 'playlists' };
+    case 'artists':
+    case 'artist':
+      return { destination: 'library', tab: 'artists' };
+    case 'mix':
+      return { destination: 'mix' };
+    case 'settings':
+    case 'import':
+      return { destination: 'settings' };
   }
 }
 

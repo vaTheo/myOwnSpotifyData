@@ -184,17 +184,13 @@ export function OpenMonthLink(p: { month: string }) {
   );
 }
 
-/** The `‹ Crate` link and the title of spec §3, before any data check. */
-export function CrateShell(p: { title: string; children?: ComponentChildren }) {
-  return (
-    <section>
-      <a class="back" href={routeHref({ name: 'crate' })}>
-        ‹ Crate
-      </a>
-      <h1>{p.title}</h1>
-      {p.children}
-    </section>
-  );
+/**
+ * A Crate view's section. Its title and the way back to the hub are the top
+ * bar's (spec 003, FR-004: the title and the up arrow come from
+ * `layout/titles.ts`), drawn before any data check as before.
+ */
+export function CrateShell(p: { children?: ComponentChildren }) {
+  return <section>{p.children}</section>;
 }
 
 /** List footer: spec §3 renders PAGE_SIZE rows, then grows on demand. */

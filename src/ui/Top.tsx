@@ -25,7 +25,6 @@ export function Top() {
   if (!m || m.topItems.size === 0) return <Empty what="top lists" />;
   return (
     <section>
-      <h1>Most played</h1>
       <SegmentedButtons
         options={PERIOD_OPTIONS}
         value={period.value}

@@ -476,7 +476,6 @@ export function Settings() {
   const working = jobsBusy();
   return (
     <section>
-      <h1>Settings</h1>
       <div class="card">
         <h2>Spotify sync</h2>
         <p>

@@ -160,37 +160,37 @@ uses the width (FR-001–FR-008, FR-027, FR-028, FR-041).
 **Independent Test**: every screen at 1440, 1024, 768 and 390 px: navigation visible and usable, no sideways scroll, every
 F1–F19 feature still reachable; old addresses open the same screen.
 
-- [ ] T028 [P] [US1] Extend `src/router.test.ts` (failing first):
+- [X] T028 [P] [US1] Extend `src/router.test.ts` (failing first):
   - `?d=<id>` parses into `detail` on `top`, `crateView`, `playlist` and `artist`, and is dropped on the other routes;
   - `#/mix/<key>` round-trips through `routeHref` with `encodeURIComponent`;
   - `destinationOf(route)` gives the destination and tab of the table in `contracts/routes.md` for every route;
   - the empty and unknown addresses still give `top`. This changes to `overview` in T097.
-- [ ] T029 [US1] Implement in `src/router.ts`: the `Route` type of data-model §1 (without `overview` yet), parsing `?d=` into `detail`, `{ name: 'mix', key? }`, `routeHref` writing `?d=`, and `destinationOf`. `parseRoute` stays total. Make T028 pass.
-- [ ] T030 [P] [US1] Write the failing test `src/ui/jobs.test.ts` from the data-model §7 table:
+- [X] T029 [US1] Implement in `src/router.ts`: the `Route` type of data-model §1 (without `overview` yet), parsing `?d=` into `detail`, `{ name: 'mix', key? }`, `routeHref` writing `?d=`, and `destinationOf`. `parseRoute` stays total. Make T028 pass.
+- [X] T030 [P] [US1] Write the failing test `src/ui/jobs.test.ts` from the data-model §7 table:
   - each running state yields one `ActiveJob` with that label and `href`;
   - `idle`, `done`, `error` and `cancelled` yield none;
   - `done` and `total` are copied when the state has them.
-- [ ] T031 [P] [US1] Implement `activeJobs(states)` in `src/ui/jobs.ts`. Make T030 pass.
-- [ ] T032 [P] [US1] Write the failing test `src/ui/layout/titles.test.ts` for `screenTitle(route, model)`:
+- [X] T031 [P] [US1] Implement `activeJobs(states)` in `src/ui/jobs.ts`. Make T030 pass.
+- [X] T032 [P] [US1] Write the failing test `src/ui/layout/titles.test.ts` for `screenTitle(route, model)`:
   - "Top", "Crate", the Crate view's title (from `TITLE` in `src/ui/crate/CrateView.tsx`), the playlist's name, the artist's name, "Mix", "Settings" and "Import listening history";
   - `hasBack` is true for `playlist`, `artist`, `crateView` and `import`.
 
   Then implement it in `src/ui/layout/titles.ts`.
-- [ ] T033 [US1] Create `src/ui/layout/Nav.tsx`, per the Destinations table of `contracts/routes.md`:
+- [X] T033 [US1] Create `src/ui/layout/Nav.tsx`, per the Destinations table of `contracts/routes.md`:
   - `NavRail`: medium and expanded, 80 px, icon over label; large, the expanded rail at 220 px, labels beside icons; Settings at the foot;
   - `NavBar`: compact, 80 px, labels always shown;
   - Listening, Library, Mix and Settings for now (Overview joins in T097);
   - the active indicator is a `primary-container` pill with the filled icon;
   - links go to `lastRouteIn[destination]`, a session signal updated on every route change, falling back to `#/top`, `#/playlists`, `#/mix` and `#/settings`;
   - `<nav aria-label="Main">`.
-- [ ] T034 [P] [US1] Create `src/ui/layout/TopBar.tsx`: 64 px; the title from `screenTitle` (`headline-small` on large, `title-large` elsewhere); a back `IconButton` when `hasBack`; an `actions` slot; a `search` slot (empty until US7); the activity slot.
-- [ ] T035 [P] [US1] Create `src/ui/layout/ScreenTabs.tsx`: primary tabs Top · Crate for Listening and Playlists · Artists for Library, as links via `routeHref`, with `role="tablist"` and `aria-selected`.
-- [ ] T036 [P] [US1] Create `src/ui/ActivityButton.tsx`:
+- [X] T034 [P] [US1] Create `src/ui/layout/TopBar.tsx`: 64 px; the title from `screenTitle` (`headline-small` on large, `title-large` elsewhere); a back `IconButton` when `hasBack`; an `actions` slot; a `search` slot (empty until US7); the activity slot.
+- [X] T035 [P] [US1] Create `src/ui/layout/ScreenTabs.tsx`: primary tabs Top · Crate for Listening and Playlists · Artists for Library, as links via `routeHref`, with `role="tablist"` and `aria-selected`.
+- [X] T036 [P] [US1] Create `src/ui/ActivityButton.tsx`:
   - hidden when `activeJobs()` is empty;
   - otherwise an `IconButton` labelled "Running jobs", with circular progress when a total is known and indeterminate otherwise;
   - its menu lists each job with a `ProgressBar` and a link to `href`;
   - it never starts, stops or retries a job (FR-007).
-- [ ] T037 [US1] Create `src/ui/layout/AppFrame.tsx` and rewrite `App` in `src/app.tsx` to use it:
+- [X] T037 [US1] Create `src/ui/layout/AppFrame.tsx` and rewrite `App` in `src/app.tsx` to use it:
   - landmarks: `nav`, `header` (the top bar), `main`, and `aside` for the sheet slot;
   - the navigation component chosen by `windowClass`;
   - the `Banner` under the top bar, with the `visibleBanner` rules unchanged;
@@ -198,13 +198,13 @@ F1–F19 feature still reachable; old addresses open the same screen.
   - while `bootPhase === 'loading'`, the frame shows with a `ProgressBar` and "Loading your library…" in `main` (FR-028);
   - `Connect` and "Signing you in…" stay outside the frame;
   - remove each screen's own `h1` in favour of the top bar title, keeping one `h1` per page for the heading structure (FR-044).
-- [ ] T038 [US1] Rewrite the frame part of `src/styles.css`: the rail, the bar, the top bar, the content grid and the size-class media queries at 600, 840 and 1200; remove `.tabs` and the `.screen` 720 px `max-width`; cap prose blocks at `max-width: 80ch` (FR-005).
-- [ ] T039 [US1] Redo the Connect screen in `src/ui/Connect.tsx` per `contracts/screens.md` §2:
+- [X] T038 [US1] Rewrite the frame part of `src/styles.css`: the rail, the bar, the top bar, the content grid and the size-class media queries at 600, 840 and 1200; remove `.tabs` and the `.screen` 720 px `max-width`; cap prose blocks at `max-width: 80ch` (FR-005).
+- [X] T039 [US1] Redo the Connect screen in `src/ui/Connect.tsx` per `contracts/screens.md` §2:
   - a centred card, 480 px at most, with the name and a one-line purpose;
   - a short list of what the app reads;
   - a `<details>` "What leaves this browser" holding today's paragraph word for word;
   - the error as a `StatusLine`, and one filled "Connect Spotify" button.
-- [ ] T040 [US1] Run the visual loop on every page: navigation inside the viewport and no sideways scroll at all four widths. Look at every screenshot and fix. The owner approves the frame at 1440 and 390. Commit as `feat(ui): navigation rail and bar, top bar, activity button (web-first frame)`.
+- [X] T040 [US1] Run the visual loop on every page: navigation inside the viewport and no sideways scroll at all four widths. Look at every screenshot and fix. The owner approves the frame at 1440 and 390. Commit as `feat(ui): navigation rail and bar, top bar, activity button (web-first frame)`.
 
 **Checkpoint**: the app is web-first; every old address works; MVP can be shown.
 

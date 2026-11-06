@@ -23,7 +23,6 @@ export function Playlists() {
     : m.playlists;
   return (
     <section>
-      <h1>Playlists</h1>
       <Filter
         value={filter.value}
         onInput={(v) => {

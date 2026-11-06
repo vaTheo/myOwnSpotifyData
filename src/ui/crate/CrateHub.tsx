@@ -149,7 +149,6 @@ export function CrateHub() {
   if (status !== 'ready' || !m) {
     return (
       <section>
-        <h1>Crate</h1>
         {summary && <Provenance summary={summary} />}
         <CrateEmpty status={status === 'reimport' ? 'reimport' : 'empty'} />
       </section>
@@ -157,7 +156,6 @@ export function CrateHub() {
   }
   return (
     <section>
-      <h1>Crate</h1>
       {summary && <Provenance summary={summary} />}
       {hubRows(rows, new Date()).map((row) => (
         <button

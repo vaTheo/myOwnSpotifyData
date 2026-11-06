@@ -144,7 +144,6 @@ export function Artist({ artistKey }: { artistKey: string }) {
   const tracks = agg ? artistTracks(m, artistKey) : [];
   return (
     <section>
-      <h1>{name}</h1>
       <p class="muted">
         {plural(tracks.length, 'saved track')} in{' '}
         {plural(agg?.playlistIds.size ?? 0, 'playlist')}

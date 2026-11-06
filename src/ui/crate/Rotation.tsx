@@ -127,9 +127,7 @@ export function Rotation() {
                   rank={i + 1}
                   row={item.row}
                   badge1={
-                    <Flag kind="plays">
-                      {plural(item.windowPlays, 'play')}
-                    </Flag>
+                    <Flag kind="plays">{plural(item.windowPlays, 'play')}</Flag>
                   }
                   badge2={
                     item.isNew ? (

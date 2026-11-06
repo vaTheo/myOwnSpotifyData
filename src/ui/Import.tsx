@@ -83,7 +83,6 @@ export function Import() {
   };
   return (
     <section>
-      <h1>Import listening history</h1>
       {/* Once an import exists the screen leads with it, and the five steps
           fold away: they are read once and scrolled past every time after. */}
       {summary ? (
