@@ -86,7 +86,9 @@ async function boot(): Promise<void> {
     enabled: serverAutoSyncEnabled,
     hasActiveRequest,
     sync: startServerSync,
-    pull: startServerPull,
+    pull: async () => {
+      await startServerPull();
+    },
   });
 }
 

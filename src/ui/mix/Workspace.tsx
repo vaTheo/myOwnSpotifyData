@@ -10,6 +10,8 @@ import {
 import { routeHref } from '../../router';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
+import { StatusLine } from '../components/StatusLine';
+import { Icon } from '../icons';
 import { ESCAPE_RANK, pushEscapeLayer } from '../layout/escape';
 import { focusWhenReady } from '../layout/focus';
 import { ListDetail } from '../layout/ListDetail';
@@ -28,6 +30,19 @@ import {
 
 /** From this width the Mixes pane stays beside an open mix (styles.css). */
 const PANE_ALWAYS = '(min-width: 1600px)';
+
+/** Whether a media query matches now, following its changes. */
+function useMedia(query: string): boolean {
+  const [matches, setMatches] = useState(() => matchMedia(query).matches);
+  useEffect(() => {
+    const list = matchMedia(query);
+    const on = () => setMatches(list.matches);
+    on();
+    list.addEventListener('change', on);
+    return () => list.removeEventListener('change', on);
+  }, [query]);
+  return matches;
+}
 
 function currentOpenUrl(): string | null {
   const s = mixState.peek();
@@ -152,6 +167,12 @@ export function Workspace(p: { mixKey?: string }) {
       focusWhenReady('.mix-pane-toggle', false);
     }, ESCAPE_RANK.fold);
   }, [paneShown, open, stacked]);
+  // `mixError` has one place on screen (review F1): the Mixes list header,
+  // or, while the pane is folded over an open mix (840–1,599 px), the open
+  // mix's header, with an error mark on the Mixes button.
+  const paneAlways = useMedia(PANE_ALWAYS);
+  const folded = !stacked && open !== null && !paneShown && !paneAlways;
+  const error = mixError.value;
   const paneButton = stacked ? undefined : (
     <Button
       variant="text"
@@ -162,6 +183,14 @@ export function Workspace(p: { mixKey?: string }) {
       onClick={() => setPaneShown(!paneShown)}
     >
       Mixes
+      {error !== null && (
+        <>
+          <span class="mix-pane-alert" aria-hidden="true">
+            <Icon name="error" size={18} />
+          </span>
+          <span class="visually-hidden"> (has an error)</span>
+        </>
+      )}
     </Button>
   );
   const detail =
@@ -171,6 +200,11 @@ export function Workspace(p: { mixKey?: string }) {
         onClose={close}
         stacked={stacked}
         paneButton={paneButton}
+        error={
+          folded && error !== null ? (
+            <StatusLine kind="error">{error}</StatusLine>
+          ) : undefined
+        }
       />
     ) : missing !== null && missing === key && !readFailed ? (
       <EmptyState

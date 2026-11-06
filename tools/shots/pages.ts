@@ -333,6 +333,21 @@ export const PAGES: ShotPage[] = [
     },
   },
   {
+    // A failure while the pane is folded over an open mix (review F1): the
+    // error line under the mix's header and the mark on the Mixes button;
+    // on phones it shows in the Mixes list.
+    id: 'mix-error-folded',
+    hash: `#/mix/${enc('https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour')}`,
+    setup: async (page) => {
+      await page.getByRole('grid', { name: 'Tracklist' }).waitFor();
+      await setState(
+        page,
+        'mixError',
+        'Could not read your requests: the server did not answer'
+      );
+    },
+  },
+  {
     // A row in edit: four text fields, Save and Cancel.
     id: 'mix-edit',
     hash: `#/mix/${enc('https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour')}`,

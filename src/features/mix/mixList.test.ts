@@ -220,6 +220,17 @@ describe('mixListItems — chips', () => {
     expect(item.line).toMatch(/^Done /);
   });
 
+  it('a saved mix with a done result not applied yet shows Found (review F4)', () => {
+    const fresh = view({
+      status: 'done',
+      finishedAt: NOW - MIN,
+      appliedAt: null,
+    });
+    const [item] = one({ a: [fresh] }, [mix('a')]);
+    expect(item.chip).toEqual({ kind: 'found', text: 'Found tracks' });
+    expect(item.saved).toBe(true);
+  });
+
   it('a saved mix with a running request shows the request', () => {
     const [item] = one(
       {

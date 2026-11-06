@@ -375,7 +375,7 @@ function keyOf(index: number, editing: number | null): string {
  * new row is paged in and focused) and Save mix ("Saved ✓" for 2 s; a
  * failure shows `mixError` beside the button, never the tick).
  */
-export function TracklistTable() {
+export function TracklistTable(p: { showSaveError?: boolean } = {}) {
   const rows = mixRows.value;
   const m = model.value;
   const index = m ? libraryTitleIndex(m) : null;
@@ -482,7 +482,9 @@ export function TracklistTable() {
           {saved ? 'Saved ✓' : 'Save mix'}
         </Button>
       </div>
-      {saveError !== null && <StatusLine kind="error">{saveError}</StatusLine>}
+      {saveError !== null && p.showSaveError !== false && (
+        <StatusLine kind="error">{saveError}</StatusLine>
+      )}
     </div>
   );
 }

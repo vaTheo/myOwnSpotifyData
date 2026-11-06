@@ -219,6 +219,8 @@ export function MixDetail(p: {
   stacked?: boolean;
   /** Brings back the folded Mixes pane (wide windows under 1,600 px). */
   paneButton?: ComponentChildren;
+  /** `mixError` while the Mixes pane is folded (review F1), under the header. */
+  error?: ComponentChildren;
 }) {
   const { view } = p;
   const real = !p.stacked && view.url.startsWith('https://');
@@ -236,6 +238,7 @@ export function MixDetail(p: {
         {p.paneButton}
         <IconButton icon="close" label="Close this mix" onClick={p.onClose} />
       </header>
+      {p.error}
       <Provenance view={view} />
       {(real || showReplace) && (
         <div class="mix-head-actions">
@@ -254,7 +257,8 @@ export function MixDetail(p: {
       {p.aside}
       <SetWideClues clues={clues} />
       {view.playerSrc !== null && <Player src={view.playerSrc} />}
-      <TracklistTable />
+      {/* The header's line already says why a save failed. */}
+      <TracklistTable showSaveError={p.error === undefined} />
       <CreatePlaylistCard view={view} />
       <PasteBox />
     </article>

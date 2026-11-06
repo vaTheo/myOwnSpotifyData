@@ -123,14 +123,15 @@ describe('buildDemo Mix (T128)', () => {
       ...strings(full.mixJobs, 'jobs'),
     ];
     for (const { text } of texts) expect(text).not.toMatch(/<a\b|href=/i);
+    // A mix's own link fields hold URLs by design; a request's link is its
+    // map key, not a value, so no request string may hold one.
     const inText = texts.filter(
       ({ path, text }) =>
         /https?:\/\//.test(text) &&
-        !/\.(url|playlistUrl)$/.test(path) &&
-        !/\.payload\.url$/.test(path) &&
-        !/^jobs\.https?:/.test(path)
+        !/^mixes\[\d+\]\.(url|playlistUrl)$/.test(path)
     );
-    for (const { path } of inText) expect(path).toMatch(/\.text$/);
+    for (const { path } of inText) expect(path).toMatch(/^mixes\[.*\.text$/);
+    expect(inText.length).toBeGreaterThan(0);
   });
 });
 
