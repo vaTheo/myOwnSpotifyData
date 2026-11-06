@@ -56,7 +56,7 @@ class Settings:
     clue_seconds: int = 90
     lookups: int = 100
     break_every_calls: int = 0
-    cooldown_spread_percent: float = 40.0
+    cooldown_spread_percent: float = 30.0
     rate_limit_pause_spread_percent: float = 40.0
     break_seconds: float = 120.0
 
@@ -243,7 +243,7 @@ def load_settings(
         clue_seconds=_int(values, "WORKER_CLUE_SECONDS", 90, 5),
         lookups=_int(values, "WORKER_LOOKUPS", 100, 0),
         break_every_calls=_int(values, "WORKER_BREAK_EVERY_CALLS", 0, 0),
-        cooldown_spread_percent=_float(values, "WORKER_COOLDOWN_SPREAD_PERCENT", 40.0, 0.0),
+        cooldown_spread_percent=_float(values, "WORKER_COOLDOWN_SPREAD_PERCENT", 30.0, 0.0),
         rate_limit_pause_spread_percent=_float(values, "WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT", 40.0, 0.0),
         break_seconds=_float(values, "WORKER_BREAK_SECONDS", 120.0, 0.0),
     )
