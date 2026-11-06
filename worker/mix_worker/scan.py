@@ -162,6 +162,7 @@ async def scan(
     line: Callable[[str], None] | None = None,
     max_pauses: int = 3,
     jitter: Callable[[float], float] = lambda cooldown: 0.0,
+    clock: Callable[[], float] = time.monotonic,
 ) -> list[dict[str, Any]]:
     """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
     (+ `jitter(cooldown)`) before each. A `rate_limited` error doubles the
@@ -184,10 +185,14 @@ async def scan(
             t = times[index]
         else:
             t = index * step
+        began = clock()
         data = cut(t)
         if len(data) < MIN_PROBE_BYTES:
             break
-        where = f"probe {index + 1}/{len(times) if times is not None else '?'} · {hhmmss(t)}"
+        where = (
+            f"probe {index + 1}/{len(times) if times is not None else '?'} · {hhmmss(t)}"
+            f" · cut {len(data) // 1024} KB {clock() - began:.2f} s"
+        )
         while True:
             await sleep(cooldown + jitter(cooldown))
             try:
@@ -289,9 +294,7 @@ def cut_probe(
         "-vn", "-ac", "1", "-ar", "16000", "-f", "wav", str(scratch),
     ]
     say = line or (lambda text: None)
-    began = time.monotonic()
     done = subprocess.run(cmd, capture_output=True, check=False)
-    took = time.monotonic() - began
     for message in done.stderr.decode("utf-8", "replace").splitlines():
         if message.strip():
             say(f"    ffmpeg · {message.strip()}")
@@ -299,9 +302,9 @@ def cut_probe(
         if done.returncode != 0 or not scratch.exists():
             say(f"    ffmpeg · exit {done.returncode} · {' '.join(cmd[-15:])}")
             return b""
-        data = scratch.read_bytes()
-        say(f"    ffmpeg · cut {hhmmss(start)} +{seconds} s · {len(data) // 1024} KB · {took:.2f} s")
-        return data
+        # The size and time of a good cut go on the probe's own line (scan);
+        # ffmpeg gets a line here only when it printed something or failed.
+        return scratch.read_bytes()
     finally:
         try:
             scratch.unlink()

@@ -66,11 +66,9 @@ claimed 6f1c2d3e · https://soundcloud.com/…
   download · 100 % · 98.0 MB
   download · abc123.m4a · 7260 s · 38.2 s
   scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 10 s probe every 60 s · 121 probes · cooldown 3.0 s
-    ffmpeg · cut 00:00:00 +10 s · 312 KB · 0.06 s
-  probe 1/121 · 00:00:00 · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
-    ffmpeg · cut 00:01:00 +10 s · 312 KB · 0.05 s
-  probe 2/121 · 00:01:00 · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
-  probe 3/121 · 00:02:00 · no match
+  probe 1/121 · 00:00:00 · cut 312 KB 0.06 s · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
+  probe 2/121 · 00:01:00 · cut 312 KB 0.05 s · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
+  probe 3/121 · 00:02:00 · cut 312 KB 0.06 s · no match
   …
   scan · 41 tracks · 540.3 s
   write · 2026-11-06 Some set [6f1c2d3e].json · 0.0 s
