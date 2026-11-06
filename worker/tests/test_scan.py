@@ -245,6 +245,39 @@ class Lines(unittest.TestCase):
         self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · rate limited (1/1) · pausing 300 s, then this probe again · cooldown now 6 s", "  probe 1/1 · 00:00:00 · rate limited again · giving up after 1 pauses"])
 
 
+class Device(unittest.TestCase):
+    def test_android_profile_url_and_headers(self):
+        from mix_worker.scan import shazam_for
+
+        class Recorder:
+            def __init__(self):
+                self.calls = []
+
+            async def request(self, method, url, **kw):
+                self.calls.append((method, url, kw["headers"]))
+                return {"matches": []}
+
+            async def close(self):
+                pass
+
+        class Sig:
+            timezone = "Europe/Paris"
+            timestamp = 1
+            class signature:
+                uri = "data:audio/vnd.shazam.sig;base64,AAAA"
+                samples = 160000
+
+        rec = Recorder()
+        shazam = shazam_for("android", rec)
+        run(shazam.send_recognize_request_v2(Sig()))
+        method, url, headers = rec.calls[0]
+        self.assertEqual(method, "POST")
+        self.assertIn("/android/-/tag/", url)
+        self.assertEqual(headers["X-Shazam-Platform"], "ANDROID")
+        self.assertIn("Android", headers["User-Agent"])
+        self.assertEqual(type(shazam_for("iphone", rec)).__name__, "Shazam")
+
+
 class Result(unittest.TestCase):
     def test_write_result_has_the_keys_the_app_requires(self):
         with tempfile.TemporaryDirectory() as tmp:

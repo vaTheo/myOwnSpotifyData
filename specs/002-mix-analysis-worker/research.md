@@ -60,6 +60,11 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
   (hard-coded in `api.py`; PR #258 saw fewer 429s with other profiles, out of reach without patching it). Pacing is now
   adaptive: 6 s cooldown + a random 0–50 %, doubled after each rate limit (30 s cap), pauses of 300 s × n, three pauses per
   set before the request fails (`WORKER_RATE_LIMIT_PAUSES`). A 60-minute set: about 60 calls in 8 minutes when nothing refuses.
+- **Revised again 2026-11-06 (owner's pick)**: three runs in a row, with and without a VPN, at 3 s and at 6 s, all got exactly
+  three answers then a 429 with the iPhone profile. The same address answered an Android-profile call at once, with the same
+  fields (ISRC, `SONG` section label, album, Shazam link). `WORKER_SHAZAM_DEVICE` (default `android`) sends recognitions as
+  Android through a small `Shazam` subclass overriding `send_recognize_request_v2` and the platform header (`scan.shazam_for`);
+  `iphone` keeps the library's own request.
 
 ## D4. Probes: 12 s every 60 s, cut by ffmpeg to mono 16 kHz WAV bytes, no temp files
 

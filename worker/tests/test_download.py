@@ -12,7 +12,7 @@ def settings(**over):
         session_file=Path("/s"), work_dir=DEST, json_dir=Path("/j"), log_file=Path("/l"),
         ffmpeg="/usr/bin/ffmpeg", ytdlp_cookies=None, proxy=None, stale_seconds=1, poll_seconds=1,
         max_duration_seconds=14400, probe_step_seconds=60, probe_seconds=10, cooldown_seconds=0.0,
-        rate_limit_pause_seconds=0.0, rate_limit_pauses=3, max_skew=0.001, merge_gap_seconds=180, result_max_bytes=900000,
+        rate_limit_pause_seconds=0.0, rate_limit_pauses=3, shazam_device="android", max_skew=0.001, merge_gap_seconds=180, result_max_bytes=900000,
     )
     base.update(over)
     return Settings(**base)

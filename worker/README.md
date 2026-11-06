@@ -120,6 +120,7 @@ Only the first two are required.
 | `WORKER_COOLDOWN_SECONDS` | 6.0 | the pause before every recognition call, plus a random 0–50 %; doubled after each rate limit, 30 s at most |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | the pause after a "rate limited" answer; the second pause is twice as long, the third three times |
 | `WORKER_RATE_LIMIT_PAUSES` | 3 | pauses allowed per set; one more refusal fails the request |
+| `WORKER_SHAZAM_DEVICE` | android | the phone Shazam sees; `iphone` is the library's own default and was refused after three calls in testing |
 | `WORKER_MAX_SKEW` | 0.001 | drops a skewed (likely wrong) match; 0 disables |
 | `WORKER_MERGE_GAP_SECONDS` | 180 | the same track heard again within this gap stays one row |
 | `WORKER_RESULT_MAX_BYTES` | 900000 | larger results fail with "Result too large" |
