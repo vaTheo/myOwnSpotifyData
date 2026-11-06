@@ -225,6 +225,7 @@ export function Artist({
           }}
           resetKey={artistKey}
           selectedKey={detail ?? null}
+          follow={detail !== undefined}
           onOpen={(t) => openDetail(t.track.key)}
         />
       )}

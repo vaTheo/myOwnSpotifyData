@@ -2,16 +2,23 @@ import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import type { ArtistAgg, Model } from '../model/aggregate';
 import { normalize } from '../model/normalize';
-import { artistPlays, hasHistory, reachFor } from '../model/reach';
+import {
+  artistPlays,
+  hasHistory,
+  rankUnderTheRadar,
+  reachFor,
+} from '../model/reach';
 import { artistReachSummary, model } from '../model/state';
 import { routeHref } from '../router';
+import { Artist } from './Artist';
 import { UnderRadar } from './UnderRadar';
-import { artistView } from './artistSelections';
+import { artistView, radarFilter, radarSort } from './artistSelections';
 import { Empty } from './components/Empty';
 import { Filter } from './components/Filter';
 import { NoMatch } from './components/NoMatch';
 import { SegmentedButtons } from './components/SegmentedButtons';
-import { artistUrl } from './format';
+import { artistUrl, plural } from './format';
+import { ListDetail, ListPane } from './layout/ListDetail';
 import {
   countColumn,
   rankColumn,
@@ -187,11 +194,88 @@ function SavedTracks(p: { switcher: ComponentChildren }) {
 }
 
 /**
+ * The narrowed list beside an open artist: the open view's rows in its own
+ * order (Under the radar's once its gate is passed, Saved tracks
+ * otherwise), its filter on top, and one figure, the saved tracks.
+ */
+function ArtistPane(p: { m: Model; selected: string }) {
+  const radar =
+    artistView.value === 'radar' && artistReachSummary.value?.version === 1;
+  const text = radar ? radarFilter : filter;
+  const query = normalize(text.value);
+  const aggs = radar
+    ? rankUnderTheRadar(p.m, radarSort.value).map((r) => r.agg)
+    : p.m.artists;
+  const shown = query
+    ? aggs.filter((a) => normalize(a.name).includes(query))
+    : aggs;
+  return (
+    <ListPane
+      label={radar ? 'Under the radar' : 'Artists by saved tracks'}
+      head={
+        <Filter
+          value={text.value}
+          onInput={(v) => {
+            text.value = v;
+          }}
+          placeholder="Filter artists"
+        />
+      }
+      empty={
+        <NoMatch
+          query={text.value}
+          onClear={() => {
+            text.value = '';
+          }}
+        />
+      }
+      selectedId={p.selected}
+      items={shown.map((a) => ({
+        id: a.key,
+        title: a.name,
+        subtitle: plural(a.trackKeys.size, 'track'),
+        href: routeHref({ name: 'artist', key: a.key }),
+      }))}
+    />
+  );
+}
+
+/**
+ * Library · Artists (spec 003 §9, FR-020, US3): the table, or, with an
+ * artist open (`#/artist/<key>`), the narrowed list beside the Artist
+ * screen; full screen on a phone. `detail` is the artist's open track.
+ */
+export function Artists(p: { selected?: string; detail?: string }) {
+  const m = model.value;
+  const selected = p.selected ?? null;
+  return (
+    <ListDetail
+      list={(narrow) =>
+        narrow && m && selected !== null ? (
+          <ArtistPane m={m} selected={selected} />
+        ) : (
+          <ArtistList />
+        )
+      }
+      selectedId={selected}
+      detail={
+        selected === null ? null : (
+          <Artist artistKey={selected} detail={p.detail} />
+        )
+      }
+      onClose={() => {
+        location.hash = routeHref({ name: 'artists' });
+      }}
+    />
+  );
+}
+
+/**
  * The dispatcher (spec §5.1). The view switcher renders whatever the library
  * holds, so an empty one keeps the switcher instead of taking it down with
  * the list. The Playlists · Artists tabs are the frame's.
  */
-export function Artists() {
+function ArtistList() {
   const switcher = (
     <SegmentedButtons
       options={[

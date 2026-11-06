@@ -1,15 +1,22 @@
-import type { ComponentChild, ComponentChildren } from 'preact';
+import type { ComponentChildren } from 'preact';
 import type { PlayRow } from '../../db/schema';
 import type { Model } from '../../model/aggregate';
-import { MONTH_NAMES, hasMonthData, yearsWithPlays } from '../../model/crate';
+import { hasMonthData, yearsWithPlays } from '../../model/crate';
 import { nameKey } from '../../model/normalize';
 import { historySummary, model } from '../../model/state';
-import { routeHref } from '../../router';
 import { FeaturePills } from '../components/FeaturePills';
 import { TrackRow } from '../components/TrackRow';
 import { openDetail } from '../details/navigate';
 import { TrackSheet } from '../details/TrackDetails';
-import { artistNames, plural } from '../format';
+import { artistNames } from '../format';
+
+// The details' shared pieces, re-exported for the Crate views.
+export {
+  NoPlaylistNote,
+  OpenMonthLink,
+  Strip,
+  monthLabel,
+} from '../details/parts';
 
 /** A play row from an import that recorded month buckets. */
 export type CrateRowData = PlayRow & { months: Record<string, number> };
@@ -39,12 +46,6 @@ export function spanYears(rows: PlayRow[]): number[] {
   const years: number[] = [];
   for (let y = first; y <= last; y += 1) years.push(y);
   return years.length > 0 ? years : [first];
-}
-
-/** '2026-08' -> 'Aug 2026'. */
-export function monthLabel(key: string): string {
-  const [year, month] = key.split('-');
-  return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
 }
 
 /**
@@ -138,47 +139,6 @@ export function CrateSheet(p: {
       rowId={p.detail}
       extra={p.extra}
     />
-  );
-}
-
-/**
- * A dense year/month readout. Each `<label> <count>` pair is one nowrap span
- * carrying its own trailing separator, so a line can break only after a " · "
- * and a count never opens a line.
- */
-export function Strip(p: { cells: string[] }) {
-  const nodes: ComponentChild[] = [];
-  p.cells.forEach((cell, i) => {
-    const last = i === p.cells.length - 1;
-    nodes.push(<span key={`${i} ${cell}`}>{last ? cell : `${cell} ·`}</span>);
-    if (!last) nodes.push(' ');
-  });
-  return <p class="strip">{nodes}</p>;
-}
-
-/**
- * The one sentence the details sheet shows when the track sits in none of
- * the synced playlists, so the wording exists once.
- */
-export function NoPlaylistNote() {
-  const m = model.value;
-  if (!m) return null;
-  return (
-    <p>
-      {m.playlists.length === 0
-        ? 'Sync your playlists in Settings to see where this sits'
-        : `Not in any of your ${plural(m.playlists.length, 'playlist')}`}
-    </p>
-  );
-}
-
-export function OpenMonthLink(p: { month: string }) {
-  return (
-    <p>
-      <a href={routeHref({ name: 'crateView', view: 'year', period: p.month })}>
-        Open {monthLabel(p.month)} ›
-      </a>
-    </p>
   );
 }
 

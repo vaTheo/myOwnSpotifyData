@@ -53,6 +53,9 @@ function templates<Row>(columns: Column<Row>[]): Record<string, string> {
   return vars;
 }
 
+/** How long the focus rests on a row before an open sheet follows it. */
+const FOLLOW_DELAY_MS = 150;
+
 function ariaSort(
   column: Column<unknown>,
   sort: SortState
@@ -88,6 +91,12 @@ export function DataTable<Row>(p: {
   /** What a row is called in the paging footer ("track", "artist"). */
   noun?: string;
   /**
+   * A details sheet is open: moving the focus with the arrow keys opens the
+   * focused row too, so the sheet follows (US3). Debounced, so a held key
+   * changes the address once it stops.
+   */
+  follow?: boolean;
+  /**
    * The rows arrive already in the order `sort` names (Under the radar's
    * three sorts): a header click only reports the column, the table never
    * re-sorts, and the group headings stay.
@@ -99,6 +108,8 @@ export function DataTable<Row>(p: {
   const [active, setActive] = useState<number | null>(null);
   const [announce, setAnnounce] = useState('');
   const body = useRef<HTMLDivElement>(null);
+  const followTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(followTimer.current), []);
 
   const ranked = useMemo(() => {
     const rankOf = p.rankOf ?? ((_: Row, i: number) => i + 1);
@@ -142,6 +153,12 @@ export function DataTable<Row>(p: {
     if (next === null) return;
     e.preventDefault();
     focusRow(next);
+    if (p.follow && p.onOpen) {
+      const open = p.onOpen;
+      const row = visible[next].row;
+      clearTimeout(followTimer.current);
+      followTimer.current = setTimeout(() => open(row), FOLLOW_DELAY_MS);
+    }
   }
 
   function onRowClick(e: MouseEvent, row: Row, index: number): void {

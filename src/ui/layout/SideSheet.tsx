@@ -1,6 +1,9 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
+import { parseRoute, sameScreen } from '../../router';
 import { IconButton } from '../components/IconButton';
+import { pushEscapeLayer } from './escape';
+import { focusWhenReady } from './focus';
 import { windowClass, type WindowClass } from './windowClass';
 
 export type SheetMode = 'docked' | 'modal' | 'fullscreen';
@@ -16,12 +19,7 @@ const FOCUSABLE =
 
 /** Focus goes back to the row the sheet was opened from, once it renders. */
 function focusRow(rowId: string): void {
-  requestAnimationFrame(() => {
-    const row = document.querySelector<HTMLElement>(
-      `[data-row-id="${CSS.escape(rowId)}"]`
-    );
-    row?.focus({ preventScroll: true });
-  });
+  focusWhenReady(`[data-row-id="${CSS.escape(rowId)}"]`, true);
 }
 
 /**
@@ -46,17 +44,18 @@ export function SideSheet(p: {
   const onClose = useRef(p.onClose);
   onClose.current = p.onClose;
 
-  // Escape closes from anywhere: on a docked sheet focus stays in the list.
+  // Escape closes from anywhere (on a docked sheet focus stays in the list),
+  // one layer at a time. Focus goes back to the row only while the screen
+  // is the one the sheet opened over: a link in the sheet that went to
+  // another screen leaves focus to that screen.
   useEffect(() => {
-    function onKey(e: KeyboardEvent): void {
-      if (e.key !== 'Escape' || e.defaultPrevented) return;
-      e.preventDefault();
-      onClose.current();
-    }
-    document.addEventListener('keydown', onKey);
+    const opened = parseRoute(location.hash);
+    const pop = pushEscapeLayer(() => onClose.current());
     return () => {
-      document.removeEventListener('keydown', onKey);
-      focusRow(rowId.current);
+      pop();
+      if (sameScreen(opened, parseRoute(location.hash))) {
+        focusRow(rowId.current);
+      }
     };
   }, []);
 

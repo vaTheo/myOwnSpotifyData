@@ -12,6 +12,7 @@ import {
 } from '../model/state';
 import { activeJobs, type ActiveJob } from './jobs';
 import { ProgressBar } from './components/ProgressBar';
+import { pushEscapeLayer } from './layout/escape';
 
 /** A circle that fills with the first job's progress, or spins without one. */
 function Ring(p: { job: ActiveJob }) {
@@ -59,16 +60,19 @@ export function ActivityButton() {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const close = (e: Event) => {
-      if (e instanceof KeyboardEvent && e.key !== 'Escape') return;
-      if (e instanceof MouseEvent && box.current?.contains(e.target as Node))
-        return;
+    // Escape closes the panel alone, the topmost layer (FR-043), and gives
+    // the focus back to the button.
+    const pop = pushEscapeLayer(() => {
+      setOpen(false);
+      box.current?.querySelector<HTMLElement>('.activity-button')?.focus();
+    });
+    const close = (e: MouseEvent) => {
+      if (box.current?.contains(e.target as Node)) return;
       setOpen(false);
     };
-    document.addEventListener('keydown', close);
     document.addEventListener('click', close);
     return () => {
-      document.removeEventListener('keydown', close);
+      pop();
       document.removeEventListener('click', close);
     };
   }, [open]);

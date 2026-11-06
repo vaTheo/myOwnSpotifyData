@@ -139,6 +139,7 @@ export function Top({ detail }: { detail?: string }) {
           }}
           resetKey={period.value}
           selectedKey={detail ?? null}
+          follow={detail !== undefined}
           onOpen={(r) => openDetail(r.item.id)}
         />
       ) : (

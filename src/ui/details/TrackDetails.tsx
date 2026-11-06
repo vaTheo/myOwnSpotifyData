@@ -6,7 +6,7 @@ import { Button } from '../components/Button';
 import { BpmText, KeyPill } from '../components/KeyPill';
 import { NoData } from '../components/NoData';
 import { SpotifyLink } from '../components/SpotifyLink';
-import { NoPlaylistNote, OpenMonthLink, Strip } from '../crate/shared';
+import { NoPlaylistNote, OpenMonthLink, Strip } from './parts';
 import { formatDate, formatListening, plural } from '../format';
 import { Icon } from '../icons';
 import { SideSheet } from '../layout/SideSheet';
