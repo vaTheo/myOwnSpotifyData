@@ -11,13 +11,15 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.4.1: back to 1.9 s + 0–30 % between Shazam calls (1.9 to 2.47 s). 0.4.0 shipped 1.5 s; a test at 1.0 s + 0–50 % was
+  refused every ~21 calls, while ~780 calls at 1.9 s off the VPN had none. Stay off a VPN: on one, refusals came every 24–380 calls.
 - 0.4.0: each heard track keeps how many 12 s clips matched it and its best score (`hits`); the phone shows the scan's
   progress (step, %, minutes left, Shazam pauses) and can Cancel, Move to top and Stop requests (needs migration
   `0003_job_control.sql`; without it the worker works as before and logs it once); Ask again continues a stopped set; two
   refusals close together warn about a VPN; the second pass tries ×1 everywhere, then ×0.96, then ×1.04.
 
 - 0.3.3: every line of a tracklist (description, or a comment listing 3+ tracks) becomes a row, catalogue or not; a
-  catalogue only adds the ISRC. Pacing: 1.5 s + 0–30 % between calls (1.5 to 1.95 s; ~780 calls at 1.9 s off the VPN had no refusal) and a 3-minute pause + 0–40 % after a refusal
+  catalogue only adds the ISRC. Pacing: 1.5 s + 0–30 % between calls (1.5 to 1.95 s) and a 3-minute pause + 0–40 % after a refusal
   (3:00 to 4:12); both spreads only add time and are settings (`WORKER_COOLDOWN_SPREAD_PERCENT`,
   `WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`).
 
