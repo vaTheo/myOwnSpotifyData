@@ -11,6 +11,10 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.3.3: the owner's next test pacing: 2 s + 0–50 % between calls (2 to 3 s) and a 3-minute pause + 0–40 % after a refusal
+  (3:00 to 4:12); both spreads only add time and are settings (`WORKER_COOLDOWN_SPREAD_PERCENT`,
+  `WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`).
+
 - 0.3.2 (also): a Shazam refusal is an exact 6-minute pause, up to 8 a set, and the pace (3.3 s ± 30 %, 2.31 to 4.29 s; every spread wait ± 30 %)
   is never slowed; planned breaks are off by default: the day's refusals showed neither helped.
 

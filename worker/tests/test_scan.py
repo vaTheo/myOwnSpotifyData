@@ -569,3 +569,31 @@ class ExactBreak(unittest.TestCase):
 
         run(scan(45, step=15, cooldown=1.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, clock=lambda: 0.0, break_every=2, break_seconds=180.0, jitter=lambda s: s * 0.4))
         self.assertEqual(sleeps, [1.4, 1.4, 180.0, 1.4])  # calls spread, the break exact
+
+
+class AddedSpread(unittest.TestCase):
+    """Owner, 2026-11-06: 2 s + 0-50 % between calls, 3 min + 0-40 % after a refusal."""
+
+    def test_added_only_grows(self):
+        from mix_worker.scan import added
+
+        f = added(50)
+        values = [f(2.0) for _ in range(500)]
+        self.assertTrue(all(0.0 <= v <= 1.0 for v in values))
+        self.assertGreater(max(values), 0.8)
+
+    def test_refusal_pause_gets_its_own_spread(self):
+        answers = [RateLimited(), NO_MATCH]
+        sleeps = []
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        async def sleep(s):
+            sleeps.append(s)
+
+        run(scan(15, step=15, cooldown=2.0, pause=180.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, clock=lambda: 0.0, jitter=lambda s: s * 0.5, pause_jitter=lambda s: s * 0.4))
+        self.assertEqual(sleeps, [3.0, 252.0, 3.0])  # 2 s +50 %, 180 s +40 %, 2 s +50 %

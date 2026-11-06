@@ -29,6 +29,12 @@ SHAZAM_WINDOW_SECONDS = 900
 JITTER_PERCENT = 30
 
 
+def added(percent: float) -> Callable[[float], float]:
+    """A random part of 0 to `percent` % added to a wait (owner, 2026-11-06:
+    the waits only grow, never shrink)."""
+    return lambda seconds: random.uniform(0.0, seconds * percent / 100)  # noqa: S311 - pacing, not crypto
+
+
 def spread(seconds: float) -> float:
     """The random part added to a wait of `seconds`: ± `JITTER_PERCENT` %."""
     f = JITTER_PERCENT / 100
@@ -273,6 +279,7 @@ async def scan(
     break_every: int = 0,
     break_seconds: float = 0.0,
     shared: dict[str, float] | None = None,
+    pause_jitter: Callable[[float], float] = lambda seconds: 0.0,
 ) -> list[dict[str, Any]]:
     """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
     (+ `jitter(cooldown)`) before each. A `rate_limited` error doubles the
@@ -344,7 +351,7 @@ async def scan(
                     # Owner, 2026-11-06, from the day's refusals: Shazam refused
                     # at 1.3 and at 8.8 calls a minute alike, so the pace is not
                     # slowed; a refusal is a flat pause, the same each time.
-                    wait = pause
+                    wait = pause + pause_jitter(pause)
                     say(
                         f"  {where} · rate limited ({n}/{max_pauses}) · pausing {int(wait)} s,"
                         f" then this probe again at the same pace"
@@ -660,7 +667,8 @@ def run_scan(
     say(
         f"  scan · ffmpeg {ffmpeg} · one {settings.probe_seconds} s probe every {settings.probe_step_seconds} s"
         f" · {len(probe_times(duration, settings.probe_step_seconds)) if duration else '?'} probes"
-        f" · as {settings.shazam_device} · cooldown {settings.cooldown_seconds} s (±{JITTER_PERCENT} %) · up to {settings.rate_limit_pauses} pauses"
+        f" · as {settings.shazam_device} · cooldown {settings.cooldown_seconds} s (+0-{settings.cooldown_spread_percent:g} %)"
+        f" · refusal pause {settings.rate_limit_pause_seconds:g} s (+0-{settings.rate_limit_pause_spread_percent:g} %) · up to {settings.rate_limit_pauses} pauses"
     )
 
     report: dict[str, Any] = {}
@@ -690,7 +698,8 @@ def run_scan(
                 classify=default_classify,
                 line=say,
                 max_pauses=settings.rate_limit_pauses,
-                jitter=spread,
+                jitter=added(settings.cooldown_spread_percent),
+                pause_jitter=added(settings.rate_limit_pause_spread_percent),
                 cut_at=lambda t, speed: cut_probe(ffmpeg, file, t, settings.probe_seconds, say, speed=speed),
                 gap_step=getattr(settings, "second_pass_step_seconds", 0),
                 gap_offset=getattr(settings, "second_pass_offset_seconds", 7),
