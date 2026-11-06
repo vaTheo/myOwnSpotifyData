@@ -208,8 +208,8 @@ also saves episodes, albums and playlists; a song already liked is never re-save
 
 One Preact component per screen plus small shared components (`ui/components/`).
 
-- Tab bar: **Crate · Top · Playlists · Artists · Settings**. `#/import` and `#/mix` are routes, not tabs; `tabOf` in `app.tsx` maps both to
-  `settings`. The default route stays `top`, even though Crate is the leftmost tab. Routes: `src/router.ts:42-68`.
+- Tab bar: **Crate · Top · Playlists · Artists · Mix · Settings** (Mix a tab since 2026-11-06, the worker round). `#/import` is a
+  route, not a tab; `tabOf` in `app.tsx` maps it to `settings`. The default route stays `top`, even though Crate is the leftmost tab. Routes: `src/router.ts:42-68`.
 - The Crate's five views live in `ui/crate/` (`CrateView` dispatches, `shared.tsx` the row helpers and `Strip`, `labels.ts` the pure
   history-copy helpers, `selections.ts` the module-level selection signals). Gated on `historySummary.version === 2`, never on rows.
 - `Artists.tsx` dispatches over two views the same way, with `UnderRadar.tsx` beside it and `artistSelections.ts` holding `artistView`,

@@ -42,6 +42,7 @@ const TABS: { route: Route; label: string }[] = [
   { route: { name: 'top' }, label: 'Top' },
   { route: { name: 'playlists' }, label: 'Playlists' },
   { route: { name: 'artists' }, label: 'Artists' },
+  { route: { name: 'mix' }, label: 'Mix' },
   { route: { name: 'settings' }, label: 'Settings' },
 ];
 
@@ -50,7 +51,6 @@ function tabOf(r: Route): Route['name'] {
   if (r.name === 'artist') return 'artists';
   if (r.name === 'crateView') return 'crate';
   if (r.name === 'import') return 'settings';
-  if (r.name === 'mix') return 'settings';
   return r.name;
 }
 
