@@ -17,7 +17,9 @@ mix-worker login` (the mail's link, clicked on that computer; no email template 
 hangs is cut off after 45 s and its probe retried, then skipped, so one slow answer never loses a whole set. The Mix screen lists every
 request in a **Requests to your computer** card (state, Check now, Ask again, a done row opens its saved mix), and the
 saved list gets its **Saved mixes** heading. The two info cards (full scan with SongRec, Auto Shazam) give way to **Run
-the worker on your computer**, with the steps for Windows, macOS, Linux and from the code.
+the worker on your computer**, with the steps for Windows, macOS, Linux and from the code. The server sync runs on its own: back in the app
+after a minute, when the network returns, and every minute while a request waits or runs (Spotify is still never read on
+its own).
 
 ## 2026-11-06 — A server and database holding the app's data
 

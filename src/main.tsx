@@ -3,10 +3,14 @@ import { App, bootPhase, installRouter } from './app';
 import { auth } from './auth/browser';
 import {
   completeServerLink,
+  hasActiveRequest,
   loadFromDb,
   recordConnectedAccount,
+  serverAutoSyncEnabled,
+  startServerPull,
   startServerSync,
 } from './model/state';
+import { installAutoSync } from './server/autoSync';
 import { LINK_MARKER } from './server/session';
 import { AuthError } from './spotify/errors';
 import './styles.css';
@@ -56,6 +60,17 @@ async function boot(): Promise<void> {
   // delays "Loading your library…" (US3). Whatever this device changed while
   // the server was unreachable goes first, then the pull.
   if (auth.session.value) await startServerSync();
+  // Then the server keeps itself current: on return to the app, when the
+  // network is back, and every minute while a request runs on the computer.
+  installAutoSync({
+    doc: document,
+    win: window,
+    now: Date.now,
+    enabled: serverAutoSyncEnabled,
+    hasActiveRequest,
+    sync: startServerSync,
+    pull: startServerPull,
+  });
 }
 
 void boot();
