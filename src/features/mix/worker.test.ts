@@ -401,6 +401,20 @@ describe('requestList', () => {
     expect(list[3]?.key).toBe('https://www.youtube.com/watch?v=x');
   });
 
+  it('orders waiting requests by priority high to low, then oldest first (T121)', () => {
+    const list = requestList(
+      {
+        old: [view({ id: 'old', createdAt: t('08:00') })],
+        moved: [view({ id: 'moved', createdAt: t('11:00'), priority: 2 })],
+        mid: [view({ id: 'mid', createdAt: t('09:00'), priority: 0 })],
+        next: [view({ id: 'next', createdAt: t('10:00'), priority: 1 })],
+      },
+      [],
+      connected
+    );
+    expect(list.map((i) => i.id)).toEqual(['moved', 'next', 'old', 'mid']);
+  });
+
   it('names a saved mix by its title and counts its tracks, else a short link', () => {
     const list = requestList(jobs, mixes, connected);
     const done = list.find((i) => i.label === 'Done');
