@@ -70,10 +70,18 @@ function toClues(value: unknown, max: number): Clue[] {
 function trackExtras(track: unknown): Partial<TracklistRow> {
   if (typeof track !== 'object' || track === null) return {};
   const t = track as Record<string, unknown>;
+  const hits =
+    typeof t.hits === 'number' &&
+    Number.isInteger(t.hits) &&
+    t.hits >= 1 &&
+    t.origin !== 'clue'
+      ? { hits: t.hits }
+      : {};
   if (t.origin === 'replay') {
     const pct = t.speed_percent;
     return {
       origin: 'replay',
+      ...hits,
       ...(typeof pct === 'number' && Number.isFinite(pct)
         ? { speedPercent: pct }
         : {}),
@@ -83,7 +91,7 @@ function trackExtras(track: unknown): Partial<TracklistRow> {
     const clue = toClue(t.clue);
     return { origin: 'clue', ...(clue ? { clue } : {}) };
   }
-  return {};
+  return hits;
 }
 
 /** The tracks the F15 parser keeps (non-empty artist and title), in order. */
@@ -391,5 +399,35 @@ export function requestList(
       saved: mix !== undefined,
       canAskAgain: (label === 'Failed' || label === 'Rejected') && text.canAsk,
     };
+  });
+}
+
+export type RowSort = 'time' | 'clips' | 'score';
+
+/**
+ * Round 004: the order and subset of the tracklist the owner chose to look
+ * at, as indexes into `rows` (so Edit and Delete still act on the real row).
+ * "Heard once" keeps rows matched by a single clip; it hides, never deletes.
+ * Sorting by clips or score puts rows without the number (candidates, gaps,
+ * older rows) last, ties in set order.
+ */
+export function viewRows(
+  rows: readonly TracklistRow[],
+  sort: RowSort,
+  heardOnce: boolean
+): number[] {
+  const idx = rows
+    .map((_, i) => i)
+    .filter((i) => !heardOnce || rows[i].hits === 1);
+  if (sort === 'time') return idx;
+  const key = (r: TracklistRow): number | null =>
+    sort === 'clips' ? (r.hits ?? null) : (r.confidence ?? null);
+  return idx.sort((a, b) => {
+    const x = key(rows[a]);
+    const y = key(rows[b]);
+    if (x === null && y === null) return a - b;
+    if (x === null) return 1;
+    if (y === null) return -1;
+    return y - x || a - b;
   });
 }

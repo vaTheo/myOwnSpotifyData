@@ -55,6 +55,7 @@ class Defaults(unittest.TestCase):
         self.assertTrue(s.clues)
         self.assertEqual(s.clue_seconds, 90)
         self.assertEqual(s.lookups, 100)
+        self.assertEqual((s.refusal_warn_calls, s.resume_days), (150, 7))
         self.assertEqual((s.break_every_calls, s.break_seconds), (0, 120.0))
         self.assertEqual(s.result_max_bytes, 900000)
 

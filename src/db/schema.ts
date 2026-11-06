@@ -236,6 +236,10 @@ export interface TracklistRow {
    *  'replay' (second pass, at `speedPercent`), 'clue' (a candidate named by a
    *  comment, a chapter or the description, never heard). Absent otherwise. */
   origin?: 'replay' | 'clue';
+  /** Round 004: how many 12 s clips matched this heard row (first and
+   *  second pass); its best score is `confidence`. Absent for candidates
+   *  and rows from before. */
+  hits?: number;
   /** Second-pass speed correction in percent (+4, −4, or 0). */
   speedPercent?: number;
   /** The clue a candidate came from. */

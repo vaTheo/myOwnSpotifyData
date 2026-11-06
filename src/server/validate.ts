@@ -175,6 +175,11 @@ export function validateMix(row: unknown): Valid<MixRow> {
       return fail('mixes.row.origin');
     if (t.speedPercent !== undefined && !finite(t.speedPercent))
       return fail('mixes.row.speedPercent');
+    if (
+      t.hits !== undefined &&
+      !(typeof t.hits === 'number' && Number.isInteger(t.hits) && t.hits >= 1)
+    )
+      return fail('mixes.row.hits');
     if (t.clue !== undefined && !clueOk(t.clue)) return fail('mixes.row.clue');
     if (!cluesOk(t.clues, 30)) return fail('mixes.row.clues');
   }

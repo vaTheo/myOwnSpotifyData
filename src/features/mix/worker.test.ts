@@ -5,6 +5,7 @@ import {
   jobView,
   mergeWorkerRows,
   requestList,
+  viewRows,
   requestStatusText,
   resultToRows,
 } from './worker';
@@ -531,5 +532,68 @@ describe('requestStatusText — stopped early', () => {
     expect(line).toMatch(
       /^Done .* · Stopped early at 00:47:00 \(rate limited\)/
     );
+  });
+});
+
+describe('resultToRows — round 004 clip count', () => {
+  it('keeps hits on heard rows, never on candidates, and refuses bad values', () => {
+    const base = resultFixture() as {
+      mix_info: unknown;
+      tracks: Record<string, unknown>[];
+    };
+    const r = resultToRows({
+      ...base,
+      tracks: [
+        { ...base.tracks[0], hits: 5 },
+        { ...base.tracks[1], hits: 0 },
+        { ...base.tracks[2], origin: 'replay', speed_percent: -4, hits: 1 },
+        {
+          song_name: 'C',
+          artist: 'B',
+          time_in_mix: null,
+          origin: 'clue',
+          hits: 3,
+          clue: { at: null, author: 'dj', text: 'B - C', kind: 'description' },
+        },
+      ],
+    });
+    if (!r.ok) throw new Error(r.message);
+    const byTitle = (t: string) => r.rows.find((x) => x.title === t);
+    expect(byTitle(String(base.tracks[0].song_name))?.hits).toBe(5);
+    expect(byTitle(String(base.tracks[1].song_name))?.hits).toBeUndefined();
+    expect(byTitle(String(base.tracks[2].song_name))).toMatchObject({
+      origin: 'replay',
+      hits: 1,
+    });
+    expect(byTitle('C')?.hits).toBeUndefined();
+  });
+});
+
+describe('viewRows', () => {
+  const r = (over: Partial<TracklistRow>): TracklistRow => ({
+    startSec: 0,
+    endSec: null,
+    artist: 'A',
+    title: 'T',
+    label: null,
+    source: 'tracklistify',
+    gap: false,
+    detected: { artist: 'A', title: 'T' },
+    referenceCount: null,
+    ...over,
+  });
+  const rows = [
+    r({ hits: 1, confidence: 63 }),
+    r({ hits: 5, confidence: 91 }),
+    r({ origin: 'clue' }),
+    r({ hits: 1, confidence: 97 }),
+  ];
+  it('keeps set order by default and filters heard-once without touching the rows', () => {
+    expect(viewRows(rows, 'time', false)).toEqual([0, 1, 2, 3]);
+    expect(viewRows(rows, 'time', true)).toEqual([0, 3]);
+  });
+  it('sorts by clips or best score, rows without the number last', () => {
+    expect(viewRows(rows, 'clips', false)).toEqual([1, 0, 3, 2]);
+    expect(viewRows(rows, 'score', false)).toEqual([3, 1, 0, 2]);
   });
 });

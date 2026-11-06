@@ -597,3 +597,14 @@ class AddedSpread(unittest.TestCase):
 
         run(scan(15, step=15, cooldown=2.0, pause=180.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, clock=lambda: 0.0, jitter=lambda s: s * 0.5, pause_jitter=lambda s: s * 0.4))
         self.assertEqual(sleeps, [3.0, 252.0, 3.0])  # 2 s +50 %, 180 s +40 %, 2 s +50 %
+
+
+class ClipCount(unittest.TestCase):
+    """Round 004: each row keeps how many clips matched it and its best score."""
+
+    def test_hits_and_best(self):
+        a = dict(track_entry(CASSETTE, "00:00:00"))
+        lo = dict(a, confidence=60.0)
+        hi = dict(a, confidence=95.0)
+        rows = merge([Hit(0, lo), Hit(15, hi), Hit(30, lo), Hit(600, lo)], 180)
+        self.assertEqual([(r["hits"], r["confidence"]) for r in rows], [(3, 95.0), (1, 60.0)])
