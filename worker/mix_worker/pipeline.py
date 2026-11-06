@@ -15,12 +15,13 @@ from urllib.parse import urlparse
 
 from .config import Settings
 from .download import DownloadFailure, Downloaded
-from .scan import ScanOutput, ScanRefused, ScanUnreachable
+from .scan import ScanOutput, ScanRefused, ScanUnreachable, StopRequested
 from .server import Result
 
 REFUSED_REASON = "Recognition service refused (rate limited); try later"
 UNREACHABLE_REASON = "Recognition service did not answer; try later"
 STOPPED_EARLY = "Stopped early at {at} ({reason}); ask again later for the rest"
+STOPPED_BY_YOU = "Stopped by you before any track was found"
 TOO_LARGE_REASON = "Result too large"
 NO_TRACK_REASON = "No track identified"
 BAD_LINK_REASON = "Request has no valid link"
@@ -39,6 +40,9 @@ class Deps:
     jitter: Callable[[float], float] = lambda seconds: 0.0
     # Round 003: (url, gaps, rows) → Gathered; None = no clue step.
     clues: Callable[[str, list[tuple[int, int]], list[dict[str, Any]]], Any] | None = None
+    # Round 004: `scan` takes progress/resume/remember keywords (the real one
+    # does; test fakes that take two arguments leave it False).
+    scan_hooks: bool = False
 
 
 @dataclass
@@ -56,6 +60,39 @@ def _iso(seconds: float) -> str:
 def _safe_name(title: str) -> str:
     cleaned = re.sub(r'[\\/:*?"<>|]', "-", title).strip()
     return cleaned[:120] or "mix"
+
+
+class _Progress:
+    """Round 004: the run's progress on the request, at most once a minute
+    (the scan throttles its own calls); a Stop seen in the answer raises
+    StopRequested; a failed write (no 0003 migration, offline) is logged once
+    and progress stops for this run, never the run itself."""
+
+    def __init__(self, deps: "Deps", settings: Settings, token: Token, job_id: str) -> None:
+        self.deps, self.settings, self.token, self.job_id = deps, settings, token, job_id
+        self.off = not hasattr(deps.client, "progress")
+
+    def publish(self, body: dict[str, Any]) -> None:
+        if self.off:
+            return
+        value = self.token() if callable(self.token) else self.token
+        r = self.deps.client.progress(value, self.job_id, self.settings.worker_name, body)
+        if not r.ok:
+            self.off = True
+            if self.deps.log is not None:
+                self.deps.log.line(f"  progress · not sent ({r.kind}: {r.message}); is migration 0003 applied? the run goes on")
+            return
+        if isinstance(r.value, dict) and r.value.get("stop"):
+            if self.deps.log is not None:
+                self.deps.log.line("  stop · asked from the phone")
+            raise StopRequested()
+
+    def step(self, name: str) -> None:
+        try:
+            self.publish({"step": name, "at": _iso(self.deps.now())})
+        except StopRequested:
+            # Outside the scan a stop changes nothing yet: the scan sees it.
+            pass
 
 
 class _Steps:
@@ -110,7 +147,9 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
     if not isinstance(url, str) or urlparse(url).scheme != "https":
         return _fail(deps, settings, token, job_id, BAD_LINK_REASON)
     job_dir = settings.work_dir / job_id
+    news = _Progress(deps, settings, token, job_id)
     try:
+        news.step("download")
         started = deps.now()
         got = deps.download(url, job_dir)
         if isinstance(got, DownloadFailure):
@@ -124,8 +163,25 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
             return _fail(deps, settings, token, job_id, too_long_reason(got.duration, settings.max_duration_seconds))
 
         started = deps.now()
+        recorder = None
+        hooks: dict[str, Any] = {}
+        if deps.scan_hooks:
+            from . import runstate
+
+            key = {
+                "step": settings.probe_step_seconds, "probe_seconds": settings.probe_seconds,
+                "second": [settings.second_pass_step_seconds, settings.second_pass_offset_seconds, list(settings.second_pass_speeds)],
+            }
+            state, why = runstate.load(settings.work_dir, url, key, settings.resume_days)
+            if why and deps.log is not None:
+                deps.log.line(f"  scan · starting over: {why}")
+            recorder = runstate.Recorder(settings.work_dir, url, key, base=state)
+            hooks = {"progress": news.publish, "resume": state, "remember": recorder.remember}
         try:
-            out = deps.scan(got.path, got.duration)
+            out = deps.scan(got.path, got.duration, **hooks)
+        except StopRequested:
+            steps.done("scan", "stopped by you", started)
+            return _fail(deps, settings, token, job_id, STOPPED_BY_YOU)
         except ScanRefused:
             steps.done("scan", "refused", started)
             return _fail(deps, settings, token, job_id, REFUSED_REASON)
@@ -137,13 +193,20 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
         stopped = out.stopped if isinstance(out, ScanOutput) else None
         gaps = list(out.gaps) if isinstance(out, ScanOutput) else []
         steps.done("scan", f"{len(tracks)} tracks", started)
+        if recorder is not None and stopped is None:
+            recorder.clear()  # a complete run: the next Ask again is a fresh scan
 
         extra: dict[str, Any] = {}
         if second_pass is not None:
             extra["second_pass"] = second_pass
         if stopped is not None:
             extra["stopped_early"] = stopped
+        if isinstance(out, ScanOutput) and out.warnings:
+            extra["warnings"] = list(out.warnings)
+        if isinstance(out, ScanOutput) and out.resumed:
+            extra["resumed"] = out.resumed
         if deps.clues is not None:
+            news.step("clues")
             started = deps.now()
             gathered = deps.clues(url, gaps, tracks)
             steps.done("clues", f"{len(gathered.candidates)} candidates", started)
