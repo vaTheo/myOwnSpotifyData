@@ -65,7 +65,7 @@ claimed 6f1c2d3e · https://soundcloud.com/…
   …
   download · 100 % · 98.0 MB
   download · abc123.m4a · 7260 s · 38.2 s
-  scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 12 s probe every 15 s · 484 probes · cooldown 1.5 s (+0-30 %)
+  scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 12 s probe every 15 s · 484 probes · cooldown 1.9 s (+0-30 %)
   probe 1/484 · 00:00:00 · cut 375 KB 0.06 s · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
   probe 2/484 · 00:00:15 · cut 375 KB 0.05 s · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
   probe 3/484 · 00:00:30 · cut 375 KB 0.06 s · no match
@@ -137,7 +137,7 @@ Only the first two are required.
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit; set a number of seconds to refuse longer sets before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 15 | one probe every N seconds; with 12 s probes, 15 hears 80 % of the set (a 2 h set: 480 probes, about 40 minutes), 12 all of it, 30 or 60 for a quicker scan |
 | `WORKER_PROBE_SECONDS` | 12 | the length of each probe sent to Shazam, 2 to 12 (Shazam fingerprints 12 s at most; 10 s matched 71 % against 94 %) |
-| `WORKER_COOLDOWN_SECONDS` | 1.5 | the pause before every recognition call, plus a random 0–30 % (`WORKER_COOLDOWN_SPREAD_PERCENT`): 1.5 to 1.95 s; a network retry is spread the same; not slowed after a refusal |
+| `WORKER_COOLDOWN_SECONDS` | 1.9 | the pause before every recognition call, plus a random 0–30 % (`WORKER_COOLDOWN_SPREAD_PERCENT`): 1.9 to 2.47 s; a network retry is spread the same; not slowed after a refusal |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 180 | the pause after a "rate limited" answer, the same each time, plus a random 0–40 % (`WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`): 3:00 to 4:12 |
 | `WORKER_REFUSAL_WARN_CALLS` | 150 | two refusals closer than this many calls: warn once (a VPN or a shared network?); 0 = never |
 | `WORKER_RESUME_DAYS` | 7 | Ask again on a stopped set continues it within this many days; 0 = always start over |
@@ -181,7 +181,7 @@ Only the first two are required.
 - **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address four times before any track was
   found; wait, or raise `WORKER_COOLDOWN_SECONDS`. Once something was found, a refusal no longer fails the request: it is
   **done** with "Stopped early at 47:00 (rate limited); ask again later for the rest".
-- **How the worker waits**: 1.5 s + 0–30 % (1.5 to 1.95 s) between calls, never slowed; after a refusal a 3-minute pause + 0–40 %, then the same
+- **How the worker waits**: 1.9 s + 0–30 % (1.9 to 2.47 s) between calls, never slowed; after a refusal a 3-minute pause + 0–40 %, then the same
   pace, up to 8 times a set (Shazam refused at 1.3 and at 8.8 calls a minute alike, so pacing does not avoid it); a call without
   answer (45 s, or a Shazam server error) tried again after 10 s then 20 s (+ 0–30 %); a send to your server tried again after 30 s,
   1 min and 2 min; Deezer or MusicBrainz busy, after 2 s then 4 s. The Shazam library itself never retries silently. Planned breaks are off by default (`WORKER_BREAK_EVERY_CALLS`).
