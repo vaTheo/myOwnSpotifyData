@@ -5,6 +5,7 @@ import { PAGE_SIZE } from '../../model/crate';
 import { Icon } from '../icons';
 import { windowClass } from '../layout/windowClass';
 import { moveIndex } from './keyboard';
+import { shownToReveal } from './paging';
 import {
   nextSort,
   sortRows,
@@ -113,6 +114,11 @@ export function DataTable<Row>(p: {
    * its place in the keyboard order.
    */
   fullRow?: (row: Row) => ComponentChildren | null;
+  /**
+   * A row key to keep on the page: when it changes, the table shows more
+   * pages until that row is in them (Mix: the row Add track just made).
+   */
+  revealKey?: string | null;
 }) {
   const compact = p.compact ?? windowClass.value === 'compact';
   const [shown, setShown] = useState(PAGE_SIZE);
@@ -140,6 +146,12 @@ export function DataTable<Row>(p: {
     setShown(PAGE_SIZE);
     setActive(null);
   }, [p.sort.columnId, p.sort.direction, p.resetKey]);
+
+  useEffect(() => {
+    if (p.revealKey == null) return;
+    const at = ordered.findIndex((r) => p.rowKey(r.row) === p.revealKey);
+    setShown((n) => shownToReveal(at, n, PAGE_SIZE));
+  }, [p.revealKey]);
 
   const visible = ordered.slice(0, shown);
   const grouped =

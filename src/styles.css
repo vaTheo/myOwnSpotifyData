@@ -2990,10 +2990,8 @@ details.mix-clues > summary:focus-visible {
 }
 
 .row-menu-list {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  z-index: 2;
+  position: fixed;
+  z-index: 40;
   min-width: 160px;
   padding: 4px 0;
   border-radius: var(--md-sys-shape-corner-extra-small);
@@ -3001,8 +2999,12 @@ details.mix-clues > summary:focus-visible {
   box-shadow: var(--md-sys-elevation-2);
 }
 
-.row-menu-list button {
-  display: block;
+.row-menu-list button,
+.row-menu-list a {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  text-decoration: none;
   width: 100%;
   min-height: var(--app-target);
   padding: 0 16px;
@@ -3016,7 +3018,9 @@ details.mix-clues > summary:focus-visible {
 }
 
 .row-menu-list button:hover,
-.row-menu-list button:focus-visible {
+.row-menu-list button:focus-visible,
+.row-menu-list a:hover,
+.row-menu-list a:focus-visible {
   background: color-mix(
     in srgb,
     var(--md-sys-color-on-surface) var(--md-sys-state-hover),
@@ -3122,21 +3126,46 @@ details.mix-clues > summary:focus-visible {
   border-radius: var(--md-sys-shape-corner-extra-small);
 }
 
-/* Table cells. */
-/* The source wraps rather than hide "not heard" or the origin: a row of
-   round 003 grows to two or three lines; others keep one. */
-.mix-source {
+/* Table cells (S08 fix 1): the title takes the free width and a second
+   line for what a round-003 row says in words; Source is an icon, the
+   Confidence column narrow, Edit and Delete in the row's More menu. */
+.mix-title-cell {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 6px;
+  flex-direction: column;
+  justify-content: center;
   min-width: 0;
   padding: 4px 0;
 }
 
-.mix-conf {
+.mix-second {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  min-width: 0;
+  font: var(--md-sys-typescale-body-small);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-origin,
+.mix-refs {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* Was `.mix .src.clue`: the candidate's clue, in its own words. */
+.mix-quote {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-style: italic;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.mix-second .flag {
+  flex: none;
 }
 
 .mix-source-icon {
@@ -3144,27 +3173,24 @@ details.mix-clues > summary:focus-visible {
   color: var(--md-sys-color-on-surface-variant);
 }
 
-.mix-origin,
-.mix-quote {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  color: var(--md-sys-color-on-surface-variant);
+.mix-conf {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.mix-quote {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+/* The long confidence is for screen readers in the table (visually
+   hidden), and visible on a phone, where the short one goes. */
+.dt-item .mix-conf-short {
+  display: none;
 }
 
-/* Was `.mix .src.clue`: the candidate's clue, in its own words. */
-.mix-quote {
-  font-style: italic;
-}
-
-.mix-source .flag {
-  flex: none;
+.dt-item .mix-conf-long.visually-hidden {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
 }
 
 .mix-library {
@@ -3174,28 +3200,37 @@ details.mix-clues > summary:focus-visible {
   gap: 4px;
 }
 
-.mix-actions {
-  display: inline-flex;
-  align-items: center;
+/* A phone: the title has the whole line; the second line wraps. */
+.dt-item .mix-title-cell {
+  padding: 0;
 }
 
-/* On a phone the source and a candidate's clue get a line of their own and
-   wrap, so a long comment never widens the page. */
-.dt-item-meta .dt-item-part:has(.mix-source) {
-  flex: 1 1 100%;
-  min-width: 0;
-  white-space: normal;
-}
-
-.dt-item .mix-source {
-  flex-wrap: wrap;
-  white-space: normal;
-}
-
-.dt-item .mix-origin,
-.dt-item .mix-quote {
+.dt-item .mix-name {
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* The folding Mixes pane: below 1,600 px a wide window gives the open mix
+   the whole width (its tracklist needs it); the header's Mixes button
+   brings the pane back. */
+.mix-pane-toggle {
+  display: none;
+}
+
+@media (min-width: 840px) and (max-width: 1599.98px) {
+  .mix-pane-toggle {
+    display: inline-flex;
+  }
+
+  .mix:not(.mix-pane-on) .list-detail.split:has(.mix-detail) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mix:not(.mix-pane-on)
+    .list-detail.split:has(.mix-detail)
+    > .list-detail-pane {
+    display: none;
+  }
 }
 
 /* A row drawn whole: a gap separator or the row being edited. */

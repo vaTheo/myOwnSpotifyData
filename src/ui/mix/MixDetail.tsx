@@ -217,6 +217,8 @@ export function MixDetail(p: {
   aside?: ComponentChildren;
   /** One column: the link field right above already reads Look up again. */
   stacked?: boolean;
+  /** Brings back the folded Mixes pane (wide windows under 1,600 px). */
+  paneButton?: ComponentChildren;
 }) {
   const { view } = p;
   const real = !p.stacked && view.url.startsWith('https://');
@@ -231,6 +233,7 @@ export function MixDetail(p: {
           <h2 class="mix-title">{view.title ?? view.url}</h2>
           {view.author && <p class="mix-caption">{view.author}</p>}
         </div>
+        {p.paneButton}
         <IconButton icon="close" label="Close this mix" onClick={p.onClose} />
       </header>
       <Provenance view={view} />

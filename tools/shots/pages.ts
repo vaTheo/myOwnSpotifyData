@@ -367,14 +367,38 @@ export const PAGES: ShotPage[] = [
         .click(),
   },
   {
-    // A row in edit: four text fields, Save and Cancel.
-    id: 'mix-edit',
+    // A row's More menu open: Edit, Delete, Search on Spotify.
+    id: 'mix-menu',
     hash: `#/mix/${enc('https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour')}`,
     setup: (page) =>
       page
-        .getByRole('button', { name: /^Edit / })
+        .getByRole('grid', { name: 'Tracklist' })
+        .getByRole('button', { name: /^More for / })
         .first()
         .click(),
+  },
+  {
+    // The Mixes pane brought back beside an open mix (folded below 1,600 px).
+    id: 'mix-open-pane',
+    hash: `#/mix/${enc('https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour')}`,
+    setup: async (page) => {
+      await page.getByRole('grid', { name: 'Tracklist' }).waitFor();
+      const mixes = page.getByRole('button', { name: 'Mixes', exact: true });
+      if (await mixes.isVisible()) await mixes.click();
+    },
+  },
+  {
+    // A row in edit: four text fields, Save and Cancel.
+    id: 'mix-edit',
+    hash: `#/mix/${enc('https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour')}`,
+    setup: async (page) => {
+      await page
+        .getByRole('grid', { name: 'Tracklist' })
+        .getByRole('button', { name: /^More for / })
+        .first()
+        .click();
+      await page.getByRole('menuitem', { name: 'Edit' }).click();
+    },
   },
   {
     // An address naming a mix this browser has not saved.
