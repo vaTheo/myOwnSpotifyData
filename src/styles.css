@@ -2343,6 +2343,15 @@ a {
   fill: var(--md-sys-color-on-surface-variant);
 }
 
+/* In a table row: 24 px of bars, no axis, no tooltip; the cell sets the
+   width. */
+.month-bars-svg.compact {
+  width: 100%;
+  height: 24px;
+  border-bottom: 0;
+  cursor: default;
+}
+
 .month-bars-axis {
   display: flex;
   margin-top: 4px;
@@ -2407,6 +2416,7 @@ a {
 
 /* The grid scrolls inside its box on a phone; the page never does. */
 .ym-scroll {
+  position: relative; /* holds the visually hidden labels inside the scroll */
   max-width: 100%;
   overflow-x: auto;
 }
@@ -2454,13 +2464,13 @@ a {
 }
 
 .ym-cell {
-  background: var(--md-sys-color-surface-container);
+  background-color: var(--md-sys-color-surface-container);
   color: var(--md-sys-color-on-surface);
 }
 
 /* Five levels against the busiest month; the count is printed as well. */
 .ym-cell.heat-1 {
-  background: color-mix(
+  background-color: color-mix(
     in srgb,
     var(--md-sys-color-primary) 12%,
     var(--md-sys-color-surface-container)
@@ -2468,7 +2478,7 @@ a {
 }
 
 .ym-cell.heat-2 {
-  background: color-mix(
+  background-color: color-mix(
     in srgb,
     var(--md-sys-color-primary) 25%,
     var(--md-sys-color-surface-container)
@@ -2476,7 +2486,7 @@ a {
 }
 
 .ym-cell.heat-3 {
-  background: color-mix(
+  background-color: color-mix(
     in srgb,
     var(--md-sys-color-primary) 65%,
     var(--md-sys-color-surface-container)
@@ -2485,7 +2495,7 @@ a {
 }
 
 .ym-cell.heat-4 {
-  background: var(--md-sys-color-primary);
+  background-color: var(--md-sys-color-primary);
   color: var(--md-sys-color-on-primary);
 }
 
@@ -2517,9 +2527,26 @@ a {
   color: var(--md-sys-color-on-secondary-container);
 }
 
-/* The selection: every month it covers, and the total when it is the year. */
+/* The state layer over the heat shade, which stays readable under it. */
+.ym-cell:hover {
+  background-image: linear-gradient(
+    color-mix(
+      in srgb,
+      var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+      transparent
+    ),
+    color-mix(
+      in srgb,
+      var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+      transparent
+    )
+  );
+}
+
+/* The selection: every month it covers, and the total when it is the year.
+   A ring hugging the cell, so the focus outline (3 px, 2 px off) still
+   shows around it (FR-042). */
 .ym-cell.selected,
 .ym-total.selected {
-  outline: 2px solid var(--md-sys-color-primary);
-  outline-offset: 1px;
+  box-shadow: 0 0 0 2px var(--md-sys-color-primary);
 }

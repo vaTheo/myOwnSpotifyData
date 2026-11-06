@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PlayRow } from '../../db/schema';
 import {
   barHeights,
@@ -9,8 +9,22 @@ import {
   periodTotal,
   seriesLabel,
   yearMonthTotals,
+  yearPoints,
   yearSpan,
 } from './series';
+
+// The importer buckets months in the device zone, so the file pins one far
+// from UTC: in Kiritimati (UTC+14) 30 Nov 12:00 UTC is already 1 Dec.
+const ORIGINAL_TZ = process.env.TZ;
+
+beforeAll(() => {
+  process.env.TZ = 'Pacific/Kiritimati';
+});
+
+afterAll(() => {
+  if (ORIGINAL_TZ === undefined) delete process.env.TZ;
+  else process.env.TZ = ORIGINAL_TZ;
+});
 
 // Mid-month instants, so the local month is the same in every time zone.
 const RANGE = { first: '2025-11-15T12:00:00Z', last: '2026-02-14T12:00:00Z' };
@@ -58,6 +72,16 @@ describe('monthSeries', () => {
       { key: '2026-02', value: 5 },
       { key: '2026-03', value: null },
     ]);
+  });
+
+  it('reads month-edge instants in the device zone, not in UTC', () => {
+    const series = monthSeries(
+      {},
+      ['2025-10', '2025-11', '2025-12', '2026-01'],
+      // 1 Nov 01:00 and 1 Dec 02:00 in Kiritimati; Oct 31 and Nov 30 in UTC.
+      { first: '2025-10-31T11:00:00Z', last: '2025-11-30T12:00:00Z' }
+    );
+    expect(series.map((p) => p.value)).toEqual([null, 0, 0, null]);
   });
 
   it('accepts a range given as month keys', () => {
@@ -135,6 +159,17 @@ describe('yearSpan', () => {
         2030
       )
     ).toEqual([2021, 2022, 2023, 2024]);
+  });
+
+  it('reads a year-edge instant in the device zone', () => {
+    // 31 Dec 2020 12:00 UTC is 1 Jan 2021 in Kiritimati.
+    expect(
+      yearSpan(
+        [],
+        { first: '2020-12-31T12:00:00Z', last: '2022-06-15T12:00:00Z' },
+        2030
+      )
+    ).toEqual([2021, 2022]);
   });
 
   it('falls back to the years played, then to the fallback year', () => {
@@ -220,5 +255,29 @@ describe('seriesLabel', () => {
         { key: '2026-01', value: 12 },
       ])
     ).toBe('Plays per month: Dec 2025 1, Jan 2026 12');
+  });
+});
+
+describe('yearPoints', () => {
+  it('sums the plays of each year, 0 for a year of the span without plays', () => {
+    expect(
+      yearPoints(
+        { '2023-01': 2, '2023-12': 3, '2025-06': 1 },
+        [2023, 2024, 2025]
+      )
+    ).toEqual([
+      { key: '2023', value: 5 },
+      { key: '2024', value: 0 },
+      { key: '2025', value: 1 },
+    ]);
+  });
+
+  it('labels year keys by the year alone', () => {
+    expect(
+      seriesLabel('Plays per year', [
+        { key: '2023', value: 5 },
+        { key: '2024', value: 0 },
+      ])
+    ).toBe('Plays per year: 2023 5, 2024 0');
   });
 });

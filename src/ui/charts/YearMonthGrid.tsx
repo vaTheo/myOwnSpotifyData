@@ -1,6 +1,7 @@
 import {
   MONTH_NAMES,
   periodMonths,
+  yearMonth,
   yearSetting,
   type Season,
   type YearPeriod,
@@ -21,18 +22,16 @@ export interface YearSelection {
   period: YearPeriod;
 }
 
-function keyOf(year: number, month: number): string {
-  return `${year}-${String(month).padStart(2, '0')}`;
-}
-
 /**
  * The By year picker as a heat grid (research D10): one row per year, twelve
  * month cells and the year's total, each shaded 0–4 against the owner's
  * busiest month and carrying its count. Cells, totals and the season headers
  * are buttons named like "Aug 2026, 143 plays"; a season picks that season of
  * the selected year by the By year rules (Winter includes the previous
- * December). Every month of the selection is outlined in `primary`. A month
- * outside the imported history is an empty, inert cell.
+ * December). Every month of the selection is ringed in `primary`, hugging
+ * the cell so the 3 px focus ring, drawn 2 px off it, stays distinct. A
+ * month outside the imported history is an empty, inert cell that says so
+ * to a screen reader; a month without plays prints 0.
  */
 export function YearMonthGrid({
   totals,
@@ -98,9 +97,15 @@ export function YearMonthGrid({
               </th>
               {row.months.map((value, i) => {
                 const month = i + 1;
-                const key = keyOf(row.year, month);
+                const key = yearMonth(row.year, month);
                 if (value === null) {
-                  return <td key={key} class="ym-out" />;
+                  return (
+                    <td key={key} class="ym-out">
+                      <span class="visually-hidden">
+                        {yearSetting(row.year, month)}, not in the history
+                      </span>
+                    </td>
+                  );
                 }
                 return (
                   <td key={key}>
@@ -111,7 +116,7 @@ export function YearMonthGrid({
                       aria-label={`${yearSetting(row.year, month)}, ${plural(value, 'play')}`}
                       onClick={() => onSelect(row.year, month)}
                     >
-                      {value > 0 ? value.toLocaleString() : ''}
+                      {value.toLocaleString()}
                     </button>
                   </td>
                 );
