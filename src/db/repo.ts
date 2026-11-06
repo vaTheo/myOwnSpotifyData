@@ -330,8 +330,8 @@ export async function replaceDataset(
 ): Promise<void> {
   const db = await openDb();
   const tx = db.transaction([...stores, 'meta'], 'readwrite');
+  const writes: Promise<unknown>[] = [];
   try {
-    const writes: Promise<unknown>[] = [];
     for (const name of stores) {
       const store = tx.objectStore(name);
       writes.push(store.clear());
@@ -354,6 +354,9 @@ export async function replaceDataset(
     } catch {
       // Already aborted by the failed request.
     }
+    // Every other request of the aborted transaction rejects too; settle
+    // them here so none surfaces as an unhandled rejection.
+    await Promise.allSettled([...writes, tx.done]);
     throw err;
   }
 }
