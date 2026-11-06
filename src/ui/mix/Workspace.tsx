@@ -167,11 +167,13 @@ export function Workspace(p: { mixKey?: string }) {
       focusWhenReady('.mix-pane-toggle', false);
     }, ESCAPE_RANK.fold);
   }, [paneShown, open, stacked]);
-  // `mixError` has one place on screen (review F1): the Mixes list header,
-  // or, while the pane is folded over an open mix (840–1,599 px), the open
-  // mix's header, with an error mark on the Mixes button.
+  // `mixError` has one place on screen (review F1, round 2): the open mix's
+  // header while the pane is folded over it (840–1,599 px, with an error
+  // mark on the Mixes button) and in the one-column layout (the top of the
+  // screen); else the Mixes list header.
   const paneAlways = useMedia(PANE_ALWAYS);
   const folded = !stacked && open !== null && !paneShown && !paneAlways;
+  const errorInDetail = open !== null && (stacked || folded);
   const error = mixError.value;
   const paneButton = stacked ? undefined : (
     <Button
@@ -201,7 +203,7 @@ export function Workspace(p: { mixKey?: string }) {
         stacked={stacked}
         paneButton={paneButton}
         error={
-          folded && error !== null ? (
+          errorInDetail && error !== null ? (
             <StatusLine kind="error">{error}</StatusLine>
           ) : undefined
         }
@@ -226,7 +228,7 @@ export function Workspace(p: { mixKey?: string }) {
         <IdentifyRequest />
         <LookupLines />
         <JsonImport />
-        <MixesList />
+        <MixesList showError={!errorInDetail} />
         <WorkerHelp />
       </section>
     );

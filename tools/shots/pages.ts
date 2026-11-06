@@ -335,7 +335,7 @@ export const PAGES: ShotPage[] = [
   {
     // A failure while the pane is folded over an open mix (review F1): the
     // error line under the mix's header and the mark on the Mixes button;
-    // on phones it shows in the Mixes list.
+    // on phones under the mix's header too, not in the list (round 2).
     id: 'mix-error-folded',
     hash: `#/mix/${enc('https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour')}`,
     setup: async (page) => {
