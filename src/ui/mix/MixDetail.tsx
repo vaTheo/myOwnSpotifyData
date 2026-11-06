@@ -15,6 +15,7 @@ import { StatusLine } from '../components/StatusLine';
 import { formatDate, plural } from '../format';
 import { SetWideClues } from './Clues';
 import { CreatePlaylistCard } from './CreatePlaylistCard';
+import { OpenMixRequest, RunLine } from './RunLine';
 import { TracklistTable } from './TracklistTable';
 import { Disclosure } from './Disclosure';
 
@@ -227,7 +228,8 @@ export function MixDetail(p: {
   const showReplace =
     view.descriptionRows.length > 0 &&
     !sameRows(mixRows.value, view.descriptionRows);
-  const clues = savedMixes.value.find((m) => m.url === view.url)?.clues;
+  const saved = savedMixes.value.find((m) => m.url === view.url);
+  const clues = saved?.clues;
   return (
     <article class="mix-detail" aria-label={view.title ?? view.url}>
       <header class="mix-head">
@@ -255,6 +257,8 @@ export function MixDetail(p: {
         </div>
       )}
       {p.aside}
+      <OpenMixRequest url={view.url} />
+      <RunLine url={view.url} run={saved?.run} />
       <SetWideClues clues={clues} />
       {view.playerSrc !== null && <Player src={view.playerSrc} />}
       {/* The header's line already says why a save failed. */}
