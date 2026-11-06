@@ -387,6 +387,90 @@ aggregate.
   **Review** (Validate toggle, Remove), and filter chips All, To review, Validated, Not on Spotify.
 - Create playlist offers **Validated only** or **All tracks**.
 
+**From round 004 and the owner's decisions (2026-11-06, tasks T120–T129)**. `origin/main` (rounds 003 "fill scan gaps" and 004
+"worker progress and queue control") is merged before S08. With the "Owner's additions", this is the complete Mix contract;
+it takes precedence over both lists above where they differ, and **(replaces …)** names the line it changes. Research:
+`.superpowers/sdd/execution/general-dev-mix-findings.md`.
+
+- **Left pane, the Mixes list** (one row per link: a saved mix, a request, or both):
+  - **Order (replaces "newest first")**: running requests first; then waiting ones in the order the worker takes them
+    (`priority` high to low, then oldest first), so Move to top shows the row first; then the rest, newest first. Earlier
+    finished requests of a link stay collapsed.
+  - **Chips (replaces the T116 chip list)**: Queued, Identifying, Paused (step `paused`), Stopping… (Stop asked on a running
+    request), Found N tracks (done, result not applied yet), Failed, Rejected, Saved · N tracks · K validated, Playlist made.
+    N counts tracks, never gap rows; candidates count.
+  - **Progress line** under an Identifying, Paused or Stopping… row, word for word from `progressLine`: "First pass · 47 % · about
+    25 min left", "Second pass ×1.04 · …", "Downloading", "Reading the comments", "Paused by Shazam until 20:35", "· Shazam refuses
+    often: a VPN or a shared network?", "· last news 20:12: the computer stopped sending news" (no news for 10 min),
+    "· stopping…". Without progress: "Running on <worker> since …". A queued row: "Waiting for your computer since …". A
+    `ProgressBar` from `percent`, labelled with the step name, when `percent` is known. It refreshes with the existing 60 s
+    auto-pull: no new poll.
+  - **Finished rows**: "Done <when>"; a stopped-early done row adds the worker's text "Stopped early at 01:12:00 (by you); ask
+    again later for the rest" and offers **Ask again** (new: before, only Failed and Rejected did); "Failed <when>: <reason>"
+    with Ask again; "Result rejected — ask again" with Ask again. Ask again shows only when the server can take a request now.
+  - **Row actions**: a queued row has **Move to top** (no `confirm()`; hidden when the row is already first) and **Cancel**; a
+    running row has **Stop**, disabled while Stopping…; a saved mix keeps **Remove** in its row menu. Selecting a row opens it
+    on the right (`#/mix/<key>` for a saved mix), or fills the link field when nothing is saved yet.
+  - **'Gone' answers**: when Cancel, Move to top or Stop finds the request already taken or finished, an inline `StatusLine`
+    in the left pane says "Already taken by your computer" or "Already finished" (ruling D4). Never a banner.
+  - **Migration 0003 missing**: when the server says the progress, priority or stop column does not exist, the inline error
+    reads "Apply migration 0003 on the server to use Cancel, Move to top and Stop" (ruling D5). The list still shows every
+    request without progress.
+  - The list header keeps "N requests waiting or running · checked every minute." / "Nothing waiting." and **Check now** /
+    "Checking…".
+  - **Run the worker on your computer** (collapsed) adds the VPN note from `worker/README.md`.
+- **Right pane, the open mix**:
+  - **Running request**: while the open mix's latest request runs, the header shows the same progress line and **Stop**.
+  - **Run line (owner's D3)**: a small line under the header, from the last result: "Second pass: 41 places · 3 found",
+    "Resumed (120 clips kept)", "Stopped early at 01:12:00 (rate limited)" with **Ask again**, and "1 warning" that expands to
+    "Shazam refuses often: a VPN or a shared network?". Absent for mixes from before round 003 and for non-worker mixes.
+  - **Set-wide clues**: under the header, collapsed: "Tracklist from the description (N lines, no times)" or "… from the
+    comments", one line per clue, as text.
+  - **Header line** "N tracks · K validated · M on Spotify · L not found": gap rows never count; candidates count.
+  - **Check on Spotify** checks candidates and second-listen rows like any row; gap rows are never checked.
+- **Tracklist, per-track data**:
+  - **Source (replaces "as an icon with a tooltip" for these rows)**: the icon, plus visible text for the origin:
+    "second listen · +4 %", "second listen · −4 %", "second listen"; for a candidate "from a comment by <author>", "from the
+    description" or "from a chapter", then the clue's text in quotes.
+  - **Not heard**: a candidate (comment-only, `origin: 'clue'`) always carries a **not heard** badge, never a confidence, never
+    "heard". It starts **To review** (owner's D6).
+  - **Confidence (replaces "87% match" when the row has clip counts)**: "heard N× · best X %" when the row has `hits`; "X%
+    match" otherwise; empty, never zero, for candidates, gaps, edited rows and rows from before. "heard 1×" marks a track heard
+    once.
+  - **Sort**: the round-004 Sort select (Time / Clips heard / Best score), above the table, shown only when a row has `hits`,
+    at every width (phones have no header sort). Rows without the number last; ties in set order.
+  - **Gap rows** stay separators with Delete; a gap with clues shows a collapsed "N clues around here", one "mm:ss · author ·
+    text" line each.
+  - All third-party text (clue authors and texts) renders as plain text; a URL in it is not a link.
+- **Filter chips (replaces the T118 chip list)**: All, To review, Validated, Not on Spotify, and **Heard once (N)** shown only
+  when a row has `hits` (ruling D2). One chip at a time; gap rows show under All only. Under a chip other than All, the caption
+  reads "Hidden, not deleted. Create playlist follows Validated only or All tracks, not this filter." (replaces "The others
+  are hidden, not deleted; Create playlist uses every row.").
+- **A later result keeps the review (owner's D1)**: when a result arrives for a mix already saved (resume or Ask again), a
+  track the owner had keeps Validated, its Spotify check and its link; a track the owner removed stays removed (remembered on
+  the mix); only new tracks arrive To review. Edited, typed, pasted, TrackId and description rows stay as they are.
+- **Create playlist (owner's D6)**: **Validated only** adds validated tracks, candidates included once validated; **All
+  tracks** adds every track not removed, candidates included. Gap rows never; the Heard once chip and the Sort never change
+  what is added. This amends ADR-10 ("candidates go into the playlist unless deleted"), in the docs step.
+- **Messages kept, word for word**, all inline in the Mix screen, never a banner:
+  - from before: Looking up…, the not-SoundCloud error, "Result rejected — ask again", the create-playlist states and
+    failures, "Saved ✓";
+  - `mixError`: "Could not read that file: …", "Could not read your saved mixes: …", "Could not read your requests: …", "Sign
+    in to the server (Settings)", "Could not reach the server: …", "Could not record the request: …", "The request is
+    recorded on the server but not here: …", "Could not save the mix: …", "Could not remove the mix: …", "Could not cancel the
+    request: …", "Could not move the request: …", "Could not stop the scan: …";
+  - the Identify button's texts: "Identify on my computer", "Ask again", "Server not set up (Settings)", "Server unreachable",
+    "Server paused — resume it from the dashboard", "Syncing with the server…";
+  - the worker's failure reasons as sent, such as "Recognition service refused (rate limited); try later" and "Stopped by
+    you before any track was found".
+- **`confirm()` kept, word for word**: "Remove this saved mix?"; the four "replace the working list" questions ("Looking up
+  again replaces the current tracklist, including your edits. Continue?", "Importing this file replaces the current
+  tracklist, including your edits. Continue?", "Replace your edited tracklist with the one from the description?", "Replace
+  your edited tracklist with the pasted tracks?"); "Cancel this request? It leaves the queue; you can ask again later.";
+  "Stop this scan? The computer ends it within about a minute and keeps the tracks found so far." Move to top has none.
+- **Unchanged rules**: no Spotify read on load or open; no new poll; no banner; no `DB_VERSION` bump (every new field is
+  optional: `validated`, `spotify`, `checkedAt` on a row; `removed` and `run` on the mix).
+
 **Phone**: one column in this order: link field, open mix (if any), Identify, JSON import, Mixes list, worker help.
 
 **Kept**:
@@ -394,7 +478,8 @@ aggregate.
 - every message and its place: Looking up…, the not-SoundCloud error, `mixError`, request errors, "Result rejected", the
   create-playlist states;
 - no banner;
-- every `confirm()` ("Remove this saved mix?" and the four "replace the working list" questions).
+- every `confirm()` ("Remove this saved mix?", the four "replace the working list" questions, and round 004's Cancel and Stop
+  questions, listed above).
 
 ---
 
