@@ -38,22 +38,22 @@ follow the plan's steps 2 and 4–10; Polish is step 11.
 
 **Purpose**: be able to open every page at every width, on demo data, before any screen changes; record today's state.
 
-- [ ] T001 Add the owner-approved dev dependencies with `yarn add -D @playwright/test @axe-core/playwright`. Add the scripts `"shots": "playwright test -c tools/shots/playwright.config.ts"` and `"shots:sheet": "node tools/shots/contact-sheet.ts"` to `package.json`. Run `yarn playwright install chromium` once on this computer. Check that `typescript` stays `~6.0.3` and `vite` stays an explicit devDependency in `package.json`.
-- [ ] T002 [P] Keep the outputs out of the repo and the linter: add `shots-output/`, `playwright-report/` and `test-results/` to `.gitignore` and to `globalIgnores` in `eslint.config.js`. Add `"tools"` to `include` in `tsconfig.json`. In tools files that need Node types, write `/// <reference types="node" />` rather than widening `types`.
-- [ ] T003 [P] Write the failing test `src/dev/demo.test.ts` for `buildDemo(variant, seed)` (data-model §10). It pins:
+- [X] T001 Add the owner-approved dev dependencies with `yarn add -D @playwright/test @axe-core/playwright`. Add the scripts `"shots": "playwright test -c tools/shots/playwright.config.ts"` and `"shots:sheet": "node tools/shots/contact-sheet.ts"` to `package.json`. Run `yarn playwright install chromium` once on this computer. Check that `typescript` stays `~6.0.3` and `vite` stays an explicit devDependency in `package.json`.
+- [X] T002 [P] Keep the outputs out of the repo and the linter: add `shots-output/`, `playwright-report/` and `test-results/` to `.gitignore` and to `globalIgnores` in `eslint.config.js`. Add `"tools"` to `include` in `tsconfig.json`. In tools files that need Node types, write `/// <reference types="node" />` rather than widening `types`.
+- [X] T003 [P] Write the failing test `src/dev/demo.test.ts` for `buildDemo(variant, seed)` (data-model §10). It pins:
   - the counts: about 40 playlists, 3,000 tracks, 1,200 artists, 2,000 history rows with `months` over six years, BPM and key on 70% of tracks, reach on 80% of artists, two saved mixes, and one worker request per status (`queued`, `claimed`, `done`, `failed`, rejected);
   - the edge cases: a 120-character track name, a local file (`isLocal`, `id: null`), a track with a BPM and no key, an artist with no reach, and a 500-track playlist;
   - the variants `full`, `empty`, `old-import` (`historySummary` version 1), `no-reach` (no `artistReachSummary`) and `locked`;
   - determinism: "the same seed gives the same rows".
-- [ ] T004 Implement `buildDemo(variant, seed)` in `src/dev/demo.ts` with a seeded PRNG. It returns `AllRows` (`src/db/schema.ts`) plus `MixRow[]`, `MixJobs` and the summaries (`historySummary` version 2, `artistReachSummary` version 1, a Rekordbox summary). It imports nothing from `src/ui/`. Make T003 pass.
-- [ ] T005 Add the dev-only demo boot. Read `src/db/CLAUDE.md` first.
+- [X] T004 Implement `buildDemo(variant, seed)` in `src/dev/demo.ts` with a seeded PRNG. It returns `AllRows` (`src/db/schema.ts`) plus `MixRow[]`, `MixJobs` and the summaries (`historySummary` version 2, `artistReachSummary` version 1, a Rekordbox summary). It imports nothing from `src/ui/`. Make T003 pass.
+- [X] T005 Add the dev-only demo boot. Read `src/db/CLAUDE.md` first.
   - **The flag**: `src/dev/flag.ts` exports `demoVariant(): string | null`, which returns null unless `import.meta.env.DEV` and `?demo` is in `location.search`. The production build eliminates it.
   - **Database**: in `src/db/repo.ts`, open `spotify-dj-demo` instead of `DB_NAME` when `demoVariant()` is set. No store change and no `DB_VERSION` change.
   - **Session**: in `src/auth/browser.ts`, use an in-memory storage with a fake session holding every scope and a far-future expiry when `demoVariant()` is set. It never reaches localStorage.
   - **Server**: treat the server configuration as unset when `demoVariant()` is set. Find where `src/server/` reads the URL and key.
   - **Boot**: in `src/main.tsx`, when `demoVariant()` is set, `await import('./dev/demo')`, write its rows through the existing repo writers before `loadFromDb()`, and apply the `locked` variant to `syncState`. Expose `window.__demo.set(name, value)` for the job signals (`syncState`, `likeState`, `createPlaylistState`, `lookupState`, `reachState`, `serverState`, `mixState`), so shots can show running and failed states.
   - **Check**: run `yarn build`, then `grep -r buildDemo dist/`. It must find nothing.
-- [ ] T006 Write `tools/shots/playwright.config.ts`:
+- [X] T006 Write `tools/shots/playwright.config.ts`:
   - `testDir: 'tools/shots'`, `testMatch: '*.shots.ts'`;
   - `webServer: { command: 'yarn dev --host 127.0.0.1 --port 5173', url: 'http://127.0.0.1:5173/myOwnSpotifyData/', reuseExistingServer: true }` and that URL as `baseURL`;
   - four Chromium projects named `1440`, `1024`, `768` and `390` with viewports 1440×900, 1024×768, 768×1024 and 390×844;
@@ -61,8 +61,8 @@ follow the plan's steps 2 and 4–10; Polish is step 11.
   - `snapshotPathTemplate: 'shots-output/baselines/{projectName}/{arg}{ext}'`;
   - `expect.toHaveScreenshot: { maxDiffPixelRatio: 0.001, animations: 'disabled' }`;
   - extra `firefox` and `webkit` projects only when `SHOTS_BROWSERS=all`.
-- [ ] T007 [P] List the pages in `tools/shots/pages.ts`. Each entry is `{ id, path, variant, setup?, since? }` and covers every part of `contracts/screens.md` in each of its states: empty, gated (`old-import`, `no-reach`), Match with a seed, details open (`?d=`), search open with a query, filters set, and jobs running (through `window.__demo.set`). Entries for screens not built yet carry `since: 'US8'` and so on, and the runner skips them.
-- [ ] T008 [P] Write the in-page checks in `tools/shots/checks.ts`, each returning findings `{ check, selector, detail }`:
+- [X] T007 [P] List the pages in `tools/shots/pages.ts`. Each entry is `{ id, path, variant, setup?, since? }` and covers every part of `contracts/screens.md` in each of its states: empty, gated (`old-import`, `no-reach`), Match with a seed, details open (`?d=`), search open with a query, filters set, and jobs running (through `window.__demo.set`). Entries for screens not built yet carry `since: 'US8'` and so on, and the runner skips them.
+- [X] T008 [P] Write the in-page checks in `tools/shots/checks.ts`, each returning findings `{ check, selector, detail }`:
   1. page scroll: `scrollWidth` ≤ `clientWidth`;
   2. clipped text: content overflowing without `text-overflow: ellipsis`;
   3. overlap between non-nested interactive elements;
@@ -70,7 +70,7 @@ follow the plan's steps 2 and 4–10; Polish is step 11.
   5. the hit area of every interactive element is at least 48 × 48;
   6. the navigation and the top bar sit inside the viewport;
   7. tabbing to the first three controls shows a 3 px focus outline.
-- [ ] T009 Write the runner `tools/shots/all.shots.ts`. For each page in `pages.ts`:
+- [X] T009 Write the runner `tools/shots/all.shots.ts`. For each page in `pages.ts`:
   - abort every request whose host is not `127.0.0.1` and record it as a finding;
   - collect `console` errors and `pageerror`s as findings;
   - `goto`, then wait for `document.fonts.ready` and network idle, then run `setup`;
@@ -79,8 +79,8 @@ follow the plan's steps 2 and 4–10; Polish is step 11.
   - save a full-page PNG as `shots-output/pages/{project}/{id}.png`;
   - call `toHaveScreenshot` only if the baseline file already exists (`fs.existsSync(testInfo.snapshotPath(...))`);
   - attach the findings and fail the test when there is any.
-- [ ] T010 [P] Write `tools/shots/contact-sheet.ts`, runnable with `node` (Node 24 strips types). It builds `shots-output/contact-sheet.html`: for the pages given in `--pages id,id` (all by default), the 1440 and 390 screenshots side by side, each with its findings.
-- [ ] T011 Run `yarn shots` on today's app (variants `full`, `empty`, `old-import`, `no-reach`, `locked`). It is expected to exit non-zero.
+- [X] T010 [P] Write `tools/shots/contact-sheet.ts`, runnable with `node` (Node 24 strips types). It builds `shots-output/contact-sheet.html`: for the pages given in `--pages id,id` (all by default), the 1440 and 390 screenshots side by side, each with its findings.
+- [X] T011 Run `yarn shots` on today's app (variants `full`, `empty`, `old-import`, `no-reach`, `locked`). It is expected to exit non-zero.
   - Record every finding in `specs/003-web-first-redesign/visual-backlog.md` as a table of page, width, check and element, grouped by screen. This is the starting backlog.
   - Look at every screenshot, and add to the same file what the checks cannot see.
   - Send the contact sheet to the owner.

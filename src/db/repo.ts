@@ -1,4 +1,5 @@
 import { deleteDB, openDB, type IDBPDatabase } from 'idb';
+import { DEMO_DB_NAME, demoVariant } from '../dev/flag';
 import {
   DB_NAME,
   DB_VERSION,
@@ -46,8 +47,17 @@ export function setDbEvents(next: DbEvents): void {
   events = next;
 }
 
+/**
+ * The demo of the visual loop (`yarn dev` with `?demo`, spec 003) keeps its
+ * rows in a database of its own, so it never touches the owner's library.
+ * Same stores, same version: nothing about the schema differs.
+ */
+function dbName(): string {
+  return import.meta.env.DEV && demoVariant() !== null ? DEMO_DB_NAME : DB_NAME;
+}
+
 export function openDb(): Promise<IDBPDatabase<DjDb>> {
-  dbPromise ??= openDB<DjDb>(DB_NAME, DB_VERSION, {
+  dbPromise ??= openDB<DjDb>(dbName(), DB_VERSION, {
     // An older tab (or the home-screen window) still holds the database at
     // its previous version: the request waits until that connection closes,
     // so the user is told to close it instead of watching a spinner.
@@ -119,7 +129,7 @@ export async function wipeDb(timeoutMs = 5000): Promise<void> {
     }, timeoutMs);
   });
   try {
-    await Promise.race([deleteDB(DB_NAME), timeout]);
+    await Promise.race([deleteDB(dbName()), timeout]);
   } finally {
     clearTimeout(timer!);
   }
