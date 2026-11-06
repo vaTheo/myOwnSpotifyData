@@ -132,7 +132,7 @@ def _float(values: Mapping[str, str], name: str, default: float, minimum: float)
 
 
 def _probe_seconds(values: Mapping[str, str]) -> int:
-    value = _int(values, "WORKER_PROBE_SECONDS", 10, 2)
+    value = _int(values, "WORKER_PROBE_SECONDS", 12, 2)
     if value > 12:
         # Shazam answers no match from 15 s up; the library fingerprints 12 s at most.
         raise SettingsError("WORKER_PROBE_SECONDS", "must be at most 12")
@@ -198,7 +198,7 @@ def load_settings(
         poll_seconds=_int(values, "WORKER_POLL_SECONDS", 60, 1),
         heartbeat_seconds=_int(values, "WORKER_HEARTBEAT_SECONDS", 30, 1),
         max_duration_seconds=_int(values, "WORKER_MAX_DURATION_SECONDS", 0, 0),
-        probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 60, 1),
+        probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 30, 1),
         probe_seconds=_probe_seconds(values),
         cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 3.0, 0.0),
         rate_limit_pause_seconds=_float(values, "WORKER_RATE_LIMIT_PAUSE_SECONDS", 300.0, 0.0),

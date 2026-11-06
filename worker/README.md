@@ -116,8 +116,8 @@ Only the first two are required.
 | `WORKER_POLL_SECONDS` | 60 | `--watch`: seconds between two looks at the queue |
 | `WORKER_HEARTBEAT_SECONDS` | 30 | `--watch`: an "alive" line this often while waiting, so you can see it still runs |
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit; set a number of seconds to refuse longer sets before the download |
-| `WORKER_PROBE_STEP_SECONDS` | 60 | one probe every N seconds of the set |
-| `WORKER_PROBE_SECONDS` | 10 | the length of each probe sent to Shazam, 2 to 12 (Shazam's own app sends 12) |
+| `WORKER_PROBE_STEP_SECONDS` | 30 | one probe every N seconds of the set (a 2 h set: 240 probes, about 20 minutes) |
+| `WORKER_PROBE_SECONDS` | 12 | the length of each probe sent to Shazam, 2 to 12 (Shazam fingerprints 12 s at most; 10 s matched 71 % against 94 %) |
 | `WORKER_COOLDOWN_SECONDS` | 3.0 | the pause before every recognition call, plus a random 0–50 %; doubled after each rate limit, 30 s at most |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | the pause after a "rate limited" answer; the second pause is twice as long, the third three times |
 | `WORKER_RATE_LIMIT_PAUSES` | 3 | pauses allowed per set; one more refusal fails the request |
