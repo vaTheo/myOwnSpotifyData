@@ -35,6 +35,12 @@ and 390 px) on the demo data in the variants `full`, `empty`, `old-import`, `no-
 | V8 | By year | 390 | two stacked rows of scrolling chips (years, then 17 periods) before the list | US4 (the grid from medium up; chips stay on compact) |
 | V9 | full-page screenshots | all | the fixed bottom bar is drawn where the first screen ends | not a bug: the runner also saves a screen-sized capture, which is the one the contact sheet shows |
 
+## Progress
+
+| After | Closed | Still open (and the phase that closes it) |
+|---|---|---|
+| Phase 2 (2026-11-06) | B1 focus rings (364 → 0), B3 segmented 48 px, B4 Spotify icon 48 × 48, B7 Disconnect contrast, B8 links underlined in text: axe 24 → 0 | B2 rows 41 px (US2), B5 back and empty-state links (US1, US2), B6 four-figure ranks (US2); undersized targets 21,378 → 5,266 |
+
 ## How to read a run
 
 - **Run**: `yarn shots`, then `yarn shots:sheet`. Open `shots-output/contact-sheet.html`.

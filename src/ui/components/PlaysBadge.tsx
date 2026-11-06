@@ -1,13 +1,13 @@
 import type { PlaysInfo } from '../../model/aggregate';
 import { plural } from '../format';
-import { Badge } from './Badge';
+import { Flag } from './Flag';
 
 export function PlaysBadge(p: { plays: PlaysInfo | null }) {
   if (!p.plays) return null;
   return (
-    <Badge kind="plays">
+    <Flag kind="plays">
       {plural(p.plays.plays, 'play')}
       {p.plays.source === 'name' ? ' (by artist and title)' : ''}
-    </Badge>
+    </Flag>
   );
 }

@@ -12,8 +12,8 @@ import {
 } from '../../model/crate';
 import { historySummary } from '../../model/state';
 import { routeHref } from '../../router';
-import { Badge } from '../components/Badge';
-import { Segmented } from '../components/Segmented';
+import { Flag } from '../components/Flag';
+import { SegmentedButtons } from '../components/SegmentedButtons';
 import { plural } from '../format';
 import { staleMonthKey, windowLabel } from './labels';
 import { rotationMonths } from './selections';
@@ -73,7 +73,7 @@ export function Rotation() {
   const stale = staleMonthKey(historySummary.value?.range, now);
   return (
     <>
-      <Segmented
+      <SegmentedButtons
         options={OPTIONS}
         value={String(months)}
         onChange={(v) => {
@@ -127,17 +127,17 @@ export function Rotation() {
                   rank={i + 1}
                   row={item.row}
                   badge1={
-                    <Badge kind="plays">
+                    <Flag kind="plays">
                       {plural(item.windowPlays, 'play')}
-                    </Badge>
+                    </Flag>
                   }
                   badge2={
                     item.isNew ? (
-                      <Badge kind="top">New</Badge>
+                      <Flag kind="top">New</Flag>
                     ) : inNoPlaylist(item.row) ? (
-                      <Badge kind="todo">not in a playlist</Badge>
+                      <Flag kind="todo">not in a playlist</Flag>
                     ) : (
-                      <Badge>{item.row.plays.toLocaleString()} lifetime</Badge>
+                      <Flag>{item.row.plays.toLocaleString()} lifetime</Flag>
                     )
                   }
                   expanded={expanded.value === id}

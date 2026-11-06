@@ -6,8 +6,8 @@ import {
   rateBand,
   type FinishItem,
 } from '../../model/crate';
-import { Badge } from '../components/Badge';
-import { Segmented } from '../components/Segmented';
+import { Flag } from '../components/Flag';
+import { SegmentedButtons } from '../components/SegmentedButtons';
 import { plural } from '../format';
 import { finishTab } from './selections';
 import {
@@ -43,9 +43,9 @@ function percentFinished(item: FinishItem): number {
   return Math.round(((item.row.finished ?? 0) / item.outcomes) * 100);
 }
 
-function rateKind(pct: number): 'plays' | 'skip' | undefined {
+function rateKind(pct: number): 'high' | 'skip' | undefined {
   const band = rateBand(pct / 100);
-  if (band === 'high') return 'plays';
+  if (band === 'high') return 'high';
   if (band === 'low') return 'skip';
   return undefined;
 }
@@ -59,7 +59,7 @@ export function Finish() {
   // result still leaves the Segmented reachable (spec section 3).
   return (
     <>
-      <Segmented
+      <SegmentedButtons
         options={TAB_OPTIONS}
         value={tab}
         onChange={(v) => {
@@ -93,15 +93,15 @@ export function Finish() {
                     expanded.value =
                       expanded.value === row.trackId ? null : row.trackId;
                   }}
-                  badge1={<Badge kind={rateKind(pct)}>{pct}% finished</Badge>}
+                  badge1={<Flag kind={rateKind(pct)}>{pct}% finished</Flag>}
                   badge2={
                     inNoPlaylist(row) ? (
-                      <Badge kind="todo">not in a playlist</Badge>
+                      <Flag kind="todo">not in a playlist</Flag>
                     ) : (
-                      <Badge>
+                      <Flag>
                         {(row.finished ?? 0).toLocaleString()} of{' '}
                         {item.outcomes.toLocaleString()}
-                      </Badge>
+                      </Flag>
                     )
                   }
                 >

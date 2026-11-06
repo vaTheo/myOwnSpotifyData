@@ -12,7 +12,7 @@ import { radarFilter, radarSort } from './artistSelections';
 import { Empty } from './components/Empty';
 import { Filter } from './components/Filter';
 import { NoMatch } from './components/NoMatch';
-import { Segmented } from './components/Segmented';
+import { SegmentedButtons } from './components/SegmentedButtons';
 import { TrackRow } from './components/TrackRow';
 import {
   artistUrl,
@@ -130,7 +130,7 @@ export function UnderRadar() {
         {cov.covered.toLocaleString()} of {plural(cov.artists, 'artist')} have
         reach data · as of {formatDate(summary.ranAt)}
       </p>
-      <Segmented
+      <SegmentedButtons
         scroll
         options={[
           { value: 'plays', label: 'Most played' },

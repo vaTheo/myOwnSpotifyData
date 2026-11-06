@@ -3,11 +3,11 @@ import type { Period } from '../db/schema';
 import { topArtists, topTracks } from '../model/aggregate';
 import { model } from '../model/state';
 import { routeHref } from '../router';
-import { Badge } from './components/Badge';
+import { Flag } from './components/Flag';
 import { Empty } from './components/Empty';
 import { FeaturePills } from './components/FeaturePills';
 import { PlaysBadge } from './components/PlaysBadge';
-import { Segmented } from './components/Segmented';
+import { SegmentedButtons } from './components/SegmentedButtons';
 import { TrackRow } from './components/TrackRow';
 import { NoPlaylistNote } from './crate/shared';
 import { PERIOD_LABEL, artistNames, plural } from './format';
@@ -26,14 +26,14 @@ export function Top() {
   return (
     <section>
       <h1>Most played</h1>
-      <Segmented
+      <SegmentedButtons
         options={PERIOD_OPTIONS}
         value={period.value}
         onChange={(v) => {
           period.value = v;
         }}
       />
-      <Segmented
+      <SegmentedButtons
         options={[
           { value: 'tracks', label: 'Tracks' },
           { value: 'artists', label: 'Artists' },
@@ -60,9 +60,9 @@ export function Top() {
               badges={
                 <>
                   {t.playlistIds.length === 0 && m.playlists.length > 0 ? (
-                    <Badge kind="todo">not in a playlist</Badge>
+                    <Flag kind="todo">not in a playlist</Flag>
                   ) : (
-                    <Badge>{plural(t.playlistIds.length, 'playlist')}</Badge>
+                    <Flag>{plural(t.playlistIds.length, 'playlist')}</Flag>
                   )}
                   <PlaysBadge plays={t.plays} />
                   <FeaturePills trackId={t.item.id} />

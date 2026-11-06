@@ -26,11 +26,11 @@ import {
   syncState,
 } from '../model/state';
 import { routeHref } from '../router';
-import { Badge } from './components/Badge';
+import { Flag } from './components/Flag';
 import { FeaturePills } from './components/FeaturePills';
 import { PlaysBadge } from './components/PlaysBadge';
-import { Progress } from './components/Progress';
-import { Segmented } from './components/Segmented';
+import { ProgressBar } from './components/ProgressBar';
+import { SegmentedButtons } from './components/SegmentedButtons';
 import { SpotifyLink } from './components/SpotifyLink';
 import { TrackRow } from './components/TrackRow';
 import { PERIOD_LABEL, artistNames, formatBpm, plural } from './format';
@@ -126,7 +126,7 @@ function MatchBadges(p: {
 }) {
   const { seed, match } = p;
   if (!seed || !match) return null;
-  if (!match.feature) return <Badge>no data</Badge>;
+  if (!match.feature) return <Flag>no data</Flag>;
   const far =
     match.deltaPct !== null && Math.abs(match.deltaPct) > TOLERANCE_PCT;
   const relation = far
@@ -134,8 +134,8 @@ function MatchBadges(p: {
     : relationLabel(seed, match.feature, match.relation);
   return (
     <>
-      {relation && <Badge kind="relation">{relation}</Badge>}
-      {match.deltaPct !== null && <Badge>{deltaLabel(match.deltaPct)}</Badge>}
+      {relation && <Flag kind="relation">{relation}</Flag>}
+      {match.deltaPct !== null && <Flag>{deltaLabel(match.deltaPct)}</Flag>}
     </>
   );
 }
@@ -164,7 +164,7 @@ function LikeStatus({ playlistId }: { playlistId: string }) {
       );
     case 'checking':
       return (
-        <Progress
+        <ProgressBar
           label="Checking your Liked Songs…"
           done={s.done}
           total={s.total}
@@ -173,7 +173,7 @@ function LikeStatus({ playlistId }: { playlistId: string }) {
       );
     case 'liking':
       return (
-        <Progress label="Liking…" done={s.done} total={s.total} unit="songs" />
+        <ProgressBar label="Liking…" done={s.done} total={s.total} unit="songs" />
       );
     case 'done':
       return <p class="muted">{likeSummary(s)}</p>;
@@ -261,7 +261,7 @@ export function Playlist({ id }: { id: string }) {
         </button>
       </div>
       <LikeStatus playlistId={id} />
-      <Segmented
+      <SegmentedButtons
         options={[
           { value: 'plays', label: 'By plays' },
           { value: 'order', label: 'Playlist order' },
@@ -309,9 +309,9 @@ export function Playlist({ id }: { id: string }) {
               <>
                 <PlaysBadge plays={r.plays} />
                 {r.inTop.map((p) => (
-                  <Badge kind="top" key={p}>
+                  <Flag kind="top" key={p}>
                     Top {PERIOD_LABEL[p]}
-                  </Badge>
+                  </Flag>
                 ))}
                 <MatchBadges seed={seedFeature} match={match} />
                 {r.track.id && <FeaturePills trackId={r.track.id} />}
