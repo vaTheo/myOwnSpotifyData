@@ -229,8 +229,10 @@ Using it:
 - **Settings → Server → Send me a link**: open the emailed link in the same
   browser within 10 minutes. The browser stays signed in.
 - After every sync, import, lookup, reach run, and every mix you save or
-  delete, the app sends that data to the server. On open it fetches whatever
-  another device sent since. Newer wins, dataset by dataset, by the time the
+  delete, the app sends that data to the server. On open, when you come back
+  to the app after a minute or more, and when the network returns, it fetches
+  whatever another device sent since; while a request runs on your computer it
+  also checks every minute, so the result appears without a tap. Newer wins, dataset by dataset, by the time the
   data was fetched or imported; a saved mix converges row by row.
 - **Sync now with server** does both on demand; the card shows when each
   dataset was fetched here and on the server, the rows held, and the used

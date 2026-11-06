@@ -319,6 +319,22 @@ export async function startServerPull(): Promise<void> {
   void queueServerPush([]);
 }
 
+/** Signed in to Spotify and to the server: the automatic sync may run. */
+export function serverAutoSyncEnabled(): boolean {
+  return (
+    serverConfigured &&
+    serverAuth.session.value !== null &&
+    auth.session.value !== null
+  );
+}
+
+/** A request waits or runs on the computer: the Mix card is worth refreshing. */
+export function hasActiveRequest(): boolean {
+  return Object.values(mixJobs.value).some(
+    (h) => h[0]?.status === 'queued' || h[0]?.status === 'claimed'
+  );
+}
+
 /** The card's "Sync now with server", and the open: pending pushes, then a pull. */
 export async function startServerSync(): Promise<void> {
   await queueServerPush([]);

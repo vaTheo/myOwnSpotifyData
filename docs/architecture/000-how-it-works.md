@@ -287,12 +287,15 @@ One Supabase Free project, for the owner alone, that stores every dataset the ap
   result is counted and flagged `rejected` locally.
 - Wiring in `model/state.ts`: `serverState` (rendered by the Settings server card), `recordConnectedAccount` (one `/me` on the Connect
   tap, `:346`), `queueServerPush` (flags `serverPending` first, one push at a time), `startServerPull` (joins `jobsBusy()`, ends in
-  `loadFromDb()` and `loadSavedMixes()`), `startServerSync` (pending pushes, then the pull: the open and the card's button),
+  `loadFromDb()` and `loadSavedMixes()`), `startServerSync` (pending pushes, then the pull: the open, the card's button and `autoSync.ts`),
   `startServerSignOut`, `removeServerData` (the one new `confirm()`). `offline` and `paused` set no banner and keep the pending flags.
 - Four new `meta` names and no `DB_VERSION` bump: `serverStamps`, `serverPending`, `serverLastSync`, `mixDeleted` (written by
   `deleteMix`, cleared after the tombstones are pushed).
 - `index.html` carries a Content Security Policy listing every host the app calls; `vite.config.ts` fills the server URL into it at
   build time and the HMR websocket on the dev server.
+- `autoSync.ts` (`installAutoSync`, installed by `main.tsx` after the open's sync): `startServerSync` on return to the app (tab
+  visible, `RESUME_GAP_MS` = 60 s since the last), on `online`, and `startServerPull` every `ACTIVE_POLL_MS` (60 s) while visible
+  and a request waits or runs (`hasActiveRequest`); only when signed in to both (`serverAutoSyncEnabled`). Never reads Spotify.
 
 ## 17. `worker/`: the owner's-computer worker
 

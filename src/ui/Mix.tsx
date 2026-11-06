@@ -798,7 +798,7 @@ function RequestsCard(p: { onPick: (url: string) => void }) {
       <h2>Requests to your computer</h2>
       <p class="caption">
         {active > 0
-          ? `${plural(active, 'request')} waiting or running.`
+          ? `${plural(active, 'request')} waiting or running · checked every minute.`
           : 'Nothing waiting.'}{' '}
         <button
           type="button"
