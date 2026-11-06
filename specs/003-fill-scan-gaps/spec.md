@@ -15,6 +15,11 @@ when a comment names an artist and a title that are easy to read, the worker tri
 database (owner: "sometimes names and artists are really easy to find") so the gap gets a candidate track, marked as coming
 from a comment and not from the audio. No paid service, no key; never a wrong track presented as certain."
 
+Clarified 2026-11-06 by the owner: (1) the second pass replays **one unmatched probe out of two**, alternating the speed
+correction: in a run of unmatched probes, the 1st is replayed at +4 %, the 2nd is not replayed, the 3rd at −4 %, the 4th not,
+and so on; (2) besides the comments, the worker reads the **set's description**, where uploaders often post the tracklist;
+(3) a candidate found by name goes into Create playlist like an identified row, marked, unless the owner deletes it.
+
 Context: the first comparison on 2026-11-06 (LYL Radio – Planète Noire, 2 h 10) shared 3 tracks between the worker and the
 owner's earlier Tracklistify playlist; most of the set had no match at all. The worker now listens to 12 s every 15 s; this
 round works on what is still missing.
@@ -36,8 +41,9 @@ round works on what is still missing.
 ### User Story 1 - A second listen on the parts where nothing was found (Priority: P1)
 
 After the first pass of a scan, the worker knows which stretches of the set produced no match (the gaps). It listens to each
-gap again: at positions shifted a few seconds from the first probes, and at the original speed corrected by about 4 % up and
-down, because DJs often play tracks faster or slower. A track found this way joins the tracklist like any other, marked as
+gap again, replaying one unmatched probe out of two with its speed corrected by 4 %, alternately up and down, because DJs
+often play tracks faster or slower: in a run of four unmatched 15-second steps, 0–15 s is replayed at +4 %, 15–30 s is not,
+30–45 s is replayed at −4 %, 45–60 s is not. A track found this way joins the tracklist like any other, marked as
 found on the second pass.
 
 **Why this priority**: it needs no new source and works on every platform; it is the cheapest way to recover tracks the
@@ -48,9 +54,9 @@ that track at the right time, marked "second pass", and the scan's total time st
 
 **Acceptance Scenarios**:
 
-1. **Given** a scan whose first pass left a gap of 3 minutes, **When** the second pass runs, **Then** the gap is probed again
-   at shifted positions, each at normal speed and, if still unmatched, at about −4 % and +4 % speed, one call at a time with
-   the usual pause between calls.
+1. **Given** a scan whose first pass left a run of 12 unmatched probes, **When** the second pass runs, **Then** probes 1, 5
+   and 9 are replayed at +4 %, probes 3, 7 and 11 at −4 %, the even ones are not replayed, one call at a time with the usual
+   pause between calls.
 2. **Given** the second pass finds a track inside a gap, **When** the result is written, **Then** the track appears at its
    time in the set, with its confidence, marked as found on the second pass and at which speed correction.
 3. **Given** the recognition service rate limits the computer during the second pass, **When** the usual pauses run out,
@@ -60,10 +66,10 @@ that track at the right time, marked "second pass", and the scan's total time st
 
 ---
 
-### User Story 2 - Read what listeners wrote around each gap (Priority: P2)
+### User Story 2 - Read the description and what listeners wrote around each gap (Priority: P2)
 
-When the set's page has comments placed at a moment of the set (SoundCloud), or chapters and timestamped comments
-(YouTube), the worker collects them. On the Mix screen, each gap that still has no track shows the comments posted around
+The worker reads the set's **description**, where uploaders often post the tracklist (with or without times), and, when the
+page has them, the comments placed at a moment of the set (SoundCloud) or the chapters and timestamped comments (YouTube). On the Mix screen, each gap that still has no track shows the comments posted around
 it, with who wrote them and when in the set, so the owner can read the clues ("ID?", "this is X – Y", a tracklist posted by
 the DJ) and fill the row by hand.
 
@@ -83,6 +89,9 @@ them on the gap saves opening the platform and scrolling.
    as usual and the log says comments could not be read.
 4. **Given** a YouTube set with chapters, **When** the result arrives, **Then** each chapter title is shown at its position
    like a comment written by the uploader.
+5. **Given** a description holding a tracklist with times ("34:10 Artist – Title"), **When** the result arrives, **Then** each
+   line is a clue at its time, shown on the gap it falls in; **Given** a tracklist without times, **Then** it is shown once
+   for the whole set, and its lines can still propose candidates (User Story 3).
 
 ---
 
@@ -118,8 +127,9 @@ ISRC, marked "from a comment"; a gap with the comment "this one is fire 🔥" ge
   as today.
 - A set with hundreds of comments: only the comments around gaps are kept in the result, and the result stays under the
   server's size limit (a cut is logged, never a failure).
-- A comment that is a whole tracklist without positions (the DJ's list): it is attached to the set as a whole, and its lines
-  can propose candidates for gaps only when the line carries a time that falls in a gap.
+- A description or comment that is a whole tracklist without positions (the DJ's list): it is attached to the set as a whole;
+  its lines can propose candidates, each placed on a gap only when the line carries a time; a line without a time whose
+  track is confirmed is listed as a set-wide candidate, not placed on a gap.
 - A comment naming a track that the first or second pass already found elsewhere in the set: no candidate is made.
 - Text in other scripts (Japanese, Cyrillic): shown as written; the lookup runs only when artist and title are separable.
 - The catalogue is unreachable or slow: no candidate is made, the scan is not failed, the log says so.
@@ -131,16 +141,18 @@ ISRC, marked "from a comment"; a gap with the comment "this one is fire 🔥" ge
 
 - **FR-001**: After the first pass, the worker MUST determine the gaps: stretches of the set between two found tracks (or the
   set's start or end) where no probe matched.
-- **FR-002**: The worker MUST probe each gap again at positions shifted from the first pass's probes, at least one position
-  per gap, at normal speed first and, for a position still unmatched, at about −4 % and +4 % speed.
+- **FR-002**: In each run of unmatched probes, the worker MUST replay the 1st, 3rd, 5th… probe (one out of two, counted from
+  the run's start), alternating the speed correction: +4 % for the 1st, −4 % for the 3rd, +4 % for the 5th, and so on; the
+  other probes are not replayed. A gap of a single unmatched probe gets one replay at +4 %.
 - **FR-003**: The second pass MUST follow the first pass's pacing and rate-limit rules (one call at a time, the pause between
   calls, the pauses after a rate limit) and MUST stay within a budget of extra calls proportional to the gaps' length (see
   SC-003).
 - **FR-004**: A refusal or failure during the second pass MUST NOT lose the first pass's tracks or the second pass's tracks
   already found; the result is sent with what was found and says the second pass stopped early.
 - **FR-005**: Each track found on the second pass MUST be marked with that fact and the speed correction used.
-- **FR-006**: The worker MUST read the comments placed at a position of the set (SoundCloud) and the chapters and
-  timestamped comments (YouTube) when the platform offers them, without a key or an account.
+- **FR-006**: The worker MUST read the set's description, and the comments placed at a position of the set (SoundCloud) and
+  the chapters and timestamped comments (YouTube) when the platform offers them, without a key or an account. A description
+  line with a time is a clue at that time; a description without times is a set-wide clue.
 - **FR-007**: The result MUST carry, for each gap still without a track, the comments whose position falls inside it or
   within a margin around it, with author name, position and text; the result MUST stay within the server's size limit by
   keeping the comments closest to gaps first.
@@ -165,7 +177,8 @@ ISRC, marked "from a comment"; a gap with the comment "this one is fire 🔥" ge
 - **Gap**: a stretch of the set (start, end) with no found track after the first pass; it receives second-pass probes,
   comments and candidates.
 - **Second-pass hit**: a track found in a gap, with its time, confidence and the speed correction that found it.
-- **Comment clue**: author name, position in the set (or none for a set-wide tracklist), text, platform.
+- **Clue**: a description line, a chapter or a comment: author (the uploader for the description), position in the set (or
+  none for a set-wide line), text, platform.
 - **Candidate**: artist, title, catalogue identifiers, the comment clue it came from, and the mark "from a comment".
 
 ## Success Criteria *(mandatory)*
@@ -176,16 +189,16 @@ ISRC, marked "from a comment"; a gap with the comment "this one is fire 🔥" ge
   at least 2 more of the owner's Tracklistify playlist than the first pass alone.
 - **SC-002**: No candidate made from a comment names a track different from the comment's artist and title (checked by hand
   on 3 sets: zero wrong candidates).
-- **SC-003**: The second pass adds at most half the first pass's number of recognition calls on a set where gaps cover half
-  the set or more; a 2 h set is still finished in under 75 minutes.
+- **SC-003**: The second pass adds at most one call for every two unmatched probes (half the gaps' probes); a 2 h set is
+  still finished in under 75 minutes.
 - **SC-004**: The owner can read, on the phone, every comment placed in a gap without opening the platform.
 - **SC-005**: A set whose comments cannot be read is processed exactly as today (same tracks, at most 30 s longer).
 
 ## Assumptions
 
 - "Around a gap" means inside it or within 30 s before or after; a gap is at least one unmatched probe long.
-- Second-pass positions: the middle of each unmatched probe's step, at most one position every 45 s of gap; speed
-  corrections ±4 %. Both are settings of the worker with these defaults.
+- Second pass: one unmatched probe out of two, alternating +4 % and −4 %; the correction is a setting of the worker with this
+  default. A replay covers the same moment of the set as the probe it replays.
 - The free catalogue for lookups is a public, keyless one already allowed by the project's rules for the app's other
   features (artist and recording data); the plan picks it and records its limits.
 - Comments come through the download tool the worker already ships; no new account, no scraping of a site whose terms
