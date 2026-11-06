@@ -5,7 +5,8 @@ policies the client relies on.
 
 ## Names
 
-- Schema `public`; tables `datasets`, `dataset_rows`, `mixes`, `jobs`; function `storage_used()`.
+- Schema `public`; tables `datasets`, `dataset_rows`, `mixes`, `jobs`; function `storage_used()`. Migration `0002_jobs.sql`
+  (worker round, `specs/002-mix-analysis-worker/contracts/server-schema.md`) adds `jobs.applied_at`, an index and `claim_job()`.
 - `owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade` on every table.
 
 ## Row Level Security

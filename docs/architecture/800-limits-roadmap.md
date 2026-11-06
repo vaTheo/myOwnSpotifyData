@@ -27,6 +27,10 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 - Playlist name and description caps (100 / 300) are defensive guesses, not measured Spotify maxima.
 - A Tracklistify `tracklist.json` without `mix_info.audio_filename` and `.title` is refused.
 - No DOM or component tests: the UI and the `start*` wrappers in `state.ts` are checked by hand.
+- The worker (F19): Shazam's tolerance for unauthenticated calls is undocumented; the pacing (one 12 s probe a minute, 3 s
+  cooldown, one pause) is a guess from the surviving Tracklistify copy, and a second refusal fails the request. A set is sampled
+  once a minute, so a track played under a minute can be missed. The executables are unsigned; the ffmpeg inside is a GPL build;
+  YouTube links need Node or Deno on the computer. Requests wait while the computer is off.
 - The server (F18) is a Supabase Free project: it pauses after a week without traffic and only the dashboard resumes it; 500 MB
   of database; no automatic backups; a sign-in link only works in the browser that asked for it, within 10 minutes; the built-in
   email service sends a few links an hour at most.
@@ -38,15 +42,16 @@ Each spec has an "Out of scope" block; the main ones:
 
 - Any server of the owner's own, Cloudflare Worker or paid service; the one exception is the owner's free-tier database with sign-in, declared by one second setting ([ADR-08](700-adr/ADR-08-owner-server-free-tier.md), which supersedes [ADR-01](700-adr/ADR-01-browser-only-pkce.md) on this point).
 - Name search for artists or tracks in the reach and lookup jobs ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)).
-- Any audio fetch, fingerprinting or recognition API; MixesDB/1001Tracklists scraping.
+- Any audio fetch, fingerprinting or recognition **in the app or on the server**; the worker on the owner's computer does it
+  ([ADR-09](700-adr/ADR-09-mix-identification-on-the-owners-computer.md)). MixesDB/1001Tracklists scraping.
 - Adding to an existing playlist, editing a created playlist, public playlists, cover images.
 - Charts, adjustable Crate thresholds, a single blended reach score, a reach number on track rows.
 - Commit hooks, Dependabot, branch protection, PR templates, a docs checker ([ADR-06](700-adr/ADR-06-lean-tooling.md)).
 
 ## 4. Roadmap
 
-The next round (decided 2026-11-05, not started): a worker on the owner's computer that polls the server's `jobs` table, fetches a
-mix's audio and identifies its tracks, then feeds the Mix screen. New ideas are discussed with the owner first, get a dated spec under
+The worker round shipped on 2026-11-06 (F19). Nothing is decided next; candidates discussed: a column of starts under 30 s on
+track rows or a Crate-only play threshold, Linux/macOS binaries are already built, a second job kind on the same queue. New ideas are discussed with the owner first, get a dated spec under
 [specs](../specs/), and are listed here until they ship.
 
 | Idea | State | Notes |

@@ -1,0 +1,70 @@
+name: Worker release
+
+# One executable per system from one tag, attached to one GitHub release
+# (specs/002-mix-analysis-worker, research D9). Tag: worker-v<major>.<minor>.<patch>.
+on:
+  push:
+    tags: ['worker-v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: mix-worker-windows-x64.exe
+            built: dist/mix-worker.exe
+          - os: ubuntu-22.04
+            asset: mix-worker-linux-x86_64
+            built: dist/mix-worker
+          - os: macos-latest
+            asset: mix-worker-macos-arm64
+            built: dist/mix-worker
+          - os: macos-15-intel
+            asset: mix-worker-macos-x86_64
+            built: dist/mix-worker
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --group build
+      - run: uv run python -m unittest discover -s tests -v
+      - run: uv run --frozen --group build pyinstaller mix-worker.spec
+      - name: Smoke test the executable
+        shell: bash
+        run: |
+          printf 'SUPABASE_URL=https://example.supabase.co\nSUPABASE_KEY=sb_publishable_smoke\n' > smoke.env
+          ./${{ matrix.built }} --version
+          ./${{ matrix.built }} --config smoke.env check
+          mv ${{ matrix.built }} ${{ matrix.asset }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: worker/${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Create the release with every executable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la assets
+          gh release create "$GITHUB_REF_NAME" assets/mix-worker-* --title "$GITHUB_REF_NAME" --generate-notes \
+            --notes-file worker/RELEASE_NOTES.md

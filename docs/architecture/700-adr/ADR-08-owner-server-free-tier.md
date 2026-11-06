@@ -60,6 +60,7 @@ the used share); a hosted service can change its free tier; a worker that only r
 
 - Supersedes [ADR-01](ADR-01-browser-only-pkce.md) for the server; keeps its PKCE and no-secret rules
 - Spec: [Backend data sync](../../../specs/001-backend-data-sync/spec.md)
+- The first worker: [ADR-09](ADR-09-mix-identification-on-the-owners-computer.md), spec `specs/002-mix-analysis-worker/`
 - Constitution: `.specify/memory/constitution.md` Principle I
 - [ADR-02](ADR-02-no-spotify-reads-on-load.md), [ADR-03](ADR-03-library-writes-on-tap.md), [ADR-04](ADR-04-keyless-sources-by-id.md)
 - [ADR index](README.md)

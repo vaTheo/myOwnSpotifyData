@@ -3,6 +3,18 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-06 — Identify a mix on my computer (the worker)
+
+The Mix screen gains **Identify on my computer**: paste any set link yt-dlp supports, tap, and a request waits on the owner's
+server. `worker/`, a Python program for the owner's computer (also one executable per system from a `worker-v*` tag), takes it,
+downloads the audio, recognises it twelve seconds at a time with Shazam (ShazamIO), merges the hits into one row per track with
+ISRC and label, sends the tracklist back in the shape the Tracklistify import reads, and deletes the audio. The next sync shows
+the rows on the saved mix; Create playlist from mix is unchanged; the request's state and reason are shown, with Ask again
+([ADR-09](docs/architecture/700-adr/ADR-09-mix-identification-on-the-owners-computer.md), [spec](docs/specs/2026-11-06-mix-analysis-worker-design.md),
+the full round under `specs/002-mix-analysis-worker/`, the manual `worker/README.md`). No `DB_VERSION` bump, one new `meta`
+name, no new app dependency. After upgrading: apply `supabase/migrations/0002_jobs.sql`, add `Your code: {{ .Token }}` to the
+Magic Link email template, then `cd worker && uv sync && uv run mix-worker login`.
+
 ## 2026-11-06 — A server and database holding the app's data
 
 The app can now copy every dataset it builds to the owner's own Supabase Free project and get it back on any browser after a

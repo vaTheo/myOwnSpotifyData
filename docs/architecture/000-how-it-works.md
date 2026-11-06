@@ -175,6 +175,9 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 - `createPlaylist.ts` (`runCreatePlaylist`, `src/features/mix/createPlaylist.ts:39`): resolve every identified row,
   `POST /me/playlists` (private), then `POST /playlists/{id}/items` with the matched URIs in batches of ≤100, driving an `onState`
   callback and never throwing.
+- `worker.ts` (pure, worker round): `resultToRows` (the worker's result through `parseTracklistifyJson`, re-checked), `mergeWorkerRows`
+  (a new result replaces untouched scan rows only), `jobView` and `requestStatusText` (the one wording of the Identify button and the
+  request's state line for every server and request state). `url.ts` gains `requestKey`, the canonical link of a request.
 - `digLinks.ts` (`digRows`): a track Search did not find is listed under the result, repeats grouped by name with every time in the mix,
   five store/preview search links (Beatport, Bandcamp, Discogs, SoundCloud, YouTube) plus Tracklistify's Shazam page (kept by the parser
   only when it is an https `shazam.com` URL, dropped once the row is edited), drawn as Simple Icons (CC0) by `ui/components/DigLinks.tsx`.
@@ -232,6 +235,7 @@ One Preact component per screen plus small shared components (`ui/components/`).
 | Like all songs | `startLikePlaylist` (`:1389`) | Playlist screen | no |
 | Server pull | `startServerPull` (`:284`) | the open (after the first paint), Settings · Server · Sync now | yes |
 | Server push | `queueServerPush` (`:246`) | the tail of the five library jobs, every mix save or delete | no |
+| Identify request | `startIdentifyRequest` (worker round) | `#/mix`, the Identify on my computer button | no (one insert, under a second; no `confirm()`; Disconnect keeps it) |
 
 The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:314`). The mix and like
 jobs write no library store and rebuild no `Model`, so they need no exclusion; each guards its own re-entry on its state's `status`, shows
@@ -272,8 +276,15 @@ One Supabase Free project, for the owner alone, that stores every dataset the ap
   one is dropped, so one bad push stays recoverable), `runPull` (stamps, pages of `dataset_rows`, validation, `replaceDataset` with the
   summary in one transaction, `serverStamps` recorded), the mixes branch (`select=*` once, filtered in the client), `runRemoveAll` (the
   four tables, children first, then the server metas) and `readUsage` (`storage_used()`).
-- Server side: `supabase/migrations/0001_init.sql` creates `datasets`, `dataset_rows`, `mixes`, `jobs` (empty, for the worker round)
-  and `storage_used()`, enables Row Level Security on `owner_id = auth.uid()` and revokes every default privilege from `anon`.
+- Server side: `supabase/migrations/0001_init.sql` creates `datasets`, `dataset_rows`, `mixes`, `jobs` and `storage_used()`, enables
+  Row Level Security on `owner_id = auth.uid()` and revokes every default privilege from `anon`; `0002_jobs.sql` (worker round) adds
+  `jobs.applied_at`, an index and `claim_job(p_worker, p_stale_seconds)` (security invoker: the oldest queued request, or one left
+  running past the stale limit, marked claimed under `for update skip locked`).
+- Identify requests (worker round, §17): `requestIdentify` (one open request per link, else one insert of `{kind: 'identify-mix',
+  payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history per link validated (`validateJobRow`) into the
+  `mixJobs` meta (newest first, 20 per link), then every done, unapplied result applied oldest first: `resultToRows`, the saved mix
+  merged or created, `serverPending.mixes` set, `applied_at` marked with an `is.null` guard so another device skips it; a refused
+  result is counted and flagged `rejected` locally.
 - Wiring in `model/state.ts`: `serverState` (rendered by the Settings server card), `recordConnectedAccount` (one `/me` on the Connect
   tap, `:346`), `queueServerPush` (flags `serverPending` first, one push at a time), `startServerPull` (joins `jobsBusy()`, ends in
   `loadFromDb()` and `loadSavedMixes()`), `startServerSync` (pending pushes, then the pull: the open and the card's button),
@@ -282,6 +293,29 @@ One Supabase Free project, for the owner alone, that stores every dataset the ap
   `deleteMix`, cleared after the tombstones are pushed).
 - `index.html` carries a Content Security Policy listing every host the app calls; `vite.config.ts` fills the server URL into it at
   build time and the HMR websocket on the dev server.
+
+## 17. `worker/`: the owner's-computer worker
+
+A Python `uv` project (3.11–3.13; `yt-dlp`, `shazamio`, `imageio-ffmpeg`; tests with the standard library's `unittest`, run by CI)
+and one PyInstaller executable per system built by `.github/workflows/worker-release.yml` on a `worker-v*` tag
+([ADR-09](700-adr/ADR-09-mix-identification-on-the-owners-computer.md); the round's record under `specs/002-mix-analysis-worker/`;
+the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never calls a Spotify host.
+
+- `cli.py`: `check`, `login` (email code → `session.json` at mode 600), `logout`, `run --once|--watch`, `--config`, `--version`;
+  no command = the double-click: login if needed, then watch; a packaged start without a settings file writes `mix-worker.env`
+  and exits 6. Exit codes 0/2/3/4/5/6/130 (`contracts/worker.md`). Every dependency (environment, terminal, clock, client, the
+  queue loop) is a `CliDeps` field, so `tests/test_cli.py` runs every command offline.
+- `config.py`: the one reader of the settings file and the environment (`Settings`, defaults per OS, `SettingsError` naming
+  the setting). `server.py`: `ServerClient` over `urllib` (`send_otp`, `verify`, `refresh`, `logout`, `claim` → `rpc/claim_job`,
+  `finish` → `PATCH jobs?id=eq.&status=eq.claimed&claimed_by=eq.` with `return=representation` ("taken" when it answers no
+  row), `release`), every call a `Result`, the error mapping of `client.ts`. `session.py`: load/save/refresh with a 60 s margin.
+- `download.py`: `yt_dlp.YoutubeDL` in-process, `bestaudio/best`, no playlist, no live, no post-processing; the error text
+  mapped to one-line reasons. `scan.py`: `probe_times` (one probe every 60 s), `cut_probe` (ffmpeg → mono 16 kHz WAV through a
+  scratch file), `recognize(bytes, max_skew)` one at a time behind a cooldown (a `RateLimited` pauses once, then `ScanRefused`),
+  `confidence_of` (the skew formula), `track_entry` (the F15 entry with ISRC, label, Shazam link), `merge` (one row per run of
+  hits within the gap), `write_result` (the JSON, saved before it is sent). `pipeline.py`: `run_one` (validate → download → scan →
+  write → send → clean, every path logged and the folder removed) and `log.py` (one line per step; tracebacks to the file only).
+- The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
 
 ## Links
 

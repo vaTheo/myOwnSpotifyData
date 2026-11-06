@@ -36,6 +36,7 @@ same commit as any feature change ([Contributing](../dev-guide/000-contributing.
 | F15 | Tracklistify JSON import + ISRC-exact Search | `#/mix` | `parseTracklistifyJson` `src/features/mix/tracklistify.ts:89`, `startTracklistifyImport` `src/model/state.ts:753` | [Tracklistify import](../specs/2026-09-28-tracklistify-import-design.md) | 2026-09-28 `0fde8ed`, `8b4ba63` | ✅ | The scan itself runs off the phone (Tracklistify) |
 | F16 | Dig links for tracks Search did not find | `#/mix`, under a created playlist | `digRows` `src/features/mix/digLinks.ts:90`, `src/ui/components/DigLinks.tsx` | none (commit `db78e6a` and its tests) | 2026-09-29 `db78e6a` | ✅ | Links out only; nothing is fetched |
 | F17 | Stricter Search matching (whole-word artist runs, version tails, Mixed copies) | `#/mix` (F13) | `pickMatch`, `artistRuns`, `artistCore`, `isMixedCopy` in `src/features/mix/spotifySearch.ts` | none (commits and `spotifySearch.test.ts`); rule in [How it works](000-how-it-works.md) §10 | 2026-09-29 `175804e`…`cb5e1e8` | ✅ | Prefers "not found" to a wrong track |
+| F19 | Identify a mix on my computer (the worker: yt-dlp + ShazamIO on the owner's computer; request button, states and history on the Mix screen; one executable per system) | `#/mix` · Identify on my computer; `worker/` | `startIdentifyRequest` in `src/model/state.ts`, `pullJobs`/`requestIdentify` in `src/server/sync.ts`, `src/features/mix/worker.ts`, `worker/mix_worker/pipeline.py` | [Mix analysis worker](../specs/2026-11-06-mix-analysis-worker-design.md) | 2026-11-06 | ⚠️ | Shazam's quota is undocumented (a refusal fails the request); executables unsigned; YouTube needs Node or Deno on the computer; the owner's validation on the live project pending |
 | F18 | Server sync (the owner's Supabase project, magic link, newer wins per dataset, mixes by row) | Settings · Server | `runPush`/`runPull` `src/server/sync.ts`, `startServerPull`/`queueServerPush` in `src/model/state.ts`, `ServerCard` in `src/ui/Settings.tsx` | [Backend data sync](../specs/2026-11-05-backend-data-sync-design.md) | 2026-11-06 | ⚠️ | Free project pauses after a week idle (resume from the dashboard); no backups on Free; sign-in link opens in the browser that asked |
 
 ## 2. What leaves the browser
@@ -47,6 +48,7 @@ same commit as any feature change ([Contributing](../dev-guide/000-contributing.
 | F11 | MusicBrainz, ListenBrainz, Deezer, Wikidata, Wikimedia | artist ids, ISRCs, article titles | Settings · Artist reach · Look up artists |
 | F12 | SoundCloud (oEmbed, player), TrackId.net | the pasted mix URL | `#/mix` · Look up |
 | F18 | the owner's own Supabase project | every dataset the app builds: library and playlists, play counts, BPM and key, artist reach, saved mixes; never the Spotify token | after each job and on open, when signed in to the server |
+| F19 | the owner's own Supabase project | the link of a set to identify (a request); the worker on the owner's computer sends back the tracklist JSON; the audio never leaves that computer | on the Identify on my computer tap; the worker, when the owner runs it |
 
 No Spotify token ever leaves the browser; the listening history goes only to the owner's own server, when one is set up.
 
@@ -63,7 +65,7 @@ Nothing else writes to the owner's Spotify account ([ADR-03](700-adr/ADR-03-libr
 
 - `main` is at `cb5e1e8` (2026-09-29); every `origin/feat/*` branch is merged into it; CI deploys `main` to GitHub Pages.
 - `yarn typecheck` and `yarn lint` are clean; `yarn test`: 47 files, 643 tests passing (2026-11-05).
-- Last feature round: F15–F17 (2026-09-28/29). Nothing is in progress on `main`.
+- Last feature round: F19 (2026-11-06, the worker), after F18 (2026-11-06, the server). Nothing is in progress on `main`.
 - `DB_VERSION` 4; `SCOPES` include the two write scopes, so a pre-2026-09-25 session needs **Connect again** once.
 
 ## Links

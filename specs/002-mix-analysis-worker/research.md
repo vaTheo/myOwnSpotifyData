@@ -59,7 +59,9 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
 
 - **Decision**: for a set of duration `T` (from the download's metadata, else discovered when ffmpeg returns nothing), the
   scanner probes at `t = 0, 60, 120, …` (`WORKER_PROBE_STEP_SECONDS`, default **60**), each probe `ffmpeg -nostdin -hide_banner
-  -loglevel error -ss <t> -t 12 -i <file> -vn -ac 1 -ar 16000 -f wav pipe:1` read as bytes and passed to `recognize(bytes)`. A
+  -loglevel error -ss <t> -t 12 -i <file> -vn -ac 1 -ar 16000 -f wav <scratch.wav>` read back as bytes (one scratch file
+  beside the audio, overwritten per probe: on a pipe ffmpeg cannot seek back to fill the WAV header's sizes and the decoder
+  refuses the payload with "unexpected end of file", found on 2026-11-06) and passed to `recognize(bytes)`. A
   probe under 1000 bytes (past the end, or unreadable) ends the scan; a `SignatureError` (silence) is skipped. `time_in_mix` is
   the probe start, `HH:MM:SS`.
 - **Rationale**: the fork cuts 90 s MP3 files every 85 s with ffmpeg (`core/base.py:364–416`) and hands the file to the
@@ -67,7 +69,7 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
   there is the segment start too (`identification.py:256–258`). One probe a minute finds a 3-minute track two or three times
   and a 90-second one at least once, for 120 probes on a two-hour set: about 120 × (3 s + ~1.5 s) ≈ 9 minutes after the
   download, under SC-002's bound (the hand-run tool: ~85 probes, ~5 minutes). Mono 16 kHz WAV is what the extension resamples
-  to anyway; piping avoids per-probe files.
+  to anyway; one scratch file, deleted after each probe, is the only disk use beside the audio.
 - **Alternatives**: the fork's 85 s step (fewer calls, misses short tracks; kept reachable through the setting); 30 s step
   (twice the calls, no evidence it finds more); passing the whole file (the library would fingerprint its middle only).
 
@@ -148,6 +150,9 @@ needs only `song_name`, `artist`, `mix_info.title`, `mix_info.audio_filename`; e
   PyInstaller cannot cross-build, so one runner per system builds; `uv` is on the owner's computer and locks every library;
   stdlib `unittest` adds no package (ADR-06). A wheel-shipped ffmpeg removes the one manual install of the previous design and
   the "ffmpeg beside the executable" edge case.
+- **Confirmed on 2026-11-06 (smoke on this computer, a public YouTube video)**: download through yt-dlp with Node present
+  (15 s for a 4-minute video), one probe recognised with `matches: 7`, `track.isrc`, the `Label` section and skews around 1e-5
+  (confidence 99.9); `max_skew=0.001` kept the match.
 - **Confirmed on 2026-11-06 (T002)**: `uv sync` resolves `imageio-ffmpeg 0.8.1` (BSD-2-Clause), `yt-dlp 2026.10.26`,
   `shazamio 0.9.0` + `shazamio-core 2.0.0`; the Linux binary is `ffmpeg-linux-x86_64-v9.0.2` (`n9.0.2-17-g2a571b6068-20260930`,
   a BtbN FFmpeg-Builds build configured `--enable-gpl --enable-version3`, so **GPL v3**), **172 MB**. The worker (MIT) runs it as a
