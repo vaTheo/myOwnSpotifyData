@@ -37,8 +37,6 @@ export interface Column<Row> {
   compact?: 'lead' | 'title' | 'subtitle' | 'meta' | 'trail' | 'hidden';
 }
 
-const LEVEL_WIDTHS = [0, 720, 960, 1200];
-
 /** The grid template at each priority level: hidden columns get 0 px. */
 function templates<Row>(columns: Column<Row>[]): Record<string, string> {
   const vars: Record<string, string> = {};
@@ -288,7 +286,11 @@ export function DataTable<Row>(p: {
   );
 }
 
-/** The two-line item of a phone: lead, title over subtitle · meta, trail. */
+/**
+ * The item of a phone: lead, then title, subtitle (artists) and meta lines,
+ * then trail. The subtitle has its own line so a long meta never cuts the
+ * artists to a few letters; meta parts are spaced, not dotted, and wrap.
+ */
 function CompactItem<Row>(p: {
   columns: Column<Row>[];
   row: Row;
@@ -296,7 +298,8 @@ function CompactItem<Row>(p: {
 }) {
   const part = (place: Column<Row>['compact']) =>
     p.columns.filter((c) => c.compact === place);
-  const meta = [...part('subtitle'), ...part('meta')];
+  const sub = part('subtitle');
+  const meta = part('meta');
   return (
     <>
       <div role="gridcell" class="dt-item-lead">
@@ -310,13 +313,24 @@ function CompactItem<Row>(p: {
             <Fragment key={c.id}>{c.cell(p.row, p.rank)}</Fragment>
           ))}
         </div>
-        <div class="dt-item-sub">
-          {meta.map((c) => (
-            <span key={c.id} class="dt-item-part">
-              {c.cell(p.row, p.rank)}
-            </span>
-          ))}
-        </div>
+        {sub.length > 0 && (
+          <div class="dt-item-sub">
+            {sub.map((c) => (
+              <span key={c.id} class="dt-item-part">
+                {c.cell(p.row, p.rank)}
+              </span>
+            ))}
+          </div>
+        )}
+        {meta.length > 0 && (
+          <div class="dt-item-meta">
+            {meta.map((c) => (
+              <span key={c.id} class="dt-item-part">
+                {c.cell(p.row, p.rank)}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       <div role="gridcell" class="dt-item-trail">
         {part('trail').map((c) => (
@@ -326,5 +340,3 @@ function CompactItem<Row>(p: {
     </>
   );
 }
-
-export { LEVEL_WIDTHS };

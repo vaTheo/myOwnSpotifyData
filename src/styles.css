@@ -1421,8 +1421,9 @@ a {
 
 /* ---- Data tables (spec 003, FR-015–FR-018, FR-022, FR-023) ---- */
 
-/* A screen with a table uses the whole window (FR-005). */
-.screen:has(.dt-wrap) {
+/* A screen with a table, or Compare periods, uses the whole window (FR-005). */
+.screen:has(.dt-wrap),
+.screen:has(.compare) {
   max-width: none;
 }
 
@@ -1497,10 +1498,13 @@ a {
   text-align: end;
 }
 
+/* A hidden cell also has no height, so its text never sizes the row (a
+   focused row lets its text wrap, below). */
 .dt-cell.p2,
 .dt-cell.p3,
 .dt-cell.p4 {
   visibility: hidden;
+  height: 0;
   padding: 0;
 }
 
@@ -1510,6 +1514,7 @@ a {
   }
   .dt-cell.p2 {
     visibility: visible;
+    height: auto;
     padding: 0 var(--dt-pad);
   }
 }
@@ -1520,6 +1525,7 @@ a {
   }
   .dt-cell.p3 {
     visibility: visible;
+    height: auto;
     padding: 0 var(--dt-pad);
   }
 }
@@ -1530,8 +1536,25 @@ a {
   }
   .dt-cell.p4 {
     visibility: visible;
+    height: auto;
     padding: 0 var(--dt-pad);
   }
+}
+
+/* FR-023: a row with the keyboard focus shows its truncated text whole, by
+   letting it wrap; the pointer gets the cell's tooltip instead. The row
+   grows only when a text was cut. */
+.dt-body .dt-row:focus-visible {
+  padding-block: 6px;
+}
+
+.dt-row:focus-visible .dt-text,
+.dt-item:focus-visible .dt-text,
+.dt-item:focus-visible .dt-item-sub,
+.dt-item:focus-visible .dt-item-part {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
 }
 
 .dt-sort {
@@ -1699,6 +1722,7 @@ a {
   font: var(--md-sys-typescale-body-large);
 }
 
+/* The subtitle (artists) has the whole line and ends with an ellipsis. */
 .dt-item-sub {
   display: flex;
   align-items: center;
@@ -1709,23 +1733,47 @@ a {
   font: var(--md-sys-typescale-body-medium);
 }
 
-.dt-item-part {
-  flex: none;
-}
-
-.dt-item-part:first-child {
+.dt-item-sub .dt-item-part {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.dt-item-part + .dt-item-part::before {
+.dt-item-sub .dt-item-part + .dt-item-part::before {
   content: '·';
   margin: 0 6px;
 }
 
-.dt-item-part:empty {
+/* The meta line: plays, BPM and key pills, the to-do flag last. Parts are
+   spaced rather than dotted so a part that wraps starts its line cleanly. */
+.dt-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+  margin-top: 2px;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.dt-item-meta .dt-item-part {
+  flex: none;
+  white-space: nowrap;
+}
+
+.dt-item-part:has(.flag-todo) {
+  order: 1;
+}
+
+.dt-item-part:empty,
+.dt-item-part:has(> .dt-wide:only-child) {
+  display: none;
+}
+
+/* Numbers that only make sense under a column header. */
+.dt-item .dt-wide {
   display: none;
 }
 
@@ -1783,13 +1831,20 @@ a {
   outline-offset: -2px;
 }
 
+.compare-item.same {
+  outline: 2px solid var(--md-sys-color-primary);
+  background: var(--md-sys-color-primary-container);
+}
+
+/* After `.same`, so the focused item keeps the full focus ring; its text
+   wraps to show it whole (FR-023). */
 .compare-item:focus-visible {
   outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
 }
 
-.compare-item.same {
-  outline: 2px solid var(--md-sys-color-primary);
-  background: var(--md-sys-color-primary-container);
+.compare-item:focus-visible .dt-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .compare-rank {
