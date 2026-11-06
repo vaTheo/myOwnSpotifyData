@@ -66,7 +66,7 @@ def build_deps(settings: Settings) -> Deps:
     log = Log(settings.log_file)
     return Deps(
         client=ServerClient(settings.supabase_url, settings.supabase_key),
-        download=lambda url, dest: do_download(url, dest, settings, line=log.line, max_duration=settings.max_duration_seconds),
+        download=lambda url, dest: do_download(url, dest, settings, line=log.line, max_duration=settings.max_duration_seconds or None),
         scan=lambda path, duration: run_scan(path, duration, settings, line=log.line),
         log=log,
     )
@@ -209,7 +209,7 @@ def cmd_check(settings: Settings, config: Path | None, deps: CliDeps) -> int:
         f" · {settings.rate_limit_pauses} rate-limit pauses of {settings.rate_limit_pause_seconds:g} s × n"
         f" · merge gap {settings.merge_gap_seconds} s · max skew {settings.max_skew}"
     )
-    out(f"stale after: {settings.stale_seconds} s · poll: {settings.poll_seconds} s · max set: {settings.max_duration_seconds} s")
+    out(f"stale after: {settings.stale_seconds} s · poll: {settings.poll_seconds} s · max set: {settings.max_duration_seconds or 'no limit'}")
     version = deps.ffmpeg_version(settings.ffmpeg)
     if version is None:
         if settings.ffmpeg:

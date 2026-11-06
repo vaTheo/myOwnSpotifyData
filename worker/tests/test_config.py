@@ -38,7 +38,7 @@ class Defaults(unittest.TestCase):
         self.assertIsNone(s.proxy)
         self.assertEqual(s.stale_seconds, 21600)
         self.assertEqual(s.poll_seconds, 60)
-        self.assertEqual(s.max_duration_seconds, 28800)
+        self.assertEqual(s.max_duration_seconds, 0)
         self.assertEqual(s.probe_step_seconds, 60)
         self.assertEqual(s.probe_seconds, 10)
         self.assertEqual(s.cooldown_seconds, 6.0)

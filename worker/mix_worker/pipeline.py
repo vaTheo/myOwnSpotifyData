@@ -90,7 +90,8 @@ def run_one(job: dict[str, Any], settings: Settings, token: str, deps: Deps) -> 
             steps.done("download", got.reason, started)
             return _fail(deps, settings, token, job_id, got.reason)
         steps.done("download", f"{got.path.name} · {got.duration or '?'} s", started)
-        if got.duration is not None and got.duration > settings.max_duration_seconds:
+        limit = settings.max_duration_seconds
+        if limit and got.duration is not None and got.duration > limit:
             from .download import too_long_reason
 
             return _fail(deps, settings, token, job_id, too_long_reason(got.duration, settings.max_duration_seconds))

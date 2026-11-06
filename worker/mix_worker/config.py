@@ -195,7 +195,7 @@ def load_settings(
         proxy=values.get("WORKER_PROXY") or None,
         stale_seconds=_int(values, "WORKER_STALE_SECONDS", 21600, 1),
         poll_seconds=_int(values, "WORKER_POLL_SECONDS", 60, 1),
-        max_duration_seconds=_int(values, "WORKER_MAX_DURATION_SECONDS", 28800, 1),
+        max_duration_seconds=_int(values, "WORKER_MAX_DURATION_SECONDS", 0, 0),
         probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 60, 1),
         probe_seconds=_probe_seconds(values),
         cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 6.0, 0.0),

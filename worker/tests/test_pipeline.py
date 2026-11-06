@@ -166,6 +166,11 @@ class Failures(unittest.TestCase):
             self.assertEqual(len(deps.client.calls), 2)
             self.assertEqual(deps.client.calls[1][4]["error"], "Result too large")
 
+    def test_no_limit_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, max_duration=0)
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+
     def test_bad_payload_and_too_long(self):
         with tempfile.TemporaryDirectory() as tmp:
             settings, deps, log = make(tmp)
