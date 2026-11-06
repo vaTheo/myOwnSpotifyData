@@ -169,3 +169,70 @@ export function validateSummary(name: DatasetName, value: unknown): boolean {
       return value === null || value === undefined;
   }
 }
+
+/** A `jobs` row as the app reads it (worker round, data-model.md). */
+export interface MixJobRow {
+  id: string;
+  payload: { url: string };
+  status: 'queued' | 'claimed' | 'done' | 'failed';
+  claimed_by: string | null;
+  claimed_at: string | null;
+  finished_at: string | null;
+  error: string | null;
+  created_at: string;
+  applied_at: string | null;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const JOB_STATUSES = new Set(['queued', 'claimed', 'done', 'failed']);
+/** `claimed_by` and `error` are rendered as text; a cap keeps a hostile row short. */
+const JOB_TEXT_MAX = 200;
+
+function optText(v: unknown): v is string | null | undefined {
+  return (
+    v === null ||
+    v === undefined ||
+    (typeof v === 'string' && v.length <= JOB_TEXT_MAX)
+  );
+}
+
+function isDate(v: unknown): v is string {
+  return typeof v === 'string' && Number.isFinite(Date.parse(v));
+}
+
+function optDate(v: unknown): v is string | null | undefined {
+  return v === null || v === undefined || isDate(v);
+}
+
+/**
+ * One pulled `jobs` row, or null when any field is off (security review S3:
+ * every pulled row is checked before it is stored or rendered). `result` is
+ * not part of the row here; it is fetched and checked separately when the
+ * app is about to apply it.
+ */
+export function validateJobRow(value: unknown): MixJobRow | null {
+  if (!obj(value)) return null;
+  if (typeof value.id !== 'string' || !UUID.test(value.id)) return null;
+  if (typeof value.status !== 'string' || !JOB_STATUSES.has(value.status))
+    return null;
+  if (!obj(value.payload) || !isHttps(value.payload.url)) return null;
+  if (!optText(value.claimed_by) || !optText(value.error)) return null;
+  if (!isDate(value.created_at)) return null;
+  if (
+    !optDate(value.claimed_at) ||
+    !optDate(value.finished_at) ||
+    !optDate(value.applied_at)
+  )
+    return null;
+  return {
+    id: value.id,
+    payload: { url: value.payload.url as string },
+    status: value.status as MixJobRow['status'],
+    claimed_by: value.claimed_by ?? null,
+    claimed_at: value.claimed_at ?? null,
+    finished_at: value.finished_at ?? null,
+    error: value.error ?? null,
+    created_at: value.created_at,
+    applied_at: value.applied_at ?? null,
+  };
+}

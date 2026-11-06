@@ -5,6 +5,7 @@ import {
   normalizeMixUrl,
   permalinkCandidates,
   permalinkFromOembed,
+  requestKey,
 } from './url';
 
 describe('normalizeMixUrl', () => {
@@ -305,5 +306,31 @@ describe('permalinkCandidates', () => {
       'https://soundcloud.com/dj/dont-stop-by-dj-x',
       'https://soundcloud.com/dj/don-t-stop-by-dj-x',
     ]);
+  });
+});
+
+describe('requestKey (worker round)', () => {
+  it('normalises a SoundCloud permalink like normalizeMixUrl', () => {
+    expect(requestKey('https://m.soundcloud.com/user/some-mix?in=x')).toBe(
+      normalizeMixUrl('https://m.soundcloud.com/user/some-mix?in=x')
+    );
+    expect(requestKey('https://soundcloud.com/user/some-mix')).toBe(
+      'https://soundcloud.com/user/some-mix'
+    );
+  });
+  it('refuses a short link, http, and free text', () => {
+    expect(requestKey('https://on.soundcloud.com/abc123')).toBeNull();
+    expect(requestKey('http://www.youtube.com/watch?v=abc')).toBeNull();
+    expect(requestKey('some mix I heard')).toBeNull();
+    expect(requestKey('')).toBeNull();
+  });
+  it('keeps any other https link, dropping the hash, tracking params and host case', () => {
+    expect(
+      requestKey('https://www.youtube.com/watch?v=abc&si=xyz&feature=share#t=10')
+    ).toBe('https://www.youtube.com/watch?v=abc');
+    expect(requestKey('https://Mixcloud.com/a/b/?utm_source=x&utm_medium=y')).toBe(
+      'https://mixcloud.com/a/b/'
+    );
+    expect(requestKey('https://youtu.be/abc?t=5')).toBe('https://youtu.be/abc?t=5');
   });
 });
