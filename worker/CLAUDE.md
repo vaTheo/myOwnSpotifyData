@@ -30,6 +30,8 @@ one PyInstaller executable per system.
   deleted on every path; `tracks` empty is a failed request ("No track identified"), never `done` with an empty list.
 - The result keeps the F15 shape pinned by `tests/test_scan.py` against the app's fixture keys; absent metadata is omitted,
   never `null`-filled; `time_in_mix` is the probe start as `HH:MM:SS`.
+- A change meant for the owner's computer bumps the version in `pyproject.toml` and `mix_worker/__init__.py` (tested equal),
+  then `uv lock`: the push to `main` releases `worker-v<version>` with the four executables; an unchanged version builds nothing.
 - Exit codes: 0 ok / queue empty, 2 unreachable, 3 paused, 4 not signed in, 5 missing setting or tool, 6 config template
   written, 130 Ctrl-C (after releasing the request). A failed request never fails the run.
 - Settings: `config.py` is the one reader; every setting has a default in `.env.example` (shipped as `mix_worker/env.example`,

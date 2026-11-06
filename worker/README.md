@@ -26,7 +26,7 @@ uv run mix-worker run --watch     # keep polling every 60 s until Ctrl-C
 
 ### B. The packaged executable (no Python, no ffmpeg to install)
 
-Download the file for your system from the latest `worker-v…` release of the repository and put it in a folder of its own:
+Download the file for your system from the [latest release](https://github.com/vaTheo/myOwnSpotifyData/releases/latest) (`worker-v…`) and put it in a folder of its own:
 
 | System | File | First start |
 |---|---|---|
@@ -152,5 +152,8 @@ Only the first two are required.
 ## For changes
 
 Tests: `uv run python -m unittest discover -s tests` (no network, everything faked). Build the executable locally:
-`uv run --group build pyinstaller mix-worker.spec`, then `dist/mix-worker --version` and `check`. A release:
-tag `worker-vX.Y.Z` on `main`; the workflow builds the four executables and creates the release.
+`uv run --group build pyinstaller mix-worker.spec`, then `dist/mix-worker --version` and `check`. A release
+is automatic: every push to `main` that touches `worker/` reads the version in `pyproject.toml`; when no release
+`worker-v<version>` exists, `.github/workflows/worker-release.yml` tests, builds the four executables and publishes the
+release (tag included). To ship a change, bump the version in `pyproject.toml` **and** `mix_worker/__init__.py` (a test
+checks they agree), run `uv lock`, add a line to `RELEASE_NOTES.md`, and merge.

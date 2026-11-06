@@ -664,7 +664,7 @@ function SavedMixes() {
   );
 }
 
-const RELEASES = 'https://github.com/vaTheo/myOwnSpotifyData/releases';
+const RELEASES = 'https://github.com/vaTheo/myOwnSpotifyData/releases/latest';
 const WORKER_MANUAL =
   'https://github.com/vaTheo/myOwnSpotifyData/blob/main/worker/README.md';
 
@@ -682,7 +682,7 @@ function WorkerHowTo() {
         with Shazam and sends the tracklist back; the audio never leaves your
         computer. Download the file for your system from the latest{' '}
         <a href={RELEASES} target="_blank" rel="noopener">
-          worker-v… release
+          release
         </a>{' '}
         and put it in a folder of its own. The first start writes{' '}
         <code>mix-worker.env</code> next to it: fill <code>SUPABASE_URL</code>{' '}
