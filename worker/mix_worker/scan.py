@@ -54,6 +54,20 @@ class ScanRefused(Exception):
     """The recognition service refused twice (rate limited)."""
 
 
+class StopRequested(Exception):
+    """The owner tapped Stop on the phone (round 004)."""
+
+
+PROGRESS_SECONDS = 60  # a progress write at most this often, and at each step change
+PAUSE_SLICE_SECONDS = 30  # a long pause is slept in slices, a progress write between
+
+
+def _iso(seconds: float) -> str:
+    from datetime import datetime, timezone
+
+    return datetime.fromtimestamp(seconds, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 class ScanUnreachable(Exception):
     """The recognition service did not answer for several probes in a row."""
 
@@ -282,6 +296,11 @@ async def scan(
     break_seconds: float = 0.0,
     shared: dict[str, float] | None = None,
     pause_jitter: Callable[[float], float] = lambda seconds: 0.0,
+    progress: Callable[[dict[str, Any]], None] | None = None,
+    wall: Callable[[], float] = time.time,
+    warn_calls: int = 0,
+    resume: dict[str, Any] | None = None,
+    remember: Callable[[str, str, dict[str, Any] | None], None] | None = None,
 ) -> list[dict[str, Any]]:
     """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
     (+ `jitter(cooldown)`) before each. A `rate_limited` error doubles the
@@ -316,6 +335,56 @@ async def scan(
             if pace["calls"]:
                 say(f"  pace · {pace['calls']} calls already made in the last minutes (previous set) · they count toward the next break")
     first_keys: dict[int, str] = {}  # first-pass probe time → track key (hits only)
+    warnings: list[str] = []
+    since_refusal: list[int | None] = [None]  # calls since the last refusal; None before the first
+    prog: dict[str, Any] = {"step": "first", "done": 0, "total": len(times) if times else None, "last": -1e12, "paused_until": None}
+    call_clock: list[float] = []
+
+    def publish(step: str | None = None, *, force: bool = False) -> None:
+        """Round 004: the run's progress for the phone; may raise StopRequested."""
+        if progress is None:
+            return
+        if step is not None and step != prog["step"]:
+            prog["step"] = step
+            force = True
+        now = clock()
+        if not force and now - prog["last"] < PROGRESS_SECONDS:
+            return
+        prog["last"] = now
+        done, total = prog["done"], prog["total"]
+        mean = (call_clock[-1] - call_clock[0]) / (len(call_clock) - 1) if len(call_clock) >= 20 else None
+        left = round((total - done) * mean / 60) if mean and total else None
+        progress({
+            "step": prog["step"], "done": done, "total": total,
+            "percent": round(100 * done / total) if total else None,
+            "minutes_left": left, "paused_until": prog["paused_until"],
+            "warning": warnings[0] if warnings else None, "at": _iso(wall()),
+        })
+
+    async def pause_for(wait: float) -> None:
+        """A long wait; with progress on, slept in slices so a Stop is seen."""
+        if progress is None:
+            await sleep(wait)
+            return
+        before = prog["step"]
+        prog["paused_until"] = _iso(wall() + wait)
+        publish("paused", force=True)
+        slices = max(1, int(-(-wait // PAUSE_SLICE_SECONDS)))
+        for _ in range(slices):
+            await sleep(wait / slices)
+            publish(force=True)
+        prog["paused_until"] = None
+        publish(before, force=True)
+
+    kept = 0
+    first_done: dict[int, Any] = {}
+    second_done: dict[str, Any] = {}
+    if resume:
+        first_done = {int(k): v for k, v in (resume.get("first") or {}).items()}
+        second_done = dict(resume.get("second") or {})
+        if first_done:
+            kept = len(first_done)
+            say(f"  scan · resuming at {hhmmss(max(first_done))} · {kept} probes kept from the stopped run")
 
     async def ask(data: bytes, where: str) -> Any:
         """One recognition with the pacing and error rules; None when the
@@ -334,6 +403,9 @@ async def scan(
             c = pace["cooldown"]
             await sleep(c + jitter(c))
             pace["calls"] += 1
+            call_clock.append(clock())
+            if since_refusal[0] is not None:
+                since_refusal[0] += 1
             if shared is not None:
                 shared["calls"] = pace["calls"]
                 shared["last"] = clock()
@@ -354,11 +426,18 @@ async def scan(
                     # at 1.3 and at 8.8 calls a minute alike, so the pace is not
                     # slowed; a refusal is a flat pause, the same each time.
                     wait = pause + pause_jitter(pause)
+                    if warn_calls and since_refusal[0] is not None and since_refusal[0] < warn_calls and not warnings:
+                        warnings.append("refuses often")
+                        say(
+                            f"  warning · Shazam refused twice within {since_refusal[0]} calls: are you on a VPN or a shared"
+                            " network? (test day: on a VPN every 24-380 calls, without one once in 282)"
+                        )
+                    since_refusal[0] = 0
                     say(
                         f"  {where} · rate limited ({n}/{max_pauses}) · pausing {int(wait)} s,"
                         f" then this probe again at the same pace"
                     )
-                    await sleep(wait)
+                    await pause_for(wait)
                     pace["calls"] = 0  # the pause was a break too
                     if shared is not None:
                         shared["calls"] = 0
@@ -405,6 +484,19 @@ async def scan(
                 t = times[index]
             else:
                 t = index * step
+            if t in first_done:
+                # Heard by the stopped run (round 004): kept, not asked again.
+                old = first_done[t]
+                if old is not None:
+                    entry = dict(old)
+                    hits.append(Hit(time=t, entry=entry))
+                    seen.add(_key(entry))
+                    first_keys[t] = _key(entry)
+                else:
+                    misses.append(t)
+                index += 1
+                prog["done"] = index
+                continue
             began = clock()
             data = cut(t)
             if len(data) < MIN_PROBE_BYTES:
@@ -422,7 +514,16 @@ async def scan(
                 misses.append(t)
                 if response is not None:
                     say(f"  {where} · no match")
+            if remember is not None:
+                remember("first", str(t), dict(entry) if entry is not None else None)
             index += 1
+            prog["done"] = index
+            publish()
+    except StopRequested:
+        if not hits:
+            raise
+        stopped = {"at": hhmmss(t), "reason": "by you"}
+        say(f"  scan · stopped by you at {stopped['at']} · the {len(hits)} hits so far are kept")
     except (ScanRefused, ScanUnreachable) as err:
         # Owner, 2026-11-06: a refusal on the first pass keeps what was found;
         # the request is sent as done, marked as stopped early. With nothing
@@ -444,20 +545,49 @@ async def scan(
             f" (+{gap_offset} s, speed ×1{''.join(f' then ×{s:g}' for s in speeds)})"
         )
         try:
-            for n, p in enumerate(positions, 1):
-                for speed in (1.0, *speeds):
+            # Round 004 (R6): every place at ×1 first, then the still-empty ones
+            # at each other speed, in the order of the test day's yield.
+            remaining = list(positions)
+            for speed in (1.0, *speeds):
+                still: list[int] = []
+                prog["done"], prog["total"] = 0, len(remaining)
+                publish(f"second ×{speed:g}")
+                for n, p in enumerate(remaining, 1):
+                    key = f"{p}@{speed:g}"
+                    if key in second_done:
+                        old = second_done[key]
+                        if old is not None:
+                            entry = dict(old)
+                            hits.append(Hit(time=p, entry=entry))
+                            seen.add(_key(entry))
+                        else:
+                            still.append(p)
+                        prog["done"] = n
+                        continue
                     data = cut_at(p, speed)
                     if len(data) < MIN_PROBE_BYTES:
-                        break
-                    where = f"gap {n}/{len(positions)} · {hhmmss(p)} ×{speed:g}"
+                        prog["done"] = n
+                        continue
+                    where = f"gap {n}/{len(remaining)} · {hhmmss(p)} ×{speed:g}"
                     response = await ask(data, where)
                     entry = track_entry(response, hhmmss(p)) if response is not None else None
                     if entry is not None:
                         if record(p, entry, where, speed):
                             second["found"] += 1  # new tracks only, not a known one heard again
-                        break
-                    if response is not None:
-                        say(f"  {where} · no match")
+                    else:
+                        still.append(p)
+                        if response is not None:
+                            say(f"  {where} · no match")
+                    if remember is not None:
+                        remember("second", key, dict(entry) if entry is not None else None)
+                    prog["done"] = n
+                    publish()
+                remaining = still
+                if not remaining:
+                    break
+        except StopRequested:
+            second["stopped"] = "by you"
+            stopped = {"at": "second pass", "reason": "by you"}
         except ScanRefused:
             second["stopped"] = "rate limited"
         except ScanUnreachable:
@@ -475,6 +605,8 @@ async def scan(
         report["second_pass"] = second
         report["stopped"] = stopped
         report["gaps"] = gaps_of(misses, [h.time for h in hits], step)
+        report["warnings"] = warnings
+        report["resumed"] = {"probes_kept": kept, "from": hhmmss(max(first_done))} if kept else None
     return merge(hits, gap)
 
 
