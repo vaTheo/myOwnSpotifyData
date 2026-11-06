@@ -65,7 +65,7 @@ claimed 6f1c2d3e · https://soundcloud.com/…
   …
   download · 100 % · 98.0 MB
   download · abc123.m4a · 7260 s · 38.2 s
-  scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 12 s probe every 15 s · 484 probes · cooldown 2.5 s (±50 %)
+  scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 12 s probe every 15 s · 484 probes · cooldown 3.0 s (±40 %)
   probe 1/484 · 00:00:00 · cut 375 KB 0.06 s · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
   probe 2/484 · 00:00:15 · cut 375 KB 0.05 s · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
   probe 3/484 · 00:00:30 · cut 375 KB 0.06 s · no match
@@ -134,7 +134,7 @@ Only the first two are required.
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit; set a number of seconds to refuse longer sets before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 15 | one probe every N seconds; with 12 s probes, 15 hears 80 % of the set (a 2 h set: 480 probes, about 40 minutes), 12 all of it, 30 or 60 for a quicker scan |
 | `WORKER_PROBE_SECONDS` | 12 | the length of each probe sent to Shazam, 2 to 12 (Shazam fingerprints 12 s at most; 10 s matched 71 % against 94 %) |
-| `WORKER_COOLDOWN_SECONDS` | 2.5 | the pause before every recognition call, give or take a random 50 % (1.25 to 3.75 s); doubled after each rate limit, 30 s at most |
+| `WORKER_COOLDOWN_SECONDS` | 3.0 | the pause before every recognition call, give or take a random 40 % (1.8 to 4.2 s); every other wait (after a rate limit, a network retry) is spread ±40 % too; doubled after each rate limit, 30 s at most |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | the pause after a "rate limited" answer; the second pause is twice as long, the third three times |
 | `WORKER_RATE_LIMIT_PAUSES` | 3 | pauses allowed per set; one more refusal fails the request |
 | `WORKER_SHAZAM_DEVICE` | android | the phone Shazam sees; `iphone` is the library's own default and was refused after three calls in testing |
