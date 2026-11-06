@@ -344,3 +344,17 @@ describe('validateMix — round 003 fields', () => {
     }
   });
 });
+
+describe('validateMix — round 004 hits', () => {
+  it('accepts a whole count from 1, refuses anything else', () => {
+    const r0 = mixRow.rows[0];
+    expect(validateMix({ ...mixRow, rows: [{ ...r0, hits: 3 }] }).ok).toBe(
+      true
+    );
+    for (const hits of [0, 1.5, -1, '2', Number.NaN]) {
+      expect(validateMix({ ...mixRow, rows: [{ ...r0, hits }] }).ok).toBe(
+        false
+      );
+    }
+  });
+});

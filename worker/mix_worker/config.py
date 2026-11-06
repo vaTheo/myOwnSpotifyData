@@ -58,6 +58,8 @@ class Settings:
     break_every_calls: int = 0
     cooldown_spread_percent: float = 30.0
     rate_limit_pause_spread_percent: float = 40.0
+    refusal_warn_calls: int = 150
+    resume_days: int = 7
     break_seconds: float = 120.0
 
 
@@ -245,5 +247,7 @@ def load_settings(
         break_every_calls=_int(values, "WORKER_BREAK_EVERY_CALLS", 0, 0),
         cooldown_spread_percent=_float(values, "WORKER_COOLDOWN_SPREAD_PERCENT", 30.0, 0.0),
         rate_limit_pause_spread_percent=_float(values, "WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT", 40.0, 0.0),
+        refusal_warn_calls=_int(values, "WORKER_REFUSAL_WARN_CALLS", 150, 0),
+        resume_days=_int(values, "WORKER_RESUME_DAYS", 7, 0),
         break_seconds=_float(values, "WORKER_BREAK_SECONDS", 120.0, 0.0),
     )

@@ -175,7 +175,7 @@ def _key(entry: dict[str, Any]) -> str:
 def merge(hits: list[Hit], gap: int) -> list[dict[str, Any]]:
     """One row per run of hits of the same track (D5): a hit of the same key
     within `gap` seconds of the row's last hit extends it (best confidence
-    kept, start time kept); anything else opens a new row."""
+    kept, start time kept, `hits` counted); anything else opens a new row."""
     rows: list[dict[str, Any]] = []
     current_key: str | None = None
     last_time = 0
@@ -183,8 +183,10 @@ def merge(hits: list[Hit], gap: int) -> list[dict[str, Any]]:
         key = _key(hit.entry)
         if rows and key == current_key and hit.time - last_time <= gap:
             rows[-1]["confidence"] = max(rows[-1]["confidence"], hit.entry["confidence"])
+            rows[-1]["hits"] += 1  # clips that matched this row (owner, round 004)
         else:
             rows.append(dict(hit.entry))
+            rows[-1]["hits"] = 1
             current_key = key
         last_time = hit.time
     return rows

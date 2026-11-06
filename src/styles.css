@@ -792,3 +792,16 @@ details.card > summary {
   font-style: italic;
   overflow-wrap: anywhere;
 }
+
+/* Round 004: sort and "heard once" over the tracklist (view only). */
+.mix .rowview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+.mix .rowview select {
+  min-height: 36px;
+}

@@ -10,7 +10,12 @@ import {
 import { digRows } from '../features/mix/digLinks';
 import { isIdentified } from '../features/mix/spotifySearch';
 import { requestKey } from '../features/mix/url';
-import { requestList, requestStatusText } from '../features/mix/worker';
+import {
+  requestList,
+  requestStatusText,
+  viewRows,
+  type RowSort,
+} from '../features/mix/worker';
 import {
   addMixRow,
   applyDescriptionTracklist,
@@ -145,7 +150,12 @@ function provenanceLine(row: TracklistRow, match: MixMatch | null): string {
   // edited, `source` flips away from 'tracklistify' (see spotifySearch.ts),
   // and a confidence score for a rejected identification would mislead.
   if (row.source === 'tracklistify' && row.confidence != null) {
-    parts.push(`${Math.round(row.confidence)}% match`);
+    // Round 004: how many 12 s clips matched, and the best score among them.
+    parts.push(
+      row.hits !== undefined
+        ? `heard ${row.hits}× · best ${Math.round(row.confidence)} %`
+        : `${Math.round(row.confidence)}% match`
+    );
   }
   return parts.join(' · ');
 }
@@ -288,6 +298,12 @@ function Tracklist() {
   const index = m ? libraryTitleIndex(m) : null;
   const [editing, setEditing] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
+  const [sort, setSort] = useState<RowSort>('time');
+  const [heardOnce, setHeardOnce] = useState(false);
+  const counted = rows.some((r) => r.hits !== undefined);
+  const shown = counted
+    ? viewRows(rows, sort, heardOnce)
+    : rows.map((_, i) => i);
   const onSaveMix = (): void => {
     void (async () => {
       const ok = await saveMix();
@@ -298,8 +314,44 @@ function Tracklist() {
   };
   return (
     <>
+      {counted && (
+        <div class="rowview">
+          <label>
+            Sort{' '}
+            <select
+              id="mix-sort"
+              value={sort}
+              onChange={(e) =>
+                setSort((e.currentTarget as HTMLSelectElement).value as RowSort)
+              }
+            >
+              <option value="time">by time in the set</option>
+              <option value="clips">by clips heard</option>
+              <option value="score">by best score</option>
+            </select>
+          </label>
+          <label>
+            <input
+              id="mix-heard-once"
+              type="checkbox"
+              checked={heardOnce}
+              onChange={(e) =>
+                setHeardOnce((e.currentTarget as HTMLInputElement).checked)
+              }
+            />{' '}
+            Only tracks heard once ({rows.filter((r) => r.hits === 1).length})
+          </label>
+          {heardOnce && (
+            <span class="caption">
+              The others are hidden, not deleted; Create playlist uses every
+              row.
+            </span>
+          )}
+        </div>
+      )}
       <ul class="list">
-        {rows.map((row, i) => {
+        {shown.map((i) => {
+          const row = rows[i];
           if (editing === i) {
             return (
               <EditRow
