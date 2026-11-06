@@ -57,7 +57,10 @@ Validation at start (`check` and every command): URL is `https:`, key non-empty,
 1. **Validate** `payload.url` (https). Otherwise `failed` "Request has no valid link".
 2. **Download** (D7) into `<work>/<job id>/`; reason strings of D7 on failure. Duration over the maximum → `failed`.
 3. **Scan** (D4, D5): probes until the end; a log line every 10 probes (`probe 40/120 · 23 hits`); zero rows → `failed` "No
-   track identified"; `RateLimited` twice → `failed` "Recognition service refused (rate limited); try later".
+   track identified"; `RateLimited` twice → `failed` "Recognition service refused (rate limited); try later". Each
+   recognition is cut off after 45 s; a timeout or network error retries the probe 3 times (10 s × attempt apart), then skips
+   it; 3 probes skipped in a row → `failed` "Recognition service did not answer; try later". The access token is refreshed
+   before the result is sent, since a scan can outlast it.
 4. **Write** the JSON (data-model.md "Scan result"): `mix_info.title` ← download title (`⧸` for `/` is **not** applied; the
    title is text, not a filename), `artist` ← uploader, `audio_filename` ← the downloaded file's name, `source_url`,
    `duration_seconds`, `date`, `track_count`; `tracks` in mix order. Saved to `WORKER_JSON_DIR` first (FR-016).

@@ -179,12 +179,23 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
         payload = job.get("payload")
         url = payload.get("url") if isinstance(payload, dict) else None
         log.line(f"claimed {job_id[:8]} · {url}")
+        current = session
+
+        def token() -> str:
+            # A long scan outlives the access token: refresh before sending.
+            nonlocal current
+            fresh = ensure_fresh(current, client, settings.session_file)
+            if isinstance(fresh, Session):
+                current = fresh
+            return current.access_token
+
         try:
-            outcome: Outcome = run_one(job, settings, session.access_token, deps)
+            outcome: Outcome = run_one(job, settings, token, deps)
         except KeyboardInterrupt:
-            client.release(session.access_token, job_id, settings.worker_name)
+            client.release(token(), job_id, settings.worker_name)
             log.line(f"released {job_id[:8]} · stopped")
             return EXIT_INTERRUPTED
+        session = current
         if outcome.status == "server" and outcome.server is not None:
             log.line(f"server: {outcome.server.message}")
             return code_for(outcome.server)

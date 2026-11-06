@@ -141,6 +141,9 @@ Only the first two are required.
 - **"the project is paused"**: Supabase pauses a Free project after a week without traffic; resume it from the dashboard.
 - **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address three times in one set; wait, or raise
   `WORKER_COOLDOWN_SECONDS`. The request can be asked again from the phone.
+- **"no answer (TimeoutError…)" in the log**: one recognition took over 45 s; the probe is tried 3 times (10 s, then 20 s
+  apart), then skipped and the scan goes on. Three probes in a row with no answer fail the request with "Recognition service
+  did not answer; try later" (check the connection, then ask again).
 - **"Live streams are not supported" / "Playlist links are not supported"**: paste the link of one recorded set.
 - **YouTube: "Download failed"** mentioning a JavaScript runtime: install Node or Deno.
 - **Result rejected** on the phone: the app refused the tracklist's shape; keep the JSON from your music folder and

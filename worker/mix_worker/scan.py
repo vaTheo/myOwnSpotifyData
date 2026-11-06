@@ -21,10 +21,23 @@ PROBE_SECONDS = 12
 MIN_PROBE_BYTES = 1000
 # A cooldown doubled after each rate limit never grows past this.
 MAX_COOLDOWN_SECONDS = 30.0
+# One recognition (its own retries included) is cut off after this; the
+# library's default is aiohttp's 5 minutes, which once stalled a whole set.
+PROBE_TIMEOUT_SECONDS = 45.0
+# A probe whose call times out or loses the network is tried this many times,
+# with NETWORK_WAIT_SECONDS × attempt between tries, then skipped.
+NETWORK_ATTEMPTS = 3
+NETWORK_WAIT_SECONDS = 10.0
+# This many probes skipped in a row for the network fails the request.
+NETWORK_SKIPS_IN_A_ROW = 3
 
 
 class ScanRefused(Exception):
     """The recognition service refused twice (rate limited)."""
+
+
+class ScanUnreachable(Exception):
+    """The recognition service did not answer for several probes in a row."""
 
 
 def hhmmss(seconds: int) -> str:
@@ -178,6 +191,7 @@ async def scan(
     skew = max_skew if max_skew > 0 else None
     index = 0
     pauses = 0
+    net_skips = 0
     while True:
         if times is not None:
             if index >= len(times):
@@ -193,6 +207,7 @@ async def scan(
             f"probe {index + 1}/{len(times) if times is not None else '?'} · {hhmmss(t)}"
             f" · cut {len(data) // 1024} KB {clock() - began:.2f} s"
         )
+        tries = 0
         while True:
             await sleep(cooldown + jitter(cooldown))
             try:
@@ -216,7 +231,23 @@ async def scan(
                     )
                     await sleep(wait)
                     continue  # the same probe again, after the pause
+                if kind == "network":
+                    tries += 1
+                    reason = type(err).__name__
+                    if tries < NETWORK_ATTEMPTS:
+                        wait = NETWORK_WAIT_SECONDS * tries
+                        say(f"  {where} · no answer ({reason}, {tries}/{NETWORK_ATTEMPTS}) · trying again in {int(wait)} s")
+                        await sleep(wait)
+                        continue
+                    net_skips += 1
+                    if net_skips >= NETWORK_SKIPS_IN_A_ROW:
+                        say(f"  {where} · no answer ({reason}) · {net_skips} probes in a row · giving up")
+                        raise ScanUnreachable() from err
+                    say(f"  {where} · no answer ({reason}) after {NETWORK_ATTEMPTS} tries · probe skipped")
+                    response = None
+                    break
                 raise
+            net_skips = 0
             break
         entry = track_entry(response, hhmmss(t)) if response is not None else None
         if entry is not None:
@@ -329,6 +360,14 @@ def default_classify(err: Exception) -> str:
         return "rate_limited"
     if type(err).__name__ in ("SignatureError",):
         return "skip"
+    if isinstance(err, (TimeoutError, asyncio.TimeoutError, ConnectionError)):
+        return "network"
+    try:
+        from aiohttp import ClientError  # type: ignore[import-not-found]
+    except Exception:  # pragma: no cover
+        ClientError = None  # type: ignore[assignment]
+    if ClientError is not None and isinstance(err, ClientError):
+        return "network"
     return "raise"
 
 
@@ -401,7 +440,10 @@ def run_scan(
         shazam = shazam_for(settings.shazam_device, client)
         try:
             async def recognise(data: bytes, max_skew: float | None) -> Any:
-                return await shazam.recognize(data, proxy=settings.proxy, max_skew=max_skew)
+                return await asyncio.wait_for(
+                    shazam.recognize(data, proxy=settings.proxy, max_skew=max_skew),
+                    timeout=PROBE_TIMEOUT_SECONDS,
+                )
 
             return await scan(
                 duration,

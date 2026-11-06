@@ -7,6 +7,8 @@ from pathlib import Path
 from mix_worker.scan import (
     Hit,
     ScanRefused,
+    ScanUnreachable,
+    default_classify,
     confidence_of,
     hhmmss,
     merge,
@@ -48,6 +50,8 @@ def classify(err):
         return "rate_limited"
     if isinstance(err, SignatureError):
         return "skip"
+    if isinstance(err, TimeoutError):
+        return "network"
     return "raise"
 
 
@@ -195,6 +199,44 @@ class Scan(unittest.TestCase):
         with self.assertRaises(ScanRefused):
             run(scan(60, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify, max_pauses=2))
         self.assertEqual(len([s for s in calls["sleeps"]]), 5)
+
+    def test_a_timeout_is_tried_again_then_the_probe_answers(self):
+        calls, cut, recognise, sleep = self.make([TimeoutError(), CASSETTE])
+        lines = []
+        rows = run(scan(60, step=60, cooldown=3.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify, line=lines.append, clock=lambda: 0.0))
+        self.assertEqual(calls["sleeps"], [3.0, 10.0, 3.0])
+        self.assertEqual(calls["cuts"], [0])
+        self.assertEqual(len(rows), 1)
+        self.assertIn("no answer (TimeoutError, 1/3) · trying again in 10 s", lines[0])
+
+    def test_a_probe_that_never_answers_is_skipped_and_the_scan_goes_on(self):
+        calls, cut, recognise, sleep = self.make([TimeoutError()] * 3 + [CASSETTE])
+        lines = []
+        rows = run(scan(120, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify, line=lines.append, clock=lambda: 0.0))
+        self.assertEqual([r["time_in_mix"] for r in rows], ["00:01:00"])
+        self.assertTrue(any("after 3 tries · probe skipped" in x for x in lines))
+
+    def test_three_probes_in_a_row_without_answer_fail_the_scan(self):
+        calls, cut, recognise, sleep = self.make([TimeoutError()] * 9)
+        with self.assertRaises(ScanUnreachable):
+            run(scan(300, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify))
+        self.assertEqual(calls["cuts"], [0, 60, 120])
+
+    def test_an_answer_resets_the_run_of_skipped_probes(self):
+        T = TimeoutError
+        calls, cut, recognise, sleep = self.make([T(), T(), T(), NO_MATCH, T(), T(), T(), T(), T(), T(), CASSETTE])
+        rows = run(scan(300, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify))
+        self.assertEqual([r["time_in_mix"] for r in rows], ["00:04:00"])
+
+    def test_default_classify_network_errors(self):
+        import asyncio as aio
+
+        import aiohttp
+
+        self.assertEqual(default_classify(aio.TimeoutError()), "network")
+        self.assertEqual(default_classify(TimeoutError()), "network")
+        self.assertEqual(default_classify(aiohttp.ClientConnectionError()), "network")
+        self.assertEqual(default_classify(ValueError()), "raise")
 
     def test_other_errors_raise(self):
         calls, cut, recognise, sleep = self.make([ValueError("x")])
