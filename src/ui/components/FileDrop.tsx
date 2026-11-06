@@ -4,17 +4,24 @@ import { Icon } from '../icons';
 /**
  * A file picker that also takes a dropped file (spec 003, FR-039). The
  * whole area is the `<label>` of a hidden file input, so a click, Enter or
- * Space opens the system picker; dropping a file hands it to `onFile` the
- * same way. The drop hint is shown from medium windows up (CSS).
+ * Space opens the system picker; dropping a file hands it to `onFiles` the
+ * same way. Without `multiple` only the first file is passed on. The drop
+ * hint is shown from medium windows up (CSS).
  */
 export function FileDrop(p: {
   label: string;
   hint?: string;
   accept: string;
+  multiple?: boolean;
   disabled?: boolean;
-  onFile: (file: File) => void;
+  onFiles: (files: File[]) => void;
 }) {
   const [over, setOver] = useState(false);
+  const pass = (list: FileList | null | undefined) => {
+    const files = Array.from(list ?? []);
+    const picked = p.multiple ? files : files.slice(0, 1);
+    if (picked.length > 0) p.onFiles(picked);
+  };
   return (
     <label
       class={['file-drop', over ? 'over' : '', p.disabled ? 'disabled' : '']
@@ -29,8 +36,7 @@ export function FileDrop(p: {
       onDrop={(e) => {
         e.preventDefault();
         setOver(false);
-        const file = e.dataTransfer?.files?.[0];
-        if (file && !p.disabled) p.onFile(file);
+        if (!p.disabled) pass(e.dataTransfer?.files);
       }}
     >
       <Icon name="upload_file" size={28} />
@@ -39,12 +45,13 @@ export function FileDrop(p: {
       <input
         type="file"
         accept={p.accept}
+        multiple={p.multiple}
         disabled={p.disabled}
         onChange={(e) => {
           const input = e.currentTarget as HTMLInputElement;
-          const file = input.files?.[0];
+          const files = input.files;
+          pass(files);
           input.value = '';
-          if (file) p.onFile(file);
         }}
       />
     </label>

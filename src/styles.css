@@ -2742,3 +2742,140 @@ a {
 .details-section .ym-mini {
   margin: 8px 0;
 }
+
+/* ---- Settings: "Data and sync" (spec 003, US5, FR-038) ----
+ * One card per data source at a readable width; on large windows a 220 px
+ * sticky index of the sections sits on their left. */
+
+.screen:has(.settings.with-index) {
+  max-width: none;
+}
+
+.settings.with-index {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 840px);
+  gap: var(--app-gap);
+  align-items: start;
+}
+
+.settings-section {
+  scroll-margin-top: calc(var(--app-top-bar) + 8px);
+}
+
+.settings-section > .actions {
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+}
+
+.settings-section .file-drop {
+  margin: 12px 0 4px;
+}
+
+.settings-label {
+  margin: 20px 0 8px;
+  font: var(--md-sys-typescale-title-small);
+}
+
+.settings-credit {
+  font: var(--md-sys-typescale-body-small);
+  margin: 12px 0 0;
+}
+
+.settings-sign-in {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.settings-sign-in .text-field {
+  flex: 1 1 240px;
+  width: auto;
+}
+
+.stamps-wrap {
+  overflow-x: auto;
+}
+
+.settings-section .segmented {
+  max-width: 480px;
+}
+
+/* The border takes 1 px of the padding, so the text lines up with the
+   other cards. */
+.settings-danger {
+  border: 1px solid var(--md-sys-color-error);
+  padding: 15px;
+}
+
+.settings-version {
+  font: var(--md-sys-typescale-body-small);
+  margin: 16px 0 0;
+}
+
+.settings-index {
+  position: sticky;
+  top: calc(var(--app-top-bar) + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-index button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: var(--app-target);
+  padding: 0 16px;
+  text-align: left;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.settings-index button:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.settings-index button.active {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  font-weight: 700;
+}
+
+/* ---- Import (spec 003 §14, FR-039): one card at reading width. ---- */
+
+.import {
+  max-width: 840px;
+}
+
+.import .card > h2:not(:first-child) {
+  margin-top: 20px;
+}
+
+.import-steps > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--app-target);
+  font: var(--md-sys-typescale-title-medium);
+  cursor: pointer;
+}
+
+.import-steps > summary::before {
+  content: '▸';
+  width: 20px;
+  color: var(--muted);
+}
+
+.import-steps[open] > summary::before {
+  content: '▾';
+}
+
+.import .file-drop {
+  margin: 8px 0;
+}

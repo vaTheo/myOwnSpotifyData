@@ -3,7 +3,7 @@ import { auth } from './auth/browser';
 import { visibleBanner } from './model/banner';
 import { banner, dismissBanner } from './model/state';
 import { parseRoute, sameScreen, visitEntry, type Route } from './router';
-import { Settings } from './ui/Settings';
+import { SettingsPage } from './ui/settings/SettingsPage';
 import { Connect } from './ui/Connect';
 import { Artists } from './ui/Artists';
 import { CrateHub } from './ui/crate/CrateHub';
@@ -67,7 +67,7 @@ function Screen({ route }: { route: Route }) {
     case 'import':
       return <Import />;
     case 'settings':
-      return <Settings />;
+      return <SettingsPage />;
     case 'mix':
       return <Mix />;
   }
