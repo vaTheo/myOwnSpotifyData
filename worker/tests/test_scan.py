@@ -13,6 +13,7 @@ from mix_worker.scan import (
     gap_positions,
     gaps_of,
     inside_known,
+    StopRequested,
     confidence_of,
     hhmmss,
     merge,
@@ -373,9 +374,10 @@ class SecondPass(unittest.TestCase):
         self.assertEqual(gaps_of([], [0], 15), [])
 
     def test_hit_at_a_corrected_speed_is_marked_and_the_rest_reported(self):
-        # 6 first-pass probes, all no match; then positions 7, 37, 67:
-        # 7 → ×1 no, ×0.96 hit; 37 → ×1, ×0.96, ×1.04 no; 67 → ×1 hit.
-        answers = [NO_MATCH] * 6 + [NO_MATCH, CASSETTE, NO_MATCH, NO_MATCH, NO_MATCH, CASSETTE]
+        # 6 first-pass probes, all no match; places 7, 37, 67, heard speed by
+        # speed (round 004, R6): ×1 at 7, 37, 67 (67 hits); ×0.96 at 7 (hits,
+        # same track), 37; ×1.04 at 37.
+        answers = [NO_MATCH] * 6 + [NO_MATCH, NO_MATCH, CASSETTE, CASSETTE, NO_MATCH, NO_MATCH]
         asked_cuts = []
 
         async def recognise(data, skew):
@@ -388,10 +390,10 @@ class SecondPass(unittest.TestCase):
         report = {}
         lines = []
         rows = run(scan(90, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=cut_at, report=report, line=lines.append, **self.kw()))
-        self.assertEqual(asked_cuts, [(7, 1.0), (7, 0.96), (37, 1.0), (37, 0.96), (37, 1.04), (67, 1.0)])
+        self.assertEqual(asked_cuts, [(7, 1.0), (37, 1.0), (67, 1.0), (7, 0.96), (37, 0.96), (37, 1.04)])
         self.assertEqual(rows[0]["origin"], "replay")
-        self.assertEqual(rows[0]["speed_percent"], -4)
-        self.assertEqual(report["second_pass"], {"places": 3, "found": 1, "stopped": None})  # the 2nd hit is the same track
+        self.assertEqual(rows[0]["speed_percent"], -4)  # the row starts at the ×0.96 hit, at 7 s
+        self.assertEqual(report["second_pass"], {"places": 3, "found": 1, "stopped": None})
         self.assertEqual(report["gaps"], [(15, 60), (75, 90)])
         self.assertTrue(any("second pass · 1 new track in 3 places" in x for x in lines))
 
@@ -608,3 +610,99 @@ class ClipCount(unittest.TestCase):
         hi = dict(a, confidence=95.0)
         rows = merge([Hit(0, lo), Hit(15, hi), Hit(30, lo), Hit(600, lo)], 180)
         self.assertEqual([(r["hits"], r["confidence"]) for r in rows], [(3, 95.0), (1, 60.0)])
+
+
+class Round004Scan(unittest.TestCase):
+    def base(self, **over):
+        async def sleep(s):
+            self.sleeps.append(s)
+
+        kw = dict(step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, sleep=sleep, classify=classify, clock=lambda: 0.0, wall=lambda: 1_794_000_000.0)
+        kw.update(over)
+        return kw
+
+    def setUp(self):
+        self.sleeps = []
+
+    def test_progress_at_each_step_change_and_counts(self):
+        seen = []
+
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        run(scan(60, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=lambda t, s: b"x" * 5000, speeds=(), progress=seen.append, **self.base()))
+        steps = [(p["step"], p["done"], p["total"]) for p in seen]
+        self.assertEqual(steps[0], ("first", 1, 4))  # first call: published (never before)
+        self.assertIn(("second ×1", 0, 2), steps)
+        self.assertEqual(seen[0]["percent"], 25)
+        self.assertEqual(seen[0]["at"], "2026-11-06T21:20:00Z")
+
+    def test_stop_keeps_the_hits(self):
+        answers = [CASSETTE, NO_MATCH, NO_MATCH, NO_MATCH]
+        calls = {"n": 0}
+
+        async def recognise(data, skew):
+            return answers.pop(0)
+
+        def progress(p):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise StopRequested()
+
+        clock = iter(range(0, 10_000, 100))
+        report = {}
+        rows = run(scan(60, recognise=recognise, cut=lambda t: b"x" * 5000, progress=progress, report=report, **self.base(clock=lambda: next(clock))))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(report["stopped"]["reason"], "by you")
+
+    def test_stop_during_a_refusal_pause_is_seen_within_a_slice(self):
+        answers = [CASSETTE, RateLimited(), NO_MATCH]
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        def progress(p):
+            if p["step"] == "paused" and p["paused_until"] and len(self.sleeps) > 2:
+                raise StopRequested()
+
+        report = {}
+        run(scan(30, recognise=recognise, cut=lambda t: b"x" * 5000, progress=progress, report=report, **self.base(pause=360.0)))
+        self.assertEqual(report["stopped"]["reason"], "by you")
+        self.assertLess(sum(self.sleeps), 100)  # not the full 6 minutes
+
+    def test_refusals_close_together_warn_once(self):
+        answers = [RateLimited(), NO_MATCH, RateLimited(), NO_MATCH, RateLimited(), NO_MATCH]
+        lines = []
+
+        async def recognise(data, skew):
+            r = answers.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        report = {}
+        run(scan(45, recognise=recognise, cut=lambda t: b"x" * 5000, line=lines.append, report=report, warn_calls=150, max_pauses=8, **self.base()))
+        self.assertEqual(report["warnings"], ["refuses often"])
+        self.assertEqual(sum("are you on a VPN" in x for x in lines), 1)
+
+    def test_resume_skips_what_the_stopped_run_heard(self):
+        asked = []
+
+        async def recognise(data, skew):
+            return CASSETTE
+
+        def cut(t):
+            asked.append(t)
+            return b"x" * 5000
+
+        hit = track_entry(CASSETTE, "00:00:00")
+        remembered = []
+        report = {}
+        rows = run(scan(60, recognise=recognise, cut=cut, resume={"first": {"0": hit, "15": None}}, remember=lambda k, key, e: remembered.append((k, key)), report=report, **self.base()))
+        self.assertEqual(asked, [30, 45])
+        self.assertEqual(report["resumed"], {"probes_kept": 2, "from": "00:00:15"})
+        self.assertEqual(remembered, [("first", "30"), ("first", "45")])
+        self.assertEqual(rows[0]["hits"], 3)

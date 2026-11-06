@@ -206,6 +206,24 @@ class ServerClient:
         taken = not (isinstance(r.value, list) and r.value)
         return Result("ok", "taken" if taken else "done", r.status)
 
+    def progress(self, access_token: str, job_id: str, worker: str, progress: dict[str, Any]) -> Result:
+        """Writes the run's progress on the request it holds (round 004) and
+        reads back whether the owner asked to stop it. `value`: `{"stop":
+        bool, "taken": bool}`. A failure (no 0003 migration, offline) is a
+        `Result` the caller logs; it never stops the run."""
+        r = self._request(
+            "PATCH",
+            self._job_filter(job_id, worker) + "&select=stop_requested_at",
+            {"progress": progress},
+            token=access_token,
+            prefer="return=representation",
+        )
+        if not r.ok:
+            return r
+        rows = r.value if isinstance(r.value, list) else []
+        stop = bool(rows and isinstance(rows[0], dict) and rows[0].get("stop_requested_at"))
+        return Result("ok", {"stop": stop, "taken": not rows}, r.status)
+
     def release(self, access_token: str, job_id: str, worker: str) -> Result:
         return self._request(
             "PATCH",

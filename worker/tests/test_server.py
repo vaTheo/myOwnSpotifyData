@@ -128,6 +128,19 @@ class Queue(unittest.TestCase):
         self.assertEqual(call["body"], body)
         self.assertEqual(c.finish("a", self.ROW["id"], "laptop", body).value, "taken")
 
+    def test_progress_reads_the_stop_flag(self):
+        c, o = client(
+            FakeResponse(200, [{"stop_requested_at": None}]),
+            FakeResponse(200, [{"stop_requested_at": "2026-11-06T22:00:00Z"}]),
+            FakeResponse(200, []),
+        )
+        body = {"step": "first", "done": 10, "total": 100, "percent": 10}
+        self.assertEqual(c.progress("a", self.ROW["id"], "laptop", body).value, {"stop": False, "taken": False})
+        self.assertEqual(o.calls[0]["url"], BASE + "/rest/v1/jobs?id=eq." + self.ROW["id"] + "&status=eq.claimed&claimed_by=eq.laptop&select=stop_requested_at")
+        self.assertEqual(o.calls[0]["body"], {"progress": body})
+        self.assertEqual(c.progress("a", self.ROW["id"], "laptop", body).value, {"stop": True, "taken": False})
+        self.assertEqual(c.progress("a", self.ROW["id"], "laptop", body).value, {"stop": False, "taken": True})
+
     def test_finish_failed_sends_error_only(self):
         c, o = client(FakeResponse(200, [self.ROW]))
         c.finish("a", self.ROW["id"], "laptop", {"status": "failed", "finished_at": "t", "error": "No track identified"})
