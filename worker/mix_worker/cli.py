@@ -206,6 +206,7 @@ def cmd_check(settings: Settings, config: Path | None, deps: CliDeps) -> int:
     out(f"log file: {settings.log_file}")
     out(
         f"probes: one of {settings.probe_seconds} s every {settings.probe_step_seconds} s · cooldown {settings.cooldown_seconds} s"
+        f" · {settings.rate_limit_pauses} rate-limit pauses of {settings.rate_limit_pause_seconds:g} s × n"
         f" · merge gap {settings.merge_gap_seconds} s · max skew {settings.max_skew}"
     )
     out(f"stale after: {settings.stale_seconds} s · poll: {settings.poll_seconds} s · max set: {settings.max_duration_seconds} s")

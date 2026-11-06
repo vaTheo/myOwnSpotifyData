@@ -52,7 +52,7 @@ def make(tmp, *, client=None, download=None, scan=None, result_max_bytes=900000,
         session_file=Path(tmp) / "s.json", work_dir=work, json_dir=jsons, log_file=work / "worker.log",
         ffmpeg="ffmpeg", ytdlp_cookies=None, proxy=None, stale_seconds=1, poll_seconds=1,
         max_duration_seconds=max_duration, probe_step_seconds=60, probe_seconds=10, cooldown_seconds=0.0,
-        rate_limit_pause_seconds=0.0, max_skew=0.0, merge_gap_seconds=180, result_max_bytes=result_max_bytes,
+        rate_limit_pause_seconds=0.0, rate_limit_pauses=3, max_skew=0.0, merge_gap_seconds=180, result_max_bytes=result_max_bytes,
     )
 
     def default_download(url, dest):

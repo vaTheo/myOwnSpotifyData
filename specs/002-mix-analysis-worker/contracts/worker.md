@@ -40,8 +40,9 @@ first start). A failed *request* is not a failed *run*: the worker marks it `fai
 | `WORKER_MAX_DURATION_SECONDS` | 14400 | longer sets fail "Set longer than 4 hours" |
 | `WORKER_PROBE_STEP_SECONDS` | 60 | one probe every N seconds (D4) |
 | `WORKER_PROBE_SECONDS` | 10 | probe length sent to Shazam, 2–12 (owner's pick, 2026-11-06; D4) |
-| `WORKER_COOLDOWN_SECONDS` | 3.0 | sleep before every recognition call (D3) |
-| `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | the one pause after a `RateLimited` |
+| `WORKER_COOLDOWN_SECONDS` | 6.0 | sleep before every recognition call, + random 0–50 %, doubled after each `RateLimited` (30 s cap) (D3) |
+| `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | pause after a `RateLimited`, × the number of pauses so far |
+| `WORKER_RATE_LIMIT_PAUSES` | 3 | pauses per set; one more `RateLimited` fails the request |
 | `WORKER_MAX_SKEW` | 0.001 | ShazamIO's `max_skew`; 0 disables (D5) |
 | `WORKER_MERGE_GAP_SECONDS` | 180 | same track within this gap extends the row (D5) |
 | `WORKER_RESULT_MAX_BYTES` | 900000 | larger results fail "Result too large" |

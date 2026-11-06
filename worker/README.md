@@ -117,8 +117,9 @@ Only the first two are required.
 | `WORKER_MAX_DURATION_SECONDS` | 14400 | longer sets fail with "Set longer than 4 hours" |
 | `WORKER_PROBE_STEP_SECONDS` | 60 | one probe every N seconds of the set |
 | `WORKER_PROBE_SECONDS` | 10 | the length of each probe sent to Shazam, 2 to 12 (Shazam's own app sends 12) |
-| `WORKER_COOLDOWN_SECONDS` | 3.0 | the pause before every recognition call |
-| `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | the one pause when the service answers "rate limited"; a second refusal fails the request |
+| `WORKER_COOLDOWN_SECONDS` | 6.0 | the pause before every recognition call, plus a random 0–50 %; doubled after each rate limit, 30 s at most |
+| `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 300 | the pause after a "rate limited" answer; the second pause is twice as long, the third three times |
+| `WORKER_RATE_LIMIT_PAUSES` | 3 | pauses allowed per set; one more refusal fails the request |
 | `WORKER_MAX_SKEW` | 0.001 | drops a skewed (likely wrong) match; 0 disables |
 | `WORKER_MERGE_GAP_SECONDS` | 180 | the same track heard again within this gap stays one row |
 | `WORKER_RESULT_MAX_BYTES` | 900000 | larger results fail with "Result too large" |
@@ -136,7 +137,7 @@ Only the first two are required.
 - **"not signed in"**: `mix-worker login`, then click the mail's link on this computer within ten minutes.
 - **"could not listen on port 5173"**: stop `yarn dev` (or whatever holds the port) and run `login` again.
 - **"the project is paused"**: Supabase pauses a Free project after a week without traffic; resume it from the dashboard.
-- **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address; wait, or raise
+- **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address three times in one set; wait, or raise
   `WORKER_COOLDOWN_SECONDS`. The request can be asked again from the phone.
 - **"Live streams are not supported" / "Playlist links are not supported"**: paste the link of one recorded set.
 - **YouTube: "Download failed"** mentioning a JavaScript runtime: install Node or Deno.

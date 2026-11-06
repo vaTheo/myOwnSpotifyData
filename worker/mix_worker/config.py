@@ -42,6 +42,7 @@ class Settings:
     probe_seconds: int
     cooldown_seconds: float
     rate_limit_pause_seconds: float
+    rate_limit_pauses: int
     max_skew: float
     merge_gap_seconds: int
     result_max_bytes: int
@@ -189,8 +190,9 @@ def load_settings(
         max_duration_seconds=_int(values, "WORKER_MAX_DURATION_SECONDS", 14400, 1),
         probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 60, 1),
         probe_seconds=_probe_seconds(values),
-        cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 3.0, 0.0),
+        cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 6.0, 0.0),
         rate_limit_pause_seconds=_float(values, "WORKER_RATE_LIMIT_PAUSE_SECONDS", 300.0, 0.0),
+        rate_limit_pauses=_int(values, "WORKER_RATE_LIMIT_PAUSES", 3, 0),
         max_skew=_float(values, "WORKER_MAX_SKEW", 0.001, 0.0),
         merge_gap_seconds=_int(values, "WORKER_MERGE_GAP_SECONDS", 180, 1),
         result_max_bytes=_int(values, "WORKER_RESULT_MAX_BYTES", 900000, 1),
