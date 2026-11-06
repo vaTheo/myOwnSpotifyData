@@ -141,21 +141,41 @@ export function yearSpan(
   return years.length > 0 ? years : [first];
 }
 
+/** Every row's plays summed per month (`YYYY-MM`). */
+export function monthTotals(rows: PlayRow[]): Record<string, number> {
+  const sums: Record<string, number> = {};
+  for (const row of rows) {
+    if (!row.months) continue;
+    for (const [key, plays] of Object.entries(row.months)) {
+      sums[key] = (sums[key] ?? 0) + plays;
+    }
+  }
+  return sums;
+}
+
 /** Per year of `yearSpan`, the plays of each month and of the year. */
 export function yearMonthTotals(
   rows: PlayRow[],
   range: MonthRange | null,
   fallbackYear: number
 ): YearTotals[] {
-  const sums = new Map<string, number>();
-  for (const row of rows) {
-    if (!row.months) continue;
-    for (const [key, plays] of Object.entries(row.months)) {
-      sums.set(key, (sums.get(key) ?? 0) + plays);
-    }
-  }
-  const all = Object.fromEntries(sums);
-  return yearSpan(rows, range, fallbackYear).map((year) => {
+  return yearTotals(
+    monthTotals(rows),
+    yearSpan(rows, range, fallbackYear),
+    range
+  );
+}
+
+/**
+ * One month map (the whole history's or one track's) as year rows of
+ * twelve months, null for a month outside the imported history.
+ */
+export function yearTotals(
+  all: Record<string, number>,
+  years: number[],
+  range: MonthRange | null
+): YearTotals[] {
+  return years.map((year) => {
     const keys = MONTH_NAMES.map((_, i) => yearMonth(year, i + 1));
     const months = monthSeries(all, keys, range).map((p) => p.value);
     const values = months.map((v) => v ?? 0);
@@ -196,6 +216,53 @@ export function yearPoints(
     key: String(y),
     value: sums.get(String(y)) ?? 0,
   }));
+}
+
+/**
+ * Every month of the whole history (the track details' chart): from the
+ * earlier of the import's first month and the first played month to the
+ * later of its last month and the last played one. Empty with neither.
+ */
+export function historyKeys(
+  months: Record<string, number> | undefined,
+  range: MonthRange | null
+): string[] {
+  const played = Object.keys(months ?? {}).sort();
+  const bounds = monthBounds(range);
+  const ends = [
+    bounds?.first,
+    bounds?.last,
+    played[0],
+    played[played.length - 1],
+  ].filter((k): k is string => k !== undefined);
+  if (ends.length === 0) return [];
+  ends.sort();
+  return monthKeys(ends[0], ends[ends.length - 1]);
+}
+
+/**
+ * The months a By year row's chart covers: the selected year's twelve,
+ * opened by the previous December under Winter, which the selection counts.
+ */
+export function yearChartKeys(year: number, period: YearPeriod): string[] {
+  const keys = MONTH_NAMES.map((_, i) => yearMonth(year, i + 1));
+  return period === 'winter' ? [yearMonth(year - 1, 12), ...keys] : keys;
+}
+
+/**
+ * For each n from `from` to `to`, how many of `years` (each track's years
+ * played) reach n: the hub's "tracks played in N+ years" bars.
+ */
+export function yearsReached(
+  years: number[],
+  from: number,
+  to: number
+): MonthPoint[] {
+  const points: MonthPoint[] = [];
+  for (let n = from; n <= to; n += 1) {
+    points.push({ key: String(n), value: years.filter((y) => y >= n).length });
+  }
+  return points;
 }
 
 /**

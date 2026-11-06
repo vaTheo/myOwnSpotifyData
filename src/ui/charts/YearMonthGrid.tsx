@@ -28,8 +28,9 @@ export interface YearSelection {
  * busiest month and carrying its count. Cells, totals and the season headers
  * are buttons named like "Aug 2026, 143 plays"; a season picks that season of
  * the selected year by the By year rules (Winter includes the previous
- * December). Every month of the selection is ringed in `primary`, hugging
- * the cell so the 3 px focus ring, drawn 2 px off it, stays distinct. A
+ * December). Every month of the selection is ringed in `primary` (a 2 px
+ * surface gap, then 2 px of primary), so the 3 px focus ring, drawn 5 px off
+ * the cell, stays distinct beyond it. A
  * month outside the imported history is an empty, inert cell that says so
  * to a screen reader; a month without plays prints 0.
  */
@@ -136,6 +137,36 @@ export function YearMonthGrid({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * The same years and months as small heat squares, for a hub card and the
+ * track details on a large window. It only pictures what a labelled chart
+ * or the figures beside it already say, so it is hidden from assistive
+ * technology and takes no focus.
+ */
+export function MiniYearGrid({ totals }: { totals: YearTotals[] }) {
+  if (totals.length === 0) return null;
+  const max = Math.max(0, ...totals.map((t) => t.max));
+  return (
+    <div class="ym-mini" aria-hidden="true">
+      {totals.map((row) => (
+        <div key={row.year} class="ym-mini-row">
+          <span class="ym-mini-year">{row.year}</span>
+          {row.months.map((value, i) => (
+            <span
+              key={i}
+              class={
+                value === null
+                  ? 'ym-mini-cell out'
+                  : `ym-mini-cell heat-${heatLevel(value, max)}`
+              }
+            />
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

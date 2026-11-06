@@ -44,10 +44,13 @@ export function MonthBars({
   series,
   title = 'Plays per month',
   compact = false,
+  label: labelOverride,
 }: {
   series: MonthPoint[];
   title?: string;
   compact?: boolean;
+  /** The text alternative, for points that are not months or years. */
+  label?: string;
 }) {
   const [active, setActive] = useState<number | null>(null);
   if (series.length === 0) return null;
@@ -56,7 +59,7 @@ export function MonthBars({
   const withYear = crossesYears(series);
   const width = series.length * STEP;
   const last = series.length - 1;
-  const label = seriesLabel(title, series);
+  const label = labelOverride ?? seriesLabel(title, series);
   const point = active === null ? null : series[active];
 
   const bars = heights.map((h, i) => {
