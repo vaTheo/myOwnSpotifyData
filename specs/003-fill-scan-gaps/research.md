@@ -53,8 +53,15 @@ everything external injected in tests, no Spotify host, no key.
 - **Comment rules, from the owner's five sets (R8)**:
   - a leading reply mention is dropped: `@handle: ` or `@handle ` (a reply on SoundCloud carries its question's
     `start_time`, so the answer sits at the moment asked about);
-  - a comment holding **3 or more** track lines separated by newlines or ` // ` (after an optional `Tracklist:` word) is a
-    **set-wide tracklist**: its comment position is meaningless (the DJ posts it anywhere), its lines have no time;
+  - **separators are not standard** (owner, 2026-11-06): ` // ` in the Whomp set is one DJ's habit; others use new lines,
+    ` / `, ` | `, `•`, `·`, `;`, `,`, numbering (`1. … 2. …`, `1) …`) or a clock before each track (`00:00 … 05:30 …`). The
+    reader never hardcodes one: after dropping an optional leading `Tracklist`/`TL`/`Track list` word and colon, it splits the
+    text by each candidate in turn — clocks and numbering as **item starts**, the others as **separators** — and keeps the
+    split giving the most pieces that parse as `Artist – Title` (R4's line rules), provided at least 3 do and they are at
+    least two thirds of the pieces; ties go to the split with fewer pieces (so ` / ` inside "Deep Inside / Orbit" never wins
+    over a cleaner split). Such a comment is a **set-wide tracklist** (its comment position is meaningless: the DJ posts it
+    anywhere); pieces carrying a clock keep it as their time. Pieces that do not parse are kept as text. A comment where no
+    split reaches 3 is one clue, read as one track line or as text;
   - a line whose title is `Unreleased`, `ID`, `???`, `?` names no track: kept as text, never looked up;
   - a line with two ` - ` (`Stefano Greppi - Danilove - Politics is a jungle`) is tried both ways (artist = first part, or
     first two parts); equality decides, never a guess;
@@ -100,11 +107,12 @@ everything external injected in tests, no Spotify host, no key.
   (`Rouge – Deep Inside / Orbit`, 2 tracks, master 320251) only enriches the clue's text ("Discogs: Rouge – Deep Inside /
   Orbit"), never a candidate. Other links (Spotify, Bandcamp, YouTube) stay text.
 - **Reference sets** (owner, 2026-11-06), saved anonymised (authors as `listener N`, mentions as `@someone`) in
-  `worker/tests/fixtures/clues/`:
+  `worker/tests/fixtures/clues/`; the split search is also tested on the same Whomp list re-written with each other separator
+  (new lines, ` | `, `•`, `;`, numbering, clocks), so no separator is privileged:
 
 | Set | What it holds | Expected |
 |---|---|---|
-| `whomp023-mars-o10c` | the DJ's tracklist in one comment, ` // ` separated, with `???`, `Unreleased`, a two-dash line | 15 set-wide lines; `???` and `Von Riu - Unreleased` not looked up |
+| `whomp023-mars-o10c` | the DJ's tracklist in one comment, ` // ` separated (one DJ's habit, not a standard), with `???`, `Unreleased`, a two-dash line | 15 set-wide lines found by the split search; `???` and `Von Riu - Unreleased` not looked up |
 | `vault-sessions-105-tauceti` | "track id?" answered by the DJ `@someone: Space Above - Leave Home Edit Select Remix` at 51:32; a question naming another time ("starts at 27:23") | one candidate at 51:32 (Deezer, ISRC NLCK41072412); the question stays a clue |
 | `tauceti-artaphine-series-092` | replies `@someone: JALA - Not Surrender` at 12:05, `@someone: Rrose - onceless` at 4:02 | two candidates (MusicBrainz; Deezer) |
 | `naone-the-lot-radio-01-11-2025` | `@someone The Real - Mary Mac. Vinyl only` at 8:15 (no colon), a Discogs master link at 41:59, many "ID?" | candidate The Real – Mary Mac (MusicBrainz, after the sentence cut); the Discogs clue enriched, no candidate |
