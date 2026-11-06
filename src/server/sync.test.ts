@@ -1267,6 +1267,16 @@ describe('identify requests (worker round)', () => {
     expect(jobs[JOB_URL][19].error).toBe('reason 5');
   });
 
+  it('a failed row with an over-long error is rejected, not truncated', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(doneJob({ status: 'failed', error: 'x'.repeat(201), result: null }));
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' });
+    const res = await runPull(deps(fake, repo).d);
+    if (!res.ok) throw new Error(res.message);
+    expect(res.value.rejected).toBe(1);
+    expect((state.metas[MIX_JOBS_META] as MixJobs)[JOB_URL]).toBeUndefined();
+  });
+
   it('runRemoveAll deletes the jobs and the mixJobs meta', async () => {
     const fake = seededServer();
     fake.tables.jobs.push(doneJob());
