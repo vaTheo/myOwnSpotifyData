@@ -6,7 +6,7 @@ from pathlib import Path
 from mix_worker.config import Settings
 from mix_worker.download import DownloadFailure, Downloaded
 from mix_worker.pipeline import Deps, run_one
-from mix_worker.scan import ScanRefused
+from mix_worker.scan import ScanRefused, ScanUnreachable
 from mix_worker.server import Result
 
 JOB_ID = "6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f"
@@ -153,6 +153,21 @@ class Failures(unittest.TestCase):
             settings, deps, log = make(tmp, scan=refusing)
             run_one(job(), settings, "tok", deps)
             self.assertEqual(self.failed_body(deps), "Recognition service refused (rate limited); try later")
+
+    def test_unreachable_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def silent(p, d):
+                raise ScanUnreachable()
+            settings, deps, log = make(tmp, scan=silent)
+            run_one(job(), settings, "tok", deps)
+            self.assertEqual(self.failed_body(deps), "Recognition service did not answer; try later")
+
+    def test_a_token_callable_is_asked_at_send_time(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp)
+            asked = []
+            run_one(job(), settings, lambda: asked.append(1) or "fresh", deps)
+            self.assertEqual(len(asked), 1)
 
     def test_result_too_large_locally_and_from_the_server(self):
         with tempfile.TemporaryDirectory() as tmp:

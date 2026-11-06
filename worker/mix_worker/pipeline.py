@@ -15,10 +15,11 @@ from urllib.parse import urlparse
 
 from .config import Settings
 from .download import DownloadFailure, Downloaded
-from .scan import ScanRefused
+from .scan import ScanRefused, ScanUnreachable
 from .server import Result
 
 REFUSED_REASON = "Recognition service refused (rate limited); try later"
+UNREACHABLE_REASON = "Recognition service did not answer; try later"
 TOO_LARGE_REASON = "Result too large"
 NO_TRACK_REASON = "No track identified"
 BAD_LINK_REASON = "Request has no valid link"
@@ -60,11 +61,16 @@ class _Steps:
             self.deps.log.step(name, outcome, self.deps.now() - started)
 
 
-def _finish(deps: Deps, settings: Settings, token: str, job_id: str, body: dict[str, Any]) -> Result:
-    return deps.client.finish(token, job_id, settings.worker_name, body)
+Token = str | Callable[[], str]
 
 
-def _fail(deps: Deps, settings: Settings, token: str, job_id: str, reason: str) -> Outcome:
+def _finish(deps: Deps, settings: Settings, token: Token, job_id: str, body: dict[str, Any]) -> Result:
+    # A scan can outlast the access token: a callable gives a fresh one.
+    value = token() if callable(token) else token
+    return deps.client.finish(value, job_id, settings.worker_name, body)
+
+
+def _fail(deps: Deps, settings: Settings, token: Token, job_id: str, reason: str) -> Outcome:
     r = _finish(deps, settings, token, job_id, {"status": "failed", "finished_at": _iso(deps.now()), "error": reason})
     if not r.ok:
         return Outcome("server", reason=reason, server=r)
@@ -75,7 +81,7 @@ def _fail(deps: Deps, settings: Settings, token: str, job_id: str, reason: str) 
     return Outcome("failed", reason=reason)
 
 
-def run_one(job: dict[str, Any], settings: Settings, token: str, deps: Deps) -> Outcome:
+def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -> Outcome:
     job_id = str(job.get("id", ""))
     steps = _Steps(deps)
     payload = job.get("payload")
@@ -102,6 +108,9 @@ def run_one(job: dict[str, Any], settings: Settings, token: str, deps: Deps) -> 
         except ScanRefused:
             steps.done("scan", "refused", started)
             return _fail(deps, settings, token, job_id, REFUSED_REASON)
+        except ScanUnreachable:
+            steps.done("scan", "no answer", started)
+            return _fail(deps, settings, token, job_id, UNREACHABLE_REASON)
         steps.done("scan", f"{len(tracks)} tracks", started)
         if not tracks:
             return _fail(deps, settings, token, job_id, NO_TRACK_REASON)

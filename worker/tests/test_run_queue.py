@@ -74,6 +74,26 @@ def make(tmp, client, download=None, scan=None, expires_at=10_000.0):
     return settings, deps, session
 
 
+class Refresh(unittest.TestCase):
+    def test_the_result_is_sent_with_a_token_refreshed_after_the_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tokens = iter(["a2", "a3", "a4"])
+
+            class Client(FakeClient):
+                def refresh(self, token):
+                    self.calls.append(("refresh", token))
+                    return Result("ok", {"access_token": next(tokens), "refresh_token": "r", "expires_in": -1})
+
+                def finish(self, token, job_id, worker, body):
+                    self.calls.append(("finish-token", token))
+                    return Result("ok", "done", 200)
+
+            client = Client([Result("ok", job(1)), Result("ok", None)])
+            settings, deps, session = make(tmp, client)
+            self.assertEqual(run_queue(settings, deps, session, once=True, interval=7), EXIT_OK)
+            self.assertIn(("finish-token", "a3"), client.calls)
+
+
 class Once(unittest.TestCase):
     def test_two_rows_in_order_then_empty(self):
         with tempfile.TemporaryDirectory() as tmp:
