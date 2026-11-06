@@ -41,7 +41,7 @@ first start). A failed *request* is not a failed *run*: the worker marks it `fai
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit (owner's pick); a positive value refuses longer sets on the metadata, before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 15 | one probe every N seconds; with 12 s probes, 80 % of the set heard (D4, revised 2026-11-06) |
 | `WORKER_PROBE_SECONDS` | 12 | probe length sent to Shazam, 2–12 (D4, revised 2026-11-06) |
-| `WORKER_COOLDOWN_SECONDS` | 1.9 | sleep before every recognition call, + random 0–30 % (`WORKER_COOLDOWN_SPREAD_PERCENT`), never slowed after a refusal (owner's pick), doubled after each `RateLimited` (30 s cap) (D3) |
+| `WORKER_COOLDOWN_SECONDS` | 1.5 | sleep before every recognition call, + random 0–30 % (`WORKER_COOLDOWN_SPREAD_PERCENT`), never slowed after a refusal (owner's pick), doubled after each `RateLimited` (30 s cap) (D3) |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 180 | pause after a `RateLimited`, the same each time, + random 0–40 % (`WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`; round 003) |
 | `WORKER_REFUSAL_WARN_CALLS` | 150 | two refusals closer than this many calls: one warning (round 004) |
 | `WORKER_RESUME_DAYS` | 7 | Ask again on a stopped set resumes it within this many days (round 004) |
