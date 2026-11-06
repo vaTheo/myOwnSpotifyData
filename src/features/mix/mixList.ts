@@ -93,8 +93,9 @@ function requestChip(v: MixJobView): MixListItem['chip'] {
 }
 
 /**
- * The chip: a waiting or running request first; a failure or rejection
- * newer than the saved mix next; then the saved mix; then the request.
+ * The chip: a waiting or running request first; a done result not applied
+ * yet (Found) or a failure or rejection newer than the saved mix next; then
+ * the saved mix; then the request.
  */
 function chipOf(
   v: MixJobView | null,
@@ -103,11 +104,12 @@ function chipOf(
   if (v && (v.status === 'queued' || v.status === 'claimed'))
     return requestChip(v);
   if (!mix) return v ? requestChip(v) : { kind: 'saved', text: 'Saved' };
+  if (v === null) return savedChip(mix);
+  const unapplied = v.status === 'done' && !v.rejected && v.appliedAt === null;
   const failedLater =
-    v !== null &&
     (v.status === 'failed' || v.rejected === true) &&
     requestAt(v) > mix.savedAt;
-  return failedLater && v ? requestChip(v) : savedChip(mix);
+  return unapplied || failedLater ? requestChip(v) : savedChip(mix);
 }
 
 /** Every link's row, in the queue's order, then the rest newest first. */

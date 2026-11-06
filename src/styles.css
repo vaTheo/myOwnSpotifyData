@@ -78,6 +78,12 @@ button:disabled {
   cursor: default;
 }
 
+/* A text button, disabled, keeps its own shape: no fill, only the 50%
+   label (S08b review F7). */
+button.btn-text:disabled {
+  background: transparent;
+}
+
 /* An outlined or destructive button, disabled, drops its colour: no fill,
    a 12% outline and the same 50% label (4.2:1 on a card). */
 button.btn-outlined:disabled,
@@ -3245,6 +3251,13 @@ details.mix-clues > summary:focus-visible {
    brings the pane back. */
 .mix-pane-toggle {
   display: none;
+}
+
+/* The Mixes button's error mark: the list has an error to show. */
+.mix-pane-alert {
+  display: inline-flex;
+  margin-left: 4px;
+  color: var(--md-sys-color-error);
 }
 
 @media (min-width: 840px) and (max-width: 1599.98px) {

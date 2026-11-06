@@ -40,7 +40,7 @@ import {
 import { parseDescription, parsePasted } from '../features/mix/parse';
 import { parseTracklistifyJson } from '../features/mix/tracklistify';
 import { classifyMixInput, isShortLink, requestKey } from '../features/mix/url';
-import { goneNote, queueFailure } from '../features/mix/queue';
+import { queueFailure, queueNote } from '../features/mix/queue';
 import { requestStatusText } from '../features/mix/worker';
 import { runCreatePlaylist } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
@@ -290,11 +290,12 @@ export async function queueServerPush(
  * Pulls every dataset the server holds newer, then rebuilds the model. It
  * joins jobsBusy() (it writes the library stores) and is skipped, not
  * queued, while a job runs or the account notice is up. No Spotify read.
+ * Answers whether it pulled (false: skipped, or failed into serverState).
  */
-export async function startServerPull(): Promise<void> {
-  if (!serverConfigured || !serverAuth.session.value) return;
-  if (jobsBusy()) return;
-  if (banner.value?.text === ACCOUNT_MISMATCH_NOTICE) return;
+export async function startServerPull(): Promise<boolean> {
+  if (!serverConfigured || !serverAuth.session.value) return false;
+  if (jobsBusy()) return false;
+  if (banner.value?.text === ACCOUNT_MISMATCH_NOTICE) return false;
   serverPulling.value = true;
   try {
     const res = await runPull(serverDeps());
@@ -303,7 +304,7 @@ export async function startServerPull(): Promise<void> {
       if (res.message === ACCOUNT_MISMATCH_NOTICE) {
         banner.value = warnBanner(ACCOUNT_MISMATCH_NOTICE);
       }
-      return;
+      return false;
     }
     if (res.value.pulled.length > 0) {
       await loadFromDb();
@@ -322,6 +323,7 @@ export async function startServerPull(): Promise<void> {
   }
   // Whatever this device changed while the server was unreachable goes now.
   void queueServerPush([]);
+  return true;
 }
 
 /** Signed in to Spotify and to the server: the automatic sync may run. */
@@ -1609,7 +1611,8 @@ function pulledStatus(id: string): MixJobView['status'] | undefined {
 
 /**
  * Runs one queue action with a fresh token, then pulls so the list updates;
- * a 'gone' answer becomes `mixQueueNote` from the pulled status (T122).
+ * a 'gone' answer becomes `mixQueueNote` (`queueNote`: from the pulled
+ * status only when the pull succeeded, T122 and review F2).
  */
 async function queueAction(
   id: string,
@@ -1634,8 +1637,8 @@ async function queueAction(
     mixError.value = queueFailure(failure, res.message);
     return;
   }
-  await startServerPull();
-  if (res.value === 'gone') mixQueueNote.value = goneNote(pulledStatus(id));
+  const pulled = await startServerPull();
+  mixQueueNote.value = queueNote(res.value, pulled, pulledStatus(id));
 }
 
 export async function startCancelRequest(id: string): Promise<void> {

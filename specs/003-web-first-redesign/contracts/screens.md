@@ -397,8 +397,9 @@ it takes precedence over both lists above where they differ, and **(replaces …
     (`priority` high to low, then oldest first), so Move to top shows the row first; then the rest, newest first. Earlier
     finished requests of a link stay collapsed.
   - **Chips (replaces the T116 chip list)**: Queued, Identifying, Paused (step `paused`), Stopping… (Stop asked on a running
-    request), Found N tracks (done, result not applied yet), Failed, Rejected, Saved · N tracks · K validated, Playlist made.
-    N counts tracks, never gap rows; candidates count.
+    request), Found tracks (done, result not applied yet), Failed, Rejected, Saved · N tracks · K validated, Playlist made.
+    N counts tracks, never gap rows; candidates count. Found has no N (ruling, S08b review F5): the count needs the result
+    body, fetched only to apply it, and reading it to count would be a new request.
   - **Progress line** under an Identifying, Paused or Stopping… row, word for word from `progressLine`: "First pass · 47 % · about
     25 min left", "Second pass ×1.04 · …", "Downloading", "Reading the comments", "Paused by Shazam until 20:35", "· Shazam refuses
     often: a VPN or a shared network?", "· last news 20:12: the computer stopped sending news" (no news for 10 min),

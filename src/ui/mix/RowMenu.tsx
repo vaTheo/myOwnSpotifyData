@@ -73,17 +73,17 @@ export function RowMenu(p: { label: string; items: RowMenuItem[] }) {
             []),
         ];
         if (items.length === 0) return;
-        const at = items.indexOf(document.activeElement as HTMLElement);
+        const index = items.indexOf(document.activeElement as HTMLElement);
         const last = items.length - 1;
         const next =
           e.key === 'ArrowDown'
-            ? at < 0 || at === last
+            ? index < 0 || index === last
               ? 0
-              : at + 1
+              : index + 1
             : e.key === 'ArrowUp'
-              ? at <= 0
+              ? index <= 0
                 ? last
-                : at - 1
+                : index - 1
               : e.key === 'Home'
                 ? 0
                 : e.key === 'End'
