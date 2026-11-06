@@ -248,7 +248,8 @@ every failure inline (never a banner, never touching the sync lock) and is reset
 
 Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
 (`ACCOUNT_SWITCH_CONFIRM`, `:714`), an import that covers less than the stored history (`replaceQuestion`, `:765`), Remove server data
-(`REMOVE_SERVER_DATA_CONFIRM`, `:337`); and Disconnect, asked by its button in `ui/Settings.tsx` (`:567`). Non-destructive, in
+(`REMOVE_SERVER_DATA_CONFIRM`, `:337`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`) and Stop a running scan
+(`STOP_REQUEST_CONFIRM`, round 004; the scan keeps its tracks); and Disconnect, asked by its button in `ui/Settings.tsx` (`:567`). Non-destructive, in
 `state.ts`: Like all songs' count (`:1407`) and the four "replace the working list" questions of the Mix screen (`:1051`, `:1080`,
 `:1111`, `:1133`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
 old behaviour.
@@ -284,12 +285,21 @@ One Supabase Free project, for the owner alone, that stores every dataset the ap
 - Server side: `supabase/migrations/0001_init.sql` creates `datasets`, `dataset_rows`, `mixes`, `jobs` and `storage_used()`, enables
   Row Level Security on `owner_id = auth.uid()` and revokes every default privilege from `anon`; `0002_jobs.sql` (worker round) adds
   `jobs.applied_at`, an index and `claim_job(p_worker, p_stale_seconds)` (security invoker: the oldest queued request, or one left
-  running past the stale limit, marked claimed under `for update skip locked`).
+  running past the stale limit, marked claimed under `for update skip locked`); `0003_job_control.sql` (round 004) adds
+  `progress`, `priority`, `stop_requested_at` and makes `claim_job` take the highest priority first, then the oldest.
 - Identify requests (worker round, §17): `requestIdentify` (one open request per link, else one insert of `{kind: 'identify-mix',
   payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history per link validated (`validateJobRow`) into the
   `mixJobs` meta (newest first, 20 per link), then every done, unapplied result applied oldest first: `resultToRows`, the saved mix
   merged or created, `serverPending.mixes` set, `applied_at` marked with an `is.null` guard so another device skips it; a refused
   result is counted and flagged `rejected` locally.
+- Round 004 (`specs/004-worker-progress-control/`, migration 0003): `pullJobs` also reads `progress`, `priority`,
+  `stop_requested_at` (and falls back to the old fields when the server answers "column does not exist"); `validateJobRow`
+  keeps a well-formed progress or drops it; `progressLine` words it on the Requests card ("First pass · 47 % · about 25 min
+  left", "Paused by Shazam until 20:35", the VPN warning, "the computer stopped sending news" after 10 minutes).
+  `cancelRequest` (deletes a queued row), `moveRequestToTop` (priority above the highest queued), `stopRequest`
+  (`stop_requested_at` on a claimed row), behind `startCancelRequest`, `startMoveToTop`, `startStopRequest`. Heard rows carry
+  `hits` (clips matched) beside `confidence` (best score); `viewRows` sorts by time, clips or score and filters "heard once"
+  in the view only.
 - Wiring in `model/state.ts`: `serverState` (rendered by the Settings server card), `recordConnectedAccount` (one `/me` on the Connect
   tap, `:346`), `queueServerPush` (flags `serverPending` first, one push at a time), `startServerPull` (joins `jobsBusy()`, ends in
   `loadFromDb()` and `loadSavedMixes()`), `startServerSync` (pending pushes, then the pull: the open, the card's button and `autoSync.ts`),
@@ -333,6 +343,12 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   turns a clue naming one track into a candidate (`Lookups`: Deezer, then MusicBrainz, Discogs/Deezer links by id; equality
   by `match.py`, ADR-10). `pipeline.run_one` adds `mix_info.second_pass`, `gaps`, `clues` and the candidates, and `trim`s
   clues to fit the size limit.
+- Round 004: `merge` counts `hits` per row; the scan reports progress through `pipeline._Progress` (`ServerClient.progress`,
+  at most once a minute and at each step; a failed write turns it off for the run), sees a Stop in the answer
+  (`StopRequested`, also within 30 s during a refusal pause), warns once when two refusals come closer than
+  `WORKER_REFUSAL_WARN_CALLS`, runs the second pass speed by speed, and saves what it heard after every probe
+  (`runstate.Recorder`, `<work_dir>/runs/<sha1(link)>.json`) so Ask again on a stopped set resumes it
+  (`WORKER_RESUME_DAYS`, same probe settings); a complete run deletes it.
 - The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
 
 ## Links
