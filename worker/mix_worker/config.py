@@ -198,7 +198,7 @@ def load_settings(
         poll_seconds=_int(values, "WORKER_POLL_SECONDS", 60, 1),
         heartbeat_seconds=_int(values, "WORKER_HEARTBEAT_SECONDS", 30, 1),
         max_duration_seconds=_int(values, "WORKER_MAX_DURATION_SECONDS", 0, 0),
-        probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 30, 1),
+        probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 12, 1),
         probe_seconds=_probe_seconds(values),
         cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 3.0, 0.0),
         rate_limit_pause_seconds=_float(values, "WORKER_RATE_LIMIT_PAUSE_SECONDS", 300.0, 0.0),
