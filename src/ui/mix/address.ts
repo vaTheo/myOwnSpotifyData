@@ -34,8 +34,17 @@ export function addressAfter(p: {
   key: string | undefined;
   openUrl: string | null;
   saved: boolean;
+  /**
+   * No mix is open but the address must stay: it names a mix this browser
+   * has not saved (the screen says so), or the saved mixes could not be read.
+   */
+  hold?: boolean;
 }): string | null {
-  if (p.openUrl === null) return null;
+  if (p.openUrl === null) {
+    // A failed or running Look up closed the addressed mix: the address
+    // follows the screen, so a reload does not reopen it.
+    return p.key !== undefined && !p.hold ? routeHref({ name: 'mix' }) : null;
+  }
   if (p.saved) {
     return p.key === p.openUrl
       ? null

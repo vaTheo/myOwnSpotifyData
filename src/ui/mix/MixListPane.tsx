@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect } from 'preact/hooks';
 import { requestKey } from '../../features/mix/url';
 import {
   requestList,
@@ -26,12 +26,12 @@ import { routeHref } from '../../router';
 import { Button } from '../components/Button';
 import { FileDrop } from '../components/FileDrop';
 import { Flag, type FlagKind } from '../components/Flag';
-import { IconButton } from '../components/IconButton';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
 import { TrackRow } from '../components/TrackRow';
 import { formatDate, plural } from '../format';
 import { Disclosure } from './Disclosure';
+import { RowMenu } from './RowMenu';
 
 /**
  * The link field's text, shared by the form and the Requests rows (a row
@@ -168,65 +168,6 @@ export function JsonImport() {
   );
 }
 
-/**
- * A row's overflow menu (Remove for now). Closes on Escape, on a tap
- * outside and when the focus leaves it.
- */
-function RowMenu(p: {
-  label: string;
-  items: { label: string; onSelect: () => void }[];
-}) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (!box.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('pointerdown', onDown);
-    return () => document.removeEventListener('pointerdown', onDown);
-  }, [open]);
-  return (
-    <div
-      class="row-menu"
-      ref={box}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && open) {
-          e.stopPropagation();
-          setOpen(false);
-        }
-      }}
-      onFocusOut={(e) => {
-        if (!box.current?.contains(e.relatedTarget as Node | null))
-          setOpen(false);
-      }}
-    >
-      <IconButton
-        icon="more_vert"
-        label={p.label}
-        onClick={() => setOpen(!open)}
-      />
-      {open && (
-        <div class="row-menu-list" role="menu">
-          {p.items.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                item.onSelect();
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** Removes a saved mix; the open one closes and the address goes to `#/mix`. */
 function remove(url: string): void {
   if (!confirm('Remove this saved mix?')) return;
@@ -235,7 +176,8 @@ function remove(url: string): void {
     await removeMix(url);
     if (wasOpen && !savedMixes.value.some((m) => m.url === url)) {
       closeMix();
-      location.hash = routeHref({ name: 'mix' });
+      // Replace, so Back does not lead to the removed mix.
+      location.replace(routeHref({ name: 'mix' }));
     }
   })();
 }

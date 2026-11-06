@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals';
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { MixRowSource, TracklistRow } from '../../db/schema';
 import {
   libraryTitleIndex,
@@ -13,6 +13,7 @@ import {
   addMixRow,
   deleteMixRow,
   editMixRow,
+  mixError,
   mixRows,
   model,
   saveMix,
@@ -22,14 +23,16 @@ import { FeaturePills } from '../components/FeaturePills';
 import { Flag } from '../components/Flag';
 import { IconButton } from '../components/IconButton';
 import { NoData } from '../components/NoData';
-import { SpotifyLink } from '../components/SpotifyLink';
+import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
 import { formatClock, plural } from '../format';
 import { Icon, type IconName } from '../icons';
 import { DataTable, type Column } from '../table/DataTable';
 import type { SortState } from '../table/sort';
 import { Clues } from './Clues';
+import { RowMenu, type RowMenuItem } from './RowMenu';
 import {
+  confidenceShort,
   confidenceText,
   gapCluesSummary,
   originText,
@@ -67,53 +70,71 @@ function sourceTitle(row: TracklistRow): string {
   return [sourceLabel(row), origin, quote].filter(Boolean).join(' · ');
 }
 
+/** "28 other mixes · in 2 playlists": the references, dropped at zero playlists. */
+function referencesLine(l: Line): string | null {
+  const parts = [
+    referencesText(l.row),
+    l.match && l.match.playlistCount > 0
+      ? `in ${plural(l.match.playlistCount, 'playlist')}`
+      : null,
+  ].filter((s): s is string => s !== null);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 /**
- * Source: an icon named by its tooltip, then, for a round-003 row, the
- * origin as visible text; a candidate always carries **not heard** and the
- * clue's own words in quotes (plain text).
+ * Artist – Title, and under it what a round-003 row must show in words: the
+ * **not heard** badge of a candidate, the origin ("second listen · +4 %",
+ * "from a comment by …"), the clue in quotes (plain text, two lines at
+ * most), then the references.
  */
-function SourceCell(p: { row: TracklistRow }) {
-  const { row } = p;
-  const label = sourceLabel(row);
+function TitleCell(p: { line: Line }) {
+  const { row } = p.line;
   const origin = originText(row);
+  const refs = referencesLine(p.line);
+  const quote = row.origin === 'clue' && row.clue ? row.clue.text : null;
+  const second = row.origin === 'clue' || origin !== null || refs !== null;
   return (
-    <span class="mix-source">
-      <span class="mix-source-icon" title={label}>
-        <Icon name={SOURCE_ICON[row.source]} size={18} />
-        <span class="visually-hidden">{label}</span>
+    <span class="mix-title-cell">
+      <span class="dt-text mix-name">
+        {row.artist} – {row.title}
       </span>
-      {row.origin === 'clue' && <Flag kind="todo">not heard</Flag>}
-      {origin !== null && <span class="mix-origin">{origin}</span>}
-      {row.origin === 'clue' && row.clue && (
-        <span class="mix-quote">“{row.clue.text}”</span>
+      {second && (
+        <span class="mix-second">
+          {row.origin === 'clue' && <Flag kind="todo">not heard</Flag>}
+          {origin !== null && <span class="mix-origin">{origin}</span>}
+          {quote !== null && <span class="mix-quote">“{quote}”</span>}
+          {refs !== null && <span class="mix-refs">{refs}</span>}
+        </span>
       )}
     </span>
   );
 }
 
-/**
- * Confidence and references: the scan's score, TrackId's other mixes, and
- * how many of the owner's playlists hold the matched track (dropped at 0).
- */
-function confidenceCell(l: Line): string | null {
-  const playlists =
-    l.match && l.match.playlistCount > 0
-      ? `in ${plural(l.match.playlistCount, 'playlist')}`
-      : null;
-  const parts = [
-    confidenceText(l.row),
-    referencesText(l.row),
-    playlists,
-  ].filter((s): s is string => s !== null);
-  return parts.length > 0 ? parts.join(' · ') : null;
+/** Source: an icon named by its tooltip and its screen-reader text. */
+function SourceCell(p: { row: TracklistRow }) {
+  const label = sourceLabel(p.row);
+  return (
+    <span class="mix-source-icon" title={sourceTitle(p.row)}>
+      <Icon name={SOURCE_ICON[p.row.source]} size={20} />
+      <span class="visually-hidden">{label}</span>
+    </span>
+  );
 }
 
-/** BPM and key of the matched library track; nothing when unmatched. */
-function LibraryCell(p: { match: MixMatch | null }) {
-  if (!p.match) return null;
+/**
+ * Confidence: "3× · 92 %" in the narrow column; the full "heard 3× · best
+ * 92 %" for a screen reader, in the tooltip, and on a phone's meta line.
+ */
+function ConfidenceCell(p: { row: TracklistRow }) {
+  const short = confidenceShort(p.row);
+  const long = confidenceText(p.row);
+  if (short === null || long === null) return null;
   return (
-    <span class="mix-library">
-      <FeaturePills trackId={p.match.trackId} />
+    <span class="mix-conf">
+      <span class="mix-conf-short" aria-hidden="true">
+        {short}
+      </span>
+      <span class="mix-conf-long visually-hidden">{long}</span>
     </span>
   );
 }
@@ -128,7 +149,7 @@ function columns(on: {
       header: 'Time',
       align: 'end',
       priority: 1,
-      width: '80px',
+      width: '72px',
       cell: (l) => {
         const t = timeText(l.row);
         return t === null ? <NoData /> : <span class="dt-rank">{t}</span>;
@@ -139,20 +160,16 @@ function columns(on: {
       id: 'title',
       header: 'Artist – Title',
       priority: 1,
-      width: 'minmax(0, 2fr)',
-      cell: (l) => (
-        <span class="dt-text">
-          {l.row.artist} – {l.row.title}
-        </span>
-      ),
+      width: 'minmax(200px, 1fr)',
+      cell: (l) => <TitleCell line={l} />,
       title: (l) => `${l.row.artist} – ${l.row.title}`,
       compact: 'title',
     },
     {
       id: 'label',
       header: 'Label',
-      priority: 3,
-      width: 'minmax(0, 1fr)',
+      priority: 4,
+      width: 'minmax(0, 0.4fr)',
       cell: (l) =>
         l.row.label ? <span class="dt-text">{l.row.label}</span> : null,
       title: (l) => l.row.label ?? undefined,
@@ -162,21 +179,18 @@ function columns(on: {
       id: 'source',
       header: 'Source',
       priority: 2,
-      width: 'minmax(72px, 1.4fr)',
+      width: '64px',
       cell: (l) => <SourceCell row={l.row} />,
-      title: (l) => sourceTitle(l.row),
       compact: 'meta',
     },
     {
       id: 'confidence',
-      header: 'Confidence · references',
+      header: 'Confidence',
+      align: 'end',
       priority: 2,
-      width: 'minmax(0, 1.2fr)',
-      cell: (l) => {
-        const text = confidenceCell(l);
-        return text === null ? null : <span class="mix-conf">{text}</span>;
-      },
-      title: (l) => confidenceCell(l) ?? undefined,
+      width: '112px',
+      cell: (l) => <ConfidenceCell row={l.row} />,
+      title: (l) => confidenceText(l.row) ?? undefined,
       compact: 'meta',
     },
     {
@@ -184,33 +198,31 @@ function columns(on: {
       header: 'In your library',
       priority: 1,
       width: '120px',
-      cell: (l) => <LibraryCell match={l.match} />,
+      cell: (l) =>
+        l.match ? (
+          <span class="mix-library">
+            <FeaturePills trackId={l.match.trackId} />
+          </span>
+        ) : null,
       compact: 'meta',
     },
     {
-      id: 'actions',
-      header: 'Actions',
+      id: 'more',
+      header: 'More',
       headerHidden: true,
       align: 'end',
       priority: 1,
-      width: '160px',
+      width: '64px',
       cell: (l) => {
         const name = `${l.row.artist} – ${l.row.title}`;
-        return (
-          <span class="mix-actions">
-            {isIdentified(l.row) && <SpotifyLink href={searchUrl(l.row)} />}
-            <IconButton
-              icon="edit"
-              label={`Edit ${name}`}
-              onClick={() => on.edit(l.index)}
-            />
-            <IconButton
-              icon="delete"
-              label={`Delete ${name}`}
-              onClick={() => on.remove(l.index)}
-            />
-          </span>
-        );
+        const items: RowMenuItem[] = [
+          { label: 'Edit', onSelect: () => on.edit(l.index) },
+          { label: 'Delete', onSelect: () => on.remove(l.index) },
+        ];
+        if (isIdentified(l.row)) {
+          items.push({ label: 'Search on Spotify', href: searchUrl(l.row) });
+        }
+        return <RowMenu label={`More for ${name}`} items={items} />;
       },
       compact: 'trail',
     },
@@ -238,7 +250,11 @@ function GapLine(p: { row: TracklistRow; onDelete: () => void }) {
   );
 }
 
-/** The row being edited: four text fields, Save and Cancel (`editMixRow`). */
+/**
+ * The row being edited: four text fields, Save and Cancel (`editMixRow`).
+ * It takes the focus and scrolls into view when it opens, so Edit and Add
+ * track land on the first field.
+ */
 function EditLine(p: {
   row: TracklistRow;
   onSave: (patch: {
@@ -255,9 +271,16 @@ function EditLine(p: {
   const [time, setTime] = useState(
     p.row.startSec !== null ? formatClock(p.row.startSec) : ''
   );
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    const first = form.current?.querySelector<HTMLInputElement>('input');
+    first?.focus({ preventScroll: true });
+    form.current?.scrollIntoView({ block: 'nearest' });
+  }, []);
   return (
     <form
       class="mix-edit"
+      ref={form}
       onSubmit={(e) => {
         e.preventDefault();
         p.onSave({
@@ -338,12 +361,19 @@ function RowView(p: {
   );
 }
 
+/** The row key: the edited row remounts its fields, so Cancel drops the typing. */
+function keyOf(index: number, editing: number | null): string {
+  return `${index}${editing === index ? '-edit' : ''}`;
+}
+
 /**
- * The open mix's tracklist (spec 003 §12, T082, T120) on `DataTable`. Rows
- * keep their place in `mixRows`, so Edit and Delete act on the real row
- * whatever the Sort. Library matches are computed here, at render, never
- * stored. Under the table: Add track and Save mix ("Saved ✓" for 2 s; a
- * failure shows `mixError` inline instead, never the tick).
+ * The open mix's tracklist (spec 003 §12, T082, T120; S08 fix 1 row layout)
+ * on `DataTable`. Rows keep their place in `mixRows`, so Edit and Delete act
+ * on the real row whatever the Sort. Edit, Delete and the Spotify search sit
+ * in each row's More menu; a gap keeps a visible Delete. Library matches are
+ * computed here, at render, never stored. Under the table: Add track (the
+ * new row is paged in and focused) and Save mix ("Saved ✓" for 2 s; a
+ * failure shows `mixError` beside the button, never the tick).
  */
 export function TracklistTable() {
   const rows = mixRows.value;
@@ -351,6 +381,7 @@ export function TracklistTable() {
   const index = m ? libraryTitleIndex(m) : null;
   const [editing, setEditing] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [sort, setSort] = useState<RowSort>('time');
   const [heardOnce, setHeardOnce] = useState(false);
   const counted = rows.some((r) => r.hits !== undefined);
@@ -369,12 +400,17 @@ export function TracklistTable() {
 
   const onSaveMix = (): void => {
     void (async () => {
+      setSaveFailed(false);
       const ok = await saveMix();
-      if (!ok) return; // mixError shows inline; never flash "Saved ✓" on it.
+      if (!ok) {
+        setSaveFailed(true); // mixError says why, here; never "Saved ✓".
+        return;
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     })();
   };
+  const saveError = saveFailed ? mixError.value : null;
 
   return (
     <div class="mix-tracklist">
@@ -391,12 +427,12 @@ export function TracklistTable() {
         label="Tracklist"
         columns={columns({ edit: setEditing, remove })}
         rows={lines}
-        // The edited row remounts its fields, so a Cancel drops the typing.
-        rowKey={(l) => `${l.index}${editing === l.index ? '-edit' : ''}`}
+        rowKey={(l) => keyOf(l.index, editing)}
         sort={NO_SORT.value}
         onSort={() => undefined}
         noun="track"
         resetKey={`${sort}-${heardOnce}`}
+        revealKey={editing === null ? null : keyOf(editing, editing)}
         fullRow={(l) => {
           if (editing === l.index) {
             return (
@@ -432,6 +468,7 @@ export function TracklistTable() {
           {saved ? 'Saved ✓' : 'Save mix'}
         </Button>
       </div>
+      {saveError !== null && <StatusLine kind="error">{saveError}</StatusLine>}
     </div>
   );
 }

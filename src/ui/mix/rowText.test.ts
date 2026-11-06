@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Clue, TracklistRow } from '../../db/schema';
 import {
   clueLine,
+  confidenceShort,
   confidenceText,
   gapCluesSummary,
   originText,
@@ -107,6 +108,24 @@ describe('confidenceText', () => {
     ).toBeNull();
     expect(confidenceText(row({ source: 'trackid' }))).toBeNull();
     expect(confidenceText(row())).toBeNull();
+  });
+});
+
+describe('confidenceShort', () => {
+  it('fits the narrow column: clips and score, or the score alone', () => {
+    expect(confidenceShort(row({ confidence: 92.2, hits: 3 }))).toBe(
+      '3× · 92 %'
+    );
+    expect(confidenceShort(row({ confidence: 91.6 }))).toBe('92 %');
+  });
+
+  it('is null wherever the long text is null', () => {
+    expect(confidenceShort(row({ origin: 'clue', confidence: 80 }))).toBeNull();
+    expect(confidenceShort(row({ gap: true, confidence: 80 }))).toBeNull();
+    expect(
+      confidenceShort(row({ source: 'manual', confidence: 80 }))
+    ).toBeNull();
+    expect(confidenceShort(row())).toBeNull();
   });
 });
 

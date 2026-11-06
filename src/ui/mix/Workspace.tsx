@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   closeMix,
   loadSavedMixes,
+  mixError,
   mixState,
   openMix,
   savedMixes,
 } from '../../model/state';
 import { routeHref } from '../../router';
+import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
+import { focusWhenReady } from '../layout/focus';
 import { ListDetail } from '../layout/ListDetail';
 import { windowClass } from '../layout/windowClass';
 import { addressAfter, routeAction } from './address';
@@ -29,32 +32,56 @@ function currentOpenUrl(): string | null {
 }
 
 /**
+ * After a close, the keyboard lands in the Mixes list (FR-043): the closed
+ * mix's row when it is saved, else the first saved mix, else the link field.
+ */
+function focusAfterClose(url: string | null): void {
+  const saved = savedMixes.peek();
+  const selector =
+    url !== null && saved.some((m) => m.url === url)
+      ? `.mix-saved [data-row-id="${CSS.escape(url)}"]`
+      : saved.length > 0
+        ? '.mix-saved a.main'
+        : '.mix-link-form input';
+  focusWhenReady(selector, false);
+}
+
+/**
  * The Mix workspace (spec 003 §12, T084). From expanded windows a
  * list–detail: the 360 px left pane beside the open mix, or an empty state
- * when none is open. On compact and medium windows one column, in the
+ * when none is open. Below 1,600 px the pane folds while a mix is open, so
+ * the tracklist keeps its columns (S08 fix 1); the header's **Mixes**
+ * button brings it back. On compact and medium windows one column, in the
  * contract's phone order: link field, open mix, Identify, JSON import, the
  * lists, the worker help.
  *
  * The address: `#/mix/<key>` opens that saved mix once the saved mixes are
  * read, or says it is not in this browser; opening a saved mix sets it;
- * closing returns to `#/mix`; an unsaved lookup stays at `#/mix`. No network
- * call on open (ADR-02): `openMix` reads memory only.
+ * closing returns to `#/mix` (replaced, so Back does not reopen it); an
+ * unsaved lookup stays at `#/mix`; a mix no longer on screen (a failed Look
+ * up) leaves its address. No network call on open (ADR-02).
  */
 export function Workspace(p: { mixKey?: string }) {
   const key = p.mixKey;
   const [loaded, setLoaded] = useState(false);
+  const [readFailed, setReadFailed] = useState(false);
   const [missing, setMissing] = useState<string | null>(null);
+  const [paneShown, setPaneShown] = useState(false);
   const state = mixState.value;
   const open = state.status === 'ready' ? state.view.url : null;
   const saved = open !== null && savedMixes.value.some((m) => m.url === open);
 
-  // Load the saved mixes once, on mount (never on app load).
+  // Load the saved mixes once, on mount (never on app load). A read
+  // failure is in `mixError`; then no key can be judged missing.
   useEffect(() => {
-    void loadSavedMixes().then(() => setLoaded(true));
+    void loadSavedMixes().then(() => {
+      setReadFailed(mixError.peek() !== null);
+      setLoaded(true);
+    });
   }, []);
 
   // The address changed, or the saved mixes arrived: open, close or say
-  // missing. Then the address follows the mix on screen (a lookup, a save).
+  // missing. Then the address follows the mix on screen.
   const seen = useRef<{ key: string | undefined; loaded: boolean }>({
     key: undefined,
     loaded: false,
@@ -62,6 +89,7 @@ export function Workspace(p: { mixKey?: string }) {
   useEffect(() => {
     const before = seen.current;
     seen.current = { key, loaded };
+    let holding = missing !== null && missing === key;
     if (before.key !== key || before.loaded !== loaded) {
       const action = routeAction({
         prevKey: before.key,
@@ -70,7 +98,9 @@ export function Workspace(p: { mixKey?: string }) {
         openUrl: currentOpenUrl(),
         saved: savedMixes.peek().map((m) => m.url),
       });
-      setMissing(action === 'missing' ? (key ?? null) : null);
+      const nowMissing = action === 'missing' && !readFailed;
+      setMissing(nowMissing ? (key ?? null) : null);
+      holding = nowMissing || (action === 'missing' && readFailed);
       if (action === 'open' && key !== undefined) openMix(key);
       if (action === 'close') closeMix();
     }
@@ -80,23 +110,43 @@ export function Workspace(p: { mixKey?: string }) {
       key,
       openUrl: now,
       saved: now !== null && savedMixes.peek().some((m) => m.url === now),
+      hold: holding || readFailed,
     });
     if (href !== null) location.replace(href);
-  }, [key, loaded, open, saved]);
+  }, [key, loaded, open, saved, state.status]);
 
   const close = (): void => {
     // Escape with nothing open must not clear an inline error.
     if (open === null && key === undefined) return;
+    const was = open ?? key ?? null;
     closeMix();
-    if (key !== undefined) location.hash = routeHref({ name: 'mix' });
+    setPaneShown(false);
+    if (key !== undefined) location.replace(routeHref({ name: 'mix' }));
+    focusAfterClose(was);
   };
 
   const size = windowClass.value;
   const stacked = size === 'compact' || size === 'medium';
+  const paneButton = stacked ? undefined : (
+    <Button
+      variant="text"
+      icon="queue_music"
+      class="mix-pane-toggle"
+      aria-pressed={paneShown}
+      onClick={() => setPaneShown(!paneShown)}
+    >
+      Mixes
+    </Button>
+  );
   const detail =
     state.status === 'ready' ? (
-      <MixDetail view={state.view} onClose={close} stacked={stacked} />
-    ) : missing !== null && missing === key ? (
+      <MixDetail
+        view={state.view}
+        onClose={close}
+        stacked={stacked}
+        paneButton={paneButton}
+      />
+    ) : missing !== null && missing === key && !readFailed ? (
       <EmptyState
         icon="warning"
         action={{
@@ -124,7 +174,7 @@ export function Workspace(p: { mixKey?: string }) {
   }
 
   return (
-    <section class="mix">
+    <section class={paneShown ? 'mix mix-pane-on' : 'mix'}>
       <ListDetail
         list={() => <MixListPane />}
         detail={
@@ -134,7 +184,8 @@ export function Workspace(p: { mixKey?: string }) {
             </EmptyState>
           )
         }
-        selectedId={open}
+        // The workspace places the focus itself after a close.
+        selectedId={null}
         onClose={close}
       />
     </section>

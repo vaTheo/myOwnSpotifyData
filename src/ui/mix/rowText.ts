@@ -53,6 +53,17 @@ export function confidenceText(row: TracklistRow): string | null {
     : `${best}% match`;
 }
 
+/**
+ * The same figures for the narrow Confidence column: "3× · 92 %", or
+ * "92 %" without clip counts; the long text is its tooltip and what a
+ * screen reader and a phone read.
+ */
+export function confidenceShort(row: TracklistRow): string | null {
+  if (confidenceText(row) === null || row.confidence == null) return null;
+  const best = Math.round(row.confidence);
+  return row.hits !== undefined ? `${row.hits}× · ${best} %` : `${best} %`;
+}
+
 /** TrackId's "12 other mixes"; null when the source gave no count. */
 export function referencesText(row: TracklistRow): string | null {
   if (row.referenceCount === null) return null;

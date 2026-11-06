@@ -115,6 +115,15 @@ describe('addressAfter: the address the open mix asks for', () => {
     expect(
       addressAfter({ key: undefined, openUrl: B, saved: false })
     ).toBeNull();
-    expect(addressAfter({ key: A, openUrl: null, saved: false })).toBeNull();
+    expect(
+      addressAfter({ key: undefined, openUrl: null, saved: false })
+    ).toBeNull();
+  });
+
+  it('leaves an addressed mix that is no longer on screen, unless told to hold', () => {
+    expect(addressAfter({ key: A, openUrl: null, saved: false })).toBe('#/mix');
+    expect(
+      addressAfter({ key: A, openUrl: null, saved: false, hold: true })
+    ).toBeNull();
   });
 });
