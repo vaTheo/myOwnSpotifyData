@@ -406,6 +406,7 @@ describe('searchTrack', () => {
       row: row(),
       uri: 'spotify:track:t1',
       matchedName: 'Losing It',
+      year: null,
     });
     expect(get).toHaveBeenCalledTimes(1);
     expect(get.mock.calls[0][0]).toBe('/search');
@@ -432,7 +433,12 @@ describe('searchTrack', () => {
   it('is unmatched when both queries return zero results', async () => {
     const { client, get } = mockClient([], []);
     const m = await searchTrack(client, row());
-    expect(m).toEqual({ row: row(), uri: null, matchedName: null });
+    expect(m).toEqual({
+      row: row(),
+      uri: null,
+      matchedName: null,
+      year: null,
+    });
     expect(get).toHaveBeenCalledTimes(2);
   });
 
@@ -458,6 +464,7 @@ describe('searchTrack', () => {
       row: row({ gap: true }),
       uri: null,
       matchedName: null,
+      year: null,
     });
     expect(gapGet).not.toHaveBeenCalled();
 
@@ -527,5 +534,41 @@ describe('searchTrack', () => {
     expect(get.mock.calls[0][1]).toMatchObject({
       q: 'artist:"Fisher" track:"Losing It"',
     });
+  });
+});
+
+describe('searchTrack — round 005 album year', () => {
+  const album = (release_date?: string) => ({ name: 'Al', release_date });
+
+  it('returns the year of the matched track album', async () => {
+    const { client } = mockClient([track({ album: album('1996-04-01') })]);
+    const m = await searchTrack(client, row());
+    expect(m.uri).toBe('spotify:track:t1');
+    expect(m.year).toBe(1996);
+  });
+
+  it('takes the year of the picked item, not of a refused one', async () => {
+    const wrong = track({
+      id: 'w',
+      uri: 'spotify:track:w',
+      artists: [{ id: 'x', name: 'Someone Else' }],
+      album: album('1980'),
+    });
+    const right = track({ album: album('2015-05') });
+    const { client } = mockClient([wrong, right]);
+    const m = await searchTrack(client, row());
+    expect(m.uri).toBe('spotify:track:t1');
+    expect(m.year).toBe(2015);
+  });
+
+  it('is null for a match without a valid date and for no match', async () => {
+    const { client } = mockClient([track({ album: album('0000') })]);
+    expect((await searchTrack(client, row())).year).toBeNull();
+    const { client: none } = mockClient(
+      [track({ artists: [{ id: 'x', name: 'Other' }], album: album('1999') })],
+      []
+    );
+    const m = await searchTrack(none, row());
+    expect(m).toMatchObject({ uri: null, year: null });
   });
 });

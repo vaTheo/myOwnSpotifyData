@@ -9,6 +9,7 @@ import { FeaturePills } from './components/FeaturePills';
 import { PlaysBadge } from './components/PlaysBadge';
 import { SpotifyLink } from './components/SpotifyLink';
 import { TrackRow } from './components/TrackRow';
+import { trackYear, YearView, yearViewOf } from './components/YearView';
 import {
   artistUrl,
   formatDate,
@@ -142,6 +143,9 @@ export function Artist({ artistKey }: { artistKey: string }) {
   const artistId = agg?.id ?? top?.id ?? null;
   const url = artistUrl(artistId);
   const tracks = agg ? artistTracks(m, artistKey) : [];
+  const view = yearViewOf('artist', tracks, (t) =>
+    t.track.id ? trackYear(m, t.track.id) : null
+  );
   return (
     <section>
       <h1>{name}</h1>
@@ -162,8 +166,9 @@ export function Artist({ artistKey }: { artistKey: string }) {
       {tracks.length === 0 && (
         <p class="empty">No saved tracks from {name} in your playlists.</p>
       )}
+      <YearView screen="artist" decades={view.decades} />
       <ul class="list">
-        {tracks.map((t, i) => {
+        {view.shown.map((t, i) => {
           const open = opened.value[t.track.key] ?? i < OPEN_BY_DEFAULT;
           return (
             <TrackRow

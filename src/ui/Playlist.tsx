@@ -33,6 +33,7 @@ import { Progress } from './components/Progress';
 import { Segmented } from './components/Segmented';
 import { SpotifyLink } from './components/SpotifyLink';
 import { TrackRow } from './components/TrackRow';
+import { trackYear, YearView, yearViewOf } from './components/YearView';
 import { PERIOD_LABEL, artistNames, formatBpm, plural } from './format';
 
 const order = signal<'plays' | 'order' | 'match'>('plays');
@@ -226,6 +227,11 @@ export function Playlist({ id }: { id: string }) {
         return row ? [{ row, match }] : [];
       })
     : rows.map((row) => ({ row, match: null }));
+  // Round 005: after plays, playlist order or Match, so the year sort and the
+  // decade apply to whichever order is chosen; off, that order stays.
+  const view = yearViewOf('playlist', listed, ({ row }) =>
+    row.track.id ? trackYear(m, row.track.id) : null
+  );
   const sync = syncState.value;
   const busy = isSyncBusy(sync);
   const like = likeState.value;
@@ -273,6 +279,7 @@ export function Playlist({ id }: { id: string }) {
           if (v !== 'match') clearSeed(id);
         }}
       />
+      <YearView screen="playlist" decades={view.decades} />
       {!historySummary.value && (
         <p class="caption">
           No play counts yet —{' '}
@@ -297,7 +304,7 @@ export function Playlist({ id }: { id: string }) {
         </>
       )}
       <ul class="list">
-        {listed.map(({ row: r, match }, i) => (
+        {view.shown.map(({ row: r, match }, i) => (
           <TrackRow
             key={r.entry.position}
             rank={i + 1}

@@ -8,6 +8,7 @@ import {
 } from '../../model/crate';
 import { Badge } from '../components/Badge';
 import { Segmented } from '../components/Segmented';
+import { YearView, yearViewOf } from '../components/YearView';
 import { plural } from '../format';
 import { finishTab } from './selections';
 import {
@@ -15,6 +16,7 @@ import {
   Paged,
   PlaylistLinks,
   inNoPlaylist,
+  rowYear,
   useCrateRows,
 } from './shared';
 
@@ -54,7 +56,8 @@ export function Finish() {
   const rows = useCrateRows();
   const tab = finishTab.value;
   const items = finishRate(rows, tab);
-  const shown = items.slice(0, limit.value);
+  const view = yearViewOf('crate-finish', items, (it) => rowYear(it.row));
+  const shown = view.shown.slice(0, limit.value);
   // Control, caption and legend render before the data check, so an empty
   // result still leaves the Segmented reachable (spec section 3).
   return (
@@ -73,6 +76,7 @@ export function Finish() {
         {plural(items.length, 'track')}
       </p>
       <p class="legend">65%+ green · under 35% red</p>
+      <YearView screen="crate-finish" decades={view.decades} />
       {items.length === 0 ? (
         <p class="empty">
           No track has {FINISH_MIN_OUTCOMES} clear outcomes yet.
@@ -121,7 +125,7 @@ export function Finish() {
           </ul>
           <Paged
             shown={shown.length}
-            total={items.length}
+            total={view.shown.length}
             step={PAGE_SIZE}
             onMore={() => {
               limit.value += PAGE_SIZE;

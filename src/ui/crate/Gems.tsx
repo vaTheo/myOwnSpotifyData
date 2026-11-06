@@ -10,6 +10,7 @@ import {
 } from '../../model/crate';
 import { Badge } from '../components/Badge';
 import { Segmented } from '../components/Segmented';
+import { YearView, yearViewOf } from '../components/YearView';
 import { formatDate, plural } from '../format';
 import { gemMonths } from './selections';
 import {
@@ -20,6 +21,7 @@ import {
   inNoPlaylist,
   monthLabel,
   spanYears,
+  rowYear,
   useCrateRows,
 } from './shared';
 
@@ -62,6 +64,7 @@ export function Gems() {
   const now = new Date();
   const months = gemMonths.value;
   const items = forgottenGems(rows, now, months);
+  const view = yearViewOf('crate-gems', items, (it) => rowYear(it.row));
   const span = spanYears(rows).length;
   const since = monthLabel(cutoffMonth(now, months));
   return (
@@ -74,6 +77,7 @@ export function Gems() {
           shown.value = PAGE_SIZE;
         }}
       />
+      <YearView screen="crate-gems" decades={view.decades} />
       <p class="caption">
         Played {MIN_GEM_PLAYS}+ times, nothing since {since} ·{' '}
         {plural(items.length, 'track')}
@@ -100,7 +104,7 @@ export function Gems() {
       ) : (
         <>
           <ul class="list">
-            {items.slice(0, shown.value).map((item, i) => {
+            {view.shown.slice(0, shown.value).map((item, i) => {
               const id = item.row.trackId;
               const month = monthKey(item.lastPlayed);
               return (
@@ -139,7 +143,7 @@ export function Gems() {
           </ul>
           <Paged
             shown={shown.value}
-            total={items.length}
+            total={view.shown.length}
             step={PAGE_SIZE}
             onMore={() => {
               shown.value += PAGE_SIZE;

@@ -1,6 +1,7 @@
 import type { Clue, MixJobView, TracklistRow } from '../../db/schema';
 import type { ServerStatus } from '../../server/types';
 import { validateJobRow, type MixJobRow } from '../../server/validate';
+import { decadeOf, parseYear } from '../../model/year';
 import { parseTracklistifyJson } from './tracklistify';
 
 /**
@@ -85,13 +86,32 @@ function trackExtras(track: unknown): Partial<TracklistRow> {
       ...(typeof pct === 'number' && Number.isFinite(pct)
         ? { speedPercent: pct }
         : {}),
+      ...yearExtras(t.metadata),
     };
   }
   if (t.origin === 'clue') {
     const clue = toClue(t.clue);
     return { origin: 'clue', ...(clue ? { clue } : {}) };
   }
-  return hits;
+  return { ...hits, ...yearExtras(t.metadata) };
+}
+
+/**
+ * Round 005 (T004): a heard track's year from `metadata.release_date`;
+ * `release_date_from` names the catalogue the worker filled it from, else it
+ * is Shazam's. Absent when the date is missing or out of range.
+ */
+function yearExtras(metadata: unknown): Partial<TracklistRow> {
+  if (typeof metadata !== 'object' || metadata === null) return {};
+  const m = metadata as Record<string, unknown>;
+  const year = parseYear(m.release_date);
+  if (year === null) return {};
+  const from = m.release_date_from;
+  return {
+    year,
+    yearFrom:
+      from === 'deezer' || from === 'musicbrainz' ? 'catalogue' : 'shazam',
+  };
 }
 
 /** The tracks the F15 parser keeps (non-empty artist and title), in order. */
@@ -471,24 +491,42 @@ export function requestList(
   });
 }
 
-export type RowSort = 'time' | 'clips' | 'score';
+export type RowSort = 'time' | 'clips' | 'score' | 'year';
 
 /**
  * Round 004: the order and subset of the tracklist the owner chose to look
  * at, as indexes into `rows` (so Edit and Delete still act on the real row).
  * "Heard once" keeps rows matched by a single clip; it hides, never deletes.
  * Sorting by clips or score puts rows without the number (candidates, gaps,
- * older rows) last, ties in set order.
+ * older rows) last, ties in set order. Round 005: the year sort is oldest
+ * first, undated rows last, ties in set order; `decade` keeps the rows dated
+ * in that decade and combines with "heard once".
  */
 export function viewRows(
   rows: readonly TracklistRow[],
   sort: RowSort,
-  heardOnce: boolean
+  heardOnce: boolean,
+  decade: number | null = null
 ): number[] {
   const idx = rows
     .map((_, i) => i)
-    .filter((i) => !heardOnce || rows[i].hits === 1);
+    .filter((i) => !heardOnce || rows[i].hits === 1)
+    .filter((i) => {
+      if (decade === null) return true;
+      const y = rows[i].year;
+      return typeof y === 'number' && decadeOf(y) === decade;
+    });
   if (sort === 'time') return idx;
+  if (sort === 'year') {
+    return idx.sort((a, b) => {
+      const x = rows[a].year ?? null;
+      const y = rows[b].year ?? null;
+      if (x === null && y === null) return a - b;
+      if (x === null) return 1;
+      if (y === null) return -1;
+      return x - y || a - b;
+    });
+  }
   const key = (r: TracklistRow): number | null =>
     sort === 'clips' ? (r.hits ?? null) : (r.confidence ?? null);
   return idx.sort((a, b) => {

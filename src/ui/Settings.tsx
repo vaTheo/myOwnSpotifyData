@@ -1,5 +1,6 @@
-import { useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { auth } from '../auth/browser';
+import { candidateIds } from '../features/lookup';
 import type { ReachRunCounts, ReachStep } from '../features/reachRun';
 import type { RekordboxSummary } from '../features/rekordboxImport';
 import type { ImportSummary } from '../history/importer';
@@ -37,6 +38,8 @@ import {
   type KeyNotation,
   type ReachCoverage,
 } from '../model/state';
+import type { Model } from '../model/aggregate';
+import { yearOf } from '../model/year';
 import { routeHref } from '../router';
 import { Progress } from './components/Progress';
 import { Segmented } from './components/Segmented';
@@ -266,6 +269,20 @@ function coverageLine(c: Coverage): string {
   ].join(' · ');
 }
 
+/** Round 005: the candidates of the BPM coverage that `yearOf` dates. */
+function datedCount(m: Model): number {
+  let dated = 0;
+  for (const candidate of candidateIds(m)) {
+    if (yearOf(m, candidate.id) !== null) dated++;
+  }
+  return dated;
+}
+
+/** "Release years: 3,120 of 4,980 tracks" */
+function yearsLine(dated: number, total: number): string {
+  return `Release years: ${dated.toLocaleString()} of ${plural(total, 'track')}`;
+}
+
 /** "parsed 1,204 · with BPM 1,190 · with key 1,050 · matched 820 · …" */
 function rekordboxLine(s: RekordboxSummary): string {
   return [
@@ -298,11 +315,17 @@ function AudioCard() {
     if (file) void startRekordboxImport(file);
   };
   const cov = m ? coverage(m) : null;
+  // The year scan reads every Top list per track: once per model, not once
+  // per progress tick.
+  const dated = useMemo(() => (m ? datedCount(m) : 0), [m]);
   return (
     <div class="card">
       <h2>Audio data</h2>
       {cov && cov.total > 0 ? (
-        <p>{coverageLine(cov)}</p>
+        <>
+          <p>{coverageLine(cov)}</p>
+          <p>{yearsLine(dated, cov.total)}</p>
+        </>
       ) : (
         <p class="muted">Sync or import a history first.</p>
       )}
@@ -314,13 +337,14 @@ function AudioCard() {
           unit="tracks"
         />
       )}
-      {lookup.status === 'done' && lookup.total === 0 && (
+      {lookup.status === 'done' && lookup.total === 0 && lookup.years === 0 && (
         <p class="muted">Nothing new to look up.</p>
       )}
-      {lookup.status === 'done' && lookup.total > 0 && (
+      {lookup.status === 'done' && (lookup.total > 0 || lookup.years > 0) && (
         <p class="muted">
           found {lookup.found.toLocaleString()} · not found{' '}
-          {lookup.notFound.toLocaleString()}
+          {lookup.notFound.toLocaleString()} · years{' '}
+          {lookup.years.toLocaleString()}
         </p>
       )}
       {lookup.status === 'error' && (

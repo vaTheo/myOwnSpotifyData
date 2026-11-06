@@ -580,6 +580,12 @@ label.file input {
   color: var(--text);
 }
 
+.pill.year {
+  background: transparent;
+  border-color: var(--surface-2);
+  color: var(--muted);
+}
+
 .pill.minor {
   background: var(--hue);
   border-color: var(--hue);
@@ -804,4 +810,29 @@ details.card > summary {
 }
 .mix .rowview select {
   min-height: 36px;
+}
+
+/* Round 005 (US5): the year sort toggle and the decade chips, placed with a
+   screen's other controls; a wrapping row of small rounded buttons in the
+   segmented control's colours. */
+.yearview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.yearview .chip {
+  min-height: 36px;
+  padding: 6px 12px;
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.yearview .chip.active {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--muted);
 }

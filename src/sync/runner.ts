@@ -28,7 +28,12 @@ import type {
   ApiTopArtist,
   ApiTrack,
 } from '../spotify/types';
-import { buildEntries, mapPlaylistItem, type MappedItem } from './items';
+import {
+  albumYearField,
+  buildEntries,
+  mapPlaylistItem,
+  type MappedItem,
+} from './items';
 import { planSync, selectOwned, type ListedPlaylist } from './planner';
 
 export type SyncState =
@@ -110,9 +115,9 @@ export interface SyncOptions {
 }
 
 const ITEM_FIELDS =
-  'total,items(added_at,is_local,item(type,id,uri,name,duration_ms,is_local,external_ids,external_urls,artists(id,name),album(name)))';
+  'total,items(added_at,is_local,item(type,id,uri,name,duration_ms,is_local,external_ids,external_urls,artists(id,name),album(name,release_date)))';
 const TRACK_FIELDS =
-  'total,items(added_at,is_local,track(type,id,uri,name,duration_ms,is_local,external_ids,external_urls,artists(id,name),album(name)))';
+  'total,items(added_at,is_local,track(type,id,uri,name,duration_ms,is_local,external_ids,external_urls,artists(id,name),album(name,release_date)))';
 const FIELDS_CANDIDATES: ReadonlyArray<string | null> = [
   ITEM_FIELDS,
   TRACK_FIELDS,
@@ -143,6 +148,7 @@ function toTopTrack(t: ApiTrack, index: number): TopTrackItem {
     album: t.album?.name ?? '',
     imageUrl: t.album?.images?.[0]?.url ?? null,
     spotifyUrl: t.external_urls?.spotify ?? null,
+    ...albumYearField(t),
   };
 }
 

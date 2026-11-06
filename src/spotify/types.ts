@@ -16,7 +16,8 @@ export interface ApiTrack {
   name: string;
   duration_ms: number;
   artists: ApiArtistRef[];
-  album?: { name: string; images?: ApiImage[] };
+  /** `release_date` is "YYYY", "YYYY-MM" or "YYYY-MM-DD" (round 005). */
+  album?: { name: string; images?: ApiImage[]; release_date?: string };
   external_ids?: { isrc?: string };
   external_urls?: { spotify?: string };
   is_local?: boolean;

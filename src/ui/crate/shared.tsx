@@ -6,6 +6,7 @@ import { nameKey } from '../../model/normalize';
 import { historySummary, model } from '../../model/state';
 import { routeHref } from '../../router';
 import { FeaturePills } from '../components/FeaturePills';
+import { trackYear } from '../components/YearView';
 import { TrackRow } from '../components/TrackRow';
 import { artistNames, plural } from '../format';
 
@@ -37,6 +38,15 @@ export function spanYears(rows: PlayRow[]): number[] {
   const years: number[] = [];
   for (let y = first; y <= last; y += 1) years.push(y);
   return years.length > 0 ? years : [first];
+}
+
+/**
+ * Round 005: the release year of a Crate row's track (not a listening year),
+ * for the year view and its pill; null when no source dates it.
+ */
+export function rowYear(row: PlayRow): number | null {
+  const m = model.value;
+  return m ? trackYear(m, row.trackId) : null;
 }
 
 /** '2026-08' -> 'Aug 2026'. */

@@ -40,7 +40,7 @@ import { parseDescription, parsePasted } from '../features/mix/parse';
 import { parseTracklistifyJson } from '../features/mix/tracklistify';
 import { classifyMixInput, isShortLink, requestKey } from '../features/mix/url';
 import { requestStatusText } from '../features/mix/worker';
-import { runCreatePlaylist } from '../features/mix/createPlaylist';
+import { applyYears, runCreatePlaylist } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
   canLikeTracks,
@@ -1401,6 +1401,37 @@ export async function startCreatePlaylist(): Promise<void> {
   // would save an empty or wrong tracklist. `putMix` the captured row directly
   // rather than through `saveMix` (which reads live state), then reflect the
   // link on the open view only if this same mix is still open.
+  // Round 005: the years the matches taught reach the open rows (by identity,
+  // so a row edited meanwhile is left alone) whatever the outcome.
+  const live = mixState.value;
+  if (
+    outcome.years.size > 0 &&
+    live.status === 'ready' &&
+    live.view.url === view.url
+  ) {
+    mixRows.value = applyYears(mixRows.value, outcome.years);
+  }
+  // A failure before the playlist exists still keeps the years on a mix that
+  // was already saved, written the way the success path writes its rows.
+  const savedBefore = savedMixes.value.find((mix) => mix.url === view.url);
+  if (
+    outcome.playlistId === null &&
+    outcome.years.size > 0 &&
+    savedBefore !== undefined
+  ) {
+    try {
+      await putMix({
+        ...savedBefore,
+        rows: outcome.rows,
+        savedAt: Date.now(),
+      });
+      await loadSavedMixes();
+      void queueServerPush(['mixes']);
+    } catch (err) {
+      mixError.value = `Could not save the mix: ${storageMessage(err)}`;
+    }
+  }
+
   if (outcome.playlistId !== null) {
     const row: MixRow = {
       url: view.url,
@@ -1409,7 +1440,7 @@ export async function startCreatePlaylist(): Promise<void> {
       playerSrc: view.playerSrc,
       slug: view.trackid?.slug ?? null,
       sources: view.sources,
-      rows,
+      rows: outcome.rows,
       savedAt: Date.now(),
       playlistUrl: outcome.url ?? undefined,
       playlistId: outcome.playlistId,

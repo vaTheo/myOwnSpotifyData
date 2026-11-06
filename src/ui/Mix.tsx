@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { auth } from '../auth/browser';
 import type { Clue, TracklistRow } from '../db/schema';
+import { decadeLabel } from '../model/year';
+import { decadesPresent } from '../model/yearView';
 import { parseClock } from '../features/mix/parse';
 import {
   libraryTitleIndex,
@@ -70,7 +72,10 @@ function searchUrl(row: TracklistRow): string {
   return `https://open.spotify.com/search/${encodeURIComponent(query)}`;
 }
 
-/** The time-and-label subtitle; a gap row shows only its span. */
+/**
+ * The time-label-year subtitle; a gap row shows only its span. Round 005: the
+ * row's own year (the one the year sort uses), absent when undated.
+ */
 function rowSubtitle(row: TracklistRow): string {
   const parts: string[] = [];
   if (row.startSec !== null) {
@@ -81,6 +86,7 @@ function rowSubtitle(row: TracklistRow): string {
     );
   }
   if (!row.gap && row.label !== null && row.label !== '') parts.push(row.label);
+  if (!row.gap && typeof row.year === 'number') parts.push(String(row.year));
   return parts.join(' · ');
 }
 
@@ -177,7 +183,7 @@ function DisplayRow(p: {
       spotifyUrl={isInert(row) ? null : searchUrl(row)}
       badges={
         <>
-          {match && <FeaturePills trackId={match.trackId} />}
+          {match && <FeaturePills trackId={match.trackId} year={false} />}
           <span class="src">{provenanceLine(row, match)}</span>
           {row.origin === 'clue' && row.clue && (
             <span class="src clue">“{row.clue.text}”</span>
@@ -303,10 +309,28 @@ function Tracklist() {
   const [saved, setSaved] = useState(false);
   const [sort, setSort] = useState<RowSort>('time');
   const [heardOnce, setHeardOnce] = useState(false);
+  const [decade, setDecade] = useState<number | null>(null);
   const counted = rows.some((r) => r.hits !== undefined);
-  const shown = counted
-    ? viewRows(rows, sort, heardOnce)
-    : rows.map((_, i) => i);
+  // Round 005: the decades of the dated rows; none hides the year controls.
+  const decades = decadesPresent(rows, (r) => r.year ?? null);
+  const dated = decades.length > 0;
+  // A choice the current rows no longer allow falls back, never empties.
+  const sortNow: RowSort =
+    (sort === 'year' && !dated) ||
+    ((sort === 'clips' || sort === 'score') && !counted)
+      ? 'time'
+      : sort;
+  const decadeNow = decade !== null && decades.includes(decade) ? decade : null;
+  const viewed =
+    counted || dated
+      ? viewRows(rows, sortNow, counted && heardOnce, decadeNow)
+      : rows.map((_, i) => i);
+  // The row being edited stays on screen (Add track's new row is undated and
+  // never heard), so a view never hides the form the owner is typing in.
+  const shown =
+    editing !== null && editing < rows.length && !viewed.includes(editing)
+      ? [...viewed, editing]
+      : viewed;
   const onSaveMix = (): void => {
     void (async () => {
       const ok = await saveMix();
@@ -317,34 +341,57 @@ function Tracklist() {
   };
   return (
     <>
-      {counted && (
+      {(counted || dated) && (
         <div class="rowview">
           <label>
             Sort{' '}
             <select
               id="mix-sort"
-              value={sort}
+              value={sortNow}
               onChange={(e) =>
                 setSort((e.currentTarget as HTMLSelectElement).value as RowSort)
               }
             >
               <option value="time">by time in the set</option>
-              <option value="clips">by clips heard</option>
-              <option value="score">by best score</option>
+              {counted && <option value="clips">by clips heard</option>}
+              {counted && <option value="score">by best score</option>}
+              {dated && <option value="year">by year, oldest first</option>}
             </select>
           </label>
-          <label>
-            <input
-              id="mix-heard-once"
-              type="checkbox"
-              checked={heardOnce}
-              onChange={(e) =>
-                setHeardOnce((e.currentTarget as HTMLInputElement).checked)
-              }
-            />{' '}
-            Only tracks heard once ({rows.filter((r) => r.hits === 1).length})
-          </label>
-          {heardOnce && (
+          {dated && (
+            <label>
+              Decade{' '}
+              <select
+                id="mix-decade"
+                value={decadeNow === null ? '' : String(decadeNow)}
+                onChange={(e) => {
+                  const v = (e.currentTarget as HTMLSelectElement).value;
+                  setDecade(v === '' ? null : Number(v));
+                }}
+              >
+                <option value="">all</option>
+                {decades.map((d) => (
+                  <option key={d} value={String(d)}>
+                    {decadeLabel(d)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {counted && (
+            <label>
+              <input
+                id="mix-heard-once"
+                type="checkbox"
+                checked={heardOnce}
+                onChange={(e) =>
+                  setHeardOnce((e.currentTarget as HTMLInputElement).checked)
+                }
+              />{' '}
+              Only tracks heard once ({rows.filter((r) => r.hits === 1).length})
+            </label>
+          )}
+          {((counted && heardOnce) || decadeNow !== null) && (
             <span class="caption">
               The others are hidden, not deleted; Create playlist uses every
               row.

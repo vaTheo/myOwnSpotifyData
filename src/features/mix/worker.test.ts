@@ -660,3 +660,107 @@ describe('progressLine', () => {
     expect(progressLine(v(null), now)).toBeNull();
   });
 });
+
+describe('resultToRows — round 005 year', () => {
+  it('reads the year of heard rows, its source, and never dates a candidate', () => {
+    const base = resultFixture() as {
+      mix_info: unknown;
+      tracks: Record<string, unknown>[];
+    };
+    const meta = (t: Record<string, unknown>) =>
+      (t.metadata ?? {}) as Record<string, unknown>;
+    const r = resultToRows({
+      ...base,
+      tracks: [
+        {
+          ...base.tracks[0],
+          metadata: { ...meta(base.tracks[0]), release_date: '1993-05-17' },
+        },
+        {
+          ...base.tracks[1],
+          metadata: {
+            ...meta(base.tracks[1]),
+            release_date: '1987',
+            release_date_from: 'deezer',
+          },
+        },
+        {
+          ...base.tracks[2],
+          origin: 'replay',
+          metadata: { release_date: '2001', release_date_from: 'musicbrainz' },
+        },
+        {
+          song_name: 'Zero',
+          artist: 'Z',
+          time_in_mix: '01:58:00',
+          metadata: { release_date: '0000' },
+        },
+        {
+          song_name: 'C',
+          artist: 'B',
+          time_in_mix: null,
+          origin: 'clue',
+          metadata: { release_date: '1999' },
+          clue: { at: null, author: 'dj', text: 'B - C', kind: 'description' },
+        },
+      ],
+    });
+    if (!r.ok) throw new Error(r.message);
+    const byTitle = (t: string) => r.rows.find((x) => x.title === t);
+    expect(byTitle('Noble Booth')).toMatchObject({
+      year: 1993,
+      yearFrom: 'shazam',
+    });
+    expect(byTitle('Katerina')).toMatchObject({
+      year: 1987,
+      yearFrom: 'catalogue',
+    });
+    expect(byTitle('Pep A Cat Up')).toMatchObject({
+      origin: 'replay',
+      year: 2001,
+      yearFrom: 'catalogue',
+    });
+    expect(byTitle('Zero')).not.toHaveProperty('year');
+    expect(byTitle('Zero')).not.toHaveProperty('yearFrom');
+    expect(byTitle('C')).not.toHaveProperty('year');
+  });
+
+  it('leaves rows without a date undated', () => {
+    const r = resultToRows(resultFixture());
+    if (!r.ok) throw new Error(r.message);
+    for (const row of r.rows) expect(row).not.toHaveProperty('year');
+  });
+});
+
+describe('viewRows — round 005 year', () => {
+  const r = (over: Partial<TracklistRow>): TracklistRow => ({
+    startSec: 0,
+    endSec: null,
+    artist: 'A',
+    title: 'T',
+    label: null,
+    source: 'tracklistify',
+    gap: false,
+    detected: { artist: 'A', title: 'T' },
+    referenceCount: null,
+    ...over,
+  });
+  const rows = [
+    r({ year: 2019, hits: 1 }),
+    r({ year: 1993, hits: 4 }),
+    r({}),
+    r({ year: 1987, hits: 1 }),
+    r({ year: 1993, hits: 1 }),
+    r({ year: 1996, hits: 2 }),
+  ];
+  it('sorts oldest first, undated last, ties in set order', () => {
+    expect(viewRows(rows, 'year', false)).toEqual([3, 1, 4, 5, 0, 2]);
+  });
+  it('keeps one decade, combined with heard once and any sort', () => {
+    expect(viewRows(rows, 'time', false, 1990)).toEqual([1, 4, 5]);
+    expect(viewRows(rows, 'time', true, 1990)).toEqual([4]);
+    expect(viewRows(rows, 'clips', false, 1990)).toEqual([1, 5, 4]);
+    expect(viewRows(rows, 'year', false, 2010)).toEqual([0]);
+    expect(viewRows(rows, 'time', false, 1970)).toEqual([]);
+  });
+});

@@ -128,7 +128,11 @@ function baseRoutes(
           name: 'X',
           duration_ms: 1,
           artists: [{ id: 'a1', name: 'A' }],
-          album: { name: 'Al', images: [{ url: 'img', height: 1, width: 1 }] },
+          album: {
+            name: 'Al',
+            images: [{ url: 'img', height: 1, width: 1 }],
+            release_date: '1987-03-09',
+          },
         },
       ],
     }),
@@ -222,7 +226,7 @@ describe('runSync first sync', () => {
       rows.topItems.find((t) => t.key === 'tracks:short_term')
     ).toMatchObject({
       type: 'tracks',
-      items: [{ rank: 1, id: 'x', imageUrl: 'img' }],
+      items: [{ rank: 1, id: 'x', imageUrl: 'img', albumYear: 1987 }],
     });
     await expect(getMeta('lastSyncAt')).resolves.toBe(42);
     await expect(getMeta('accountId')).resolves.toBe('me');
@@ -230,6 +234,9 @@ describe('runSync first sync', () => {
     expect(calls.some((c) => c.path === '/playlists/other/items')).toBe(false);
     expect(itemCalls(calls).map((c) => c.query.offset)).toEqual([0, 50, 0]);
     expect(String(itemCalls(calls)[0].query.fields)).toContain('item(');
+    expect(String(itemCalls(calls)[0].query.fields)).toContain(
+      'album(name,release_date)'
+    );
     const running = states.filter((s) => s.status === 'running');
     expect(
       running.map((s) => (s.status === 'running' ? s.current : ''))
@@ -309,6 +316,7 @@ describe('runSync resilience', () => {
     );
     expect(fields[0]).toContain('item(');
     expect(fields[1]).toContain('track(');
+    expect(fields[1]).toContain('album(name,release_date)');
     expect(fields[2]).toContain('track(');
     expect(fields).toHaveLength(3);
   });

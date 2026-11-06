@@ -2,6 +2,7 @@ import { featureFor } from '../../model/features';
 import { camelotNumber, formatKey } from '../../model/keys';
 import { keyNotation, model } from '../../model/state';
 import { formatBpm } from '../format';
+import { trackYear, YearPill } from './YearView';
 
 /** `pill key-8 minor`: the Camelot number picks the hue, the mode the fill. */
 function keyClass(key: number, major: boolean): string {
@@ -14,13 +15,25 @@ function keyClass(key: number, major: boolean): string {
  * independently nullable — Rekordbox often has a BPM and no key — so each
  * pill is decided on its own; the key pill needs both `key` and `major`,
  * because a Camelot code is meaningless without the mode.
+ *
+ * Round 005: the release year rides after them (`yearOf`, cached by `trackYear`), absent on an
+ * undated track. The Mix screen passes `year={false}`: a mix row shows its
+ * own year, the one its year sort uses.
  */
-export function FeaturePills({ trackId }: { trackId: string }) {
+export function FeaturePills({
+  trackId,
+  year = true,
+}: {
+  trackId: string;
+  year?: boolean;
+}) {
   const m = model.value;
-  const feature = m ? featureFor(m, trackId) : null;
-  if (!feature) return null;
-  const { bpm, key, major } = feature;
-  if (bpm === null && (key === null || major === null)) return null;
+  if (!m) return null;
+  const feature = featureFor(m, trackId);
+  const released = year ? trackYear(m, trackId) : null;
+  const bpm = feature?.bpm ?? null;
+  const key = feature?.key ?? null;
+  const major = feature?.major ?? null;
   return (
     <>
       {bpm !== null && <span class="pill bpm">{formatBpm(bpm)}</span>}
@@ -29,6 +42,7 @@ export function FeaturePills({ trackId }: { trackId: string }) {
           {formatKey(key, major, keyNotation.value)}
         </span>
       )}
+      <YearPill year={released} />
     </>
   );
 }

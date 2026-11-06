@@ -9,6 +9,7 @@ import { FeaturePills } from './components/FeaturePills';
 import { PlaysBadge } from './components/PlaysBadge';
 import { Segmented } from './components/Segmented';
 import { TrackRow } from './components/TrackRow';
+import { trackYear, YearView, yearViewOf } from './components/YearView';
 import { NoPlaylistNote } from './crate/shared';
 import { PERIOD_LABEL, artistNames, plural } from './format';
 
@@ -23,6 +24,10 @@ const PERIOD_OPTIONS = (
 export function Top() {
   const m = model.value;
   if (!m || m.topItems.size === 0) return <Empty what="top lists" />;
+  // Spotify's rank stays on each row; the year view only reorders or hides.
+  const tracks = yearViewOf('top', topTracks(m, period.value), (t) =>
+    trackYear(m, t.item.id)
+  );
   return (
     <section>
       <h1>Most played</h1>
@@ -43,9 +48,12 @@ export function Top() {
           kind.value = v;
         }}
       />
+      {kind.value === 'tracks' && (
+        <YearView screen="top" decades={tracks.decades} />
+      )}
       {kind.value === 'tracks' ? (
         <ul class="list">
-          {topTracks(m, period.value).map((t) => (
+          {tracks.shown.map((t) => (
             <TrackRow
               key={t.item.id}
               rank={t.item.rank}

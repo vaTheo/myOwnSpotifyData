@@ -1,5 +1,13 @@
 import type { EntryRow, TrackRow } from '../db/schema';
+import { parseYear } from '../model/year';
 import type { ApiPlaylistItem, ApiTrack } from '../spotify/types';
+
+/** `{ albumYear }` when the album's release date holds a valid year, else
+ *  nothing: the field stays absent rather than null (round 005). */
+export function albumYearField(track: ApiTrack): { albumYear?: number } {
+  const year = parseYear(track.album?.release_date);
+  return year === null ? {} : { albumYear: year };
+}
 
 export interface MappedItem {
   track: TrackRow;
@@ -37,6 +45,7 @@ export function mapPlaylistItem(
       isrc: track.external_ids?.isrc ?? null,
       spotifyUrl: isLocal ? null : (track.external_urls?.spotify ?? null),
       isLocal,
+      ...albumYearField(track),
     },
   };
 }
