@@ -11,6 +11,11 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.5.0: each heard track carries its release year. Shazam's year is kept (an invalid one, like "0000", is removed); a track with an ISRC and no year gets the earliest
+  year Deezer or MusicBrainz give for that ISRC (`release_date`, with `release_date_from`). These lookups share the
+  `WORKER_LOOKUPS` cap with the clues (clues first; 0 turns both off); a catalogue that does not answer leaves the year out,
+  never fails the set. The log has one "years" line per set.
+
 - 0.4.1: back to 1.9 s + 0–30 % between Shazam calls (1.9 to 2.47 s). 0.4.0 shipped 1.5 s; a test at 1.0 s + 0–50 % was
   refused every ~21 calls, while ~780 calls at 1.9 s off the VPN had none. Stay off a VPN: on one, refusals came every 24–380 calls.
 - 0.4.0: each heard track keeps how many 12 s clips matched it and its best score (`hits`); the phone shows the scan's
