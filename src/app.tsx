@@ -11,7 +11,7 @@ import { CrateView } from './ui/crate/CrateView';
 import { Import } from './ui/Import';
 import { AppFrame } from './ui/layout/AppFrame';
 import { rememberRoute } from './ui/layout/Nav';
-import { Mix } from './ui/Mix';
+import { Workspace } from './ui/mix/Workspace';
 import { Playlists } from './ui/Playlists';
 import { Top } from './ui/Top';
 
@@ -69,7 +69,7 @@ function Screen({ route }: { route: Route }) {
     case 'settings':
       return <SettingsPage />;
     case 'mix':
-      return <Mix />;
+      return <Workspace mixKey={route.key} />;
   }
 }
 

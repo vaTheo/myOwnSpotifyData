@@ -16,6 +16,7 @@ import { formatDate, plural } from '../format';
 import { SetWideClues } from './Clues';
 import { CreatePlaylistCard } from './CreatePlaylistCard';
 import { TracklistTable } from './TracklistTable';
+import { Disclosure } from './Disclosure';
 
 /** A link that keeps a 48 px target inside a caption line. */
 function OutLink(p: { href: string; children: string }) {
@@ -186,8 +187,7 @@ function PasteBox() {
     }
   };
   return (
-    <details class="mix-section card">
-      <summary>Paste a tracklist</summary>
+    <Disclosure class="card" summary="Paste a tracklist">
       <textarea
         class="text-field mix-paste"
         rows={4}
@@ -200,7 +200,7 @@ function PasteBox() {
         Add these tracks
       </Button>
       {note !== null && <StatusLine kind="warning">{note}</StatusLine>}
-    </details>
+    </Disclosure>
   );
 }
 
@@ -215,9 +215,11 @@ export function MixDetail(p: {
   view: MixView;
   onClose: () => void;
   aside?: ComponentChildren;
+  /** One column: the link field right above already reads Look up again. */
+  stacked?: boolean;
 }) {
   const { view } = p;
-  const real = view.url.startsWith('https://');
+  const real = !p.stacked && view.url.startsWith('https://');
   const showReplace =
     view.descriptionRows.length > 0 &&
     !sameRows(mixRows.value, view.descriptionRows);

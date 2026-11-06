@@ -93,7 +93,7 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 - `DB_VERSION` is 4 (`src/db/schema.ts:4`). The `upgrade` callback (`src/db/repo.ts:75-95`) creates only the stores that are missing (the same guarded
   `db.objectStoreNames.contains` shape throughout), so a version 1 database keeps everything and gains `features`, version 2 gains the
   two reach stores, version 3 gains `mixes`.
-- `mixes` is deliberately **not** in `AllRows`, `getAllRows` or `buildModel`: nothing but `Mix.tsx` reads a mix, so it is reached
+- `mixes` is deliberately **not** in `AllRows`, `getAllRows` or `buildModel`: nothing but the Mix workspace (`ui/mix/`) reads a mix, so it is reached
   through `getMixes`, `putMix`, `deleteMix`, never through the model rebuild.
 - Optional fields added with **no** version bump read back `undefined` on old rows: `MixRow.playlistUrl?`/`playlistId?`,
   `PlayRow.months`/`attempts`/`finished`/`skipped`, `TracklistRow.confidence?`/`isrc?`/`shazamUrl?`.
@@ -220,7 +220,9 @@ One Preact component per screen plus small shared components (`ui/components/`).
 - `Artists.tsx` dispatches over two views the same way, with `UnderRadar.tsx` beside it and `artistSelections.ts` holding `artistView`,
   `radarSort`, `radarFilter`. Under the radar is gated on `artistReachSummary.version === 1`; **Well known** is a heading at the bottom,
   never a filter that removes rows.
-- `Mix.tsx` is the `#/mix` screen, reusing `TrackRow`, `FeaturePills` and `SpotifyLink`, raising no banner (every failure inline).
+- `ui/mix/` is the `#/mix` workspace (spec 003 §12): `Workspace.tsx` lays out the left pane (`MixListPane.tsx`) beside the
+  open mix (`MixDetail.tsx`: `TracklistTable.tsx` on `DataTable`, `CreatePlaylistCard.tsx`, `Clues.tsx`) from expanded windows,
+  one column below; `#/mix/<key>` opens a saved mix from memory (`address.ts`), never a network call. No banner: every failure inline.
 - A new navigation scrolls to the top; back and forward do not: `installRouter` stamps `history.state` with `djVisited` (`visitEntry`)
   and only calls `scrollTo(0, 0)` on an unstamped entry.
 - The shell paints before anything is awaited: `main.tsx` calls `render` before `completeLogin` and `loadFromDb`, and drives
@@ -249,8 +251,9 @@ every failure inline (never a banner, never touching the sync lock) and is reset
 Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
 (`ACCOUNT_SWITCH_CONFIRM`, `:714`), an import that covers less than the stored history (`replaceQuestion`, `:765`), Remove server data
 (`REMOVE_SERVER_DATA_CONFIRM`, `:337`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:1616`) and Stop a running scan
-(`STOP_REQUEST_CONFIRM`, `:1631`, round 004; the scan keeps its tracks); and Disconnect, asked by its button in
-`ui/settings/DangerZone.tsx` (`:26`). Non-destructive, in
+(`STOP_REQUEST_CONFIRM`, `:1631`, round 004; the scan keeps its tracks); Disconnect, asked by its button in
+`ui/settings/DangerZone.tsx` (`:26`); and Remove a saved mix ("Remove this saved mix?"), asked by its row menu in
+`ui/mix/MixListPane.tsx` (`:232`). Non-destructive, in
 `state.ts`: Like all songs' count (`:1407`) and the four "replace the working list" questions of the Mix screen (`:1051`, `:1080`,
 `:1111`, `:1133`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
 old behaviour.

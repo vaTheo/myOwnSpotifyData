@@ -52,6 +52,77 @@ const REACH_SUMMARY = {
   wellKnown: 290,
 };
 
+/** A worker tracklist from rounds 003–004, for the Mix pages (T120). */
+const ROUND_004_ROWS = [
+  {
+    startSec: 0,
+    endSec: 12,
+    artist: 'Darian Falk',
+    title: 'Dawn Paper',
+    label: null,
+    source: 'tracklistify',
+    gap: false,
+    detected: { artist: 'Darian Falk', title: 'Dawn Paper' },
+    referenceCount: null,
+    confidence: 91,
+    hits: 4,
+  },
+  {
+    startSec: 300,
+    endSec: 312,
+    artist: 'Amaru Prism',
+    title: 'Moon Mirror',
+    label: null,
+    source: 'tracklistify',
+    gap: false,
+    detected: { artist: 'Amaru Prism', title: 'Moon Mirror' },
+    referenceCount: null,
+    confidence: 64,
+    hits: 1,
+    origin: 'replay',
+    speedPercent: 4,
+  },
+  {
+    startSec: 600,
+    endSec: 900,
+    artist: '',
+    title: '',
+    label: null,
+    source: 'tracklistify',
+    gap: true,
+    detected: { artist: '', title: '' },
+    referenceCount: null,
+    clues: [
+      {
+        atSec: 640,
+        author: 'night_owl',
+        text: 'ID? sounds like Moreau Unit https://example.com/x',
+        kind: 'comment',
+      },
+      { atSec: 700, author: '', text: 'Chapter 3', kind: 'chapter' },
+    ],
+  },
+  {
+    startSec: 905,
+    endSec: null,
+    artist: 'Moreau Unit',
+    title: 'Silk Tide',
+    label: null,
+    source: 'tracklistify',
+    gap: false,
+    detected: { artist: 'Moreau Unit', title: 'Silk Tide' },
+    referenceCount: null,
+    confidence: null,
+    origin: 'clue',
+    clue: {
+      atSec: 640,
+      author: 'night_owl',
+      text: 'ID? sounds like Moreau Unit',
+      kind: 'comment',
+    },
+  },
+];
+
 async function tab(page: Page, name: string): Promise<void> {
   await page.getByRole('tab', { name, exact: true }).first().click();
 }
@@ -279,10 +350,46 @@ export const PAGES: ShotPage[] = [
   // Mix
   { id: 'mix', hash: '#/mix' },
   {
+    // Opened by its address (S08, T084): TrackId and description rows, a gap.
     id: 'mix-open',
+    hash: `#/mix/${enc('https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour')}`,
+  },
+  {
+    // Opened from the Saved mixes list: a worker scan with confidences.
+    id: 'mix-worker',
     hash: '#/mix',
     setup: (page) =>
-      page.getByText('Peak time set at the Harbour', { exact: true }).click(),
+      page
+        .getByRole('link', {
+          name: /Sunrise closing set \(scanned on my computer\)/,
+        })
+        .first()
+        .click(),
+  },
+  {
+    // A row in edit: four text fields, Save and Cancel.
+    id: 'mix-edit',
+    hash: `#/mix/${enc('https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour')}`,
+    setup: (page) =>
+      page
+        .getByRole('button', { name: /^Edit / })
+        .first()
+        .click(),
+  },
+  {
+    // An address naming a mix this browser has not saved.
+    id: 'mix-missing',
+    hash: `#/mix/${enc('https://soundcloud.com/someone/not-saved-here')}`,
+  },
+  {
+    // Rounds 003–004 rows (T120): clip counts, second listen, a candidate
+    // "not heard" with its clue, a gap with clues; the Sort select shows.
+    id: 'mix-round004',
+    hash: `#/mix/${enc('https://www.youtube.com/watch?v=demoSet0001')}`,
+    setup: async (page) => {
+      await page.getByRole('grid', { name: 'Tracklist' }).waitFor();
+      await setState(page, 'mixRows', ROUND_004_ROWS);
+    },
   },
 
   // Settings and Import (US5): every job state and failure the sections show

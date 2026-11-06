@@ -91,9 +91,11 @@ export function Workspace(p: { mixKey?: string }) {
     if (key !== undefined) location.hash = routeHref({ name: 'mix' });
   };
 
+  const size = windowClass.value;
+  const stacked = size === 'compact' || size === 'medium';
   const detail =
     state.status === 'ready' ? (
-      <MixDetail view={state.view} onClose={close} />
+      <MixDetail view={state.view} onClose={close} stacked={stacked} />
     ) : missing !== null && missing === key ? (
       <EmptyState
         icon="warning"
@@ -106,8 +108,7 @@ export function Workspace(p: { mixKey?: string }) {
       </EmptyState>
     ) : null;
 
-  const size = windowClass.value;
-  if (size === 'compact' || size === 'medium') {
+  if (stacked) {
     return (
       <section class="mix mix-stack">
         <LinkForm />

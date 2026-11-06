@@ -91,22 +91,29 @@ function SourceCell(p: { row: TracklistRow }) {
   );
 }
 
-function confidenceCell(row: TracklistRow): string | null {
-  const parts = [confidenceText(row), referencesText(row)].filter(
-    (s): s is string => s !== null
-  );
+/**
+ * Confidence and references: the scan's score, TrackId's other mixes, and
+ * how many of the owner's playlists hold the matched track (dropped at 0).
+ */
+function confidenceCell(l: Line): string | null {
+  const playlists =
+    l.match && l.match.playlistCount > 0
+      ? `in ${plural(l.match.playlistCount, 'playlist')}`
+      : null;
+  const parts = [
+    confidenceText(l.row),
+    referencesText(l.row),
+    playlists,
+  ].filter((s): s is string => s !== null);
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
+/** BPM and key of the matched library track; nothing when unmatched. */
 function LibraryCell(p: { match: MixMatch | null }) {
-  const { match } = p;
-  if (!match) return null;
+  if (!p.match) return null;
   return (
     <span class="mix-library">
-      <FeaturePills trackId={match.trackId} />
-      {match.playlistCount > 0 && (
-        <span class="mix-in">in {plural(match.playlistCount, 'playlist')}</span>
-      )}
+      <FeaturePills trackId={p.match.trackId} />
     </span>
   );
 }
@@ -155,7 +162,7 @@ function columns(on: {
       id: 'source',
       header: 'Source',
       priority: 2,
-      width: 'minmax(0, 1.4fr)',
+      width: 'minmax(72px, 1.4fr)',
       cell: (l) => <SourceCell row={l.row} />,
       title: (l) => sourceTitle(l.row),
       compact: 'meta',
@@ -164,19 +171,19 @@ function columns(on: {
       id: 'confidence',
       header: 'Confidence · references',
       priority: 2,
-      width: 'minmax(0, 1fr)',
+      width: 'minmax(0, 1.2fr)',
       cell: (l) => {
-        const text = confidenceCell(l.row);
-        return text === null ? null : <span class="dt-text">{text}</span>;
+        const text = confidenceCell(l);
+        return text === null ? null : <span class="mix-conf">{text}</span>;
       },
-      title: (l) => confidenceCell(l.row) ?? undefined,
+      title: (l) => confidenceCell(l) ?? undefined,
       compact: 'meta',
     },
     {
       id: 'library',
       header: 'In your library',
       priority: 1,
-      width: '136px',
+      width: '120px',
       cell: (l) => <LibraryCell match={l.match} />,
       compact: 'meta',
     },
@@ -313,17 +320,15 @@ function RowView(p: {
           <option value="score">Best score</option>
         </select>
       </label>
-      <label class="mix-check">
-        <input
-          id="mix-heard-once"
-          type="checkbox"
-          checked={p.heardOnce}
-          onChange={(e) =>
-            p.onHeardOnce((e.currentTarget as HTMLInputElement).checked)
-          }
-        />
+      <Button
+        id="mix-heard-once"
+        variant="outlined"
+        icon={p.heardOnce ? 'check' : undefined}
+        aria-pressed={p.heardOnce}
+        onClick={() => p.onHeardOnce(!p.heardOnce)}
+      >
         Only tracks heard once ({p.rows.filter((r) => r.hits === 1).length})
-      </label>
+      </Button>
       {p.heardOnce && (
         <span class="mix-caption">
           The others are hidden, not deleted; Create playlist uses every row.
