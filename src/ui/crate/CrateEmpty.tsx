@@ -1,4 +1,6 @@
 import { routeHref } from '../../router';
+import { Button } from '../components/Button';
+import { Card } from '../components/Card';
 
 type EmptyKind = 'empty' | 'reimport';
 
@@ -14,25 +16,27 @@ const BODY: Record<EmptyKind, string> = {
     "The year, month and skip views need data the old import didn't keep. Your play counts still work everywhere else.",
 };
 
+/**
+ * The Crate's gate (FR-035, ADR-07): no import, or one made before month
+ * data, shows this in place of the cards and the views.
+ */
 export function CrateEmpty(p: { status: EmptyKind }) {
   return (
-    <>
-      <div class="card">
-        <h2>{HEADING[p.status]}</h2>
-        <p>{BODY[p.status]}</p>
-        <button
-          type="button"
-          class="primary"
+    <Card class="crate-empty" title={HEADING[p.status]}>
+      <p>{BODY[p.status]}</p>
+      <div class="actions">
+        <Button
+          variant="filled"
           onClick={() => {
             location.hash = routeHref({ name: 'import' });
           }}
         >
           Import history
-        </button>
+        </Button>
+        <a class="btn btn-text" href={routeHref({ name: 'top' })}>
+          <span>Spotify's own top lists ›</span>
+        </a>
       </div>
-      <p class="empty">
-        <a href={routeHref({ name: 'top' })}>Spotify's own top lists ›</a>
-      </p>
-    </>
+    </Card>
   );
 }

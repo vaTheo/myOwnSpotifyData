@@ -2,34 +2,33 @@ import { signal } from '@preact/signals';
 import {
   CLASSIC_MIN_PLAYS_PER_YEAR,
   CLASSIC_MIN_YEARS,
-  PAGE_SIZE,
   classics,
   monthKey,
   type ClassicItem,
 } from '../../model/crate';
+import { MonthBars } from '../charts/MonthBars';
+import { yearPoints } from '../charts/series';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
 import { DetailsSection } from '../details/TrackDetails';
 import { formatDate, plural } from '../format';
+import { countColumn } from '../table/columns';
 import { classicSort } from './selections';
 import {
-  CrateRow,
   CrateSheet,
+  CrateTable,
+  DEFAULT_SORT,
   OpenMonthLink,
-  Paged,
-  Strip,
+  chartColumn,
+  crateColumns,
   inNoPlaylist,
   spanYears,
   useCrateRows,
 } from './shared';
 
-const limit = signal(PAGE_SIZE);
+const sort = signal(DEFAULT_SORT);
 
-function yearCells(span: number[], perYear: Map<number, number>): string[] {
-  return span.map((y) => `'${String(y).slice(2)} ${perYear.get(y) ?? '—'}`);
-}
-
-/** What the row used to expand into: plays per year, the last play. */
+/** The view's figures for the opened track: plays per year, the last play. */
 function ClassicExtra(p: { item: ClassicItem; span: number[] }) {
   const row = p.item.row;
   return (
@@ -37,7 +36,10 @@ function ClassicExtra(p: { item: ClassicItem; span: number[] }) {
       <p class="details-note">
         {plural(row.plays, 'play')} · last {formatDate(row.lastTs)}
       </p>
-      <Strip cells={yearCells(p.span, p.item.perYear)} />
+      <MonthBars
+        title="Plays per year"
+        series={yearPoints(row.months, p.span)}
+      />
       <OpenMonthLink month={monthKey(new Date(row.lastTs))} />
     </DetailsSection>
   );
@@ -47,25 +49,62 @@ export function Classics({ detail }: { detail?: string }) {
   const rows = useCrateRows();
   const span = spanYears(rows);
   const items = classics(rows, classicSort.value);
-  const shown = items.slice(0, limit.value);
   const opened = items.find((item) => item.row.trackId === detail);
   const caption =
     `Played ${CLASSIC_MIN_PLAYS_PER_YEAR}+ times in ` +
     `${CLASSIC_MIN_YEARS}+ of your ${span.length} years · ` +
     plural(items.length, 'track');
+  const columns = crateColumns<ClassicItem>({
+    metrics: [
+      {
+        id: 'years',
+        header: 'Years played',
+        align: 'end',
+        priority: 1,
+        width: '128px',
+        sortValue: (item) => item.yearsActive,
+        firstDirection: 'desc',
+        cell: (item) => (
+          <span>
+            {item.yearsActive} of {span.length}
+            <span class="dt-unit">years</span>
+          </span>
+        ),
+        compact: 'meta',
+      },
+      countColumn(
+        'plays',
+        'Plays',
+        (item) => item.row.plays,
+        {},
+        { priority: 3, width: '96px', compact: 'hidden' }
+      ),
+    ],
+    chart: chartColumn(
+      'Per year',
+      'Plays per year',
+      (item) => yearPoints(item.row.months, span),
+      span.length
+    ),
+    flag: (item) =>
+      inNoPlaylist(item.row) ? (
+        <Flag kind="todo">not in a playlist</Flag>
+      ) : null,
+  });
   return (
     <>
-      <SegmentedButtons
-        options={[
-          { value: 'years', label: 'Most years' },
-          { value: 'plays', label: 'Most plays' },
-        ]}
-        value={classicSort.value}
-        onChange={(v) => {
-          classicSort.value = v;
-          limit.value = PAGE_SIZE;
-        }}
-      />
+      <div class="toolbar">
+        <SegmentedButtons
+          options={[
+            { value: 'years', label: 'Most years' },
+            { value: 'plays', label: 'Most plays' },
+          ]}
+          value={classicSort.value}
+          onChange={(v) => {
+            classicSort.value = v;
+          }}
+        />
+      </div>
       <p class="caption">{caption}</p>
       {items.length === 0 ? (
         <p class="empty">
@@ -73,38 +112,14 @@ export function Classics({ detail }: { detail?: string }) {
           {plural(span.length, 'year')}.
         </p>
       ) : (
-        <>
-          <ul class="list">
-            {shown.map((item, i) => (
-              <CrateRow
-                key={item.row.trackId}
-                rank={i + 1}
-                row={item.row}
-                selected={detail === item.row.trackId}
-                badge1={
-                  <Flag kind="top">
-                    {item.yearsActive} of {span.length} years
-                  </Flag>
-                }
-                badge2={
-                  inNoPlaylist(item.row) ? (
-                    <Flag kind="todo">not in a playlist</Flag>
-                  ) : (
-                    <Flag kind="plays">{plural(item.row.plays, 'play')}</Flag>
-                  )
-                }
-              />
-            ))}
-          </ul>
-          <Paged
-            shown={shown.length}
-            total={items.length}
-            step={PAGE_SIZE}
-            onMore={() => {
-              limit.value += PAGE_SIZE;
-            }}
-          />
-        </>
+        <CrateTable
+          label={`All-time classics, ${classicSort.value === 'years' ? 'most years' : 'most plays'}`}
+          items={items}
+          columns={columns}
+          sort={sort}
+          resetKey={classicSort.value}
+          detail={detail}
+        />
       )}
       <CrateSheet
         detail={detail}
