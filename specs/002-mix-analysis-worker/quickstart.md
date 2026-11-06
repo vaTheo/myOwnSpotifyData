@@ -4,17 +4,19 @@ Builds on `../001-backend-data-sync/quickstart.md` (the project exists, the app 
 
 ## 1. Owner setup, once
 
-1. **Email code**: Supabase dashboard → Authentication → Email Templates → Magic Link: add the line `Your code: {{ .Token }}`
-   under the existing link. Save. (Signups stay off; the app's link keeps working.)
+1. **Nothing in the email templates**: a Free project created after 2026-06-03 on Supabase's default mailer cannot edit them
+   (the owner found the body read-only on 2026-11-06); the worker signs in with the magic link instead, caught on the dev
+   redirect address the project already allows. Signups stay off.
 2. **Migration**: apply `supabase/migrations/0002_jobs.sql` in the SQL editor (or `supabase db push`). Check: Database →
    Functions lists `claim_job`; `jobs` has `applied_at`.
 3. **Command line form** (this computer): `cd worker && cp .env.example .env`, fill `SUPABASE_URL` and `SUPABASE_KEY` with
    the two public values of the app's `.env`; `uv sync` (installs yt-dlp, ShazamIO and a static ffmpeg); `uv run mix-worker
    check` (expect: settings printed, the packaged ffmpeg and its version, "no session"); `uv run mix-worker login` → email →
-   the code from the mail → "signed in as <email>".
+   open the mail on this computer and click its link (the tab says "mix-worker is signed in") → "signed in as <email>".
+   `yarn dev` must not be running during that minute (same port).
 4. **Packaged form**: download the executable for the system from the release of tag `worker-v…` into a folder of its own.
    Windows: double-click once → it writes `mix-worker.env` and exits; fill the two values; double-click again → "Windows
-   protected your PC" → More info → Run anyway → email → code → it polls. macOS: right-click → Open the first time (unsigned),
+   protected your PC" → More info → Run anyway → email → the mail's link opened on that computer → it polls. macOS: right-click → Open the first time (unsigned),
    then the same. Linux: `chmod +x mix-worker-linux-x86_64 && ./mix-worker-linux-x86_64`. Nothing else to install; for YouTube
    links, Node or Deno must be on PATH (the `check` output says whether one is).
 
@@ -39,6 +41,7 @@ Builds on `../001-backend-data-sync/quickstart.md` (the project exists, the app 
 | 9 | Request the same link twice while waiting | second tap: "Already requested" inline, no second row (FR-004) |
 | 10 | Pause the project from the dashboard (or point `SUPABASE_URL` at a paused one), run the worker | "server paused — resume it from the dashboard", exit 3, no retry loop; the phone's button shows the Settings wording for paused (US2-5, FR-017) |
 | 11 | Delete `session.json`, run the worker | "not signed in — run `mix-worker login`", exit 4, no request touched (US3-2) |
+| 11b | `mix-worker login` while `yarn dev` holds port 5173 | the message names the port and `--code`, exit 4 (D8) |
 | 12 | Set `WORKER_FFMPEG=/nowhere`, run `check` | names the setting and says the packaged ffmpeg is used when it is unset, exit 5; unset it: `check` prints the packaged ffmpeg's version (US3-2, FR-023) |
 | 13 | Phone A applied a result; phone B syncs | B gets the mix rows through the mixes sync and shows the request as "Done", no second apply (data-model: `applied_at`) |
 | 14 | Settings → **Sign out** of the server | the Mix screen's button reads the Settings signed-out wording; request states gone; mix rows kept (FR-009) |

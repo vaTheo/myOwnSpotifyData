@@ -180,15 +180,17 @@ Two ways to run it, both in the worker's manual, [`worker/README.md`](worker/REA
 
 - from the repo with Python and uv: `cd worker && cp .env.example .env`
   (the same two public values as the app's `.env`), `uv sync`, `uv run
-  mix-worker login` (an email code), `uv run mix-worker run --once`;
+  mix-worker login` (click the mail's link on that computer), `uv run
+  mix-worker run --once`;
 - or one packaged executable per system (Windows, Linux, macOS) from a
   `worker-v…` release: put it in a folder, start it, fill the two values in the
   `mix-worker.env` it wrote, start again. ffmpeg and yt-dlp are inside; only
   YouTube links need Node or Deno on the computer.
 
-Once, in the Supabase dashboard: add `Your code: {{ .Token }}` to the Magic
-Link email template (the worker signs in with the code) and run
-`supabase/migrations/0002_jobs.sql`. Requests wait while the computer is off;
+Once, in the Supabase dashboard: run `supabase/migrations/0002_jobs.sql`.
+Nothing else: the worker signs in with the same magic link as the app,
+returned to a local address the project already allows. Requests wait while
+the computer is off;
 the audio never leaves your computer; the worker never talks to Spotify.
 
 ## Server (optional)

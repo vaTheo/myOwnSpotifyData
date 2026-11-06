@@ -21,6 +21,14 @@ class FakeClient:
         self.calls.append(("otp", email))
         return self.otp
 
+    def request_link(self, email, redirect_to, challenge):
+        self.calls.append(("link", email, redirect_to, challenge))
+        return self.otp
+
+    def exchange_code(self, code, verifier):
+        self.calls.append(("exchange", code, verifier))
+        return self.verified
+
     def verify(self, email, code):
         self.calls.append(("verify", email, code))
         return self.verified
@@ -56,6 +64,7 @@ class Harness:
             out=lambda text: self.out.append(text),
             client_factory=lambda url, key: self.client,
             run_queue=lambda settings, deps, session, once, interval: self.ran.append((once, interval)) or EXIT_OK,
+            wait_for_code=lambda redirect_to, timeout: "CODE-FROM-LINK",
             build_deps=lambda settings: None,
             ffmpeg_version=lambda path: "n9.0.2" if path != "/nowhere" else None,
             which=lambda name: "/usr/bin/node" if name == "node" else None,
@@ -118,7 +127,7 @@ class Login(unittest.TestCase):
     def test_login_saves_the_session(self):
         with tempfile.TemporaryDirectory() as tmp:
             h = Harness(tmp, answers=["dj@example.com", "123456"])
-            self.assertEqual(h.main("login"), EXIT_OK)
+            self.assertEqual(h.main("login", "--code"), EXIT_OK)
             self.assertEqual(h.client.calls, [("otp", "dj@example.com"), ("verify", "dj@example.com", "123456")])
             s = load(h.tmp / "session.json")
             self.assertEqual((s.email, s.access_token, s.refresh_token, s.expires_at), ("dj@example.com", "a", "r", 4600.0))
@@ -128,9 +137,41 @@ class Login(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             h = Harness(tmp, answers=["dj@example.com", "000000"])
             h.client.verified = Result("unauthorized", None, 403, "Token has expired or is invalid")
-            self.assertEqual(h.main("login"), EXIT_SIGNED_OUT)
+            self.assertEqual(h.main("login", "--code"), EXIT_SIGNED_OUT)
             self.assertIsNone(load(h.tmp / "session.json"))
             self.assertIn("expired", h.text())
+
+    def test_login_by_link_is_the_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Harness(tmp, answers=["dj@example.com"])
+            self.assertEqual(h.main("login"), EXIT_OK)
+            link, exchange = h.client.calls
+            self.assertEqual(link[:3], ("link", "dj@example.com", "http://127.0.0.1:5173/myOwnSpotifyData/?link=worker"))
+            self.assertRegex(link[3], r"^[A-Za-z0-9_-]{43}$")
+            self.assertEqual(exchange[:2], ("exchange", "CODE-FROM-LINK"))
+            self.assertRegex(exchange[2], r"^[A-Za-z0-9_-]{43,128}$")
+            self.assertEqual(load(h.tmp / "session.json").email, "dj@example.com")
+            self.assertIn("signed in as dj@example.com", h.text())
+
+    def test_login_by_link_times_out(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Harness(tmp, answers=["dj@example.com"])
+            h.deps.wait_for_code = lambda redirect_to, timeout: None
+            self.assertEqual(h.main("login"), EXIT_SIGNED_OUT)
+            self.assertNotIn(("exchange",), [c[:1] for c in h.client.calls])
+            self.assertIn("no link was opened", h.text())
+
+    def test_login_by_link_port_busy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Harness(tmp, answers=["dj@example.com"])
+
+            def busy(redirect_to, timeout):
+                raise OSError(98, "Address already in use")
+
+            h.deps.wait_for_code = busy
+            self.assertEqual(h.main("login"), EXIT_SIGNED_OUT)
+            self.assertIn("5173", h.text())
+            self.assertIn("--code", h.text())
 
     def test_logout(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -160,9 +201,9 @@ class Run(unittest.TestCase):
 class NoCommand(unittest.TestCase):
     def test_no_command_logs_in_then_watches(self):
         with tempfile.TemporaryDirectory() as tmp:
-            h = Harness(tmp, answers=["dj@example.com", "123456"])
+            h = Harness(tmp, answers=["dj@example.com"])
             self.assertEqual(h.main(), EXIT_OK)
-            self.assertEqual(h.client.calls[0], ("otp", "dj@example.com"))
+            self.assertEqual(h.client.calls[0][:2], ("link", "dj@example.com"))
             self.assertEqual(h.ran, [(False, 60)])
 
     def test_no_command_with_session_just_watches(self):

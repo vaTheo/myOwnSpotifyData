@@ -59,8 +59,10 @@ All with `apikey: <publishable key>` and `Authorization: Bearer <access token>`,
 | worker | `POST /rest/v1/rpc/claim_job` | `{ "p_worker": "<name>", "p_stale_seconds": 21600 }` | `[]` → queue empty; `[row]` → the request |
 | worker | `PATCH /rest/v1/jobs?id=eq.<id>&status=eq.claimed&claimed_by=eq.<name>` `Prefer: return=representation` | `{ "status": "done", "finished_at": "<now>", "result": { … } }` or `{ "status": "failed", "finished_at": "<now>", "error": "<one line>" }` | `[]` → the row was reclaimed by another worker: log, discard |
 | worker (Ctrl-C) | same `PATCH` filter | `{ "status": "queued", "claimed_by": null, "claimed_at": null }` | best effort, 3 s timeout |
-| worker (login) | `POST /auth/v1/otp` | `{ "email": "<owner>", "create_user": false }` | 200 → "check your mail" |
-| worker (login) | `POST /auth/v1/verify` | `{ "type": "email", "email": "<owner>", "token": "<6 digits>" }` | `access_token`, `refresh_token`, `expires_in` |
+| worker (login) | `POST /auth/v1/otp?redirect_to=http://127.0.0.1:5173/myOwnSpotifyData/?link=worker` | `{ "email", "create_user": false, "code_challenge", "code_challenge_method": "s256" }` | 200 → the link is on its way; the worker listens on 127.0.0.1:5173 for `?code=` |
+| worker (login) | `POST /auth/v1/token?grant_type=pkce` | `{ "auth_code": "<from the redirect>", "code_verifier": "<kept in memory>" }` | `access_token`, `refresh_token`, `expires_in` |
+| worker (login --code) | `POST /auth/v1/otp` | `{ "email": "<owner>", "create_user": false }` | 200 → "check your mail" |
+| worker (login --code) | `POST /auth/v1/verify` | `{ "type": "email", "email": "<owner>", "token": "<6 digits>" }` | `access_token`, `refresh_token`, `expires_in` |
 | worker | `POST /auth/v1/token?grant_type=refresh_token` | `{ "refresh_token": "<…>" }` | new pair, stored in place |
 | worker (logout) | `POST /auth/v1/logout` | — | session file removed |
 
@@ -71,10 +73,9 @@ large" with a second, small PATCH); 429 → wait `Retry-After` once, then `offli
 
 ## Setup the owner does once (quickstart §1)
 
-- Authentication → Email Templates → **Magic Link**: add the line `Your code: {{ .Token }}` under the existing link. The app's
-  link keeps working (the template still carries `{{ .ConfirmationURL }}`); the worker's `login` uses the code.
-- Authentication → Providers → Email: "Email OTP expiration" stays at its default (one hour); signups stay **off**.
-- Apply `0002_jobs.sql`.
+- Apply `0002_jobs.sql`. Nothing else: the worker's `login` uses the magic link and the dev redirect URL the project already
+  allows. (`login --code` would need `Your code: {{ .Token }}` in the Magic Link template, which a Free project on the default
+  mailer created after 2026-06-03 cannot edit without custom SMTP; signups stay **off** either way.)
 
 ## What stays true (security review 001)
 

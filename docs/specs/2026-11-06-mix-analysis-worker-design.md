@@ -33,8 +33,12 @@ touch audio, the worker never touches Spotify.
    Confidence is the fork's skew formula (so the column means what earlier imports meant); `max_skew=0.001` drops skewed
    matches; a track heard again within 180 s stays one row, a replay later is a new row (F15: no dedup, no threshold).
 4. **Any link yt-dlp supports; the audio is deleted once the result is sent; the JSON is kept** in `~/Music/mix-worker`.
-5. **Sign-in by an email code typed in the terminal**, one line (`Your code: {{ .Token }}`) added to the Magic Link template;
-   the session file lives outside the repo at mode 600; the `service_role` key is never used.
+5. **Sign-in by the app's magic link, caught locally.** `mix-worker login` asks for the link in the PKCE flow with
+   `http://127.0.0.1:5173/myOwnSpotifyData/` as the redirect (the dev address every project already allows), listens there, and
+   exchanges the code it receives. Nothing to configure in the dashboard: the email code first planned needs a template line
+   that a Free project created after June 2026 on the default mailer cannot edit (the owner hit that on 2026-11-06); `login
+   --code` keeps that path for a project with custom SMTP. The session file lives outside the repo at mode 600; the
+   `service_role` key is never used.
 6. **Results apply once.** Migration `0002` adds `applied_at` and a `claim_job` function (oldest queued, or a request left
    running longer than six hours; `for update skip locked`); the app merges a done result into the saved mix, flags the mixes
    push and marks the row, so a second device gets the mix through the mixes sync. A result the safety check refuses is counted

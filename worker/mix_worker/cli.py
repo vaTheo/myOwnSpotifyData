@@ -23,7 +23,7 @@ from . import __version__
 from .config import Settings, SettingsError, load_settings, write_template
 from .pipeline import Deps, Outcome, run_one
 from .server import Result, ServerClient
-from .session import Session, clear, ensure_fresh, load, save
+from .session import Session, challenge_for, clear, code_from_redirect, ensure_fresh, load, new_verifier, save
 
 EXIT_OK = 0
 EXIT_OFFLINE = 2
@@ -34,6 +34,15 @@ EXIT_TEMPLATE = 6
 EXIT_INTERRUPTED = 130
 
 NOT_SIGNED_IN = "not signed in — run `mix-worker login`"
+# The dev redirect URL every project already allows (ADR-01): the worker
+# listens there for the link's code during `login`, nothing to configure.
+LINK_HOST, LINK_PORT, LINK_PATH = "127.0.0.1", 5173, "/myOwnSpotifyData/"
+LINK_REDIRECT = f"http://{LINK_HOST}:{LINK_PORT}{LINK_PATH}?link=worker"
+LINK_TIMEOUT_SECONDS = 600
+LINK_PAGE = (
+    "<!doctype html><meta charset=utf-8><title>mix-worker</title>"
+    "<p style='font:16px system-ui;margin:2em'>mix-worker is signed in. You can close this tab.</p>"
+)
 NO_RUNTIME = "none (YouTube links need Node or Deno)"
 
 
@@ -59,6 +68,39 @@ def build_deps(settings: Settings) -> Deps:
         scan=lambda path, duration: run_scan(path, duration, settings),
         log=Log(settings.log_file),
     )
+
+
+def wait_for_code(redirect_to: str, timeout: float) -> str | None:
+    """Serves one local page at the redirect address and returns the `code`
+    the magic link brings, or None after `timeout` seconds. Raises OSError
+    when the port is taken (the app's dev server, for instance)."""
+    import http.server
+    import socketserver
+
+    parts = urllib.parse.urlsplit(redirect_to)
+    found: dict[str, str] = {}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802 - http.server's name
+            code = code_from_redirect(self.path)
+            body = LINK_PAGE if code else "<!doctype html><p>No sign-in code in this link. Ask for a new one in the terminal.</p>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(body.encode("utf-8"))
+            if code:
+                found["code"] = code
+
+        def log_message(self, *args: Any) -> None:  # quiet
+            return
+
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer((parts.hostname or LINK_HOST, parts.port or 80), Handler) as server:
+        server.timeout = 1.0
+        deadline = time.monotonic() + timeout
+        while "code" not in found and time.monotonic() < deadline:
+            server.handle_request()
+    return found.get("code")
 
 
 def ffmpeg_version(configured: str | None) -> str | None:
@@ -93,6 +135,7 @@ class CliDeps:
     ffmpeg_version: Callable[[str | None], str | None] = ffmpeg_version
     which: Callable[[str], str | None] = shutil.which
     now: Callable[[], float] = time.time
+    wait_for_code: Callable[[str, float], str | None] = wait_for_code
 
     def __post_init__(self) -> None:
         if self.run_queue is None:
@@ -179,7 +222,22 @@ def cmd_check(settings: Settings, config: Path | None, deps: CliDeps) -> int:
     return EXIT_OK
 
 
-def cmd_login(settings: Settings, client: Any, deps: CliDeps) -> int:
+def _save_session(settings: Settings, deps: CliDeps, email: str, triple: dict[str, Any]) -> int:
+    session = Session(
+        email=email,
+        access_token=triple["access_token"],
+        refresh_token=triple["refresh_token"],
+        expires_at=deps.now() + float(triple["expires_in"]),
+    )
+    save(settings.session_file, session)
+    deps.out(f"signed in as {email} · session kept at {settings.session_file}")
+    return EXIT_OK
+
+
+def cmd_login(settings: Settings, client: Any, deps: CliDeps, *, by_code: bool = False) -> int:
+    """Default: the magic link of the app, caught on the local dev address
+    (no template change, no SMTP). `--code`: the six-digit code typed here,
+    for a project whose Magic Link template carries `{{ .Token }}`."""
     out = deps.out
     existing = load(settings.session_file)
     if existing is not None:
@@ -189,6 +247,8 @@ def cmd_login(settings: Settings, client: Any, deps: CliDeps) -> int:
     if not email:
         out("no email given")
         return EXIT_SIGNED_OUT
+    if not by_code:
+        return _login_by_link(settings, client, deps, email)
     sent = client.send_otp(email)
     if not sent.ok:
         out(f"could not ask for a code: {sent.message}")
@@ -199,15 +259,36 @@ def cmd_login(settings: Settings, client: Any, deps: CliDeps) -> int:
     if not verified.ok:
         out(f"code refused: {verified.message}")
         return code_for(verified) if verified.kind in ("offline", "paused") else EXIT_SIGNED_OUT
-    session = Session(
-        email=email,
-        access_token=verified.value["access_token"],
-        refresh_token=verified.value["refresh_token"],
-        expires_at=deps.now() + float(verified.value["expires_in"]),
+    return _save_session(settings, deps, email, verified.value)
+
+
+def _login_by_link(settings: Settings, client: Any, deps: CliDeps, email: str) -> int:
+    out = deps.out
+    verifier = new_verifier()
+    sent = client.request_link(email, LINK_REDIRECT, challenge_for(verifier))
+    if not sent.ok:
+        out(f"could not ask for a link: {sent.message}")
+        return code_for(sent) if sent.kind in ("offline", "paused") else EXIT_SIGNED_OUT
+    out(
+        "A sign-in mail is on its way. Open it ON THIS COMPUTER and click its link within 10 minutes: "
+        f"the link comes back to {LINK_REDIRECT.split('?')[0]} where this program is listening."
     )
-    save(settings.session_file, session)
-    out(f"signed in as {email} · session kept at {settings.session_file}")
-    return EXIT_OK
+    try:
+        code = deps.wait_for_code(LINK_REDIRECT, LINK_TIMEOUT_SECONDS)
+    except OSError as err:
+        out(
+            f"could not listen on port {LINK_PORT} ({err}): stop whatever uses it (the app's `yarn dev`, for instance) and run "
+            "`mix-worker login` again, or use `mix-worker login --code` if the Magic Link template carries {{ .Token }}"
+        )
+        return EXIT_SIGNED_OUT
+    if code is None:
+        out("no link was opened in time; run `mix-worker login` again")
+        return EXIT_SIGNED_OUT
+    exchanged = client.exchange_code(code, verifier)
+    if not exchanged.ok:
+        out(f"the link could not be exchanged: {exchanged.message} (open the link on this computer, once, within 10 minutes)")
+        return code_for(exchanged) if exchanged.kind in ("offline", "paused") else EXIT_SIGNED_OUT
+    return _save_session(settings, deps, email, exchanged.value)
 
 
 def cmd_logout(settings: Settings, client: Any, deps: CliDeps) -> int:
@@ -233,7 +314,8 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--config", type=Path, default=None, help="settings file (default: worker/.env, or mix-worker.env beside the executable)")
     sub = p.add_subparsers(dest="command")
     sub.add_parser("check", help="print the settings and what is missing; no network")
-    sub.add_parser("login", help="sign in with an email code, once per computer")
+    login = sub.add_parser("login", help="sign in once per computer: a magic link opened on this computer (default), or a typed code")
+    login.add_argument("--code", action="store_true", help="type the 6-digit code from the mail instead (the Magic Link template must carry {{ .Token }})")
     sub.add_parser("logout", help="forget the session on this computer")
     run = sub.add_parser("run", help="process the queue")
     mode = run.add_mutually_exclusive_group()
@@ -274,7 +356,7 @@ def main(argv: list[str] | None = None, deps: CliDeps | None = None) -> int:
     if args.command == "check":
         return cmd_check(settings, config, deps)
     if args.command == "login":
-        return cmd_login(settings, client, deps)
+        return cmd_login(settings, client, deps, by_code=args.code)
     if args.command == "logout":
         return cmd_logout(settings, client, deps)
     if args.command == "run":
