@@ -57,8 +57,12 @@ type Order = 'plays' | 'order' | 'match';
 
 const order = signal<Order>('plays');
 const DEFAULT_SORT: SortState = { columnId: null, direction: 'asc' };
-/** The header sort, on top of the order; a new order starts from its own. */
+/**
+ * The header sort, on top of the order, for the playlist `sortOf` names: a
+ * new order, or another playlist, starts from its own ranking.
+ */
 const sort = signal<SortState>(DEFAULT_SORT);
+const sortOf = signal<string | null>(null);
 
 /**
  * Spec §5: one seed per playlist, so walking from one playlist to another
@@ -139,7 +143,9 @@ const deltaColumn: Column<ListedRow> = {
 
 /**
  * Spec 003 §8: # · title · artists · album · length · added · plays ·
- * (relation · ΔBPM in Match) · top · BPM · key · link.
+ * (relation · ΔBPM in Match) · top · BPM · key · link. Match's two columns
+ * take the place of Album and Added, priority-4 columns, so the title stays
+ * readable at 1440 (review of S02).
  */
 function playlistColumns(matching: boolean): Column<ListedRow>[] {
   const featureOf = (r: ListedRow) => r.feature;
@@ -147,13 +153,22 @@ function playlistColumns(matching: boolean): Column<ListedRow>[] {
     rankColumn(),
     titleColumn((r) => r.row.track.name),
     artistsColumn((r) => r.row.track.artists),
-    albumColumn((r) => r.row.track.album || null, { priority: 4 }),
+    ...(matching
+      ? []
+      : [
+          albumColumn((r: ListedRow) => r.row.track.album || null, {
+            priority: 4,
+          }),
+        ]),
     durationColumn((r) => r.row.track.durationMs, {
       priority: 4,
       firstDirection: 'asc',
     }),
-    addedColumn((r) => r.row.entry.addedAt, { priority: 4 }),
-    playsColumn((r) => r.row.plays),
+    ...(matching
+      ? []
+      : [addedColumn((r: ListedRow) => r.row.entry.addedAt, { priority: 4 })]),
+    // Spec 003 §8: a phone's Match line is relation · ΔBPM · BPM · key.
+    playsColumn((r) => r.row.plays, matching ? { compact: 'hidden' } : {}),
     ...(matching ? [relationColumn, deltaColumn] : []),
     topFlagsColumn((r) => r.row.inTop, { sortValue: undefined }),
     bpmColumn(featureOf),
@@ -330,56 +345,77 @@ export function Playlist({ id }: { id: string }) {
         feature: featureOfRow(row),
         cells: matchCells(null, null, TOLERANCE_PCT),
       }));
-  const side = windowClass.value === 'large';
+  const phone = windowClass.value === 'compact';
+  const headerSort = sortOf.value === id ? sort.value : DEFAULT_SORT;
 
-  const head = (
-    <div class="detail-head">
-      {playlist.imageUrl ? (
-        <img class="detail-cover" src={playlist.imageUrl} alt="" />
-      ) : (
-        <span class="detail-cover" aria-hidden="true" />
+  const meta = (
+    <p class="detail-meta">
+      {seedFeature
+        ? plural(listed.length, 'other')
+        : plural(ranked.length, 'track')}
+      {playlist.spotifyUrl && (
+        <>
+          <span aria-hidden="true"> · </span>
+          <SpotifyLink href={playlist.spotifyUrl} label />
+        </>
       )}
-      <div class="detail-head-text">
-        <p class="detail-name">{playlist.name}</p>
-        <p class="detail-meta">
-          {seedFeature
-            ? plural(listed.length, 'other')
-            : plural(ranked.length, 'track')}
-          {playlist.spotifyUrl && (
-            <>
-              <span aria-hidden="true"> · </span>
-              <SpotifyLink href={playlist.spotifyUrl} label />
-            </>
-          )}
-        </p>
-      </div>
-    </div>
+    </p>
+  );
+  const noHistory = !historySummary.value && (
+    <p class="caption">
+      No play counts yet —{' '}
+      <a href={routeHref({ name: 'import' })}>import your history</a>
+    </p>
+  );
+  const orderControl = (
+    <SegmentedButtons
+      options={[
+        { value: 'plays', label: 'By plays' },
+        { value: 'order', label: 'Playlist order' },
+        { value: 'match', label: 'Match' },
+      ]}
+      value={order.value}
+      onChange={(v) => {
+        order.value = v;
+        sort.value = DEFAULT_SORT;
+        if (v !== 'match') clearSeed(id);
+      }}
+    />
   );
 
-  const controls = (
+  // A phone stacks cover, name and meta, then the order control. Larger
+  // windows keep one strip above the table, without the name the top bar
+  // already shows, so a 900 px tall window still holds 15 rows (SC-001).
+  const head = phone ? (
     <>
-      <LikeStatus playlistId={id} />
-      <div class="toolbar">
-        <SegmentedButtons
-          options={[
-            { value: 'plays', label: 'By plays' },
-            { value: 'order', label: 'Playlist order' },
-            { value: 'match', label: 'Match' },
-          ]}
-          value={order.value}
-          onChange={(v) => {
-            order.value = v;
-            sort.value = DEFAULT_SORT;
-            if (v !== 'match') clearSeed(id);
-          }}
-        />
+      <div class="detail-head">
+        {playlist.imageUrl ? (
+          <img class="detail-cover" src={playlist.imageUrl} alt="" />
+        ) : (
+          <span class="detail-cover" aria-hidden="true" />
+        )}
+        <div class="detail-head-text">
+          <p class="detail-name">{playlist.name}</p>
+          {meta}
+        </div>
       </div>
-      {!historySummary.value && (
-        <p class="caption">
-          No play counts yet —{' '}
-          <a href={routeHref({ name: 'import' })}>import your history</a>
-        </p>
-      )}
+      <LikeStatus playlistId={id} />
+      <div class="toolbar">{orderControl}</div>
+      {noHistory}
+    </>
+  ) : (
+    <>
+      <div class="playlist-strip">
+        {meta}
+        {noHistory}
+        {orderControl}
+      </div>
+      <LikeStatus playlistId={id} />
+    </>
+  );
+
+  const seedBar = (
+    <>
       {matching && !seed && (
         <p class="seed-bar caption">Select a track to match against</p>
       )}
@@ -419,29 +455,22 @@ export function Playlist({ id }: { id: string }) {
       columns={playlistColumns(matching && seedFeature !== null)}
       rows={listed}
       rowKey={(r) => String(r.row.entry.position)}
-      sort={sort.value}
+      sort={headerSort}
       onSort={(s) => {
         sort.value = s;
+        sortOf.value = id;
       }}
       resetKey={`${id} ${order.value} ${seedPosition ?? ''}`}
       onOpen={matching ? (r) => setSeed(id, r.row) : undefined}
     />
   );
 
-  // Large windows: the header and the controls sit beside the table, so a
-  // 900 px tall window shows 15 rows (SC-001).
-  return side ? (
-    <section class="playlist-layout">
-      <div class="playlist-side">
-        {head}
-        {controls}
-      </div>
-      <div class="playlist-main">{table}</div>
-    </section>
-  ) : (
-    <section>
+  return (
+    <section
+      class={windowClass.value === 'large' ? 'playlist-dense' : undefined}
+    >
       {head}
-      {controls}
+      {seedBar}
       {table}
     </section>
   );

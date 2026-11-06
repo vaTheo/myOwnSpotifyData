@@ -66,15 +66,29 @@ async function fifteenRows(page: Page): Promise<string[]> {
     const whole = rows.filter((row) => {
       const r = row.getBoundingClientRect();
       return r.top >= 0 && r.bottom <= innerHeight + 0.5;
-    }).length;
-    if (whole < 15)
-      out.push(`SC-001: ${whole} whole rows in the viewport, needs 15`);
-    const headers = [...grid.querySelectorAll('[role=columnheader]')]
+    });
+    if (whole.length < 15)
+      out.push(`SC-001: ${whole.length} whole rows in the viewport, needs 15`);
+    const all = [...grid.querySelectorAll('[role=columnheader]')];
+    const headers = all
       .filter((h) => h.getBoundingClientRect().width > 0)
       .map((h) => (h.textContent ?? '').trim());
     for (const name of ['Title', 'Artists', 'Plays', 'BPM', 'Key']) {
       if (!headers.includes(name))
         out.push(`SC-001: no ${name} column on screen`);
+    }
+    // A readable title: the 15 rows' title cells are not cut short.
+    const at = all.findIndex((h) => (h.textContent ?? '').trim() === 'Title');
+    if (at >= 0) {
+      for (const row of whole.slice(0, 15)) {
+        const text = row
+          .querySelectorAll('[role=gridcell]')
+          [at]?.querySelector('.dt-text');
+        if (text && text.scrollWidth > text.clientWidth + 1)
+          out.push(
+            `SC-001: title cut to ${text.clientWidth}px: "${text.textContent}"`
+          );
+      }
     }
     return out;
   });
