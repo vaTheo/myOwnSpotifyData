@@ -377,7 +377,17 @@ aggregate.
 - **Paste a tracklist** as a collapsed section.
 - **No mix open**: the right pane shows an `EmptyState`: "Paste a link, import a JSON, or pick a saved mix".
 
-**Phone**: one column in this order: link field, open mix (if any), Identify, JSON import, saved mixes, requests, worker help.
+**Owner's additions (2026-11-06, tasks T116–T119)**, which take precedence over the lists above where they differ:
+
+- The left pane shows one **Mixes** list (saved mixes and requests merged), each row with one status chip: Queued, Identifying,
+  Found N tracks, Failed, Rejected, Saved · N tracks · K validated, Playlist made.
+- The open mix's header has **Check on Spotify** (a read on tap, with progress and Stop) and the line
+  "N tracks · K validated · M on Spotify · L not found".
+- The tracklist adds the columns **Spotify** (Not checked / On Spotify link / Not found), **Listen** (dig links for every track) and
+  **Review** (Validate toggle, Remove), and filter chips All, To review, Validated, Not on Spotify.
+- Create playlist offers **Validated only** or **All tracks**.
+
+**Phone**: one column in this order: link field, open mix (if any), Identify, JSON import, Mixes list, worker help.
 
 **Kept**:
 

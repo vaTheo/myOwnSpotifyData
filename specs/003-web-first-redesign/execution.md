@@ -29,7 +29,8 @@ wait on any other step.
 | S05 | US4 history | T063–T067: series helpers, `MonthBars`, `Meter`, `YearMonthGrid` | opus | — |
 | S06 | US4 history | T068–T076: Crate shared, hub cards, the five views, details history chart, shots | opus | **Stop** |
 | S07 | US5 Settings | T077–T080: Settings sections and index, Import, shots | opus | **Stop** |
-| S08 | US6 Mix | T081–T085: the Mix workspace, `#/mix/<key>`, shots | opus | **Stop** |
+| S08 | US6 Mix | T081–T084, T116: the Mix workspace, `#/mix/<key>`, one Mixes list with status chips | opus | — |
+| S08b | US6 Mix | T117–T119, T085: Check on Spotify (read on tap), per-track Spotify / Listen / Validate / Remove, filters, Create playlist from validated tracks, shots | opus | **Stop** |
 | S09 | US7 find | T086–T093: track filters, search index, `FilterBar`, `KeyPicker`, `SearchView`, shots | opus | **Stop** |
 | S10 | US8 Overview | T094–T098: `overviewBlocks`, Overview screen, default address, shots | opus | **Stop** |
 | S11 | Polish | T099, T100, T102: Firefox/WebKit shots, keyboard walkthrough, quickstart §13 checks. T101 (Lighthouse on the owner's real profile) is the owner's: the subagent writes the steps in its report | opus | — |
