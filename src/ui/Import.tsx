@@ -1,7 +1,11 @@
 import type { ImportSummary } from '../history/importer';
 import { historySummary, importState, startImport } from '../model/state';
+import { Card } from './components/Card';
+import { FileDrop } from './components/FileDrop';
 import { ProgressBar } from './components/ProgressBar';
+import { StatusLine } from './components/StatusLine';
 import { formatDate, formatDateTime, notCountedLine, plural } from './format';
+import { windowClass } from './layout/windowClass';
 
 /** "214,908 starts, 61% played through"; the clause is dropped at zero. */
 function startsLine(o: {
@@ -32,7 +36,7 @@ function Summary({ summary }: { summary: ImportSummary }) {
         </li>
       )}
       {summary.version === 2 && summary.zone && (
-        <li>Months use {summary.zone}, this phone's zone at import</li>
+        <li>Months use {summary.zone}, this browser's zone at import</li>
       )}
       {summary.version === 2 && summary.outcomes && (
         <li>{startsLine(summary.outcomes)}</li>
@@ -62,7 +66,7 @@ function Steps() {
       <li>Confirm the email Spotify sends within 14 days.</li>
       <li>
         When the "your data is ready" email arrives (hours to a few weeks),
-        download my_spotify_data.zip to this phone.
+        download my_spotify_data.zip to this device.
       </li>
       <li>
         Pick that zip on this screen. Nothing is uploaded; the file is read here
@@ -72,41 +76,43 @@ function Steps() {
   );
 }
 
+/**
+ * Import listening history (spec 003 §14, FR-039): one card at reading
+ * width. The narrower-import question is asked by `startImport` in
+ * `model/state.ts`, unchanged; this screen only hands it the files.
+ */
 export function Import() {
   const state = importState.value;
   const summary = historySummary.value;
-  const onChange = (event: Event) => {
-    const input = event.currentTarget as HTMLInputElement;
-    const files = Array.from(input.files ?? []);
-    input.value = '';
-    if (files.length > 0) void startImport(files);
-  };
+  const compact = windowClass.value === 'compact';
   return (
-    <section>
-      {/* Once an import exists the screen leads with it, and the five steps
-          fold away: they are read once and scrolled past every time after. */}
-      {summary ? (
-        <div class="card">
-          <h2>Last import</h2>
-          <Summary summary={summary} />
-        </div>
-      ) : (
-        <div class="card">
-          <h2>How to get the file</h2>
+    <div class="import">
+      <Card>
+        {summary && (
+          <>
+            <h2>Last import</h2>
+            <Summary summary={summary} />
+          </>
+        )}
+        {/* Open until a first import exists; after that the steps fold
+            away: they are read once and scrolled past every time after. */}
+        <details class="import-steps" open={!summary}>
+          <summary>How to get the file</summary>
           <Steps />
-        </div>
-      )}
-      <div class="card">
-        <label class="file">
-          <span>Pick my_spotify_data.zip, or the JSON files inside it</span>
-          <input
-            type="file"
-            accept=".zip,.json,application/zip,application/json"
-            multiple
-            disabled={state.status === 'running'}
-            onChange={onChange}
-          />
-        </label>
+        </details>
+        <h2>The file</h2>
+        <FileDrop
+          label={
+            compact
+              ? 'Choose my_spotify_data.zip'
+              : 'Drop my_spotify_data.zip here or choose a file'
+          }
+          hint="The JSON files inside it work too."
+          accept=".zip,.json,application/zip,application/json"
+          multiple
+          disabled={state.status === 'running'}
+          onFiles={(files) => void startImport(files)}
+        />
         {state.status === 'running' && (
           <ProgressBar
             label={state.file}
@@ -115,17 +121,13 @@ export function Import() {
             unit="files"
           />
         )}
-        {state.status === 'cancelled' && <p class="muted">{state.message}</p>}
-        {state.status === 'error' && (
-          <p class="error">Last error: {state.message}</p>
+        {state.status === 'cancelled' && (
+          <StatusLine>{state.message}</StatusLine>
         )}
-      </div>
-      {summary && (
-        <details class="card">
-          <summary>How to get the file</summary>
-          <Steps />
-        </details>
-      )}
-    </section>
+        {state.status === 'error' && (
+          <StatusLine kind="error">Last error: {state.message}</StatusLine>
+        )}
+      </Card>
+    </div>
   );
 }
