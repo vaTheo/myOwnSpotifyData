@@ -9,6 +9,8 @@ import {
 } from '../features/mix/match';
 import { digRows } from '../features/mix/digLinks';
 import { isIdentified } from '../features/mix/spotifySearch';
+import { requestKey } from '../features/mix/url';
+import { requestStatusText } from '../features/mix/worker';
 import {
   addMixRow,
   applyDescriptionTracklist,
@@ -19,6 +21,7 @@ import {
   editMixRow,
   loadSavedMixes,
   mixError,
+  mixJobs,
   mixRows,
   mixState,
   model,
@@ -26,7 +29,9 @@ import {
   removeMix,
   saveMix,
   savedMixes,
+  serverState,
   startCreatePlaylist,
+  startIdentifyRequest,
   startMixLookup,
   startTracklistifyImport,
   type MixView,
@@ -476,7 +481,8 @@ function Provenance(p: { view: MixView }) {
     view.sources.description ||
     view.sources.linkOut !== null ||
     view.sources.pasted ||
-    view.sources.tracklistify === true;
+    view.sources.tracklistify === true ||
+    view.sources.worker === true;
   // The short-link note already tells the owner to paste or read the player, so
   // it stands in for the "nothing found" line rather than doubling it.
   const nothingFound =
@@ -525,6 +531,19 @@ function Provenance(p: { view: MixView }) {
         <p class="caption">
           From Tracklistify ·{' '}
           {plural(mixRows.value.filter((r) => !r.gap).length, 'track')}
+        </p>
+      )}
+      {view.sources.worker === true && (
+        <p class="caption">
+          From your computer ·{' '}
+          {plural(
+            mixRows.value.filter((r) => r.source === 'tracklistify').length,
+            'track'
+          )}
+          {(() => {
+            const at = savedMixes.value.find((m) => m.url === view.url)?.identifiedAt;
+            return at ? ` · ${formatDate(at)}` : '';
+          })()}
         </p>
       )}
       {view.sources.description && (
@@ -683,11 +702,49 @@ function InfoCards() {
   );
 }
 
+/**
+ * The "Identify on my computer" block under the link box (worker round):
+ * the button, the latest request's state and the earlier ones. Wording from
+ * `requestStatusText`, the one place that knows the server and job states.
+ */
+function IdentifyRequest(p: { url: string; busy: boolean }) {
+  const key = requestKey(p.url);
+  const history = key !== null ? (mixJobs.value[key] ?? []) : [];
+  const status = requestStatusText(history[0], serverState.value);
+  return (
+    <div class="identify">
+      <button
+        type="button"
+        disabled={!status.canAsk || p.busy || p.url.trim() === ''}
+        onClick={() => void startIdentifyRequest(p.url)}
+      >
+        {status.button}
+      </button>
+      {status.line !== null && <p class="caption">{status.line}</p>}
+      {history.length > 1 && (
+        <details>
+          <summary>Earlier requests ({history.length - 1})</summary>
+          <ul>
+            {history.slice(1).map((v) => (
+              <li key={v.id} class="caption">
+                {requestStatusText(v, serverState.value).line}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
 export function Mix() {
   const [url, setUrl] = useState('');
   const state = mixState.value;
+  // A hand-imported scan has a synthetic `tracklistify:` key and no page; a
+  // worker mix has a real link (any platform), so it keeps the box and the
+  // request button.
   const isTracklistifyView =
-    state.status === 'ready' && state.view.sources.tracklistify === true;
+    state.status === 'ready' && !state.view.url.startsWith('https://');
   const viewUrl =
     state.status === 'ready' && !isTracklistifyView ? state.view.url : null;
   // Load the saved mixes once, on mount (never on app load).
@@ -722,7 +779,7 @@ export function Mix() {
           class="filter"
           type="text"
           inputMode="url"
-          placeholder="Paste a SoundCloud mix link"
+          placeholder="Paste a mix link (SoundCloud, or any set for your computer)"
           value={url}
           onInput={(e) => setUrl((e.currentTarget as HTMLInputElement).value)}
         />
@@ -738,6 +795,7 @@ export function Mix() {
               : 'Look up'}
         </button>
       </form>
+      <IdentifyRequest url={url} busy={state.status === 'looking'} />
       <label class="file">
         <span>Or import a Tracklistify tracklist.json</span>
         <input type="file" accept=".json,application/json" onChange={onJson} />
@@ -745,7 +803,9 @@ export function Mix() {
       {state.status === 'looking' && <p class="muted">Looking up the mix…</p>}
       {state.status === 'error' && (
         <p class="error">
-          That is not a SoundCloud track link. Paste the link to the mix's page.
+          That is not a SoundCloud track link, so there is nothing to look up
+          here. Any set link can still be sent to your computer with the button
+          above.
         </p>
       )}
       {mixError.value !== null && <p class="error">{mixError.value}</p>}

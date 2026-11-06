@@ -20,9 +20,11 @@ import {
 } from '../db/repo';
 import {
   DB_VERSION,
+  MIX_JOBS_META,
   SERVER_LAST_SYNC_META,
   SERVER_PENDING_META,
   SERVER_STAMPS_META,
+  type MixJobs,
   type MixRow,
   type ServerPending,
   type ServerStamps,
@@ -36,7 +38,12 @@ import {
 } from '../features/mix/lookup';
 import { parseDescription, parsePasted } from '../features/mix/parse';
 import { parseTracklistifyJson } from '../features/mix/tracklistify';
-import { classifyMixInput, isShortLink } from '../features/mix/url';
+import {
+  classifyMixInput,
+  isShortLink,
+  requestKey,
+} from '../features/mix/url';
+import { requestStatusText } from '../features/mix/worker';
 import { runCreatePlaylist } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
@@ -76,8 +83,10 @@ import { LINK_BROWSER_MESSAGE, type ServerResult } from '../server/client';
 import { serverAuth, serverClient, serverConfigured } from '../server/browser';
 import { DATASETS } from '../server/datasets';
 import {
+  JOB_HISTORY_MAX,
   UPDATE_APP_MESSAGE,
   readUsage,
+  requestIdentify,
   runPull,
   runPush,
   runRemoveAll,
@@ -316,10 +325,19 @@ export async function startServerSync(): Promise<void> {
   await startServerPull();
 }
 
-/** Signs out of the server on this browser; local and server data stay. */
+/**
+ * Signs out of the server on this browser; local and server data stay. The
+ * request states are the server's knowledge, so they leave with the session.
+ */
 export async function startServerSignOut(): Promise<void> {
   await serverAuth.signOut();
   serverState.value = serverBaseState();
+  mixJobs.value = {};
+  try {
+    await deleteMeta(MIX_JOBS_META);
+  } catch {
+    // Nothing to show: the next pull rewrites it.
+  }
 }
 
 /**
@@ -336,6 +354,7 @@ export async function removeServerData(): Promise<void> {
   }
   if (!confirm(REMOVE_SERVER_DATA_CONFIRM)) return;
   const res = await runRemoveAll(serverDeps());
+  if (res.ok) mixJobs.value = {};
   serverState.value = res.ok ? await connectedView() : serverFailure(res);
 }
 
@@ -1193,8 +1212,72 @@ export async function loadSavedMixes(): Promise<void> {
   try {
     const rows = await getMixes();
     savedMixes.value = rows.sort((a, b) => b.savedAt - a.savedAt);
+    mixJobs.value = (await getMeta<MixJobs>(MIX_JOBS_META)) ?? {};
   } catch (err) {
     mixError.value = `Could not read your saved mixes: ${describeError(err)}`;
+  }
+}
+
+/* ---------- identify on my computer (worker round) ---------- */
+
+/** The identify requests per canonical link, newest first (FR-003). */
+export const mixJobs = signal<MixJobs>({});
+export const ALREADY_REQUESTED =
+  'Already requested. Your computer takes it the next time the worker runs.';
+export const NOT_A_REQUEST_LINK =
+  'That is not a link the worker can take: paste an https link to the set (a SoundCloud short link needs Look up first).';
+
+/**
+ * "Identify on my computer": one request on the owner's server for the link
+ * in the box (FR-002), never a Spotify call, never a fetch of the platform.
+ * Not in `jobsBusy()`: one request, under a second. Failures land in
+ * `mixError`, inline on the Mix screen (FR-008).
+ */
+export async function startIdentifyRequest(url: string): Promise<void> {
+  mixError.value = null;
+  const key = requestKey(url);
+  if (key === null) {
+    mixError.value = NOT_A_REQUEST_LINK;
+    return;
+  }
+  const latest = mixJobs.value[key]?.[0];
+  const text = requestStatusText(latest, serverState.value);
+  if (!text.canAsk) {
+    mixError.value =
+      latest && (latest.status === 'queued' || latest.status === 'claimed')
+        ? ALREADY_REQUESTED
+        : text.button;
+    return;
+  }
+  if (!serverConfigured || !serverAuth.session.value) {
+    mixError.value = 'Sign in to the server (Settings)';
+    return;
+  }
+  const token = await serverAuth.getAccessToken();
+  if (!token.ok) {
+    serverState.value = serverFailure(token);
+    mixError.value = `Could not reach the server: ${token.message}`;
+    return;
+  }
+  const res = await requestIdentify(serverClient, token.value, key);
+  if (!res.ok) {
+    serverState.value = serverFailure(res);
+    mixError.value = `Could not record the request: ${res.message}`;
+    return;
+  }
+  if (res.value === 'exists') {
+    mixError.value = ALREADY_REQUESTED;
+    return;
+  }
+  const next: MixJobs = {
+    ...mixJobs.value,
+    [key]: [res.value, ...(mixJobs.value[key] ?? [])].slice(0, JOB_HISTORY_MAX),
+  };
+  mixJobs.value = next;
+  try {
+    await putMeta(MIX_JOBS_META, next);
+  } catch (err) {
+    mixError.value = `The request is recorded on the server but not here: ${storageMessage(err)}`;
   }
 }
 
