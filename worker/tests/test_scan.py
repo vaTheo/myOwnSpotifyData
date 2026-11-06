@@ -177,17 +177,24 @@ class Scan(unittest.TestCase):
         rows = run(scan(120, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify))
         self.assertEqual([r["time_in_mix"] for r in rows], ["00:01:00"])
 
-    def test_rate_limited_once_pauses_and_retries_the_same_probe(self):
-        calls, cut, recognise, sleep = self.make([RateLimited(), CASSETTE])
-        rows = run(scan(60, step=60, cooldown=1.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify))
-        self.assertEqual(calls["sleeps"], [1.0, 300.0, 1.0])
-        self.assertEqual(calls["cuts"], [0])
+    def test_rate_limited_pauses_grow_and_the_cooldown_doubles(self):
+        calls, cut, recognise, sleep = self.make([RateLimited(), RateLimited(), CASSETTE, NO_MATCH])
+        rows = run(scan(120, step=60, cooldown=6.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify))
+        # cooldown 6, pause 300, cooldown 12, pause 600, cooldown 24 (probe 1 again), cooldown 24 (probe 2)
+        self.assertEqual(calls["sleeps"], [6.0, 300.0, 12.0, 600.0, 24.0, 24.0])
+        self.assertEqual(calls["cuts"], [0, 60])
         self.assertEqual(len(rows), 1)
 
-    def test_rate_limited_twice_refuses(self):
-        calls, cut, recognise, sleep = self.make([RateLimited(), RateLimited()])
+    def test_cooldown_is_capped_and_jitter_added(self):
+        calls, cut, recognise, sleep = self.make([RateLimited(), CASSETTE])
+        run(scan(60, step=60, cooldown=20.0, pause=1.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify, jitter=lambda c: c / 4))
+        self.assertEqual(calls["sleeps"], [25.0, 1.0, 37.5])
+
+    def test_one_more_than_the_allowed_pauses_refuses(self):
+        calls, cut, recognise, sleep = self.make([RateLimited(), RateLimited(), RateLimited()])
         with self.assertRaises(ScanRefused):
-            run(scan(60, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify))
+            run(scan(60, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, sleep=sleep, classify=classify, max_pauses=2))
+        self.assertEqual(len([s for s in calls["sleeps"]]), 5)
 
     def test_other_errors_raise(self):
         calls, cut, recognise, sleep = self.make([ValueError("x")])
@@ -234,8 +241,8 @@ class Lines(unittest.TestCase):
             pass
 
         with self.assertRaises(ScanRefused):
-            run(scan(60, step=60, cooldown=0.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append))
-        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · rate limited · pausing 300 s, then this probe again", "  probe 1/1 · 00:00:00 · rate limited again · giving up"])
+            run(scan(60, step=60, cooldown=3.0, pause=300.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, max_pauses=1))
+        self.assertEqual(lines, ["  probe 1/1 · 00:00:00 · rate limited (1/1) · pausing 300 s, then this probe again · cooldown now 6 s", "  probe 1/1 · 00:00:00 · rate limited again · giving up after 1 pauses"])
 
 
 class Result(unittest.TestCase):

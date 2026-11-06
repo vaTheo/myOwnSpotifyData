@@ -55,6 +55,12 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
 - **Alternatives**: parallel probes (rejected: 429s); the library's default twelve-minute retry (rejected: the worker would
   look hung; FR-017).
 
+- **Revised 2026-11-06 after the first live scan**: Shazam answered "rate limited" on the 4th call of a set at a 3 s
+  cooldown (the computer had made about a dozen calls in the previous ten minutes). The library sends every call as an iPhone
+  (hard-coded in `api.py`; PR #258 saw fewer 429s with other profiles, out of reach without patching it). Pacing is now
+  adaptive: 6 s cooldown + a random 0–50 %, doubled after each rate limit (30 s cap), pauses of 300 s × n, three pauses per
+  set before the request fails (`WORKER_RATE_LIMIT_PAUSES`). A 60-minute set: about 60 calls in 8 minutes when nothing refuses.
+
 ## D4. Probes: 12 s every 60 s, cut by ffmpeg to mono 16 kHz WAV bytes, no temp files
 
 - **Decision**: for a set of duration `T` (from the download's metadata, else discovered when ffmpeg returns nothing), the

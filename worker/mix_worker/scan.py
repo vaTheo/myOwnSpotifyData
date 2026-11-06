@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import subprocess
 import time
 from collections.abc import Awaitable, Callable
@@ -18,6 +19,8 @@ from urllib.parse import urlparse
 
 PROBE_SECONDS = 12
 MIN_PROBE_BYTES = 1000
+# A cooldown doubled after each rate limit never grows past this.
+MAX_COOLDOWN_SECONDS = 30.0
 
 
 class ScanRefused(Exception):
@@ -157,10 +160,15 @@ async def scan(
     sleep: Callable[[float], Awaitable[None]],
     classify: Callable[[Exception], str],
     line: Callable[[str], None] | None = None,
+    max_pauses: int = 3,
+    jitter: Callable[[float], float] = lambda cooldown: 0.0,
 ) -> list[dict[str, Any]]:
     """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
-    before each; a `rate_limited` error pauses once, twice raises
-    `ScanRefused`; a `skip` error (undecodable probe) is skipped."""
+    (+ `jitter(cooldown)`) before each. A `rate_limited` error doubles the
+    cooldown for the rest of the set (`MAX_COOLDOWN_SECONDS` at most) and
+    pauses `pause` × the number of pauses so far, then retries the same probe;
+    one more than `max_pauses` raises `ScanRefused`. A `skip` error
+    (undecodable probe) is skipped."""
     hits: list[Hit] = []
     seen: set[str] = set()
     say = line or (lambda text: None)
@@ -168,7 +176,7 @@ async def scan(
     times = probe_times(duration, step) if known else None
     skew = max_skew if max_skew > 0 else None
     index = 0
-    paused_once = False
+    pauses = 0
     while True:
         if times is not None:
             if index >= len(times):
@@ -181,7 +189,7 @@ async def scan(
             break
         where = f"probe {index + 1}/{len(times) if times is not None else '?'} · {hhmmss(t)}"
         while True:
-            await sleep(cooldown)
+            await sleep(cooldown + jitter(cooldown))
             try:
                 response = await recognise(data, skew)
             except Exception as err:  # classified, never swallowed silently
@@ -191,12 +199,17 @@ async def scan(
                     response = None
                     break
                 if kind == "rate_limited":
-                    if paused_once:
-                        say(f"  {where} · rate limited again · giving up")
+                    pauses += 1
+                    if pauses > max_pauses:
+                        say(f"  {where} · rate limited again · giving up after {max_pauses} pauses")
                         raise ScanRefused() from err
-                    paused_once = True
-                    say(f"  {where} · rate limited · pausing {int(pause)} s, then this probe again")
-                    await sleep(pause)
+                    cooldown = min(max(cooldown * 2, 1.0), MAX_COOLDOWN_SECONDS)
+                    wait = pause * pauses
+                    say(
+                        f"  {where} · rate limited ({pauses}/{max_pauses}) · pausing {int(wait)} s,"
+                        f" then this probe again · cooldown now {cooldown:g} s"
+                    )
+                    await sleep(wait)
                     continue  # the same probe again, after the pause
                 raise
             break
@@ -332,7 +345,7 @@ def run_scan(
     say(
         f"  scan · ffmpeg {ffmpeg} · one {settings.probe_seconds} s probe every {settings.probe_step_seconds} s"
         f" · {len(probe_times(duration, settings.probe_step_seconds)) if duration else '?'} probes"
-        f" · cooldown {settings.cooldown_seconds} s"
+        f" · cooldown {settings.cooldown_seconds} s (+0-50 %) · up to {settings.rate_limit_pauses} pauses"
     )
 
     async def go() -> list[dict[str, Any]]:
@@ -354,6 +367,8 @@ def run_scan(
                 sleep=asyncio.sleep,
                 classify=default_classify,
                 line=say,
+                max_pauses=settings.rate_limit_pauses,
+                jitter=lambda cooldown: random.uniform(0.0, cooldown / 2),  # noqa: S311 - pacing, not crypto
             )
         finally:
             # The library only closes a client it created itself; ours is
