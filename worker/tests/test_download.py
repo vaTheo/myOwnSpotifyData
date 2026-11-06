@@ -36,7 +36,12 @@ class FakeYdl:
     def extract_info(self, url, download=True):
         if self.error:
             raise self.error
+        self.calls = getattr(self, "calls", []) + [("extract", download)]
         return self.info
+
+    def process_ie_result(self, info, download=True):
+        self.calls = getattr(self, "calls", []) + [("process", download)]
+        return info
 
 
 def factory(info=None, error=None):
@@ -91,6 +96,22 @@ class Options(unittest.TestCase):
         info = dict(INFO, uploader=None, channel=None, title=None)
         r = download("u", DEST, settings(), ydl_factory=factory(info), match_filter=lambda *a: None)
         self.assertEqual((r.title, r.uploader), ("abc123", None))
+
+
+class Early(unittest.TestCase):
+    def test_too_long_is_refused_before_any_download(self):
+        FakeYdl.instances.clear()
+        r = download("u", DEST, settings(), ydl_factory=factory(dict(INFO, duration=17681)), match_filter=lambda *a: None, max_duration=14400)
+        self.assertEqual(r, DownloadFailure("Set too long (4 h 54 min; the limit is 4 h 00 min, setting WORKER_MAX_DURATION_SECONDS)"))
+        self.assertEqual(FakeYdl.instances[0].calls, [("extract", False)])
+
+    def test_metadata_then_download(self):
+        FakeYdl.instances.clear()
+        lines = []
+        r = download("u", DEST, settings(), ydl_factory=factory(INFO), match_filter=lambda *a: None, line=lines.append, max_duration=28800)
+        self.assertIsInstance(r, Downloaded)
+        self.assertEqual(FakeYdl.instances[0].calls, [("extract", False), ("process", True)])
+        self.assertEqual(lines[0], "  download · A set · 2 h 01 min")
 
 
 class Progress(unittest.TestCase):

@@ -22,7 +22,6 @@ REFUSED_REASON = "Recognition service refused (rate limited); try later"
 TOO_LARGE_REASON = "Result too large"
 NO_TRACK_REASON = "No track identified"
 BAD_LINK_REASON = "Request has no valid link"
-TOO_LONG_REASON = "Set longer than 4 hours"
 
 
 @dataclass
@@ -92,7 +91,9 @@ def run_one(job: dict[str, Any], settings: Settings, token: str, deps: Deps) -> 
             return _fail(deps, settings, token, job_id, got.reason)
         steps.done("download", f"{got.path.name} · {got.duration or '?'} s", started)
         if got.duration is not None and got.duration > settings.max_duration_seconds:
-            return _fail(deps, settings, token, job_id, TOO_LONG_REASON)
+            from .download import too_long_reason
+
+            return _fail(deps, settings, token, job_id, too_long_reason(got.duration, settings.max_duration_seconds))
 
         started = deps.now()
         try:

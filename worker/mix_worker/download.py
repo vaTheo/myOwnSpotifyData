@@ -109,6 +109,28 @@ def _first_text(info: dict[str, Any], *keys: str) -> str | None:
     return None
 
 
+def hours(seconds: Any) -> str:
+    s = int(seconds)
+    return f"{s // 3600} h {s % 3600 // 60:02d} min" if s >= 3600 else f"{s // 60} min {s % 60:02d} s"
+
+
+def too_long_reason(duration: Any, limit: int) -> str:
+    return f"Set too long ({hours(duration)}; the limit is {hours(limit)}, setting WORKER_MAX_DURATION_SECONDS)"
+
+
+def _refuse_early(info: Any, max_duration: int | None) -> DownloadFailure | None:
+    if not isinstance(info, dict):
+        return None
+    if info.get("_type") == "playlist":
+        return DownloadFailure("Playlist links are not supported; paste one set")
+    if info.get("is_live"):
+        return DownloadFailure("Live streams are not supported")
+    duration = info.get("duration")
+    if max_duration and isinstance(duration, (int, float)) and duration > max_duration:
+        return DownloadFailure(too_long_reason(duration, max_duration))
+    return None
+
+
 def download(
     url: str,
     dest_dir: Path,
@@ -116,6 +138,7 @@ def download(
     ydl_factory: Callable[[dict[str, Any]], Any] | None = None,
     match_filter: Any = None,
     line: Callable[[str], None] | None = None,
+    max_duration: int | None = None,
 ) -> Downloaded | DownloadFailure:
     if ydl_factory is None or match_filter is None:
         import yt_dlp  # imported here so tests never load it
@@ -129,7 +152,16 @@ def download(
         if line is not None:
             opts["progress_hooks"] = [progress_hook(line)]
         with ydl_factory(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
+            # Metadata first: a set over the limit, a playlist or a live
+            # stream is refused before a single byte of audio is fetched.
+            info = ydl.extract_info(url, download=False)
+            early = _refuse_early(info, max_duration)
+            if early is not None:
+                return early
+            if line is not None:
+                length = info.get("duration")
+                line(f"  download · {info.get('title') or url} · {hours(length) if length else 'length unknown'}")
+            info = ydl.process_ie_result(info, download=True)
     except Exception as err:  # yt_dlp.utils.DownloadError and anything else
         return DownloadFailure(reason_for(str(err)))
     if not isinstance(info, dict):
