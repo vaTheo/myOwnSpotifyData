@@ -14,9 +14,18 @@ export const SETTINGS_SECTIONS = [
 
 export type SectionId = (typeof SETTINGS_SECTIONS)[number]['id'];
 
+const PREFIX = 'settings-';
+
 /** The element id of a section's card; the address never changes. */
 export function sectionDomId(id: SectionId): string {
-  return `settings-${id}`;
+  return `${PREFIX}${id}`;
+}
+
+/** The section of an element id made by `sectionDomId`, or null. */
+export function sectionIdOf(domId: string): SectionId | null {
+  if (!domId.startsWith(PREFIX)) return null;
+  const id = domId.slice(PREFIX.length);
+  return SETTINGS_SECTIONS.find((s) => s.id === id)?.id ?? null;
 }
 
 /**

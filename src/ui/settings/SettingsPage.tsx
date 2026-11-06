@@ -8,6 +8,7 @@ import { ReachSection } from './ReachSection';
 import {
   SETTINGS_SECTIONS,
   sectionDomId,
+  sectionIdOf,
   sectionInView,
   type SectionId,
 } from './sections';
@@ -36,19 +37,21 @@ function SectionIndex() {
         sectionInView(ORDER, visible.current, current, atEnd)
       );
     };
-    const top = getComputedStyle(document.documentElement)
-      .getPropertyValue('--app-top-bar')
-      .trim();
+    // The band starts under the sticky top bar, measured in px: a token
+    // read raw could be a calc() that rootMargin refuses.
+    const bar = document.querySelector('.top-bar')?.getBoundingClientRect();
+    const top = Math.round(bar?.height ?? 64);
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const id = entry.target.id.replace('settings-', '') as SectionId;
+          const id = sectionIdOf(entry.target.id);
+          if (id === null) continue;
           if (entry.isIntersecting) visible.current.add(id);
           else visible.current.delete(id);
         }
         update();
       },
-      { rootMargin: `-${top || '64px'} 0px -60% 0px` }
+      { rootMargin: `-${top}px 0px -60% 0px` }
     );
     for (const id of ORDER) {
       const el = document.getElementById(sectionDomId(id));

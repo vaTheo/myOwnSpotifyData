@@ -23,7 +23,7 @@ export function AccountSection() {
       id={sectionDomId('account')}
       class="settings-section"
       title="Spotify account"
-      description="The Spotify login this browser reads your library with."
+      description="The Spotify login this browser reads your library with. It also allows the two writes you start with a tap: Create playlist and Like all songs."
     >
       {session ? (
         <StatusLine kind="success">Signed in to Spotify.</StatusLine>
@@ -46,7 +46,7 @@ export function AccountSection() {
         </Button>
       </div>
       <p class="muted">
-        Connect again signs you out and back in. Nothing on this browser is
+        Connect again signs you out and back in. Nothing in this browser is
         deleted.
       </p>
     </Card>

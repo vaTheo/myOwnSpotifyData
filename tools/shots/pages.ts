@@ -497,6 +497,21 @@ export const PAGES: ShotPage[] = [
       }),
   },
   {
+    // A dropped file of another type is refused at the drop area.
+    id: 'import-refused',
+    hash: '#/import',
+    setup: async (page) => {
+      const data = await page.evaluateHandle(() => {
+        const dt = new DataTransfer();
+        dt.items.add(new File(['x'], 'notes.txt', { type: 'text/plain' }));
+        return dt;
+      });
+      await page
+        .getByText(/^(Drop|Choose) my_spotify_data\.zip/)
+        .dispatchEvent('drop', { dataTransfer: data });
+    },
+  },
+  {
     id: 'import-cancelled',
     hash: '#/import',
     setup: (page) =>

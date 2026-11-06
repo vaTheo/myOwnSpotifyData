@@ -104,7 +104,7 @@ export function Import() {
         <FileDrop
           label={
             compact
-              ? 'Choose my_spotify_data.zip'
+              ? 'Choose my_spotify_data.zip or the JSON files inside it'
               : 'Drop my_spotify_data.zip here or choose a file'
           }
           hint="The JSON files inside it work too."

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   SETTINGS_SECTIONS,
   sectionDomId,
+  sectionIdOf,
   sectionInView,
   type SectionId,
 } from './sections';
@@ -25,6 +26,12 @@ describe('SETTINGS_SECTIONS', () => {
     const ids = ORDER.map(sectionDomId);
     expect(new Set(ids).size).toBe(ids.length);
     expect(sectionDomId('reach')).toBe('settings-reach');
+  });
+
+  it('reads a section back from its element id, and nothing else', () => {
+    for (const id of ORDER) expect(sectionIdOf(sectionDomId(id))).toBe(id);
+    expect(sectionIdOf('settings-nope')).toBeNull();
+    expect(sectionIdOf('reach')).toBeNull();
   });
 });
 

@@ -66,14 +66,30 @@ button:hover:not(:disabled) {
   );
 }
 
+/* Disabled: Material's 12% fill, and a label at 50% of on-surface rather
+   than 38%, so it keeps 3.6:1 on a card (38% gives 2.7:1). */
 button:disabled {
   background: color-mix(
     in srgb,
     var(--md-sys-color-on-surface) 12%,
     transparent
   );
-  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 50%, transparent);
   cursor: default;
+}
+
+/* An outlined or destructive button, disabled, drops its colour: no fill,
+   a 12% outline and the same 50% label (4.2:1 on a card). */
+button.btn-outlined:disabled,
+button.btn-danger:disabled,
+button.danger:disabled {
+  background: transparent;
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 50%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 12%,
+    transparent
+  );
 }
 
 button.primary {
