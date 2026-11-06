@@ -91,7 +91,9 @@ export function rowKey(store: StoreName, row: unknown): string {
   const r = row as Record<string, unknown>;
   switch (store) {
     case 'entries':
-      return `${String(r.playlistId)}\u0000${String(r.position)}`;
+      // '#' never appears in a Spotify id; NUL would, but Postgres refuses
+      // NUL inside JSON, which PostgREST parses every body as.
+      return `${String(r.playlistId)}#${String(r.position)}`;
     case 'playlists':
       return String(r.id);
     case 'plays':

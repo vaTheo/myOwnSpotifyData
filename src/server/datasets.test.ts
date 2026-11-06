@@ -124,10 +124,8 @@ describe('DATASETS', () => {
 });
 
 describe('rowKey', () => {
-  it('serialises entries as playlistId NUL position and every other store as its keyPath', () => {
-    expect(rowKey('entries', { playlistId: 'p1', position: 7 })).toBe(
-      'p1\u0000' + '7'
-    );
+  it('serialises entries as playlistId#position (no NUL: Postgres refuses it in JSON) and every other store as its keyPath', () => {
+    expect(rowKey('entries', { playlistId: 'p1', position: 7 })).toBe('p1#7');
     expect(rowKey('playlists', { id: 'p1' })).toBe('p1');
     expect(rowKey('tracks', { key: 'spotify:local:x' })).toBe(
       'spotify:local:x'
