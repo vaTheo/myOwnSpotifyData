@@ -329,6 +329,51 @@ def default_classify(err: Exception) -> str:
     return "raise"
 
 
+def shazam_for(device: str, http_client: Any) -> Any:
+    """A `Shazam` that sends recognitions as `device`.
+
+    ShazamIO 0.9.0 hard-codes the iPhone profile in `send_recognize_request_v2`
+    (`api.py`); its PR #258 measured 2–4 refusals in 11 calls with it and none
+    with Android. The answer's fields the worker reads (title, subtitle, isrc,
+    sections, url, key, images) are the same; only the Apple Music link
+    differs, and the worker never reads it (research D3).
+    """
+    import uuid
+
+    from shazamio import Shazam  # type: ignore[import-not-found]
+
+    if device == "iphone":
+        return Shazam(http_client=http_client)
+
+    from shazamio.converter import Converter  # type: ignore[import-not-found]
+    from shazamio.misc import ShazamUrl  # type: ignore[import-not-found]
+
+    class AndroidShazam(Shazam):  # type: ignore[misc, valid-type]
+        def headers(self) -> dict[str, str]:
+            base = super().headers()
+            base["X-Shazam-Platform"] = "ANDROID"
+            base["User-Agent"] = "Dalvik/2.1.0 (Linux; U; Android 14; Pixel 8 Build/AP2A.240805.005)"
+            return base
+
+        async def send_recognize_request_v2(self, sig: Any, proxy: str | None = None) -> Any:
+            data = Converter.data_search(sig.timezone, sig.signature.uri, sig.signature.samples, sig.timestamp)
+            return await self.http_client.request(
+                "POST",
+                ShazamUrl.SEARCH_FROM_FILE.format(
+                    language=self.language,
+                    device="android",
+                    endpoint_country=self.endpoint_country,
+                    uuid_1=str(uuid.uuid4()).upper(),
+                    uuid_2=str(uuid.uuid4()).upper(),
+                ),
+                headers=self.headers(),
+                proxy=proxy,
+                json=data,
+            )
+
+    return AndroidShazam(http_client=http_client)
+
+
 def run_scan(
     file: Path,
     duration: int | None,
@@ -338,19 +383,19 @@ def run_scan(
     """The pipeline's `scan` seam: builds the Shazam client lazily and runs
     the async scan with the real cutter and sleeps."""
     from aiohttp_retry import ExponentialRetry  # type: ignore[import-not-found]
-    from shazamio import HTTPClient, Shazam  # type: ignore[import-not-found]
+    from shazamio import HTTPClient  # type: ignore[import-not-found]
 
     ffmpeg = ffmpeg_path(settings.ffmpeg)
     say = line or (lambda text: None)
     say(
         f"  scan · ffmpeg {ffmpeg} · one {settings.probe_seconds} s probe every {settings.probe_step_seconds} s"
         f" · {len(probe_times(duration, settings.probe_step_seconds)) if duration else '?'} probes"
-        f" · cooldown {settings.cooldown_seconds} s (+0-50 %) · up to {settings.rate_limit_pauses} pauses"
+        f" · as {settings.shazam_device} · cooldown {settings.cooldown_seconds} s (+0-50 %) · up to {settings.rate_limit_pauses} pauses"
     )
 
     async def go() -> list[dict[str, Any]]:
         client = HTTPClient(retry_options=ExponentialRetry(attempts=5, max_timeout=60.0))
-        shazam = Shazam(http_client=client)
+        shazam = shazam_for(settings.shazam_device, client)
         try:
             async def recognise(data: bytes, max_skew: float | None) -> Any:
                 return await shazam.recognize(data, proxy=settings.proxy, max_skew=max_skew)

@@ -45,6 +45,7 @@ class Defaults(unittest.TestCase):
         self.assertEqual(s.rate_limit_pause_seconds, 300.0)
         self.assertEqual(s.rate_limit_pauses, 3)
         self.assertEqual(s.max_skew, 0.001)
+        self.assertEqual(s.shazam_device, "android")
         self.assertEqual(s.merge_gap_seconds, 180)
         self.assertEqual(s.result_max_bytes, 900000)
 
@@ -87,6 +88,7 @@ class FileAndEnv(unittest.TestCase):
             ({"WORKER_COOLDOWN_SECONDS": "soon"}, "WORKER_COOLDOWN_SECONDS"),
             ({"WORKER_MAX_SKEW": "-0.1"}, "WORKER_MAX_SKEW"),
             ({"WORKER_PROBE_SECONDS": "13"}, "WORKER_PROBE_SECONDS"),
+            ({"WORKER_SHAZAM_DEVICE": "web"}, "WORKER_SHAZAM_DEVICE"),
             ({"WORKER_PROBE_SECONDS": "1"}, "WORKER_PROBE_SECONDS"),
         ]:
             with self.assertRaises(SettingsError) as ctx:

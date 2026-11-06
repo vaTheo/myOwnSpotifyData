@@ -43,6 +43,7 @@ class Settings:
     cooldown_seconds: float
     rate_limit_pause_seconds: float
     rate_limit_pauses: int
+    shazam_device: str
     max_skew: float
     merge_gap_seconds: int
     result_max_bytes: int
@@ -137,6 +138,13 @@ def _probe_seconds(values: Mapping[str, str]) -> int:
     return value
 
 
+def _device(values: Mapping[str, str]) -> str:
+    value = values.get("WORKER_SHAZAM_DEVICE", "android").strip().lower()
+    if value not in ("android", "iphone"):
+        raise SettingsError("WORKER_SHAZAM_DEVICE", "must be android or iphone")
+    return value
+
+
 def load_settings(
     path: Path | None,
     env: Mapping[str, str],
@@ -193,6 +201,7 @@ def load_settings(
         cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 6.0, 0.0),
         rate_limit_pause_seconds=_float(values, "WORKER_RATE_LIMIT_PAUSE_SECONDS", 300.0, 0.0),
         rate_limit_pauses=_int(values, "WORKER_RATE_LIMIT_PAUSES", 3, 0),
+        shazam_device=_device(values),
         max_skew=_float(values, "WORKER_MAX_SKEW", 0.001, 0.0),
         merge_gap_seconds=_int(values, "WORKER_MERGE_GAP_SECONDS", 180, 1),
         result_max_bytes=_int(values, "WORKER_RESULT_MAX_BYTES", 900000, 1),
