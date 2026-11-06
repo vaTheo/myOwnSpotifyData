@@ -72,3 +72,12 @@ Everything here is additive; no `DB_VERSION` bump; no new dependency.
 `resultToRows` on the F15 fixtures and on a result with no `metadata`; `jobView` rejections; `requestStatusText` matrix),
 `sync.test.ts` (pull applies one result, marks it, second device skips it, rejected result not marked, history meta written,
 `requestIdentify` "exists"), `validate.test.ts` (`validateJobRow`), `repo.test.ts` (optional fields survive a round trip).
+
+## Requests card (added after the first live run)
+
+- `requestList(jobs, mixes, server): RequestListItem[]` in `src/features/mix/worker.ts` — every key's latest request: running,
+  then waiting oldest first (the worker's order), then finished newest first; title from the saved mix, else host · last path
+  part; `canAskAgain` on a failed or rejected request when `requestStatusText` allows it.
+- `RequestsCard` on the Mix screen under the request button: badge, title, state line (tracks on a done saved mix), Check now
+  (`startServerSync`), a row opens its saved mix or puts the link in the box.
+- `startServerPull` reloads `mixJobs` after every successful pull, also when no result was applied, so a state change shows.

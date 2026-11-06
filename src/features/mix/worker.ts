@@ -149,7 +149,11 @@ export function requestStatusText(
     case 'unset':
       return { button: 'Server not set up (Settings)', canAsk: false, line };
     case 'signedOut':
-      return { button: 'Sign in to the server (Settings)', canAsk: false, line };
+      return {
+        button: 'Sign in to the server (Settings)',
+        canAsk: false,
+        line,
+      };
     case 'offline':
       return { button: 'Server unreachable', canAsk: false, line };
     case 'paused':
@@ -169,4 +173,90 @@ export function requestStatusText(
   }
   if (view) return { button: ASK_AGAIN, canAsk: true, line };
   return { button: ASK, canAsk: true, line: null };
+}
+
+/** One row of the Mix screen's "Requests to your computer" card. */
+export interface RequestListItem {
+  /** The request key (`requestKey` output): the link the worker downloads. */
+  key: string;
+  /** The saved mix's title, else the link's host and last path part. */
+  title: string;
+  /** Short state badge. */
+  label: 'Waiting' | 'Identifying' | 'Done' | 'Rejected' | 'Failed';
+  /** The state line `requestStatusText` gives the same request. */
+  line: string;
+  /** Rows on the saved mix, when one exists. */
+  tracks: number | null;
+  /** Whether a saved mix exists for this key (the row opens it). */
+  saved: boolean;
+  /** A failed or rejected request the server can take again now. */
+  canAskAgain: boolean;
+}
+
+function shortLink(key: string): string {
+  try {
+    const u = new URL(key);
+    const last = u.pathname.split('/').filter(Boolean).pop();
+    const host = u.hostname.replace(/^www\./, '');
+    return last ? `${host} · ${decodeURIComponent(last)}` : host;
+  } catch {
+    return key;
+  }
+}
+
+function labelOf(view: MixJobView): RequestListItem['label'] {
+  switch (view.status) {
+    case 'queued':
+      return 'Waiting';
+    case 'claimed':
+      return 'Identifying';
+    case 'done':
+      return view.rejected ? 'Rejected' : 'Done';
+    case 'failed':
+      return 'Failed';
+  }
+}
+
+/**
+ * Every link's latest request, for the card: the running ones first, then
+ * the waiting ones oldest first (the order the worker takes them), then the
+ * finished ones newest first.
+ */
+export function requestList(
+  jobs: Record<string, MixJobView[]>,
+  mixes: readonly {
+    url: string;
+    title: string | null;
+    rows: readonly { gap?: boolean }[];
+  }[],
+  server: ServerStatus
+): RequestListItem[] {
+  const rank = (v: MixJobView): number =>
+    v.status === 'claimed' ? 0 : v.status === 'queued' ? 1 : 2;
+  const latest = Object.entries(jobs)
+    .map(([key, history]) => ({ key, view: history[0] }))
+    .filter(
+      (e): e is { key: string; view: MixJobView } => e.view !== undefined
+    );
+  latest.sort((a, b) => {
+    const r = rank(a.view) - rank(b.view);
+    if (r !== 0) return r;
+    if (a.view.status === 'queued') return a.view.createdAt - b.view.createdAt;
+    const at = (v: MixJobView) => v.finishedAt ?? v.claimedAt ?? v.createdAt;
+    return at(b.view) - at(a.view);
+  });
+  return latest.map(({ key, view }) => {
+    const mix = mixes.find((m) => m.url === key);
+    const label = labelOf(view);
+    const text = requestStatusText(view, server);
+    return {
+      key,
+      title: mix?.title ?? shortLink(key),
+      label,
+      line: text.line ?? '',
+      tracks: mix ? mix.rows.filter((r) => !r.gap).length : null,
+      saved: mix !== undefined,
+      canAskAgain: (label === 'Failed' || label === 'Rejected') && text.canAsk,
+    };
+  });
 }

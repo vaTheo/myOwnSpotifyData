@@ -38,11 +38,7 @@ import {
 } from '../features/mix/lookup';
 import { parseDescription, parsePasted } from '../features/mix/parse';
 import { parseTracklistifyJson } from '../features/mix/tracklistify';
-import {
-  classifyMixInput,
-  isShortLink,
-  requestKey,
-} from '../features/mix/url';
+import { classifyMixInput, isShortLink, requestKey } from '../features/mix/url';
 import { requestStatusText } from '../features/mix/worker';
 import { runCreatePlaylist } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
@@ -307,6 +303,10 @@ export async function startServerPull(): Promise<void> {
     if (res.value.pulled.length > 0) {
       await loadFromDb();
       await loadSavedMixes();
+    } else {
+      // A request that only moved (waiting → running → failed) applies no
+      // rows, but the Mix screen's request list still shows its new state.
+      await reloadMixJobs();
     }
     serverState.value = await connectedView(res.value.rejected);
     if (res.value.stale.length > 0) {
@@ -1219,6 +1219,14 @@ export async function loadSavedMixes(): Promise<void> {
 }
 
 /* ---------- identify on my computer (worker round) ---------- */
+
+async function reloadMixJobs(): Promise<void> {
+  try {
+    mixJobs.value = (await getMeta<MixJobs>(MIX_JOBS_META)) ?? {};
+  } catch (err) {
+    mixError.value = `Could not read your requests: ${describeError(err)}`;
+  }
+}
 
 /** The identify requests per canonical link, newest first (FR-003). */
 export const mixJobs = signal<MixJobs>({});

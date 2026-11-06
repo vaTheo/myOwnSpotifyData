@@ -10,7 +10,7 @@ import {
 import { digRows } from '../features/mix/digLinks';
 import { isIdentified } from '../features/mix/spotifySearch';
 import { requestKey } from '../features/mix/url';
-import { requestStatusText } from '../features/mix/worker';
+import { requestList, requestStatusText } from '../features/mix/worker';
 import {
   addMixRow,
   applyDescriptionTracklist,
@@ -32,6 +32,7 @@ import {
   serverState,
   startCreatePlaylist,
   startIdentifyRequest,
+  startServerSync,
   startMixLookup,
   startTracklistifyImport,
   type MixView,
@@ -541,7 +542,9 @@ function Provenance(p: { view: MixView }) {
             'track'
           )}
           {(() => {
-            const at = savedMixes.value.find((m) => m.url === view.url)?.identifiedAt;
+            const at = savedMixes.value.find(
+              (m) => m.url === view.url
+            )?.identifiedAt;
             return at ? ` · ${formatDate(at)}` : '';
           })()}
         </p>
@@ -630,31 +633,34 @@ function SavedMixes() {
   const mixes = savedMixes.value;
   if (mixes.length === 0) return <p class="muted">No saved mixes yet.</p>;
   return (
-    <ul class="list">
-      {mixes.map((mix) => {
-        const n = mix.rows.filter((r) => !r.gap).length;
-        return (
-          <TrackRow
-            key={mix.url}
-            title={mix.title ?? mix.url}
-            subtitle={`${plural(n, 'track')} · saved ${formatDate(mix.savedAt)}`}
-            onClick={() => openMix(mix.url)}
-          >
-            <div class="actions">
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Remove this saved mix?'))
-                    void removeMix(mix.url);
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          </TrackRow>
-        );
-      })}
-    </ul>
+    <>
+      <h2>Saved mixes</h2>
+      <ul class="list">
+        {mixes.map((mix) => {
+          const n = mix.rows.filter((r) => !r.gap).length;
+          return (
+            <TrackRow
+              key={mix.url}
+              title={mix.title ?? mix.url}
+              subtitle={`${plural(n, 'track')} · saved ${formatDate(mix.savedAt)}`}
+              onClick={() => openMix(mix.url)}
+            >
+              <div class="actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Remove this saved mix?'))
+                      void removeMix(mix.url);
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            </TrackRow>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
@@ -739,6 +745,75 @@ function IdentifyRequest(p: { url: string; busy: boolean }) {
   );
 }
 
+const REQUEST_BADGE: Record<string, string> = {
+  Waiting: 'badge',
+  Identifying: 'badge plays',
+  Done: 'badge top',
+  Rejected: 'badge todo',
+  Failed: 'badge skip',
+};
+
+/**
+ * "Requests to your computer": every link's latest request and its state,
+ * running first, then waiting in the worker's order, then finished. A row
+ * opens its saved mix, or puts the link in the box when none is saved.
+ * Statuses come from the last pull; Check now pulls again.
+ */
+function RequestsCard(p: { onPick: (url: string) => void }) {
+  const server = serverState.value;
+  const items = requestList(mixJobs.value, savedMixes.value, server);
+  if (items.length === 0) return null;
+  const syncing = server.status === 'pushing' || server.status === 'pulling';
+  const active = items.filter(
+    (i) => i.label === 'Waiting' || i.label === 'Identifying'
+  ).length;
+  return (
+    <div class="card requests">
+      <h2>Requests to your computer</h2>
+      <p class="caption">
+        {active > 0
+          ? `${plural(active, 'request')} waiting or running.`
+          : 'Nothing waiting.'}{' '}
+        <button
+          type="button"
+          disabled={syncing}
+          onClick={() => void startServerSync()}
+        >
+          {syncing ? 'Checking…' : 'Check now'}
+        </button>
+      </p>
+      <ul class="list">
+        {items.map((item) => (
+          <TrackRow
+            key={item.key}
+            title={item.title}
+            subtitle={
+              item.tracks !== null && item.label === 'Done'
+                ? `${item.line} · ${plural(item.tracks, 'track')}`
+                : item.line
+            }
+            badges={<span class={REQUEST_BADGE[item.label]}>{item.label}</span>}
+            onClick={() =>
+              item.saved ? void openMix(item.key) : p.onPick(item.key)
+            }
+          >
+            {item.canAskAgain && (
+              <div class="actions">
+                <button
+                  type="button"
+                  onClick={() => void startIdentifyRequest(item.key)}
+                >
+                  Ask again
+                </button>
+              </div>
+            )}
+          </TrackRow>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function Mix() {
   const [url, setUrl] = useState('');
   const state = mixState.value;
@@ -798,6 +873,7 @@ export function Mix() {
         </button>
       </form>
       <IdentifyRequest url={url} busy={state.status === 'looking'} />
+      <RequestsCard onPick={setUrl} />
       <label class="file">
         <span>Or import a Tracklistify tracklist.json</span>
         <input type="file" accept=".json,application/json" onChange={onJson} />

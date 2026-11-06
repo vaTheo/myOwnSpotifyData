@@ -4,6 +4,7 @@ import type { ServerStatus } from '../../server/types';
 import {
   jobView,
   mergeWorkerRows,
+  requestList,
   requestStatusText,
   resultToRows,
 } from './worker';
@@ -31,7 +32,9 @@ function resultFixture(over: Record<string, unknown> = {}): unknown {
           isrc: 'DECH62001634',
           label: 'Primary Colours',
           shazam_id: '825039928',
-          links: { shazam: 'https://www.shazam.com/track/825039928/noble-booth' },
+          links: {
+            shazam: 'https://www.shazam.com/track/825039928/noble-booth',
+          },
         },
       },
       {
@@ -40,7 +43,10 @@ function resultFixture(over: Record<string, unknown> = {}): unknown {
         time_in_mix: '00:25:50',
         confidence: 97.7,
         duration: null,
-        metadata: { shazam_id: '836945321', links: { shazam: 'javascript:alert(1)' } },
+        metadata: {
+          shazam_id: '836945321',
+          links: { shazam: 'javascript:alert(1)' },
+        },
       },
       {
         song_name: 'Pep A Cat Up',
@@ -92,20 +98,36 @@ describe('resultToRows', () => {
     });
     expect(r.rows[1].shazamUrl).toBeNull();
     expect(r.rows[1].startSec).toBe(25 * 60 + 50);
-    expect(r.rows[2]).toMatchObject({ isrc: null, label: null, shazamUrl: null });
+    expect(r.rows[2]).toMatchObject({
+      isrc: null,
+      label: null,
+      shazamUrl: null,
+    });
     expect('url' in r).toBe(false);
   });
   it('accepts tracks without metadata', () => {
     const r = resultToRows(
       resultFixture({
-        tracks: [{ song_name: 'X', artist: 'Y', time_in_mix: '00:10:00', confidence: 80 }],
+        tracks: [
+          {
+            song_name: 'X',
+            artist: 'Y',
+            time_in_mix: '00:10:00',
+            confidence: 80,
+          },
+        ],
       })
     );
-    expect(r.ok && r.rows[0].isrc === null && r.rows[0].label === null).toBe(true);
+    expect(r.ok && r.rows[0].isrc === null && r.rows[0].label === null).toBe(
+      true
+    );
   });
   it('refuses an empty tracklist, a wrong shape and a non-object', () => {
     expect(resultToRows(resultFixture({ tracks: [] })).ok).toBe(false);
-    expect(resultToRows(resultFixture({ tracks: [{ song_name: '', artist: '' }] })).ok).toBe(false);
+    expect(
+      resultToRows(resultFixture({ tracks: [{ song_name: '', artist: '' }] }))
+        .ok
+    ).toBe(false);
     expect(resultToRows({ tracks: [] }).ok).toBe(false);
     expect(resultToRows(null).ok).toBe(false);
     expect(resultToRows('text').ok).toBe(false);
@@ -114,8 +136,18 @@ describe('resultToRows', () => {
     const r = resultToRows(
       resultFixture({
         tracks: [
-          { song_name: 'X', artist: 'Y', time_in_mix: '00:00:00', confidence: 'high' },
-          { song_name: 'Ok', artist: 'Fine', time_in_mix: 'noon', confidence: 50 },
+          {
+            song_name: 'X',
+            artist: 'Y',
+            time_in_mix: '00:00:00',
+            confidence: 'high',
+          },
+          {
+            song_name: 'Ok',
+            artist: 'Fine',
+            time_in_mix: 'noon',
+            confidence: 50,
+          },
         ],
       })
     );
@@ -127,11 +159,22 @@ describe('resultToRows', () => {
 });
 
 describe('mergeWorkerRows', () => {
-  const incoming = [row({ startSec: 0, title: 'New1' }), row({ startSec: 300, title: 'New2' })];
+  const incoming = [
+    row({ startSec: 0, title: 'New1' }),
+    row({ startSec: 300, title: 'New2' }),
+  ];
   it('replaces untouched scan rows and keeps everything else, ordered by time', () => {
     const existing = [
-      row({ startSec: 0, title: 'Old untouched', detected: { artist: 'A', title: 'Old untouched' } }),
-      row({ startSec: 100, title: 'Edited', detected: { artist: 'A', title: 'Was' } }),
+      row({
+        startSec: 0,
+        title: 'Old untouched',
+        detected: { artist: 'A', title: 'Old untouched' },
+      }),
+      row({
+        startSec: 100,
+        title: 'Edited',
+        detected: { artist: 'A', title: 'Was' },
+      }),
       row({ startSec: 200, title: 'Manual', source: 'manual', detected: null }),
       row({ startSec: 50, title: 'Pasted', source: 'pasted' }),
       row({ startSec: 400, title: 'TrackId', source: 'trackid' }),
@@ -154,11 +197,11 @@ describe('mergeWorkerRows', () => {
       row({ startSec: 0, title: 'Manual A', source: 'manual', detected: null }),
       row({ startSec: 0, title: 'Manual B', source: 'manual', detected: null }),
     ];
-    expect(mergeWorkerRows(existing, [row({ startSec: 0, title: 'Scan' })]).map((r) => r.title)).toEqual([
-      'Manual A',
-      'Manual B',
-      'Scan',
-    ]);
+    expect(
+      mergeWorkerRows(existing, [row({ startSec: 0, title: 'Scan' })]).map(
+        (r) => r.title
+      )
+    ).toEqual(['Manual A', 'Manual B', 'Scan']);
   });
 });
 
@@ -221,19 +264,29 @@ describe('requestStatusText', () => {
     expect(requestStatusText(undefined, { status: 'signedOut' }).button).toBe(
       'Sign in to the server (Settings)'
     );
-    expect(requestStatusText(undefined, { status: 'offline', message: 'x' }).button).toBe(
-      'Server unreachable'
-    );
     expect(
-      requestStatusText(undefined, { status: 'paused', dashboardUrl: 'https://d' }).button
+      requestStatusText(undefined, { status: 'offline', message: 'x' }).button
+    ).toBe('Server unreachable');
+    expect(
+      requestStatusText(undefined, {
+        status: 'paused',
+        dashboardUrl: 'https://d',
+      }).button
     ).toBe('Server paused — resume it from the dashboard');
-    expect(requestStatusText(undefined, { status: 'error', message: 'boom' })).toEqual({
+    expect(
+      requestStatusText(undefined, { status: 'error', message: 'boom' })
+    ).toEqual({
       button: 'Identify on my computer',
       canAsk: true,
       line: null,
     });
     expect(
-      requestStatusText(undefined, { status: 'pulling', dataset: 'library', done: 0, total: 1 }).canAsk
+      requestStatusText(undefined, {
+        status: 'pulling',
+        dataset: 'library',
+        done: 0,
+        total: 1,
+      }).canAsk
     ).toBe(false);
   });
   it('offers the request when connected and nothing is pending', () => {
@@ -253,7 +306,10 @@ describe('requestStatusText', () => {
     );
     expect(running.canAsk).toBe(false);
     expect(running.line).toMatch(/^Running on laptop since /);
-    const done = requestStatusText(view({ status: 'done', finishedAt: 2 }), connected);
+    const done = requestStatusText(
+      view({ status: 'done', finishedAt: 2 }),
+      connected
+    );
     expect(done).toMatchObject({ button: 'Ask again', canAsk: true });
     expect(done.line).toMatch(/^Done /);
     const failed = requestStatusText(
@@ -279,5 +335,96 @@ describe('requestStatusText', () => {
     });
     expect(r.canAsk).toBe(false);
     expect(r.line).toMatch(/^Done /);
+  });
+});
+
+describe('requestList', () => {
+  const connected: ServerStatus = {
+    status: 'connected',
+    lastSyncAt: null,
+    usedBytes: null,
+    stamps: [],
+    rejected: 0,
+  };
+  const t = (iso: string) => Date.parse(`2026-11-06T${iso}:00.000Z`);
+  function view(over: Partial<MixJobView>): MixJobView {
+    return {
+      id: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+      status: 'queued',
+      createdAt: t('09:00'),
+      claimedBy: null,
+      claimedAt: null,
+      finishedAt: null,
+      error: null,
+      appliedAt: null,
+      ...over,
+    };
+  }
+  const jobs = {
+    'https://soundcloud.com/a/done-set': [
+      view({ status: 'done', finishedAt: t('10:00') }),
+    ],
+    'https://soundcloud.com/a/late-queued': [view({ createdAt: t('11:00') })],
+    'https://www.youtube.com/watch?v=x': [
+      view({ status: 'failed', finishedAt: t('12:00'), error: 'Boom' }),
+      view({ status: 'done', finishedAt: t('08:00') }),
+    ],
+    'https://soundcloud.com/a/running': [
+      view({ status: 'claimed', claimedBy: 'laptop', claimedAt: t('10:30') }),
+    ],
+    'https://soundcloud.com/a/early-queued': [view({ createdAt: t('09:30') })],
+    'https://soundcloud.com/a/empty': [],
+  };
+  const mixes = [
+    {
+      url: 'https://soundcloud.com/a/done-set',
+      title: 'A set',
+      rows: [{}, { gap: true }, {}],
+    },
+  ];
+
+  it('puts running first, waiting oldest first, then finished newest first', () => {
+    const list = requestList(jobs, mixes, connected);
+    expect(list.map((i) => i.label)).toEqual([
+      'Identifying',
+      'Waiting',
+      'Waiting',
+      'Failed',
+      'Done',
+    ]);
+    expect(list[1]?.key).toBe('https://soundcloud.com/a/early-queued');
+    expect(list[3]?.key).toBe('https://www.youtube.com/watch?v=x');
+  });
+
+  it('names a saved mix by its title and counts its tracks, else a short link', () => {
+    const list = requestList(jobs, mixes, connected);
+    const done = list.find((i) => i.label === 'Done');
+    expect(done).toMatchObject({ title: 'A set', tracks: 2, saved: true });
+    const running = list[0];
+    expect(running).toMatchObject({
+      title: 'soundcloud.com · running',
+      tracks: null,
+      saved: false,
+    });
+    expect(running?.line).toContain('Running on laptop');
+    expect(list[3]?.title).toBe('youtube.com · watch');
+  });
+
+  it('offers Ask again on a failed or rejected request only, and only when the server can take it', () => {
+    const list = requestList(jobs, mixes, connected);
+    expect(list.filter((i) => i.canAskAgain).map((i) => i.label)).toEqual([
+      'Failed',
+    ]);
+    const rejected = requestList(
+      { k: [view({ status: 'done', rejected: true })] },
+      [],
+      connected
+    );
+    expect(rejected[0]).toMatchObject({ label: 'Rejected', canAskAgain: true });
+    const offline = requestList(jobs, mixes, {
+      status: 'offline',
+      message: 'x',
+    });
+    expect(offline.some((i) => i.canAskAgain)).toBe(false);
   });
 });
