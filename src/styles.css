@@ -2315,3 +2315,211 @@ a {
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
 }
+
+/* ---------- Charts (research D10): plain SVG and CSS, tokens only ---------- */
+
+.month-bars {
+  position: relative;
+  padding-top: 32px; /* room for the tooltip above the bars */
+}
+
+.month-bars-svg {
+  display: block;
+  width: 100%;
+  height: 48px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  cursor: crosshair;
+}
+
+.month-bars-bar {
+  fill: var(--md-sys-color-primary);
+}
+
+.month-bars-bar.active {
+  fill: var(--md-sys-color-on-surface);
+}
+
+.month-bars-tick {
+  fill: var(--md-sys-color-on-surface-variant);
+}
+
+.month-bars-axis {
+  display: flex;
+  margin-top: 4px;
+  justify-content: space-between;
+  font: var(--md-sys-typescale-body-small);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.chart-tip {
+  position: absolute;
+  top: 0;
+  padding: 4px 8px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  background: var(--md-sys-color-inverse-surface);
+  color: var(--md-sys-color-inverse-on-surface);
+  font: var(--md-sys-typescale-body-small);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.meter-track {
+  flex: 1;
+  min-width: 48px;
+  height: 8px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container-highest);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+}
+
+.meter-value {
+  flex: none;
+  min-width: 4ch;
+  text-align: right;
+  font: var(--md-sys-typescale-label-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.meter-high {
+  color: var(--app-color-band-high);
+}
+
+.meter-mid {
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.meter-low {
+  color: var(--md-sys-color-error);
+}
+
+/* The grid scrolls inside its box on a phone; the page never does. */
+.ym-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ym-grid {
+  border-collapse: separate;
+  border-spacing: 4px;
+  font: var(--md-sys-typescale-label-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.ym-grid th,
+.ym-grid td {
+  padding: 0;
+}
+
+.ym-month {
+  color: var(--md-sys-color-on-surface-variant);
+  font-weight: 500;
+  text-align: center;
+}
+
+.ym-year {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-right: 8px;
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface-variant);
+  text-align: right;
+}
+
+.ym-cell,
+.ym-total,
+.ym-season {
+  display: block;
+  width: 100%;
+  min-width: var(--app-target);
+  height: var(--app-target);
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ym-cell {
+  background: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface);
+}
+
+/* Five levels against the busiest month; the count is printed as well. */
+.ym-cell.heat-1 {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 12%,
+    var(--md-sys-color-surface-container)
+  );
+}
+
+.ym-cell.heat-2 {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 25%,
+    var(--md-sys-color-surface-container)
+  );
+}
+
+.ym-cell.heat-3 {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 65%,
+    var(--md-sys-color-surface-container)
+  );
+  color: var(--md-sys-color-on-primary);
+}
+
+.ym-cell.heat-4 {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.ym-total {
+  min-width: 56px;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  font-weight: 500;
+  text-align: right;
+}
+
+.ym-season {
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font-weight: 500;
+}
+
+.ym-season:hover,
+.ym-total:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.ym-season[aria-pressed='true'] {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+/* The selection: every month it covers, and the total when it is the year. */
+.ym-cell.selected,
+.ym-total.selected {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 1px;
+}

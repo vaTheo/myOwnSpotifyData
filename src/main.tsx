@@ -68,6 +68,9 @@ async function boot(): Promise<void> {
   bootPhase.value = 'ready';
   // The shots wait for this mark before they look at a page (spec 003).
   if (import.meta.env.DEV && demoVariant() !== null) {
+    (await import('./dev/ChartsDemo')).installChartsDemo(() =>
+      render(<App />, document.getElementById('app')!)
+    );
     document.documentElement.dataset.demoReady = '1';
   }
   // After the first paint and the local load: a slow or paused server never
