@@ -1,0 +1,306 @@
+"""The scan: 12-second probes cut by ffmpeg, recognised one at a time with
+ShazamIO, merged into one row per run of hits, written in the F15 shape
+(research D2–D6). Everything external is injected: `cut`, `recognise`,
+`sleep`, `classify`.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import subprocess
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
+
+PROBE_SECONDS = 12
+MIN_PROBE_BYTES = 1000
+
+
+class ScanRefused(Exception):
+    """The recognition service refused twice (rate limited)."""
+
+
+def hhmmss(seconds: int) -> str:
+    h, rest = divmod(int(seconds), 3600)
+    m, s = divmod(rest, 60)
+    return f"{h:02d}:{m:02d}:{s:02d}"
+
+
+def probe_times(duration: int | None, step: int) -> list[int]:
+    """Probe starts for a known duration; `[0]` when unknown (the scan then
+    continues until a probe comes back short)."""
+    if not duration or duration <= 0:
+        return [0]
+    return list(range(0, int(duration), step))
+
+
+def confidence_of(match: Any) -> float:
+    """The fork's formula from the two skews (D5); 0 when they are missing."""
+    if not isinstance(match, dict):
+        return 0.0
+
+    def score(key: str) -> float:
+        value = match.get(key)
+        if not isinstance(value, (int, float)):
+            return 0.0
+        return 100.0 * (1.0 - min(abs(float(value)), 0.1) / 0.1)
+
+    return 0.6 * score("frequencyskew") + 0.4 * score("timeskew")
+
+
+def _shazam_link(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    parsed = urlparse(value)
+    if parsed.scheme != "https" or parsed.hostname not in ("shazam.com", "www.shazam.com"):
+        return None
+    return value
+
+
+def track_entry(response: Any, time_in_mix: str) -> dict[str, Any] | None:
+    """One track of the F15 shape from a Shazam answer, or None on no match."""
+    if not isinstance(response, dict):
+        return None
+    matches = response.get("matches")
+    track = response.get("track")
+    if not isinstance(matches, list) or not matches or not isinstance(track, dict):
+        return None
+    title = track.get("title")
+    artist = track.get("subtitle")
+    if not isinstance(title, str) or not title.strip() or not isinstance(artist, str) or not artist.strip():
+        return None
+    entry: dict[str, Any] = {
+        "song_name": title.strip(),
+        "artist": artist.strip(),
+        "time_in_mix": time_in_mix,
+        "confidence": confidence_of(matches[0]),
+        "duration": None,
+    }
+    meta: dict[str, Any] = {}
+    if isinstance(track.get("isrc"), str) and track["isrc"]:
+        meta["isrc"] = track["isrc"]
+    for section in track.get("sections") or []:
+        if isinstance(section, dict) and section.get("type") == "SONG":
+            for item in section.get("metadata") or []:
+                if not isinstance(item, dict):
+                    continue
+                name, text = item.get("title"), item.get("text")
+                if not isinstance(text, str) or not text:
+                    continue
+                if name == "Album":
+                    meta["album"] = text
+                elif name == "Label":
+                    meta["label"] = text
+                elif name == "Released":
+                    meta["release_date"] = text
+    genres = track.get("genres")
+    if isinstance(genres, dict) and isinstance(genres.get("primary"), str):
+        meta["genres"] = [genres["primary"]]
+    if isinstance(track.get("key"), str) and track["key"]:
+        meta["shazam_id"] = track["key"]
+    images = track.get("images")
+    if isinstance(images, dict) and isinstance(images.get("coverart"), str):
+        meta["artwork_url"] = images["coverart"]
+    link = _shazam_link(track.get("url"))
+    if link:
+        meta["links"] = {"shazam": link}
+    if meta:
+        entry["metadata"] = meta
+    return entry
+
+
+@dataclass(frozen=True)
+class Hit:
+    time: int
+    entry: dict[str, Any]
+
+
+def _key(entry: dict[str, Any]) -> str:
+    meta = entry.get("metadata")
+    if isinstance(meta, dict) and isinstance(meta.get("shazam_id"), str):
+        return "id:" + meta["shazam_id"]
+    return "name:" + entry["artist"].strip().lower() + "|" + entry["song_name"].strip().lower()
+
+
+def merge(hits: list[Hit], gap: int) -> list[dict[str, Any]]:
+    """One row per run of hits of the same track (D5): a hit of the same key
+    within `gap` seconds of the row's last hit extends it (best confidence
+    kept, start time kept); anything else opens a new row."""
+    rows: list[dict[str, Any]] = []
+    current_key: str | None = None
+    last_time = 0
+    for hit in sorted(hits, key=lambda h: h.time):
+        key = _key(hit.entry)
+        if rows and key == current_key and hit.time - last_time <= gap:
+            rows[-1]["confidence"] = max(rows[-1]["confidence"], hit.entry["confidence"])
+        else:
+            rows.append(dict(hit.entry))
+            current_key = key
+        last_time = hit.time
+    return rows
+
+
+async def scan(
+    duration: int | None,
+    *,
+    step: int,
+    cooldown: float,
+    pause: float,
+    max_skew: float,
+    gap: int,
+    recognise: Callable[[bytes, float | None], Awaitable[Any]],
+    cut: Callable[[int], bytes],
+    sleep: Callable[[float], Awaitable[None]],
+    classify: Callable[[Exception], str],
+) -> list[dict[str, Any]]:
+    """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
+    before each; a `rate_limited` error pauses once, twice raises
+    `ScanRefused`; a `skip` error (undecodable probe) is skipped."""
+    hits: list[Hit] = []
+    known = duration is not None and duration > 0
+    times = probe_times(duration, step) if known else None
+    skew = max_skew if max_skew > 0 else None
+    index = 0
+    paused_once = False
+    while True:
+        if times is not None:
+            if index >= len(times):
+                break
+            t = times[index]
+        else:
+            t = index * step
+        data = cut(t)
+        if len(data) < MIN_PROBE_BYTES:
+            break
+        while True:
+            await sleep(cooldown)
+            try:
+                response = await recognise(data, skew)
+            except Exception as err:  # classified, never swallowed silently
+                kind = classify(err)
+                if kind == "skip":
+                    response = None
+                    break
+                if kind == "rate_limited":
+                    if paused_once:
+                        raise ScanRefused() from err
+                    paused_once = True
+                    await sleep(pause)
+                    continue  # the same probe again, after the pause
+                raise
+            break
+        entry = track_entry(response, hhmmss(t)) if response is not None else None
+        if entry is not None:
+            hits.append(Hit(time=t, entry=entry))
+        index += 1
+    return merge(hits, gap)
+
+
+def write_result(
+    path: Path,
+    *,
+    title: str,
+    artist: str | None,
+    audio_filename: str,
+    source_url: str,
+    duration: int | None,
+    date: str,
+    tracks: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """The JSON the app's parser reads (data-model.md "Scan result"), saved
+    to disk first (FR-016) and returned as sent."""
+    info: dict[str, Any] = {"title": title}
+    if artist:
+        info["artist"] = artist
+    info["audio_filename"] = audio_filename
+    info["source_url"] = source_url
+    if duration:
+        info["duration_seconds"] = int(duration)
+    info["date"] = date
+    info["track_count"] = len(tracks)
+    data = {"mix_info": info, "tracks": tracks}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    return data
+
+
+# -- the real seams (not exercised by tests) ---------------------------------
+
+
+def ffmpeg_path(configured: str | None) -> str:
+    if configured:
+        return configured
+    import imageio_ffmpeg
+
+    return imageio_ffmpeg.get_ffmpeg_exe()
+
+
+def cut_probe(ffmpeg: str, file: Path, start: int) -> bytes:
+    """Twelve seconds from `start`, mono 16 kHz WAV, in memory (D4)."""
+    cmd = [
+        ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
+        "-ss", str(start), "-t", str(PROBE_SECONDS), "-i", str(file),
+        "-vn", "-ac", "1", "-ar", "16000", "-f", "wav", "pipe:1",
+    ]
+    done = subprocess.run(cmd, capture_output=True, check=False)
+    return done.stdout if done.returncode == 0 else b""
+
+
+def default_classify(err: Exception) -> str:
+    try:
+        from shazamio.exceptions import RateLimited  # type: ignore[import-not-found]
+    except Exception:  # pragma: no cover - older library layouts
+        RateLimited = None  # type: ignore[assignment]
+    try:
+        from shazamio_core import SignatureError  # type: ignore[import-not-found]
+    except Exception:  # pragma: no cover
+        SignatureError = None  # type: ignore[assignment]
+    if RateLimited is not None and isinstance(err, RateLimited):
+        return "rate_limited"
+    if SignatureError is not None and isinstance(err, SignatureError):
+        return "skip"
+    if type(err).__name__ in ("RateLimited",):
+        return "rate_limited"
+    if type(err).__name__ in ("SignatureError",):
+        return "skip"
+    return "raise"
+
+
+def run_scan(file: Path, duration: int | None, settings: Any) -> list[dict[str, Any]]:
+    """The pipeline's `scan` seam: builds the Shazam client lazily and runs
+    the async scan with the real cutter and sleeps."""
+    from aiohttp_retry import ExponentialRetry  # type: ignore[import-not-found]
+    from shazamio import HTTPClient, Shazam  # type: ignore[import-not-found]
+
+    ffmpeg = ffmpeg_path(settings.ffmpeg)
+
+    async def go() -> list[dict[str, Any]]:
+        client = HTTPClient(retry_options=ExponentialRetry(attempts=5, max_timeout=60.0))
+        shazam = Shazam(http_client=client)
+        try:
+            async def recognise(data: bytes, max_skew: float | None) -> Any:
+                return await shazam.recognize(data, proxy=settings.proxy, max_skew=max_skew)
+
+            return await scan(
+                duration,
+                step=settings.probe_step_seconds,
+                cooldown=settings.cooldown_seconds,
+                pause=settings.rate_limit_pause_seconds,
+                max_skew=settings.max_skew,
+                gap=settings.merge_gap_seconds,
+                recognise=recognise,
+                cut=lambda t: cut_probe(ffmpeg, file, t),
+                sleep=asyncio.sleep,
+                classify=default_classify,
+            )
+        finally:
+            close = getattr(shazam, "close", None)
+            if close is not None:
+                result = close()
+                if asyncio.iscoroutine(result):
+                    await result
+
+    return asyncio.run(go())

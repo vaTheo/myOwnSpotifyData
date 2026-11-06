@@ -4,12 +4,19 @@ import { ACCOUNT_MISMATCH_NOTICE } from '../sync/runner';
 import type { Query, ServerClient, ServerResult } from './client';
 import {
   readUsage,
+  requestIdentify,
   runPull,
   runPush,
   runRemoveAll,
   type RepoLike,
   type SyncDeps,
 } from './sync';
+import {
+  MIX_JOBS_META,
+  SERVER_PENDING_META,
+  type MixJobs,
+  type ServerPending,
+} from '../db/schema';
 import type { ServerStatus } from './types';
 
 /* ---------- an in-memory server: datasets, dataset_rows, mixes ---------- */
@@ -28,9 +35,22 @@ function matches(row: Row, query: Query): boolean {
     if (k === 'select' || k === 'order') continue;
     const [op, ...rest] = v.split('.');
     const value = rest.join('.');
-    const cell = row[k];
+    // `payload->>url` reads a JSON field, as PostgREST does.
+    const arrow = k.indexOf('->>');
+    const cell =
+      arrow >= 0
+        ? (row[k.slice(0, arrow)] as Record<string, unknown> | undefined)?.[
+            k.slice(arrow + 3)
+          ]
+        : row[k];
     if (op === 'eq' && String(cell) !== value) return false;
     if (op === 'lt' && !(Number(cell) < Number(value))) return false;
+    if (op === 'is' && value === 'null' && cell !== null && cell !== undefined)
+      return false;
+    if (op === 'in') {
+      const list = value.replace(/^\(|\)$/g, '').split(',');
+      if (!list.includes(String(cell))) return false;
+    }
   }
   return true;
 }
@@ -79,10 +99,11 @@ function fakeServer(seed: Partial<Record<string, Row[]>> = {}): Fake {
       if (query.order) {
         const keys = query.order.split(',');
         rows = [...rows].sort((a, b) => {
-          for (const k of keys) {
+          for (const spec of keys) {
+            const [k, dir] = spec.split('.');
             const x = String(a[k]);
             const y = String(b[k]);
-            if (x !== y) return x < y ? -1 : 1;
+            if (x !== y) return (x < y ? -1 : 1) * (dir === 'desc' ? -1 : 1);
           }
           return 0;
         });
@@ -112,6 +133,29 @@ function fakeServer(seed: Partial<Record<string, Row[]>> = {}): Fake {
       return { ok: true as const, value: undefined };
     },
     rpc: vi.fn(async () => ({ ok: true as const, value: 42 })),
+    async insert(table: string, row: Row) {
+      fake.calls.push(`insert ${table}`);
+      const created = {
+        id: `00000000-0000-4000-8000-${String(tables[table].length + 1).padStart(12, '0')}`,
+        status: 'queued',
+        claimed_by: null,
+        claimed_at: null,
+        finished_at: null,
+        error: null,
+        result: null,
+        applied_at: null,
+        created_at: new Date(5_000 + tables[table].length).toISOString(),
+        ...row,
+      };
+      tables[table].push(created);
+      return { ok: true as const, value: created };
+    },
+    async update(table: string, query: Query, patch: Row) {
+      fake.calls.push(`update ${table} ${JSON.stringify(query)}`);
+      const hit = tables[table].filter((r) => matches(r, query));
+      for (const r of hit) Object.assign(r, patch);
+      return { ok: true as const, value: hit };
+    },
   } as unknown as ServerClient;
   return fake;
 }
@@ -1039,5 +1083,197 @@ describe('runPull', () => {
     const res = await runPull(deps(fake, repo).d);
     expect(res).toMatchObject({ ok: false, kind: 'offline' });
     expect(repo.replaceDataset).not.toHaveBeenCalled();
+  });
+});
+
+/* ---------- identify requests (worker round) ---------- */
+
+const JOB_URL = 'https://www.youtube.com/watch?v=abc123';
+const RESULT = {
+  mix_info: {
+    title: 'A set',
+    artist: 'Someone',
+    audio_filename: 'abc123.webm',
+    source_url: JOB_URL,
+  },
+  tracks: [
+    {
+      song_name: 'Noble Booth',
+      artist: 'Stefan Gubatz',
+      time_in_mix: '00:00:00',
+      confidence: 86.1,
+      metadata: { isrc: 'DECH62001634', label: 'Primary Colours' },
+    },
+    { song_name: 'Katerina', artist: 'Mixxwave', time_in_mix: '00:25:50', confidence: 97.7 },
+  ],
+};
+
+function doneJob(over: Row = {}): Row {
+  return {
+    id: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+    kind: 'identify-mix',
+    payload: { url: JOB_URL },
+    status: 'done',
+    claimed_by: 'laptop',
+    claimed_at: '2026-11-06T09:40:00.000Z',
+    finished_at: '2026-11-06T10:05:00.000Z',
+    error: null,
+    result: RESULT,
+    created_at: '2026-11-06T09:12:00.000Z',
+    applied_at: null,
+    ...over,
+  };
+}
+
+describe('identify requests (worker round)', () => {
+  it('requestIdentify inserts once and answers exists while a request is open', async () => {
+    const fake = fakeServer();
+    const first = await requestIdentify(fake.client, 'tok', JOB_URL);
+    expect(first.ok && first.value !== 'exists' && first.value.status === 'queued').toBe(true);
+    expect(fake.tables.jobs).toHaveLength(1);
+    expect(fake.tables.jobs[0]).toMatchObject({ kind: 'identify-mix', payload: { url: JOB_URL } });
+    const second = await requestIdentify(fake.client, 'tok', JOB_URL);
+    expect(second).toEqual({ ok: true, value: 'exists' });
+    fake.tables.jobs[0].status = 'claimed';
+    expect((await requestIdentify(fake.client, 'tok', JOB_URL))).toEqual({ ok: true, value: 'exists' });
+    fake.tables.jobs[0].status = 'failed';
+    const again = await requestIdentify(fake.client, 'tok', JOB_URL);
+    expect(again.ok && again.value !== 'exists').toBe(true);
+    expect(fake.tables.jobs).toHaveLength(2);
+    expect(fake.calls.some((c) => c.includes('spotify'))).toBe(false);
+  });
+
+  it('the pull applies a done result to a new mix, marks it, flags the push and records the history', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(doneJob());
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' });
+    const { d } = deps(fake, repo);
+    const res = await runPull(d);
+    if (!res.ok) throw new Error(res.message);
+    expect(res.value.rejected).toBe(0);
+    const mix = state.mixes.find((m) => m.url === JOB_URL);
+    expect(mix).toBeDefined();
+    expect(mix).toMatchObject({
+      title: 'A set',
+      author: 'Someone',
+      playerSrc: null,
+      slug: null,
+      sources: { trackid: false, description: false, pasted: false, linkOut: null, worker: true },
+      identifyJobId: '6f1c2d3e-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+      identifiedAt: Date.parse('2026-11-06T10:05:00.000Z'),
+      savedAt: 5_000,
+    });
+    expect(mix?.rows.map((r) => r.title)).toEqual(['Noble Booth', 'Katerina']);
+    expect(mix?.rows[0].isrc).toBe('DECH62001634');
+    expect(fake.tables.jobs[0].applied_at).not.toBeNull();
+    expect((state.metas[SERVER_PENDING_META] as ServerPending).mixes).toBe(true);
+    const jobs = state.metas[MIX_JOBS_META] as MixJobs;
+    expect(jobs[JOB_URL]).toHaveLength(1);
+    expect(jobs[JOB_URL][0]).toMatchObject({ status: 'done', claimedBy: 'laptop' });
+    expect(jobs[JOB_URL][0].appliedAt).not.toBeNull();
+    expect(res.value.pulled).toContain('mixes');
+  });
+
+  it('merges into an existing mix, keeping edits and manual rows', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(doneJob());
+    const existing = mix(JOB_URL, 100, 'Kept title');
+    existing.rows = [
+      {
+        startSec: 0,
+        endSec: null,
+        artist: 'Stefan Gubatz',
+        title: 'Noble Booth (my edit)',
+        label: null,
+        source: 'manual',
+        gap: false,
+        detected: { artist: 'Stefan Gubatz', title: 'Noble Booth' },
+        referenceCount: null,
+      },
+      {
+        startSec: 60,
+        endSec: null,
+        artist: 'Old',
+        title: 'Scan row',
+        label: null,
+        source: 'tracklistify',
+        gap: false,
+        detected: { artist: 'Old', title: 'Scan row' },
+        referenceCount: null,
+      },
+    ];
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' }, [existing]);
+    const { d } = deps(fake, repo);
+    const res = await runPull(d);
+    expect(res.ok).toBe(true);
+    const merged = state.mixes.find((m) => m.url === JOB_URL);
+    expect(merged?.title).toBe('Kept title');
+    expect(merged?.rows.map((r) => r.title)).toEqual(['Noble Booth (my edit)', 'Noble Booth', 'Katerina']);
+    expect(merged?.sources.worker).toBe(true);
+  });
+
+  it('a second device skips an applied result and gets the mix through the mixes sync', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(doneJob());
+    const a = fakeRepo(emptyRows(), { accountId: 'acc' });
+    const b = fakeRepo(emptyRows(), { accountId: 'acc' });
+    expect((await runPull(deps(fake, a.repo).d)).ok).toBe(true);
+    const pushed = await runPush(deps(fake, a.repo).d, ['mixes']);
+    expect(pushed.ok).toBe(true);
+    const before = fake.calls.length;
+    const res = await runPull(deps(fake, b.repo).d);
+    if (!res.ok) throw new Error(res.message);
+    expect(b.repo.putMix).toHaveBeenCalledTimes(1);
+    expect(b.state.mixes[0].url).toBe(JOB_URL);
+    expect(fake.calls.slice(before).filter((c) => c.startsWith('update jobs'))).toHaveLength(0);
+    const jobs = b.state.metas[MIX_JOBS_META] as MixJobs;
+    expect(jobs[JOB_URL][0].status).toBe('done');
+  });
+
+  it('a result that fails the safety check is counted, not applied, not marked', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(doneJob({ result: { tracks: [] } }));
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' });
+    const res = await runPull(deps(fake, repo).d);
+    if (!res.ok) throw new Error(res.message);
+    expect(res.value.rejected).toBe(1);
+    expect(state.mixes).toHaveLength(0);
+    expect(fake.tables.jobs[0].applied_at).toBeNull();
+    const jobs = state.metas[MIX_JOBS_META] as MixJobs;
+    expect(jobs[JOB_URL][0].rejected).toBe(true);
+  });
+
+  it('a row the validator refuses is dropped and counted; the history is newest first and capped at 20', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(doneJob({ id: 'bad', status: 'failed' }));
+    for (let i = 0; i < 25; i++) {
+      fake.tables.jobs.push(
+        doneJob({
+          id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+          status: 'failed',
+          error: `reason ${i}`,
+          result: null,
+          created_at: new Date(Date.parse('2026-11-01T00:00:00.000Z') + i * 60_000).toISOString(),
+        })
+      );
+    }
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' });
+    const res = await runPull(deps(fake, repo).d);
+    if (!res.ok) throw new Error(res.message);
+    expect(res.value.rejected).toBe(1);
+    const jobs = state.metas[MIX_JOBS_META] as MixJobs;
+    expect(jobs[JOB_URL]).toHaveLength(20);
+    expect(jobs[JOB_URL][0].error).toBe('reason 24');
+    expect(jobs[JOB_URL][19].error).toBe('reason 5');
+  });
+
+  it('runRemoveAll deletes the jobs and the mixJobs meta', async () => {
+    const fake = seededServer();
+    fake.tables.jobs.push(doneJob());
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc', [MIX_JOBS_META]: { x: [] } });
+    const res = await runRemoveAll(deps(fake, repo).d);
+    expect(res.ok).toBe(true);
+    expect(fake.tables.jobs).toHaveLength(0);
+    expect(state.metas[MIX_JOBS_META]).toBeUndefined();
   });
 });

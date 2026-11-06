@@ -52,6 +52,15 @@ export interface ServerClient {
     token: string,
     range?: [number, number]
   ): Promise<ServerResult<{ rows: T[]; total: number | null }>>;
+  /** `POST` one row with `Prefer: return=representation`; the created row (worker round). */
+  insert<T>(table: string, row: unknown, token: string): Promise<ServerResult<T>>;
+  /** `PATCH` the rows the filters match, returning them (worker round). */
+  update<T>(
+    table: string,
+    query: Query,
+    patch: unknown,
+    token: string
+  ): Promise<ServerResult<T[]>>;
   /** `POST` with `Prefer: resolution=merge-duplicates`; the rows array is one body. */
   upsert<T>(
     table: string,
@@ -303,6 +312,39 @@ export function createServerClient(deps: ServerDeps): ServerClient {
       );
     },
 
+    async insert<T>(table: string, row: unknown, token: string) {
+      const res = await call<unknown>(
+        url(`/rest/v1/${table}`),
+        {
+          method: 'POST',
+          body: JSON.stringify(row),
+          token,
+          headers: { Prefer: 'return=representation' },
+        },
+        (_res, body) => body
+      );
+      if (!res.ok) return res;
+      if (!Array.isArray(res.value) || res.value.length === 0) {
+        return {
+          ok: false,
+          kind: 'error',
+          message: 'The server answered without the created row.',
+        };
+      }
+      return { ok: true, value: res.value[0] as T };
+    },
+    update<T>(table: string, query: Query, patch: unknown, token: string) {
+      return call<T[]>(
+        url(`/rest/v1/${table}`, query),
+        {
+          method: 'PATCH',
+          body: JSON.stringify(patch),
+          token,
+          headers: { Prefer: 'return=representation' },
+        },
+        (_res, body) => (Array.isArray(body) ? (body as T[]) : [])
+      );
+    },
     upsert(table, rows, token) {
       return call(
         url(`/rest/v1/${table}`),
