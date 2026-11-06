@@ -296,7 +296,9 @@ default route only once it exists.
 **Decision**: a dev-only loop, added on 2026-11-06 at the owner's request ("open each web page to see if everything is aligned
 as a verification step loop"). The owner picked Playwright on 2026-11-06.
 
-- **Tooling**: `@playwright/test` and `@axe-core/playwright` as dev dependencies, with Chromium downloaded once to this computer.
+- **Tooling**: `@playwright/test` and `@axe-core/playwright` as dev dependencies, with Chromium downloaded once to this computer. Playwright does not
+  recognise this computer's system (LMDE 7, a Debian 13 variant), so `yarn shots` sets
+  `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64`, and the one-time install uses the same override.
   Run by `yarn shots` (`playwright test -c tools/shots/playwright.config.ts`). The files are named `*.shots.ts`, so Vitest
   (`src/**/*.test.ts`) never picks them up. It is not part of `yarn test` and not run in CI (ADR-06). It is a check the developer
   runs, not a DOM test in the suite, so the constitution's testing rule holds.

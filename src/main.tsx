@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { App, bootPhase, installRouter } from './app';
 import { auth } from './auth/browser';
+import { demoVariant } from './dev/flag';
 import {
   completeServerLink,
   hasActiveRequest,
@@ -53,9 +54,21 @@ async function boot(): Promise<void> {
   }
   if (auth.session.value) {
     bootPhase.value = 'loading';
+    // `yarn dev` with `?demo` only (spec 003): a production build drops the
+    // whole branch, and with it the demo module.
+    if (import.meta.env.DEV) {
+      const variant = demoVariant();
+      if (variant !== null) {
+        await (await import('./dev/install')).installDemo(variant);
+      }
+    }
     await loadFromDb();
   }
   bootPhase.value = 'ready';
+  // The shots wait for this mark before they look at a page (spec 003).
+  if (import.meta.env.DEV && demoVariant() !== null) {
+    document.documentElement.dataset.demoReady = '1';
+  }
   // After the first paint and the local load: a slow or paused server never
   // delays "Loading your library…" (US3). Whatever this device changed while
   // the server was unreachable goes first, then the pull.
