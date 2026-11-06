@@ -153,6 +153,10 @@ class Clue:
     text: str
     kind: str  # "comment" | "chapter" | "description"
     line: Line | None = None  # the track it names, when it reads as one
+    # A line of a tracklist (the description's, or a comment listing 3+
+    # tracks): it becomes a row even when no catalogue knows it (owner,
+    # 2026-11-06); a single comment answer still needs a catalogue match.
+    listed: bool = False
 
     def as_json(self) -> dict[str, Any]:
         return {"at": None if self.at is None else round(float(self.at), 1), "author": self.author, "text": self.text, "kind": self.kind}
@@ -179,7 +183,7 @@ def from_text(text: str, at: float | None, author: str, kind: str) -> list[Clue]
         out = []
         for piece in pieces:
             ln = parse_line(piece)
-            out.append(Clue(at=ln.at if ln else None, author=author, text=_cut(piece), kind=kind, line=ln))
+            out.append(Clue(at=ln.at if ln else None, author=author, text=_cut(piece), kind=kind, line=ln, listed=True))
         return out
     ln = parse_line(body)
     if ln is not None and ln.at is not None and at is None:
@@ -211,7 +215,7 @@ def from_description(text: str, author: str) -> list[Clue]:
         if ln is None:
             flush()
             continue
-        run.append(Clue(at=ln.at, author=author, text=_cut(line), kind="description", line=ln))
+        run.append(Clue(at=ln.at, author=author, text=_cut(line), kind="description", line=ln, listed=True))
     flush()
     if out:
         return out
@@ -220,7 +224,7 @@ def from_description(text: str, author: str) -> list[Clue]:
         if pieces:
             for piece in pieces:
                 ln = parse_line(piece)
-                out.append(Clue(at=ln.at if ln else None, author=author, text=_cut(piece), kind="description", line=ln))
+                out.append(Clue(at=ln.at if ln else None, author=author, text=_cut(piece), kind="description", line=ln, listed=True))
     return out
 
 
@@ -342,7 +346,7 @@ _DISCOGS_SUFFIX = re.compile(r"\s*\(\d+\)$")
 class Candidate:
     artist: str
     title: str
-    source: str  # "deezer" | "musicbrainz" | "discogs"
+    source: str  # "deezer" | "musicbrainz" | "discogs" | "text" (a tracklist line no catalogue holds)
     link: str | None = None
     isrc: str | None = None
 
@@ -512,12 +516,15 @@ def candidate_track(c: Candidate, clue: Clue, hhmmss: Callable[[int], str]) -> d
         meta["isrc"] = c.isrc
     if c.link and c.link.startswith("https://"):
         meta["links"] = {c.source: c.link}
+    if c.source == "text" and clue.line is not None and clue.line.label:
+        meta["label"] = clue.line.label
     entry: dict[str, Any] = {
         "song_name": c.title,
         "artist": c.artist,
         "time_in_mix": hhmmss(int(clue.at)) if clue.at is not None else None,
         "origin": "clue",
         "clue": clue.as_json(),
+        "confirmed_by": c.source if c.source != "text" else None,
     }
     if meta:
         entry["metadata"] = meta
@@ -561,11 +568,14 @@ def gather(
     placed = attach(clues, gaps)
     candidates: list[dict[str, Any]] = []
     taken: list[dict[str, Any]] = list(rows)
-    if lookups is not None:
+    if True:  # lookups may be off; tracklist lines still become rows
         for clue in [c for g in placed.gaps for c in g["clues"]] + placed.set_wide:
             if clue.line is not None and _known(clue.line, taken):
                 continue
-            found = lookups.candidate(clue)
+            found = lookups.candidate(clue) if lookups is not None else None
+            if found is None and clue.listed and clue.line is not None and names_a_track(clue.line):
+                # The tracklist says so: a row as written, no ISRC.
+                found = Candidate(artist=clue.line.artist, title=clue.line.title, source="text")
             if found is None:
                 continue
             track = candidate_track(found, clue, hhmmss)
@@ -574,7 +584,8 @@ def gather(
             candidates.append(track)
             taken.append(track)
             where = hhmmss(int(clue.at)) if clue.at is not None else "set-wide"
-            line(f"  candidate · {where} · {found.artist} — {found.title} · {found.source}" + (f" · {found.isrc}" if found.isrc else ""))
+            how = "as written in the tracklist (no catalogue holds it)" if found.source == "text" else found.source
+            line(f"  candidate · {where} · {found.artist} — {found.title} · {how}" + (f" · {found.isrc}" if found.isrc else ""))
     on_gaps = sum(len(g["clues"]) for g in placed.gaps)
     line(
         f"  clues · {on_gaps} on gaps · {len(placed.set_wide)} set-wide · {len(candidates)} candidates"

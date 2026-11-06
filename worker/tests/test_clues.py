@@ -353,3 +353,57 @@ class Busy(unittest.TestCase):
         lk = Lookups(fetch=always, sleep=lambda s: None, line=lines.append, budget=5, clock=lambda: 1e6)
         self.assertIsNone(lk.candidate(from_text("Rrose - onceless", 1.0, "a", "comment")[0]))
         self.assertIn("HTTPError", lines[0])
+
+
+class TracklistRows(unittest.TestCase):
+    """Owner, 2026-11-06: every line of a tracklist becomes a row; a catalogue only adds the ISRC."""
+
+    def test_whomp_tracklist_lines_all_become_rows(self):
+        from mix_worker.clues import gather
+
+        lines = []
+        got = gather(
+            "u", [], [{"artist": "Diadem", "song_name": "Mel"}],  # already heard: skipped
+            read_clues=lambda u: from_info(fixture("whomp023-mars-o10c")),
+            lookups=Lookups(fetch=FakeCatalogues(), sleep=lambda s: None, line=lines.append, budget=100),
+            hhmmss=hhmmss, line=lines.append,
+        )
+        names = [(t["artist"], t["song_name"]) for t in got.candidates]
+        self.assertEqual(len(names), 12)  # 15 pieces − ??? − Unreleased − Diadem (heard)
+        self.assertIn(("Ina Kacz", "Visionary"), names)
+        self.assertNotIn(("Von Riu", "Unreleased"), names)
+        self.assertTrue(all(t["confirmed_by"] is None and t["origin"] == "clue" for t in got.candidates))
+        self.assertTrue(any("as written in the tracklist" in x for x in lines))
+
+    def test_a_single_comment_still_needs_a_catalogue(self):
+        from mix_worker.clues import gather
+
+        got = gather(
+            "u", [(3000, 3200)], [],
+            read_clues=lambda u: [Clue(3100.0, "x", "@someone: Ina Kacz - Visionary", "comment", Line("Ina Kacz", "Visionary"))],
+            lookups=Lookups(fetch=FakeCatalogues(), sleep=lambda s: None, line=lambda t: None, budget=100),
+            hhmmss=hhmmss, line=lambda t: None,
+        )
+        self.assertEqual(got.candidates, [])
+
+    def test_a_catalogue_match_adds_the_isrc(self):
+        from mix_worker.clues import gather
+
+        got = gather(
+            "u", [], [],
+            read_clues=lambda u: [Clue(None, "dj", "Rrose - onceless", "description", Line("Rrose", "onceless"), listed=True)],
+            lookups=Lookups(fetch=FakeCatalogues(), sleep=lambda s: None, line=lambda t: None, budget=100),
+            hhmmss=hhmmss, line=lambda t: None,
+        )
+        self.assertEqual(got.candidates[0]["confirmed_by"], "deezer")
+        self.assertEqual(got.candidates[0]["metadata"]["isrc"], "DEPL91329165")
+
+    def test_rows_even_with_lookups_off(self):
+        from mix_worker.clues import gather
+
+        got = gather(
+            "u", [], [],
+            read_clues=lambda u: [Clue(None, "dj", "A - B [Label]", "description", Line("A", "B", "Label"), listed=True)],
+            lookups=None, hhmmss=hhmmss, line=lambda t: None,
+        )
+        self.assertEqual(got.candidates[0]["metadata"], {"label": "Label"})
