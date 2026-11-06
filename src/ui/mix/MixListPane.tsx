@@ -329,10 +329,11 @@ function MixItem(p: { item: MixListItem; open: string | null }) {
  * your computer in one list, one row per link, in `mixListItems`' order
  * (running, then waiting as the worker takes them, then the rest newest
  * first). The header counts what waits or runs, with Check now; the queue
- * note ('gone', ruling D4) and `mixError` show under it, inline. Statuses
+ * note ('gone', ruling D4) and `mixError` show under it, inline (unless
+ * the open mix's header shows the error: `showError` false). Statuses
  * come from the last pull: the 60 s auto-pull refreshes them, no new poll.
  */
-export function MixesList() {
+export function MixesList(p: { showError?: boolean } = {}) {
   const server = serverState.value;
   const jobs = mixJobs.value;
   const items = mixListItems(jobs, savedMixes.value, server, Date.now());
@@ -370,7 +371,7 @@ export function MixesList() {
       {mixQueueNote.value !== null && (
         <StatusLine>{mixQueueNote.value}</StatusLine>
       )}
-      {mixError.value !== null && (
+      {mixError.value !== null && p.showError !== false && (
         <StatusLine kind="error">{mixError.value}</StatusLine>
       )}
       {items.length === 0 ? (
