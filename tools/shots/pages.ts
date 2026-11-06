@@ -388,13 +388,19 @@ export const PAGES: ShotPage[] = [
     id: 'charts',
     hash: '#/dev/charts',
     setup: async (page) => {
-      // The first month chart, focused and moved one month back: the
-      // tooltip a keyboard user reads.
-      await page
-        .getByRole('img', { name: /^Plays per month/ })
-        .first()
-        .focus();
-      await page.keyboard.press('ArrowLeft');
+      // A click on the first bar of the 2026 chart: the tooltip must name
+      // the clicked month, not jump to the last one when focus arrives.
+      const chart = page.getByRole('img', { name: /^Plays per month/ }).nth(1);
+      const box = await chart.boundingBox();
+      if (box) {
+        await page.mouse.click(box.x + box.width / 24, box.y + box.height / 2);
+      }
+    },
+    expect: async (page) => {
+      const tip = await page.locator('.chart-tip').first().textContent();
+      return tip?.startsWith('Jan 2026')
+        ? []
+        : [`a click on Jan 2026 shows "${tip ?? 'no tooltip'}"`];
     },
   },
 

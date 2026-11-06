@@ -40,7 +40,8 @@ export const MONTH_NAMES = [
   'Dec',
 ];
 
-function yearMonth(year: number, month: number): string {
+/** `YYYY-MM`, month 1–12. */
+export function yearMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`;
 }
 

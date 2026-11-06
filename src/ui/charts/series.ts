@@ -10,6 +10,7 @@ import {
   periodMonths,
   rateBand,
   yearsWithPlays,
+  yearMonth,
   type RateBand,
   type YearPeriod,
 } from '../../model/crate';
@@ -20,7 +21,10 @@ export interface MonthRange {
   last: string;
 }
 
-/** One month of a chart; `value` null is a month outside the history. */
+/**
+ * One bar of a chart: a month (`YYYY-MM`) or a year (`YYYY`); `value` null
+ * is a period outside the history.
+ */
 export interface MonthPoint {
   key: string;
   value: number | null;
@@ -42,16 +46,16 @@ function toMonthKey(value: string): string | null {
   return Number.isFinite(d.getTime()) ? monthKey(d) : null;
 }
 
-function keyOf(year: number, month: number): string {
-  return `${year}-${String(month).padStart(2, '0')}`;
-}
-
 /** Every month from `first` to `last`, both `YYYY-MM`, oldest first. */
 export function monthKeys(first: string, last: string): string[] {
   const keys: string[] = [];
   let year = Number(first.slice(0, 4));
   let month = Number(first.slice(5, 7));
-  for (let key = keyOf(year, month); key <= last; key = keyOf(year, month)) {
+  for (
+    let key = yearMonth(year, month);
+    key <= last;
+    key = yearMonth(year, month)
+  ) {
     keys.push(key);
     month += 1;
     if (month > 12) {
@@ -152,7 +156,7 @@ export function yearMonthTotals(
   }
   const all = Object.fromEntries(sums);
   return yearSpan(rows, range, fallbackYear).map((year) => {
-    const keys = MONTH_NAMES.map((_, i) => keyOf(year, i + 1));
+    const keys = MONTH_NAMES.map((_, i) => yearMonth(year, i + 1));
     const months = monthSeries(all, keys, range).map((p) => p.value);
     const values = months.map((v) => v ?? 0);
     return {
@@ -178,13 +182,34 @@ export function periodTotal(
   return total;
 }
 
-/** `Jun 2026`, or `Jun` when every month of the chart is in one year. */
+/** Plays per year of `years` (the span), as year points for the same bars. */
+export function yearPoints(
+  months: Record<string, number> | undefined,
+  years: number[]
+): MonthPoint[] {
+  const sums = new Map<string, number>();
+  for (const [key, plays] of Object.entries(months ?? {})) {
+    const year = key.slice(0, 4);
+    sums.set(year, (sums.get(year) ?? 0) + plays);
+  }
+  return years.map((y) => ({
+    key: String(y),
+    value: sums.get(String(y)) ?? 0,
+  }));
+}
+
+/**
+ * `Jun 2026`, or `Jun` when every month of the chart is in one year; a year
+ * key is its year.
+ */
 export function pointLabel(key: string, withYear: boolean): string {
+  if (key.length === 4) return key;
   const name = MONTH_NAMES[Number(key.slice(5, 7)) - 1] ?? key;
   return withYear ? `${name} ${key.slice(0, 4)}` : name;
 }
 
-function crossesYears(series: MonthPoint[]): boolean {
+/** True when the chart's points span more than one year. */
+export function crossesYears(series: MonthPoint[]): boolean {
   return new Set(series.map((p) => p.key.slice(0, 4))).size > 1;
 }
 

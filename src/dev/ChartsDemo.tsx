@@ -5,7 +5,13 @@ import { historySummary, model } from '../model/state';
 import { MonthBars } from '../ui/charts/MonthBars';
 import { Meter } from '../ui/charts/Meter';
 import { YearMonthGrid } from '../ui/charts/YearMonthGrid';
-import { monthKeys, monthSeries, yearMonthTotals } from '../ui/charts/series';
+import {
+  monthKeys,
+  monthSeries,
+  seriesLabel,
+  yearMonthTotals,
+  yearPoints,
+} from '../ui/charts/series';
 
 /**
  * `#/dev/charts` on `yarn dev ?demo` only (spec 003, step S05): the chart
@@ -47,6 +53,20 @@ function ChartsDemo() {
           )}
         />
       )}
+      <h2>Plays per year (Classics)</h2>
+      {busiest && (
+        <MonthBars
+          title="Plays per year"
+          series={yearPoints(
+            busiest.months,
+            totals.map((t) => t.year)
+          )}
+        />
+      )}
+      <h2>In a table row (compact)</h2>
+      {busiest && (
+        <CompactRow months={busiest.months} range={range} last={last} />
+      )}
       <h2>Finish rate</h2>
       <Meter pct={82} />
       <Meter pct={50} />
@@ -59,6 +79,44 @@ function ChartsDemo() {
       />
       <p>Selected: {yearSetting(sel.year, sel.period)}</p>
     </main>
+  );
+}
+
+/** A stand-in for a table row: the row is the tab stop and names the series. */
+function CompactRow(p: {
+  months: Record<string, number> | undefined;
+  range: { first: string; last: string } | null;
+  last: number;
+}) {
+  const series = monthSeries(
+    p.months,
+    monthKeys(`${p.last}-01`, `${p.last}-12`),
+    p.range
+  );
+  return (
+    <button
+      type="button"
+      aria-label={`Busiest track, ${seriesLabel('plays per month', series)}`}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px',
+        width: '100%',
+        maxWidth: '480px',
+        height: 'var(--app-row)',
+        padding: '0 16px',
+        border: 0,
+        borderRadius: 'var(--md-sys-shape-corner-small)',
+        background: 'var(--md-sys-color-surface-container)',
+        color: 'var(--md-sys-color-on-surface)',
+        font: 'var(--md-sys-typescale-body-medium)',
+      }}
+    >
+      <span style={{ flex: 1, textAlign: 'left' }}>Busiest track</span>
+      <span style={{ width: '120px' }}>
+        <MonthBars compact series={series} />
+      </span>
+    </button>
   );
 }
 
