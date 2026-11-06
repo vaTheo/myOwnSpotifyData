@@ -50,7 +50,7 @@ worker makes zero Spotify calls); ADR-06 (no new app dependency; the worker's tw
 Shazam's tolerance for unauthenticated calls (pacing from `research.md` D4, one call at a time, cooldown, stop on repeated
 refusals); result body under ~1 MB (PostgREST); the Free project pauses after a week idle (worker exits with a hint, never spins).
 
-**Scale/Scope**: one owner, one or two computers, a few requests a week, sets of 1–8 hours (≤ ~480 probes), results of
+**Scale/Scope**: one owner, one or two computers, a few requests a week, sets of any length (a 5-hour set: 300 probes, about 40 minutes), results of
 10–60 KB, history of ≤ 20 requests per link shown.
 
 ## Constitution Check

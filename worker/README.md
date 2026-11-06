@@ -80,8 +80,8 @@ done 6f1c2d3e
 queue empty
 ```
 
-A request that fails (a private link, no track identified, a set over eight hours, the recognition service refusing) is
-marked failed with that reason, the phone shows it, and the worker moves on. A set over the length limit is refused before anything is downloaded. Ctrl-C during a request puts it back in the
+A request that fails (a private link, no track identified, the recognition service refusing) is
+marked failed with that reason, the phone shows it, and the worker moves on. Sets of any length are taken. Ctrl-C during a request puts it back in the
 queue. The scanned JSON stays in your music folder, so you can also import it by hand on the Mix screen.
 
 ## Exit codes
@@ -114,7 +114,7 @@ Only the first two are required.
 | `WORKER_PROXY` | none | an HTTP proxy for the recognition calls |
 | `WORKER_STALE_SECONDS` | 21600 | a request left "running" longer than this (a crash, a power cut) is taken again |
 | `WORKER_POLL_SECONDS` | 60 | `--watch`: seconds between two looks at the queue |
-| `WORKER_MAX_DURATION_SECONDS` | 28800 | longer sets are refused before the download (8 h) |
+| `WORKER_MAX_DURATION_SECONDS` | 0 | no limit; set a number of seconds to refuse longer sets before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 60 | one probe every N seconds of the set |
 | `WORKER_PROBE_SECONDS` | 10 | the length of each probe sent to Shazam, 2 to 12 (Shazam's own app sends 12) |
 | `WORKER_COOLDOWN_SECONDS` | 6.0 | the pause before every recognition call, plus a random 0–50 %; doubled after each rate limit, 30 s at most |
