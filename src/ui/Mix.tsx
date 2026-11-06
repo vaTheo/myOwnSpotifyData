@@ -665,18 +665,20 @@ function InfoCards() {
         <h2>Automatic full scan (on your computer)</h2>
         <p>
           This app only shows what public sources already know about a mix — it
-          never listens to the audio. To identify every track yourself, run a
-          full scan on your computer with an open-source tool:
+          never listens to the audio. To identify every track, ask your
+          computer: the Identify on my computer button above queues the set for
+          the worker, which scans it with Shazam and sends the tracklist back.
         </p>
         <p>
           <a
-            href="https://github.com/betmoar/tracklistify"
+            href="https://github.com/vaTheo/myOwnSpotifyData/blob/main/worker/README.md"
             target="_blank"
             rel="noopener"
           >
-            Tracklistify ›
+            Run the worker on your computer ›
           </a>
         </p>
+        <p>Or scan a local file yourself with an open-source tool:</p>
         <p>
           <a
             href="https://github.com/marin-m/SongRec"

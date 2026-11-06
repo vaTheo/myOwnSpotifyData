@@ -239,14 +239,27 @@ def ffmpeg_path(configured: str | None) -> str:
 
 
 def cut_probe(ffmpeg: str, file: Path, start: int) -> bytes:
-    """Twelve seconds from `start`, mono 16 kHz WAV, in memory (D4)."""
+    """Twelve seconds from `start`, mono 16 kHz WAV, as bytes (D4).
+
+    Written to one scratch file beside the audio and read back: on a pipe
+    ffmpeg cannot seek back to fill the WAV header's sizes, and the decoder
+    then refuses the payload ("unexpected end of file")."""
+    scratch = file.with_name(f".probe-{file.stem}.wav")
     cmd = [
-        ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
+        ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
         "-ss", str(start), "-t", str(PROBE_SECONDS), "-i", str(file),
-        "-vn", "-ac", "1", "-ar", "16000", "-f", "wav", "pipe:1",
+        "-vn", "-ac", "1", "-ar", "16000", "-f", "wav", str(scratch),
     ]
     done = subprocess.run(cmd, capture_output=True, check=False)
-    return done.stdout if done.returncode == 0 else b""
+    try:
+        if done.returncode != 0 or not scratch.exists():
+            return b""
+        return scratch.read_bytes()
+    finally:
+        try:
+            scratch.unlink()
+        except OSError:
+            pass
 
 
 def default_classify(err: Exception) -> str:
@@ -297,10 +310,9 @@ def run_scan(file: Path, duration: int | None, settings: Any) -> list[dict[str, 
                 classify=default_classify,
             )
         finally:
-            close = getattr(shazam, "close", None)
-            if close is not None:
-                result = close()
-                if asyncio.iscoroutine(result):
-                    await result
+            # The library only closes a client it created itself; ours is
+            # closed here so no connection outlives the scan.
+            await shazam.close()
+            await client.close()
 
     return asyncio.run(go())

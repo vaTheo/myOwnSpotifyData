@@ -133,9 +133,12 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   dubplates are in no database, so expect to fill gaps by hand. The app never
   listens to the audio — it only shows what public sources already know, so it
   cannot identify a track no source has named.
-  **To identify every track yourself, scan the audio on your computer** with an
-  open-source tool such as Tracklistify or SongRec: they run off the phone and
-  use Shazam to recognise the audio. Or, on the phone, open Shazam and turn on
+  **To identify every track, ask your computer**: tap **Identify on my
+  computer** under the link box (any set link yt-dlp supports, YouTube and
+  Mixcloud included) and run the worker on your computer when you are back at
+  it; see "Identify a mix from your computer" below. You can also scan a local
+  file with an open-source tool such as SongRec and import its JSON. Or, on
+  the phone, open Shazam and turn on
   **Sync Shazam Library to Spotify** (Auto Shazam): a "My Shazam Tracks"
   playlist then appears in Spotify, shows up under Playlists here, and syncs
   like any other playlist.
@@ -161,6 +164,32 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
 - **Disconnect** in Settings removes the login and all cached data on this
   browser; server data is kept. So does syncing while a different Spotify
   account is signed in, which asks first.
+
+## Identify a mix from your computer (optional, needs the server)
+
+The Mix screen's **Identify on my computer** button records a request on your
+server. `worker/`, a small program you run on your computer, takes it:
+downloads the set's audio, recognises it twelve seconds at a time with Shazam,
+sends the tracklist back (ISRC and label when Shazam knows them) and deletes
+the audio. The next sync shows the rows on the Mix screen, where you review
+them and tap Create playlist from mix as before. The request's state is shown
+under the button (waiting, running on which computer, done, failed with the
+reason) with Ask again.
+
+Two ways to run it, both in the worker's manual, [`worker/README.md`](worker/README.md):
+
+- from the repo with Python and uv: `cd worker && cp .env.example .env`
+  (the same two public values as the app's `.env`), `uv sync`, `uv run
+  mix-worker login` (an email code), `uv run mix-worker run --once`;
+- or one packaged executable per system (Windows, Linux, macOS) from a
+  `worker-v…` release: put it in a folder, start it, fill the two values in the
+  `mix-worker.env` it wrote, start again. ffmpeg and yt-dlp are inside; only
+  YouTube links need Node or Deno on the computer.
+
+Once, in the Supabase dashboard: add `Your code: {{ .Token }}` to the Magic
+Link email template (the worker signs in with the code) and run
+`supabase/migrations/0002_jobs.sql`. Requests wait while the computer is off;
+the audio never leaves your computer; the worker never talks to Spotify.
 
 ## Server (optional)
 
@@ -210,4 +239,6 @@ Using it:
 Keep it safe: turn on MFA for your supabase.com account, never copy the
 `service_role` key anywhere, leave sign-ups off. The app checks every row it
 gets back from the server before showing it, and the page declares the hosts
-it may talk to.
+it may talk to. The worker's session file on your computer is yours alone
+(readable by you only, outside the repo); it, too, never uses the
+`service_role` key.

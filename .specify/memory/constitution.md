@@ -1,7 +1,7 @@
 <!--
 Sync Impact Report
-- Version change: 2.0.0 → 2.0.1 (PATCH: the confirm() rule now describes the code instead of a count)
-- Modified principles: none; "Technology and tooling constraints" reworded on confirm()
+- Version change: 2.0.1 → 2.0.2 (PATCH: Principle IV names where recognition by audio may happen, per ADR-09)
+- Modified principles: IV (one sentence added; title unchanged)
 - Added sections: none
 - Removed sections: none
 - Templates: plan/spec/tasks templates read this file at runtime; no template edited here
@@ -57,6 +57,8 @@ External data (ReccoBeats, rekordbox, artist reach) comes from free keyless sour
 looked up by Spotify ids or ISRCs, never by name search. Clients MUST NOT throw: a
 failure is a value the caller renders. Long jobs start only from Settings and MUST
 resume after a reload. The reach pacing split is pinned by a test that MUST stay green.
+Recognition by audio happens only in the worker on the owner's computer, keyless and one
+probe at a time; the app and the server never fetch or analyse audio (ADR-09).
 
 Rationale: name search mismatches tracks; an API key is a secret (Principle I); a job
 that cannot resume is lost on the phone.
@@ -137,4 +139,4 @@ When the two disagree, the ADR index is corrected first and this file follows.
 - Runtime guidance for agents stays in `CLAUDE.md` and the local `CLAUDE.md` files;
   this file does not duplicate their routing.
 
-**Version**: 2.0.1 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-06
+**Version**: 2.0.2 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-06
