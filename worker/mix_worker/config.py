@@ -227,7 +227,7 @@ def load_settings(
         max_duration_seconds=_int(values, "WORKER_MAX_DURATION_SECONDS", 0, 0),
         probe_step_seconds=_int(values, "WORKER_PROBE_STEP_SECONDS", 15, 1),
         probe_seconds=_probe_seconds(values),
-        cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 3.2, 0.0),
+        cooldown_seconds=_float(values, "WORKER_COOLDOWN_SECONDS", 3.3, 0.0),
         rate_limit_pause_seconds=_float(values, "WORKER_RATE_LIMIT_PAUSE_SECONDS", 360.0, 0.0),
         rate_limit_pauses=_int(values, "WORKER_RATE_LIMIT_PAUSES", 8, 0),
         shazam_device=_device(values),
