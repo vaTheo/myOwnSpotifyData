@@ -12,6 +12,7 @@ import { MIX_JOBS_META, type AllRows } from '../db/schema';
 import {
   banner,
   createPlaylistState,
+  historySummary,
   importState,
   likeState,
   lookupState,
@@ -38,11 +39,13 @@ const STORES: (keyof AllRows)[] = [
 
 /**
  * The job and message signals a shots page may set to show a state that only
- * a live job would produce: a sync running, a like failing, a banner.
+ * a live job would produce: a sync running, a like failing, a banner; and the
+ * history summary, so a page can show a library with no history imported.
  */
 const CONTROLLED: Record<string, Signal<unknown>> = {
   banner,
   createPlaylistState,
+  historySummary,
   importState,
   likeState,
   lookupState,

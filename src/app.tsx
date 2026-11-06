@@ -5,7 +5,6 @@ import { banner, dismissBanner } from './model/state';
 import { parseRoute, sameScreen, visitEntry, type Route } from './router';
 import { Settings } from './ui/Settings';
 import { Connect } from './ui/Connect';
-import { Artist } from './ui/Artist';
 import { Artists } from './ui/Artists';
 import { CrateHub } from './ui/crate/CrateHub';
 import { CrateView } from './ui/crate/CrateView';
@@ -13,7 +12,6 @@ import { Import } from './ui/Import';
 import { AppFrame } from './ui/layout/AppFrame';
 import { rememberRoute } from './ui/layout/Nav';
 import { Mix } from './ui/Mix';
-import { Playlist } from './ui/Playlist';
 import { Playlists } from './ui/Playlists';
 import { Top } from './ui/Top';
 
@@ -61,11 +59,11 @@ function Screen({ route }: { route: Route }) {
     case 'playlists':
       return <Playlists />;
     case 'playlist':
-      return <Playlist id={route.id} detail={route.detail} />;
+      return <Playlists selected={route.id} detail={route.detail} />;
     case 'artists':
       return <Artists />;
     case 'artist':
-      return <Artist artistKey={route.key} detail={route.detail} />;
+      return <Artists selected={route.key} detail={route.detail} />;
     case 'import':
       return <Import />;
     case 'settings':

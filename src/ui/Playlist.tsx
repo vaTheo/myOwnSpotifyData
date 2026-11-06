@@ -424,7 +424,14 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
       )}
       {matching && seed && (
         <div class="seed-bar">
-          <p class="seed-caption">
+          {/* The seed's row leaves the Match list, so after "Match from
+              this track" the sheet hands the focus back here (its rowId is
+              the seed's position). */}
+          <p
+            class="seed-caption"
+            tabIndex={-1}
+            data-row-id={String(seed.entry.position)}
+          >
             {seedCaption(seed.track.name, seedFeature)}
           </p>
           <Button variant="text" icon="close" onClick={() => clearSeed(id)}>
@@ -465,6 +472,7 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
       }}
       resetKey={`${id} ${order.value} ${seedPosition ?? ''}`}
       selectedKey={detail ?? null}
+      follow={!matching && detail !== undefined}
       // In Match mode a row is a seed, as before; otherwise it opens its
       // details, where "Match from this track" seeds from it.
       onOpen={

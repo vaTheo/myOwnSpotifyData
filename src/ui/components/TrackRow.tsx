@@ -27,11 +27,19 @@ export function TrackRow(p: {
     <li>
       <div class={p.selected ? 'row selected' : 'row'}>
         {p.rank !== undefined && <span class="rank">{p.rank}</span>}
-        {p.imageUrl && (
+        {/* `null`: a cover column without a picture keeps its place. */}
+        {p.imageUrl ? (
           <img class="cover" src={p.imageUrl} loading="lazy" alt="" />
+        ) : (
+          p.imageUrl === null && <span class="cover" aria-hidden="true" />
         )}
         {p.href ? (
-          <a class="main" href={p.href}>
+          <a
+            class="main"
+            href={p.href}
+            data-row-id={p.rowId}
+            aria-current={p.selected ? 'page' : undefined}
+          >
             {main}
           </a>
         ) : p.onClick ? (

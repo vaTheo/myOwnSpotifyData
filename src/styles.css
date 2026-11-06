@@ -2051,6 +2051,73 @@ a {
   font: var(--md-sys-typescale-body-medium);
 }
 
+/* ---- List–detail: Playlists and Artists with one open (spec 003, FR-020) ----
+ * Expanded and large: a 360 px pane of the list beside the detail. The pane
+ * stays under the top bar and scrolls on its own, so the page scrolls the
+ * detail. On large, a docked details sheet folds the pane away. */
+
+.screen:has(.list-detail) {
+  max-width: none;
+}
+
+.list-detail.split {
+  display: grid;
+  grid-template-columns: var(--app-list-pane) minmax(0, 1fr);
+  gap: var(--app-gap);
+  align-items: start;
+}
+
+.list-detail.split:has(.side-sheet.docked) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.list-detail.split:has(.side-sheet.docked) > .list-detail-pane {
+  display: none;
+}
+
+.list-detail-detail {
+  min-width: 0;
+}
+
+.list-detail-pane {
+  position: sticky;
+  top: var(--app-top-bar);
+}
+
+.list-pane {
+  max-height: calc(100dvh - var(--app-top-bar) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+
+.list-pane-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 8px 0;
+  background: var(--md-sys-color-surface-container-low);
+}
+
+.list-pane .list .row {
+  padding: 4px 8px;
+}
+
+.list-pane .row .main:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+/* "synced" before a date, on a phone's second line only. */
+.dt-prefix {
+  display: none;
+}
+
+.dt-item .dt-prefix {
+  display: inline;
+}
+
 /* ---- Track details: the side sheet (spec 003, US3, research D9) ----
  * Large: docked at 400 px, the frame beside it shrinks (the table keeps its
  * height, so SC-001 holds). Medium and expanded: a modal sheet over a scrim.

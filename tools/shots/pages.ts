@@ -284,6 +284,73 @@ export const PAGES: ShotPage[] = [
       page.getByRole('list').first().getByRole('button').first().click(),
     since: 'US3',
   },
+  {
+    // The Plays section before any history import: the "import" link.
+    id: 'top-details-no-history',
+    hash: '#/top',
+    setup: async (page) => {
+      await setState(page, 'historySummary', null);
+      await firstRow(page);
+    },
+    since: 'US3',
+  },
+  {
+    // US3 scenario 4: opened at 1440, the window shrinks to a phone, and
+    // the playlist and its track details are still open.
+    id: 'details-resize',
+    hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}?d=0`,
+    setup: async (page) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(150);
+    },
+    expect: async (page) =>
+      (await page.getByRole('dialog').count()) === 1
+        ? []
+        : ['the details sheet closed on the resize'],
+    since: 'US3',
+  },
+
+  // List–detail (US3, FR-020): Playlists and Artists with one item open.
+  {
+    id: 'playlists-split',
+    hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
+    expect: async (page) => {
+      const size = page.viewportSize();
+      if (!size || size.width < 1200) return [];
+      return (await page.getByRole('list', { name: 'Playlists' }).count())
+        ? []
+        : ['no playlist list beside the playlist'];
+    },
+    since: 'US3',
+  },
+  {
+    id: 'artists-split',
+    hash: (ids) => `#/artist/${enc(ids.artist ?? '')}`,
+    expect: async (page) => {
+      const size = page.viewportSize();
+      if (!size || size.width < 840) return [];
+      return (await page
+        .getByRole('list', { name: 'Artists by saved tracks' })
+        .count())
+        ? []
+        : ['no artist list beside the artist'];
+    },
+    since: 'US3',
+  },
+  {
+    id: 'artists-radar-split',
+    hash: '#/artists',
+    setup: async (page) => {
+      await tab(page, 'Under the radar');
+      await page
+        .getByRole('grid')
+        .first()
+        .getByRole('row')
+        .nth(2)
+        .click({ position: { x: 200, y: 20 } });
+    },
+    since: 'US3',
+  },
 
   // Screens of later stories
   { id: 'overview', hash: '#/', since: 'US8' },

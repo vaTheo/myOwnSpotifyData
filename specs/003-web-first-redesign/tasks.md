@@ -302,17 +302,17 @@ first/last play, finished/skipped, playlists, link; the list keeps its scroll; E
   - The History section shows today's text `Strip` until T075 swaps in the chart.
   - "Match from this track" shows when the sheet was opened from a playlist. It sets the seed and switches the order to Match.
 - [X] T058 [US3] Make opening a row set `?d=` and render `TrackDetails` in `SideSheet`, in `src/ui/Top.tsx`, `src/ui/Playlist.tsx` (position), `src/ui/Artist.tsx` and the Crate rows in `src/ui/crate/shared.tsx` (`CrateRow` opens details). Then remove the in-place expansions: Top's `expanded`, Artist's `opened`/`OPEN_BY_DEFAULT`, and `CrateRow`'s `expanded` children. Their content (playlist links, strips, "N of M plays", "Open <month> ›") now lives in the details.
-- [ ] T059 [US3] Create `src/ui/layout/ListDetail.tsx`:
+- [X] T059 [US3] Create `src/ui/layout/ListDetail.tsx`:
   - expanded and large with a selection: a 360 px `ListPane` plus the detail;
   - without a selection: the list at full width;
   - compact and medium: the detail full screen with back;
   - on large, the list pane folds away while a docked sheet is open.
-- [ ] T060 [US3] Rewrite `src/ui/Playlists.tsx` per §7:
+- [X] T060 [US3] Rewrite `src/ui/Playlists.tsx` per §7:
   - a table of cover, name, tracks, last synced (`syncedAt`, `formatDate`) and a "pending" flag from `syncState.pending`, with the filter in the toolbar;
   - `#/playlist/<id>` renders `ListDetail` with `Playlist` as the detail;
   - the empty state kept.
-- [ ] T061 [US3] Render `#/artist/<key>` as `ListDetail` with the artist table on the left and `Artist` on the right, in `src/ui/Artists.tsx` and `src/app.tsx`.
-- [ ] T062 [US3] Add pages with details open over Top, a playlist, a Crate view and an artist, plus a resize case (open at 1440, set the viewport to 390, the details are still open), to `tools/shots/pages.ts`. Run the visual loop; check by hand that Escape returns focus to the row. The owner approves, and these become baselines. Commit.
+- [X] T061 [US3] Render `#/artist/<key>` as `ListDetail` with the artist table on the left and `Artist` on the right, in `src/ui/Artists.tsx` and `src/app.tsx`.
+- [X] T062 [US3] Add pages with details open over Top, a playlist, a Crate view and an artist, plus a resize case (open at 1440, set the viewport to 390, the details are still open), to `tools/shots/pages.ts`. Run the visual loop; check by hand that Escape returns focus to the row. The owner approves, and these become baselines. Commit.
 
 **Checkpoint**: one click from any track list answers BPM, key, plays and playlists (SC-002); data stored but never shown is visible
 (SC-007).
