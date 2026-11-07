@@ -8,6 +8,7 @@ import { artistKey, playsFor, type Model } from '../../model/aggregate';
 import { peakMonth } from '../../model/crate';
 import { reccobeatsValue, resolveFeature } from '../../model/features';
 import { nameKey, normalize } from '../../model/normalize';
+import { datedYear, type YearSource } from '../../model/year';
 
 /**
  * Which track a details sheet is about (spec 003, data-model §5): a track id
@@ -51,6 +52,8 @@ export interface TrackFacts {
   spotifyUrl: string | null;
   isLocal: boolean;
   audio: TrackAudio | null;
+  /** The release year and its source (round 005); null when undated. */
+  released: { year: number; from: YearSource } | null;
   /** Null before an import, and for a track the history never credited. */
   plays: TrackPlays | null;
   months: Record<string, number> | null;
@@ -283,12 +286,30 @@ export function trackFacts(model: Model, ref: TrackRef): TrackFacts | null {
     spotifyUrl,
     isLocal,
     audio,
+    released: id ? yearFact(model, id) : null,
     plays,
     months,
     peakMonth: months ? peakMonth(months, Object.keys(months).sort()) : null,
     playlists,
   };
 }
+
+/**
+ * A track's release year and where it comes from, read in `yearOf`'s order,
+ * so the sheet and the Released column never disagree (round 005).
+ */
+export function yearFact(
+  model: Model,
+  trackId: string
+): { year: number; from: YearSource } | null {
+  return datedYear(model, trackId);
+}
+
+/** The sheet's words for a year's source. */
+export const YEAR_SOURCE_LABEL: Record<YearSource, string> = {
+  reccobeats: 'ReccoBeats (earliest album)',
+  album: 'album',
+};
 
 /** One string per reference, equal for equal references. */
 function refKey(ref: TrackRef): string {

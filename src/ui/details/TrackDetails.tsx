@@ -16,7 +16,12 @@ import { SideSheet } from '../layout/SideSheet';
 import { windowClass } from '../layout/windowClass';
 import { formatDuration } from '../table/columnValues';
 import { closeDetail } from './navigate';
-import { factsCache, type TrackFacts, type TrackRef } from './trackFacts';
+import {
+  factsCache,
+  YEAR_SOURCE_LABEL,
+  type TrackFacts,
+  type TrackRef,
+} from './trackFacts';
 
 const NOTATIONS: KeyNotation[] = ['camelot', 'open', 'classic'];
 
@@ -77,6 +82,16 @@ function Identity({ facts }: { facts: TrackFacts }) {
   );
 }
 
+/** "1993 · ReccoBeats (earliest album)", or `NoData` when undated (round 005). */
+function Released({ facts }: { facts: TrackFacts }) {
+  const r = facts.released;
+  return (
+    <Fact label="Released">
+      {r ? `${r.year} · ${YEAR_SOURCE_LABEL[r.from]}` : null}
+    </Fact>
+  );
+}
+
 function Audio(p: { facts: TrackFacts; onMatch?: () => void }) {
   const audio = p.facts.audio;
   const notation = keyNotation.value;
@@ -100,6 +115,7 @@ function Audio(p: { facts: TrackFacts; onMatch?: () => void }) {
               </span>
             ) : null}
           </Fact>
+          <Released facts={p.facts} />
           {audio.energy !== null && (
             <Fact label="Energy">{Math.round(audio.energy * 100)}%</Fact>
           )}
@@ -108,10 +124,17 @@ function Audio(p: { facts: TrackFacts; onMatch?: () => void }) {
           </Fact>
         </dl>
       ) : (
-        <p class="details-note">
-          No BPM or key yet —{' '}
-          <a href={routeHref({ name: 'settings' })}>look them up in Settings</a>
-        </p>
+        <>
+          <p class="details-note">
+            No BPM or key yet —{' '}
+            <a href={routeHref({ name: 'settings' })}>
+              look them up in Settings
+            </a>
+          </p>
+          <dl class="details-facts">
+            <Released facts={p.facts} />
+          </dl>
+        </>
       )}
       {p.onMatch && (
         <Button variant="tonal" icon="tune" onClick={p.onMatch}>
