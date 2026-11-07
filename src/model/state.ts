@@ -46,6 +46,7 @@ import { queueFailure, queueNote } from '../features/mix/queue';
 import { requestStatusText } from '../features/mix/worker';
 import {
   applyYears,
+  applyYearsByTrack,
   defaultChoice,
   runCreatePlaylist,
   rowAfterCreate,
@@ -1680,35 +1681,46 @@ export async function startCreatePlaylist(): Promise<void> {
   // would save an empty or wrong tracklist. `putMix` the captured row directly
   // rather than through `saveMix` (which reads live state), then reflect the
   // link on the open view only if this same mix is still open.
-  // Round 005: the years the matches taught reach the open rows (by identity,
-  // so a row edited meanwhile is left alone) whatever the outcome.
+  // Round 005: the years the matches taught reach the open rows whatever the
+  // outcome: by track (S13b M2), so a row validated meanwhile (a new object)
+  // is dated and a row now naming another track is left alone.
   const live = mixState.value;
   if (
     outcome.years.size > 0 &&
     live.status === 'ready' &&
     live.view.url === view.url
   ) {
-    mixRows.value = applyYears(mixRows.value, outcome.years);
+    mixRows.value = applyYearsByTrack(mixRows.value, outcome.years);
   }
   // The search ran on the tracks to add only: the years go onto the whole
   // working list of the tap (same row objects).
   const withYears = applyYears(rows, outcome.years);
   // A failure before the playlist exists still keeps the years on a mix that
-  // was already saved, written the way the success path writes its rows. A
-  // copy the owner saved during the run wins (S13 N1): it is left alone.
+  // was already saved, written the way the success path writes its rows
+  // (the tap's rows and `extras`, S13b M1). A copy the owner saved during the
+  // run wins (S13 N1): it only gains the years, by track (S13b M2).
   const savedBefore = savedMixes.value.find((mix) => mix.url === view.url);
   if (
     outcome.playlistId === null &&
     outcome.years.size > 0 &&
-    savedBefore !== undefined &&
-    savedBefore.savedAt < tapAt
+    savedBefore !== undefined
   ) {
+    const ownerSaved = savedBefore.savedAt >= tapAt;
     try {
-      await putMix({
-        ...savedBefore,
-        rows: keepStoredAnswers(withYears, savedBefore.rows),
-        savedAt: Date.now(),
-      });
+      await putMix(
+        ownerSaved
+          ? {
+              ...savedBefore,
+              rows: applyYearsByTrack(savedBefore.rows, outcome.years),
+              savedAt: Date.now(),
+            }
+          : {
+              ...savedBefore,
+              ...extras,
+              rows: keepStoredAnswers(withYears, savedBefore.rows),
+              savedAt: Date.now(),
+            }
+      );
       await loadSavedMixes();
       void queueServerPush(['mixes']);
     } catch (err) {
@@ -1735,9 +1747,13 @@ export async function startCreatePlaylist(): Promise<void> {
       ...extras,
       savedAt: tapAt,
     };
+    // A copy saved during the run gains the years by track (S13b M2).
     const row = rowAfterCreate(
       tapped,
-      stored,
+      stored && {
+        ...stored,
+        rows: applyYearsByTrack(stored.rows, outcome.years),
+      },
       tapAt,
       {
         playlistUrl: outcome.url ?? undefined,

@@ -7,6 +7,7 @@ import type { SpotifyClient } from '../../spotify/client';
 import type { ApiPlaylist } from '../../spotify/types';
 import { QuotaError } from '../../spotify/errors';
 import { describeError } from '../../util/errors';
+import { sameTrack } from './keepReview';
 import { keepStoredAnswers, storedUri } from './spotifyCheck';
 import { isIdentified, searchTrack, type RowMatch } from './spotifySearch';
 
@@ -82,6 +83,36 @@ export function applyYears(
       ? row
       : { ...row, year, yearFrom: 'spotify' as const };
   });
+}
+
+/**
+ * `applyYears` on another copy of the rows (S13b M2): a row of `rows` that
+ * carries no year takes the year of a searched row naming the same track
+ * (`sameTrack` on artist and title only: an ISRC kept from a rejected
+ * identification never decides). For the copy the owner saved, or the open
+ * rows, during the run (a validated row is a new object). A row now naming
+ * another track, or already dated, is left alone.
+ */
+export function applyYearsByTrack(
+  rows: TracklistRow[],
+  years: Map<TracklistRow, number>
+): TracklistRow[] {
+  if (years.size === 0) return rows;
+  const learned = [...years];
+  let changed = false;
+  const out = rows.map((row) => {
+    if (row.gap || typeof row.year === 'number') return row;
+    const hit = learned.find(([searched]) =>
+      sameTrack(
+        { artist: searched.artist, title: searched.title },
+        { artist: row.artist, title: row.title }
+      )
+    );
+    if (hit === undefined) return row;
+    changed = true;
+    return { ...row, year: hit[1], yearFrom: 'spotify' as const };
+  });
+  return changed ? out : rows;
 }
 
 const ADD_BATCH = 100;

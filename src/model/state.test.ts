@@ -687,6 +687,131 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
     expect(saved.playlistId).toBe('PL');
   });
 
+  /** Search finds every title; `dates` gives the album's release date, and
+   *  a title in `failOn` makes its search fail (not a quota answer). */
+  function datedSearch(dates: Record<string, string>, failOn?: string): void {
+    mocks.get.mockImplementation(
+      async (_path: string, query?: { q?: string }) => {
+        const q = String(query?.q ?? '');
+        if (failOn !== undefined && q.includes(failOn))
+          throw new Error('Spotify answered 500');
+        const t = ['One', 'Two'].find((f) => q.includes(f));
+        if (t === undefined) return { tracks: { items: [] } };
+        const answer = hit(t);
+        const date = dates[t];
+        if (date !== undefined)
+          (answer.tracks.items[0] as Record<string, unknown>).album = {
+            release_date: date,
+          };
+        return answer;
+      }
+    );
+  }
+
+  /** The open mix as saved before the tap. */
+  async function savedBeforeTap(): Promise<Map<string, unknown>> {
+    const store = await memoryStore();
+    state.mixRows.value = [row('One'), row('Two')];
+    expect(await state.saveMix()).toBe(true);
+    const repo = await import('../db/repo');
+    // An earlier save: the tap comes after it.
+    const [first] = vi.mocked(repo.putMix).mock.calls.map((c) => c[0]);
+    store.set(URL, { ...structuredClone(first), savedAt: 1 });
+    state.savedMixes.value = [{ ...first, savedAt: 1 }];
+    vi.mocked(repo.putMix).mockClear();
+    return store;
+  }
+
+  it('Validated only: the saved mix holds every row, the added one dated (S13b I3a)', async () => {
+    const store = await memoryStore();
+    state.mixRows.value = [{ ...row('One'), validated: true }, row('Two')];
+    datedSearch({ One: '1993-05-17', Two: '2001' });
+    playlistAnswers();
+    await state.startCreatePlaylist();
+    const saved = store.get(URL) as { rows: TracklistRow[] };
+    expect(saved.rows.map((r) => r.title)).toEqual(['One', 'Two']);
+    expect(saved.rows[0]).toMatchObject({ year: 1993, yearFrom: 'spotify' });
+    // Two was not added, so never searched: no year.
+    expect(saved.rows[1].year).toBeUndefined();
+    expect(state.mixRows.value[0].year).toBe(1993);
+  });
+
+  it('a search failing after a year was learned still saves the year (S13b I3b)', async () => {
+    const store = await savedBeforeTap();
+    datedSearch({ One: '1993' }, 'Two');
+    await state.startCreatePlaylist();
+    expect(state.createPlaylistState.value.status).toBe('error');
+    expect(mocks.post).not.toHaveBeenCalled();
+    const saved = store.get(URL) as { rows: TracklistRow[] };
+    expect(saved.rows.map((r) => r.title)).toEqual(['One', 'Two']);
+    expect(saved.rows[0]).toMatchObject({ year: 1993, yearFrom: 'spotify' });
+    expect(saved.rows[1].year).toBeUndefined();
+  });
+
+  it('the same failure after the owner saved during the run keeps the owner copy, dated (S13b I3c, M2)', async () => {
+    const store = await savedBeforeTap();
+    datedSearch({ One: '1993' }, 'Two');
+    const search = mocks.get.getMockImplementation()!;
+    mocks.get.mockImplementation(
+      async (path: string, query?: { q?: string }) => {
+        if (String(query?.q ?? '').includes('Two')) {
+          // The owner validates Two, deletes nothing, and saves mid-run.
+          state.toggleValidated(1);
+          await state.saveMix();
+        }
+        return search(path, query);
+      }
+    );
+    await state.startCreatePlaylist();
+    const saved = store.get(URL) as { rows: TracklistRow[] };
+    expect(saved.rows[1].validated).toBe(true);
+    expect(saved.rows[0]).toMatchObject({ year: 1993, yearFrom: 'spotify' });
+  });
+
+  it('the failure save keeps the removed tracks of the tap (S13b M1)', async () => {
+    const store = await savedBeforeTap();
+    state.mixRows.value = [
+      row('One'),
+      { ...row('Two'), detected: { artist: 'Scan', title: 'Heard' } },
+    ];
+    state.deleteMixRow(1);
+    datedSearch({ One: '1993' }, 'One-never');
+    // One is found and dated; then the playlist creation fails.
+    mocks.post.mockRejectedValue(new Error('Spotify answered 500'));
+    await state.startCreatePlaylist();
+    const saved = store.get(URL) as {
+      rows: TracklistRow[];
+      removed?: unknown[];
+    };
+    expect(saved.rows.map((r) => r.title)).toEqual(['One']);
+    expect(saved.rows[0].year).toBe(1993);
+    expect(saved.removed).toEqual([
+      { artist: 'Scan', title: 'Heard', isrc: null },
+    ]);
+  });
+
+  it('a review saved during a successful run gets the years too (S13b M2)', async () => {
+    const store = await memoryStore();
+    datedSearch({ One: '1993', Two: '2001' });
+    mocks.post.mockImplementation(async (path: string) => {
+      if (path === '/me/playlists') {
+        state.toggleValidated(0);
+        await state.saveMix();
+        return {
+          id: 'PL',
+          external_urls: { spotify: 'https://open.spotify.com/playlist/PL' },
+        };
+      }
+      return {};
+    });
+    await state.startCreatePlaylist();
+    const saved = store.get(URL) as { rows: TracklistRow[] };
+    expect(saved.rows[0]).toMatchObject({ validated: true, year: 1993 });
+    expect(saved.rows[1]).toMatchObject({ year: 2001, yearFrom: 'spotify' });
+    // The open rows show the same years (the validated row is a new object).
+    expect(state.mixRows.value.map((r) => r.year)).toEqual([1993, 2001]);
+  });
+
   it('a create for another mix ending leaves the open mix error alone (N3)', async () => {
     await memoryStore();
     searchAnswers(['One', 'Two']);

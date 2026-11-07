@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   applyYears,
+  applyYearsByTrack,
   defaultChoice,
   rowAfterCreate,
   runCreatePlaylist,
@@ -600,5 +601,40 @@ describe('applyYears', () => {
     expect(out[1]).toBe(edited);
     const rows = [a];
     expect(applyYears(rows, new Map())).toBe(rows);
+  });
+});
+
+describe('applyYearsByTrack (S13b M2)', () => {
+  it('dates the same track on another copy of the rows (a validate, a reload)', () => {
+    const a = id(t(0));
+    const years = new Map([[a, 1990]]);
+    const copy = { ...a, validated: true };
+    expect(applyYearsByTrack([copy], years)[0]).toEqual({
+      ...copy,
+      year: 1990,
+      yearFrom: 'spotify',
+    });
+  });
+
+  it('leaves a row now naming another track, and a dated row', () => {
+    const a = id(t(0));
+    const years = new Map([[a, 1990]]);
+    const edited = { ...a, title: 'Edited' };
+    const dated: TracklistRow = { ...a, year: 1985, yearFrom: 'shazam' };
+    const out = applyYearsByTrack([edited, dated], years);
+    expect(out[0]).toBe(edited);
+    expect(out[1]).toBe(dated);
+  });
+
+  it('never matches on an ISRC kept from a rejected identification', () => {
+    const a: TracklistRow = { ...id(t(0)), isrc: 'QZ0001' };
+    const years = new Map([[a, 1990]]);
+    const corrected = { ...a, title: 'Corrected' };
+    expect(applyYearsByTrack([corrected], years)[0]).toBe(corrected);
+  });
+
+  it('returns the same array when nothing changes', () => {
+    const rows = [id(t(0))];
+    expect(applyYearsByTrack(rows, new Map())).toBe(rows);
   });
 });
