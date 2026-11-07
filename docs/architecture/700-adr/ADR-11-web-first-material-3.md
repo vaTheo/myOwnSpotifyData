@@ -58,6 +58,7 @@ optional fields, with no `DB_VERSION` bump.
 
 - Spec: [2026-11-06 — A web-first redesign](../../specs/2026-11-06-web-first-redesign-design.md); full round under
   `specs/003-web-first-redesign/` (research D1–D19, `contracts/`)
+- [Design guide](../../dev-guide/100-design-guide.md) (the rules this decision implies, for every session)
 - [ADR-06](ADR-06-lean-tooling.md) (no runtime dependency; the dev-only loop beside the no-DOM-tests rule)
 - [ADR-02](ADR-02-no-spotify-reads-on-load.md) (the Overview reads only stored data)
 - [ADR-10](ADR-10-name-lookup-for-clues.md) (amended by the Mix review: a candidate joins Validated only once validated, D6)
