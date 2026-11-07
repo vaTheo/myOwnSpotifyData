@@ -3,6 +3,8 @@ import type { Clue, TracklistRow } from '../../db/schema';
 import {
   clueLine,
   confidenceShort,
+  rowYear,
+  yearText,
   confidenceText,
   gapCluesSummary,
   originText,
@@ -176,5 +178,38 @@ describe('clues', () => {
   it('counts the clues around a gap', () => {
     expect(gapCluesSummary(1)).toBe('1 clue around here');
     expect(gapCluesSummary(3)).toBe('3 clues around here');
+  });
+});
+
+describe('the row year (round 005)', () => {
+  const base: TracklistRow = {
+    startSec: 0,
+    endSec: null,
+    artist: 'Orbital',
+    title: 'Halcyon',
+    label: null,
+    source: 'tracklistify',
+    gap: false,
+    detected: { artist: 'Orbital', title: 'Halcyon' },
+    referenceCount: null,
+  };
+
+  it('says where the year came from', () => {
+    expect(yearText({ ...base, yearFrom: 'shazam' }, 1992)).toBe(
+      '1992, from Shazam'
+    );
+    expect(yearText({ ...base, yearFrom: 'catalogue' }, 1992)).toBe(
+      '1992, from the ISRC (Deezer or MusicBrainz)'
+    );
+    expect(yearText({ ...base, yearFrom: 'spotify' }, 1992)).toBe(
+      '1992, from Spotify (Create playlist or Check on Spotify)'
+    );
+    expect(yearText(base, 1992)).toBe('1992');
+  });
+
+  it('reads the row own year, never on a gap, never a zero', () => {
+    expect(rowYear({ ...base, year: 1993 })).toBe(1993);
+    expect(rowYear(base)).toBeNull();
+    expect(rowYear({ ...base, gap: true, year: 1993 })).toBeNull();
   });
 });
