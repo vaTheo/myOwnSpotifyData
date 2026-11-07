@@ -562,3 +562,153 @@ bottom.
 - **Empty states**: icon, reason and one action, keeping today's meanings (table in the spec FR-040).
 - **Inline errors**: an error-coloured `StatusLine` with an icon, in the section or pane they concern (Mix, Like, Settings).
 - **Gates**: the Crate and Under the radar cards keep their text and their one button.
+
+---
+
+## From main after the redesign started
+
+Features released on `origin/main` after the merge base b59ccf7 and merged into this branch. Rounds 003 (fill scan gaps) and 004
+(worker progress and queue control) are already folded into §12 ("From round 004 and the owner's decisions") and built in
+S08–S08d; this section adds round 005 (S13b, T131b), built in S13c (T132). Main's choices that this proposal departs from, and
+why, are listed in [main-sync.md](../main-sync.md) "Departures".
+
+### Round 005 · Release year of every song (F20, `specs/005-track-release-year/`)
+
+**Main's choice (mobile-first)**: a small outlined pill with the year after the BPM and key pills on every track row; above each
+song list a wrapping row of rounded buttons, "Sort by year", "All" and one chip per decade present (`components/YearView.tsx`,
+raw sizes in `styles.css`); on Mix a "by year, oldest first" option in the Sort select and a Decade `<select>`; in Settings ·
+Audio data the line "Release years: N of M tracks" and "· years N" on the look-up's done line.
+
+**Intent kept**: every song shown carries its year; a missing year is never shown as 0 or a placeholder year; every song list
+can be put oldest first (undated last, ties in the screen's own order) and narrowed to one decade among those present, combined
+with its other controls; nothing is hidden for good, nothing is deleted; the look-up says how many songs are dated. No Spotify
+call.
+
+**Data, unchanged from main**: `yearOf(model, trackId)` (ReccoBeats' earliest album year, else a playlist sync's album year, else
+a Top list's), cached per model; a Mix row's own `year` and `yearFrom` (`shazam`, `catalogue`, `spotify`); `decadeOf`,
+`decadeLabel` ("80s", "90s", "2000s", "1940s"); `decadesPresent`; a decade absent from a list is dropped
+(`effectiveYearView`).
+
+#### 1. A **Released** column on every track table
+
+Top (Tracks), Playlist, Artist and the five Crate views, through one builder `yearColumn(yearOf)` in `table/columns.tsx` beside
+`bpmColumn`/`keyColumn`, on tokens only (the table's body type, `tabular-nums`, `--md-sys-color-on-surface-variant`).
+
+| Property      | Value                                                                                                           |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| Header        | **Released** (not "Year": the Crate also counts listening years: "Years played", "Per year", By year's grid)    |
+| Width / align | 88 px, end-aligned                                                                                              |
+| Priority      | 3 on Top, Playlist, Artist and the Crate (drops before BPM, Key, Plays and Artists as the table narrows)        |
+| Sort          | `sortValue` = the year, `firstDirection: 'asc'` (oldest first); undated rows last in both directions (`sort.ts`) |
+| Missing       | `NoData` (the dash announced "no data"), as every other missing value in a table (FR-048)                      |
+| Two-line item | `compact: 'meta'`, after BPM and key: "Stefan Gubatz · 142 plays · 124 · 8A · 1993"; an undated song adds nothing |
+
+The Playlist's Match order keeps its relation and ΔBPM columns; Released sorts like any column there (the order control and the
+header sort coexist as today). Under the radar lists artists: no column. Compare periods (three narrow ranked lists): no year.
+
+```
+Large (≥ 1200), Playlist · By plays
+┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ‹ Playlists   Warm-up tools                       [Sync this playlist] [Like all songs]        │
+│ 128 tracks · synced 4 Nov      ( By plays | Playlist order | Match )          [Filters ▾ (1)] │
+├────┬────┬──────────────────────┬──────────────┬───────┬───────┬──────┬────────┬───────────┬───┤
+│ #  │    │ Title                │ Artists      │ Plays │ BPM   │ Key  │Released│ Playlists │ ↗ │
+├────┼────┼──────────────────────┼──────────────┼───────┼───────┼──────┼────────┼───────────┼───┤
+│  1 │ ▣  │ Noble Booth          │ Stefan Gubatz│   142 │ 124.0 │ (8A) │   1993 │         3 │ ↗ │
+│  2 │ ▣  │ Harbour Lights       │ Kiasmos      │    98 │ 122.5 │ (5B) │      — │         1 │ ↗ │
+└────┴────┴──────────────────────┴──────────────┴───────┴───────┴──────┴────────┴───────────┴───┘
+Medium, or expanded beside a list pane: Released (priority 3) is among the first columns to hide.
+Compact (< 600): two-line items
+  Noble Booth
+  Stefan Gubatz · 142 plays · 124 · 8A · 1993
+```
+
+#### 2. The **decade** in the Filters fold; **Sort by year** on two-line tables
+
+`TrackFilter` gains `decade: number | null` (pure, `filters/trackFilter.ts`); `filterTracks` gets a `yearOf(row)` reader beside
+`featureOf`. In the fold, under the key picker:
+
+- **Decade**: a row of single-select filter chips (the shared chip component, tokens), one per decade present among the table's
+  rows (`decadesPresent`), oldest first; tapping the selected chip clears it. Hidden when no row of the table is dated.
+- An undated row fails a decade criterion (the rule the BPM and key criteria already follow). The decade counts in
+  `hasCriteria` (the fold's badge, "Showing N of M", **Clear filters**) and in the filters' empty state. A decade absent from
+  the current rows (another playlist, another period) is ignored and never empties the table (`effectiveYearView`'s rule).
+- Kept per table for the session, like the other criteria (module-level signal; never in the address, never persisted).
+- **Sort by year** (a switch, "Sort by year, oldest first") shows in the fold only while the table draws two-line items
+  (compact, or beside a list pane on expanded): those tables have no sort headers (the redesign's ruling), so this is the
+  phone's year sort. On, it sets the table's sort signal to `{ column: 'released', direction: 'asc' }`; off returns to the
+  screen's default order. On wider windows the switch is not drawn: the Released header does it, and shows as sorted when the
+  switch set it on a phone.
+- The Crate's By year keeps its period controls; the decade filters its table like on the other views.
+
+```
+Filters fold (open), any track table
+┌────────────────────────────────────────────────────────────────┐
+│ [ Filter by title or artist           ]                        │
+│ BPM [ min ] – [ max ]   Key [ 8A ▾ ]   [■] Include compatible   │
+│ Decade  (70s) (80s) [90s] (2000s) (2010s) (2020s)              │
+│ [■] Sort by year, oldest first          ← two-line tables only  │
+│ Showing 12 of 128 · Clear filters                              │
+└────────────────────────────────────────────────────────────────┘
+```
+
+#### 3. Track details (sheet, §11)
+
+The **Audio** block gains one line after the key: "Released 1993 · ReccoBeats (earliest album)", "Released 1993 · album" (a
+playlist or Top sync), or "Released" with `NoData` when undated. The source comes from a pure `yearFact(model, trackId)` in
+`details/trackFacts.ts` that reads the sources in `yearOf`'s order, so the sheet and the column never disagree.
+
+#### 4. Mix tracklist (the open mix, §12)
+
+- A **Released** column in `TracklistTable.tsx`, priority 2 (set preparation is where the year matters most), 88 px, from the
+  row's own `year` (never the library's: the year sort uses the row's). Missing: `NoData`. The cell's tooltip and accessible
+  name say where it came from: "1993, from Shazam", "1993, from the ISRC (Deezer or MusicBrainz)", "1993, from the Spotify album
+  Create playlist matched". Two-line items: the year rides the meta line, nothing when undated. The **In your library** column
+  keeps BPM and key only (main's `year={false}`).
+- The **Sort** select (kept at every width: the tracklist has no header sort) gains **Year, oldest first** (value `year`) when
+  a row is dated; the select shows when a row has clip counts **or** a row is dated (main's `counted || dated`). A choice the
+  rows no longer allow falls back to Time.
+- A **Decade** select beside Sort ("All decades", then each decade present), shown when a row is dated. It combines with the
+  review chips (All, To review, Validated, Not on Spotify, Heard once) and the Sort, hides rows and never deletes them; the
+  caption "The others are hidden, not deleted…" shows whenever a chip other than All or a decade is on. The row being edited
+  stays visible whatever the view (main's rule).
+- Create playlist is unchanged: Validated only / All tracks decide; the Sort, the chips and the decade never do. After Create,
+  the rows it dated show their year (`yearFrom: 'spotify'`) on the open mix, and the years are kept on a saved mix even when the
+  playlist creation fails (S13b ruling: unless the owner saved the mix again during the run, whose copy wins).
+
+```
+Large, open mix
+┌ Sunrise closing set ──────────────────────────────── [Check on Spotify] ┐
+│ 24 tracks · 9 validated · 18 on Spotify · 2 not found                    │
+│ (All) (To review) (Validated) (Not on Spotify) (Heard once)              │
+│ Sort [Year, oldest first ▾]   Decade [90s ▾]                              │
+├──────┬────────────────────────────┬────────┬─────────┬────────┬──────────┤
+│ Time │ Artist – Title             │ Source │ Heard   │Released│ Review   │
+│ 0:07 │ Orbital – Halcyon          │ ◉      │ 3× · 91 │   1992 │ ✓ ✕      │
+│ 0:41 │ Leftfield – Song of Life   │ ◉      │ 2× · 84 │   1993 │ ○ ✕      │
+└──────┴────────────────────────────┴────────┴─────────┴────────┴──────────┘
+Compact: two-line rows "Orbital – Halcyon" over "0:07 · heard 3× · best 91 % · 1992".
+```
+
+#### 5. Settings · Audio data (§13), the Activity button
+
+- Built in S13b (merge): the card's description "BPM and key for your tracks, from ReccoBeats and your Rekordbox collection;
+  release years from ReccoBeats."; a second `StatusLine` "Release years: N of M tracks" under `coverageLine` (counted once per
+  model); the look-up's done line "found N · not found N · years N" ("Nothing new to look up." only when neither a track nor a
+  year was asked); the progress bar's label "Looking up · release years" during the third pass. A failure in the years pass is
+  the section's existing error `StatusLine` ("Last error: …"); the years already found are kept.
+- The Activity button's look-up entry reads "Looking up release years" during the third pass, "Looking up BPM and key" before
+  it (S13c), still linking to Settings.
+- The button keeps its label **Look up BPM and key** (one run, three passes; the description names the years).
+
+#### 6. Breakpoints
+
+| Window            | Track tables                                    | Year sort                                  | Decade             | Mix                                    |
+| ----------------- | ----------------------------------------------- | ------------------------------------------ | ------------------ | -------------------------------------- |
+| Compact < 600     | two-line items, year in the meta line           | Filters · "Sort by year" switch            | Filters fold chips | Sort and Decade selects; year in meta  |
+| Medium 600–839    | table, Released hides first (priority 3)        | Released header                            | Filters fold chips | table, Released priority 2             |
+| Expanded 840–1199 | beside a list pane: two-line items (as compact) | header, or the switch on two-line tables   | Filters fold chips | as medium; the Mixes pane folds        |
+| Large ≥ 1200      | full table                                      | Released header                            | Filters fold chips | full table                             |
+
+Messages: none new on screens. A failure of the years pass is Settings' existing look-up error line; a pulled row's invalid year
+is dropped by `validate.ts` (main's rule: the field, never the row).

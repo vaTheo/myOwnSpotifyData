@@ -159,7 +159,7 @@ At 390 px, check the stacking order from the screen contract.
   Accessibility shows no contrast or naming failure. Performance shows LCP ≤ 2.5 s and CLS < 0.1.
 - **INP**: in DevTools' Performance panel, record sorting the largest table and opening a details sheet. Each interaction takes
   under 200 ms.
-- **Keyboard only**: complete the inventory walkthrough (F1–F19) without the mouse. Focus is always visible as a chartreuse ring.
+- **Keyboard only**: complete the inventory walkthrough (F1–F20) without the mouse. Focus is always visible as a chartreuse ring.
   The scripted part runs with `yarn shots` (`tools/shots/keyboard.shots.ts`, pages `kbd-*` at 1440 and 390 px).
 - **Reduced motion**: with "Emulate prefers-reduced-motion" on, sheets and panes appear with no animation.
 
@@ -181,7 +181,7 @@ database and Spotify the same redirect address (the dev server itself is slower 
 
 ## 13. Nothing lost (SC-006, FR-046–FR-049)
 
-Run the F1–F19 walkthrough from the feature inventory at 1440 px and at 390 px, ticking each feature. Then confirm:
+Run the F1–F20 walkthrough from the feature inventory at 1440 px and at 390 px, ticking each feature. Then confirm:
 
 - Every `confirm()` listed in How the app works §14 still appears, with the same words.
 - The Network panel shows no host that the content security policy did not already list. The font comes from the app's own

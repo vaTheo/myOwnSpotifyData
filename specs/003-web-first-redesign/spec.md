@@ -132,7 +132,7 @@ two panes become one. Nothing that works today stops working.
 onto a computer screen.
 
 **Independent Test**: open every screen at 1440, 1024, 768 and 390 px wide. Navigation is visible and usable at each width, nothing
-scrolls sideways, and every feature in the inventory (F1–F19) is still reachable.
+scrolls sideways, and every feature in the inventory (F1–F20) is still reachable.
 
 **Acceptance Scenarios**:
 
@@ -489,7 +489,7 @@ corresponding screens, and reads nothing from Spotify.
 - **FR-046**: The redesign MUST NOT add a Spotify read, a Spotify write, a scope, an external host or anything that leaves the
   browser. Typefaces and icons MUST be served by the app itself (the content security rules allow only the hosts the app already
   talks to).
-- **FR-047**: Every feature in the inventory (F1–F19) MUST remain reachable and behave as today. Only its presentation changes,
+- **FR-047**: Every feature in the inventory (F1–F20) MUST remain reachable and behave as today. Only its presentation changes,
   plus the additions this spec lists.
 - **FR-048**: Every failure surface that exists today (Settings state lines, inline messages, banners) MUST be kept. Every
   confirmation question MUST be kept word for word, still asked by the browser's own dialog.
@@ -535,7 +535,7 @@ reach, Mix (with its tracklist rows and requests), Job state, Server state.
 - **SC-005**: Every screen meets the "good" Core Web Vitals thresholds on the owner's computer with their real library: largest
   content within 2.5 s of opening, any click or key press answered within 200 ms (including sorting the largest table), and a layout
   shift score under 0.1.
-- **SC-006**: A walkthrough of features F1–F19 passes in full at large and compact widths: every feature reachable, every message
+- **SC-006**: A walkthrough of features F1–F20 passes in full at large and compact widths: every feature reachable, every message
   and confirmation shown today still shown.
 - **SC-007**: Data that is stored but not shown today (added date, duration on the playlist screen, listening time, first play,
   energy, audio data source) is visible in the track details or the tables.
