@@ -55,6 +55,7 @@ import {
   confidenceText,
   gapCluesSummary,
   originText,
+  playLinks,
   referencesText,
   rowYear,
   sourceLabel,
@@ -119,16 +120,15 @@ function referencesLine(l: Line): string | null {
  * then Shazam's page while the row still reads as the scan heard it. No
  * request is made until one is opened.
  */
-function listenItems(row: TracklistRow): RowMenuItem[] {
+function listenItems(l: Line): RowMenuItem[] {
+  const { row } = l;
   if (!isIdentified(row)) return [];
-  const items: RowMenuItem[] = digLinks(row.artist, row.title).map((l) => ({
-    label: l.label,
-    href: l.href,
-  }));
-  if (row.shazamUrl && row.source === 'tracklistify') {
-    items.push({ label: 'Shazam', href: row.shazamUrl });
-  }
-  return items;
+  // The direct pages first, then the search pages (the other platforms have
+  // no page the app may find by name, ADR-04).
+  return [
+    ...playLinks(row, l.match?.trackId ?? null),
+    ...digLinks(row.artist, row.title),
+  ].map((x) => ({ label: x.label, href: x.href }));
 }
 
 /**
@@ -370,7 +370,7 @@ function columns(on: {
       priority: 2,
       width: '48px',
       cell: (l) => {
-        const items = listenItems(l.row);
+        const items = listenItems(l);
         return items.length === 0 ? null : (
           <RowMenu
             icon="headphones"
@@ -409,16 +409,13 @@ function columns(on: {
           { label: 'Edit', onSelect: () => on.edit(l.index) },
           { label: 'Delete', onSelect: () => on.remove(l.index) },
         ];
-        if (typeof row.spotify === 'object') {
-          // On a phone the Spotify cell is words only: the link is here.
-          if (compact)
-            items.push({ label: 'Open on Spotify', href: row.spotify.url });
-        } else if (isIdentified(row)) {
+        // A found track opens from the Listen menu's Play on Spotify.
+        if (typeof row.spotify !== 'object' && isIdentified(row)) {
           items.push({ label: 'Search on Spotify', href: searchUrl(row) });
         }
         // On a phone one "Listen…" item opens the Listen links in the same
         // list, so More stays short (fix round 1, R3).
-        const listen = compact ? listenItems(row) : [];
+        const listen = compact ? listenItems(l) : [];
         if (listen.length > 0) items.push({ label: 'Listen…', items: listen });
         return <RowMenu label={`More for ${nameOf(row)}`} items={items} />;
       },
@@ -569,7 +566,9 @@ function RowView(p: {
             </select>
           </label>
           <IconButton
-            icon={p.sort.direction === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+            icon={
+              p.sort.direction === 'asc' ? 'arrow_upward' : 'arrow_downward'
+            }
             label={
               p.sort.direction === 'asc'
                 ? 'Ascending, tap for descending'

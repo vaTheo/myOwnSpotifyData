@@ -8,6 +8,7 @@ import {
   confidenceText,
   gapCluesSummary,
   originText,
+  playLinks,
   referencesText,
   setWideSummary,
   sourceLabel,
@@ -211,5 +212,35 @@ describe('the row year (round 005)', () => {
     expect(rowYear({ ...base, year: 1993 })).toBe(1993);
     expect(rowYear(base)).toBeNull();
     expect(rowYear({ ...base, gap: true, year: 1993 })).toBeNull();
+  });
+});
+
+describe('playLinks: the direct pages first', () => {
+  it('Spotify from the Check answer, else from the library match', () => {
+    const found = row({
+      spotify: { id: 'abc', url: 'https://open.spotify.com/track/abc' },
+    });
+    expect(playLinks(found, 'zzz')).toEqual([
+      { label: 'Play on Spotify', href: 'https://open.spotify.com/track/abc' },
+    ]);
+    expect(playLinks(row(), 'zzz')).toEqual([
+      { label: 'Play on Spotify', href: 'https://open.spotify.com/track/zzz' },
+    ]);
+  });
+
+  it('nothing when Spotify has no direct page: not found, no match, a local file', () => {
+    expect(playLinks(row({ spotify: 'not-found' }), 'zzz')).toEqual([]);
+    expect(playLinks(row(), null)).toEqual([]);
+    expect(playLinks(row(), 'spotify:local:a:b:c:1')).toEqual([]);
+  });
+
+  it('Shazam only for a row still reading as the scan heard it, after Spotify', () => {
+    const shazam = 'https://www.shazam.com/track/1/x';
+    expect(
+      playLinks(row({ shazamUrl: shazam }), 'zzz').map((l) => l.label)
+    ).toEqual(['Play on Spotify', 'Shazam']);
+    expect(
+      playLinks(row({ shazamUrl: shazam, source: 'manual' }), null)
+    ).toEqual([]);
   });
 });

@@ -421,7 +421,9 @@ screen, grouped by role under `src/ui/`.
   last in both directions, ties in set order. The Sort select (all widths, `TracklistTable.tsx`) is built by `sortChoices` from the
   same columns, with "Set order" and a direction button, so a phone picks what a header would; `effectiveSort` falls back to the
   set's order when a column no longer applies. `tracklistView` (chip, decade, the edited row) and `viewRows` only filter now;
-  `RowSort` is gone. The sort is component state: not saved with the mix, no Spotify read.
+  `RowSort` is gone. The sort is component state: not saved with the mix, no Spotify read. The Listen menu (`listenItems`) lists
+  `playLinks` (`ui/mix/rowText.ts`: Play on Spotify from the Check answer or the library match, never a local file; Shazam while the
+  row is the scan's) before the dig links' search pages; no lookup by name is made for the other platforms (ADR-04).
 
 ## 14. Jobs and state (`model/state.ts`)
 

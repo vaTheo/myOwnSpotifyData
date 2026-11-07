@@ -286,9 +286,12 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   **Sort** menu beside the chips offers the same choices, with **Set order**
   to go back, and is how a phone sorts. Tracks with no value always stay at
   the bottom; the sort is only how you look at the list and is not saved. Each track's
-  **Listen** menu (**Listen…** in the row menu on a phone) opens store and
-  preview searches (Beatport, Bandcamp, Discogs, SoundCloud, YouTube, and
-  Shazam when known).
+  **Listen** menu (**Listen…** in the row menu on a phone) opens first the
+  pages that go straight to the track: **Play on Spotify** (from Check on
+  Spotify, or from the same song in your library) and **Shazam** when known;
+  then store and preview searches (Beatport, Bandcamp, Discogs, SoundCloud,
+  YouTube), which are search pages because the app never looks a track up by
+  name.
 - **Create playlist from mix** turns the list into a private Spotify
   playlist. Choose **Validated only** (the default once you validated a
   track) or **All tracks**; the card says how many will be added, in set

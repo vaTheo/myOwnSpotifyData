@@ -17,6 +17,35 @@ export function sourceLabel(row: TracklistRow): string {
 }
 
 /**
+ * The direct pages of a row, the ones that open on the track itself, never on
+ * a search: Spotify from the Check answer, else from the library match (a
+ * local file has no page), then Shazam's page while the row still reads as the
+ * scan heard it. Empty when none is known; the caller adds the search pages.
+ */
+export function playLinks(
+  row: TracklistRow,
+  libraryTrackId: string | null
+): { label: string; href: string }[] {
+  const links: { label: string; href: string }[] = [];
+  if (typeof row.spotify === 'object') {
+    links.push({ label: 'Play on Spotify', href: row.spotify.url });
+  } else if (
+    row.spotify === undefined &&
+    libraryTrackId !== null &&
+    !libraryTrackId.startsWith('spotify:')
+  ) {
+    links.push({
+      label: 'Play on Spotify',
+      href: `https://open.spotify.com/track/${libraryTrackId}`,
+    });
+  }
+  if (row.shazamUrl && row.source === 'tracklistify') {
+    links.push({ label: 'Shazam', href: row.shazamUrl });
+  }
+  return links;
+}
+
+/**
  * Where a worker row came from when not the first listen (round 003). A
  * candidate's "not heard" is a badge beside this text, so it is not repeated.
  */

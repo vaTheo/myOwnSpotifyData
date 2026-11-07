@@ -9,7 +9,7 @@ Every column of the open mix's tracklist with a comparable value now sorts from 
 again for the reverse), Time, Artist – Title, Label, Source, In your library, Released, Spotify and Review, plus a **Clips**
 column when a set has clip counts. The **Sort** menu is rebuilt from the same columns, with **Set order** and a direction button, so
 a phone can sort too; header and menu always agree. Tracks with no value stay last in both directions, and the sort is not saved with
-the mix. "Best score" is now Confidence and "Year, oldest first" is Released. Spec: `specs/009-mix-sortable-columns/`. No
+the mix. "Best score" is now Confidence and "Year, oldest first" is Released. The Listen menu now starts with the direct pages, **Play on Spotify** (the Check answer, else the song in your library) and Shazam, before the search pages; the phone's "Open on Spotify" moves there. Spec: `specs/009-mix-sortable-columns/`. No
 `DB_VERSION` bump.
 
 ## 2026-11-07 — Lists keep loading as you scroll
