@@ -114,7 +114,8 @@ export function mergeKeepingReview(
     }
     if (removed.some((t) => sameTrack(t, row))) continue;
     if (keptNames.some((t) => sameTrack(t, row))) continue;
-    const before = scans.find((s) => sameTrack(s, row));
+    // One existing row's review goes to one incoming row (fix round 1).
+    const before = scans.find((s) => !matched.has(s) && sameTrack(s, row));
     if (before) {
       matched.add(before);
       arriving.push({ ...row, ...review(before) });
@@ -129,18 +130,20 @@ export function mergeKeepingReview(
 }
 
 /**
- * `deleteMixRow`'s memory (T125): a deleted scan row's detected artist,
- * title and ISRC join the mix's removed list, at most `REMOVED_MAX`, the
- * oldest dropped. Other rows (gaps, typed, pasted…) leave it unchanged.
+ * `deleteMixRow`'s memory (T125): a deleted row that was detected (a scan
+ * or TrackId row, corrected or not) joins the mix's removed list by its
+ * detected artist and title and its ISRC, at most `REMOVED_MAX`, the
+ * oldest dropped, so a later result does not bring it back. Gaps and rows
+ * with nothing detected (typed, pasted) leave it unchanged.
  */
 export function recordRemoved(
   removed: readonly RemovedTrack[] | undefined,
   row: TracklistRow
 ): RemovedTrack[] | undefined {
-  if (row.gap || row.source !== 'tracklistify') {
+  if (row.gap || row.detected === null) {
     return removed === undefined ? undefined : [...removed];
   }
-  const name = row.detected ?? { artist: row.artist, title: row.title };
+  const name = row.detected;
   const next = [
     ...(removed ?? []),
     { artist: name.artist, title: name.title, isrc: row.isrc ?? null },

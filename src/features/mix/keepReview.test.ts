@@ -109,9 +109,17 @@ describe('mergeKeepingReview (T125, owner D1)', () => {
   });
 
   it('refused: a candidate does not take a heard row of another track', () => {
-    const existing = [scan({ title: 'Heard One', hits: 4, ...FOUND })];
+    // The same title by another artist: not the heard track.
+    const existing = [
+      scan({ artist: 'Four', title: 'Angel Echoes', hits: 4, ...FOUND }),
+    ];
     const incoming = [
-      scan({ title: 'Named Two', origin: 'clue', confidence: null }),
+      scan({
+        artist: 'Four Tet',
+        title: 'Angel Echoes',
+        origin: 'clue',
+        confidence: null,
+      }),
     ];
     const out = mergeKeepingReview(existing, incoming, []);
     expect(out).toEqual([incoming[0]]);
@@ -199,6 +207,15 @@ describe('mergeKeepingReview (T125, owner D1)', () => {
     ]);
   });
 
+  it('hands one row’s review to one incoming row only (fix round 1, M8)', () => {
+    const existing = [scan({ startSec: 60, validated: true, ...FOUND })];
+    const incoming = [scan({ startSec: 60 }), scan({ startSec: 900 })];
+    const out = mergeKeepingReview(existing, incoming, []);
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ startSec: 60, validated: true, ...FOUND });
+    expect(out[1]).toEqual(incoming[1]);
+  });
+
   it('orders by time, rows without a time last', () => {
     const a = scan({ startSec: null, title: 'No time' });
     const b = scan({ startSec: 30, title: 'Thirty', validated: true });
@@ -218,11 +235,29 @@ describe('recordRemoved (T125)', () => {
       { artist: 'Stefan Gubatz', title: 'Noble Booth', isrc: 'DECH62001634' },
     ]);
   });
-  it('ignores gaps and rows that are not from the scan', () => {
+  it('ignores gaps and typed or pasted rows (nothing was detected)', () => {
     const gap = scan({ gap: true, artist: '', title: '' });
     const typed = { ...scan(), source: 'manual' as const, detected: null };
+    const pasted = { ...scan(), source: 'pasted' as const, detected: null };
     expect(recordRemoved([], gap)).toEqual([]);
     expect(recordRemoved(undefined, typed)).toBeUndefined();
+    expect(recordRemoved(undefined, pasted)).toBeUndefined();
+  });
+  it('records a corrected scan row by what was detected, so a later result leaves it out (fix round 1)', () => {
+    const corrected = scan({
+      title: 'Noble Booth (my edit)',
+      source: 'manual',
+      detected: { artist: 'Stefan Gubatz', title: 'Noble Booth' },
+      isrc: 'DECH62001634',
+    });
+    const removed = recordRemoved(undefined, corrected);
+    expect(removed).toEqual([
+      { artist: 'Stefan Gubatz', title: 'Noble Booth', isrc: 'DECH62001634' },
+    ]);
+    const incoming = [scan({ startSec: 5 }), scan({ title: 'Other' })];
+    expect(mergeKeepingReview([], incoming, removed ?? [])).toEqual([
+      incoming[1],
+    ]);
   });
   it('keeps the newest 500, dropping the oldest', () => {
     const full: RemovedTrack[] = Array.from(
