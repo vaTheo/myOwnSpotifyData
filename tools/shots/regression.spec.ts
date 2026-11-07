@@ -459,6 +459,58 @@ test.describe('A. addresses', () => {
       app.page.getByRole('article', { name: 'Peak time set at the Harbour' })
     ).toBeVisible();
     await openGrid(app.page);
+    // An unknown key while a mix is open (Back after a removal, a stale
+    // bookmark): the line says so above the open mix, which stays.
+    await app.page.evaluate(
+      (h) => (location.hash = h),
+      `#/mix/${enc('https://soundcloud.com/nobody/never-saved')}`
+    );
+    await expect(
+      app.page.getByText('This saved mix is not in this browser.')
+    ).toBeVisible();
+    await expect(
+      app.page.getByRole('article', { name: 'Peak time set at the Harbour' })
+    ).toBeVisible();
+    // A saved key again: the line goes.
+    await app.page.evaluate((h) => (location.hash = h), `#/mix/${enc(DOCK)}`);
+    await expect(
+      app.page.getByRole('article', { name: 'Closing set at the Dock' })
+    ).toBeVisible();
+    await expect(
+      app.page.getByText('This saved mix is not in this browser.')
+    ).toHaveCount(0);
+  });
+
+  test('A18 ?d=<position> on a playlist opens that entry and selects its row', async ({
+    app,
+  }) => {
+    const hash = await app.open(
+      (ids) => `#/playlist/${enc(ids.playlist ?? '')}`
+    );
+    await app.page.getByRole('tab', { name: 'Playlist order' }).click();
+    const grid = main(app.page).getByRole('grid').first();
+    const titles = await column(grid, 'Title');
+    // The fourth entry: a tap writes its position into the address.
+    await grid
+      .getByRole('row')
+      .nth(4)
+      .click({ position: { x: 120, y: 20 } });
+    await expect(app.page).toHaveURL(/\?d=\d+$/);
+    const d = /\?d=(\d+)$/.exec(app.page.url())?.[1];
+    const sheet = app.page.getByRole('complementary');
+    await app.page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+    // The address alone opens that entry and selects its row.
+    await app.page.evaluate((h) => (location.hash = h), `${hash}?d=${d}`);
+    await expect(sheet.getByRole('heading', { level: 2 })).toHaveText(
+      titles[3]
+    );
+    await expect(
+      grid.locator('[role=row][aria-selected="true"]')
+    ).toContainText(titles[3]);
+    // A position the playlist does not hold: no sheet.
+    await app.page.evaluate((h) => (location.hash = h), `${hash}?d=99999`);
+    await expect(sheet).toHaveCount(0);
   });
 
   test('A14 #/settings opens Settings in seven sections', async ({ app }) => {
@@ -516,6 +568,8 @@ test.describe('A. addresses', () => {
     expect(opened).not.toBe(hash);
     await app.page.goBack();
     await expect(app.page).not.toHaveURL(opened);
+    await expect(app.page).not.toHaveURL(/\?d=/);
+    await expect(sheet).toHaveCount(0);
     // A stale id: the screen, no sheet.
     await app.page.evaluate((h) => (location.hash = h), '#/top?d=noSuchTrack');
     await expect(
@@ -580,10 +634,10 @@ test.describe('F. features', () => {
       app.page.getByRole('button', { name: 'Sync this playlist' })
     ).toHaveCount(0);
     await expect(
-      app.page
-        .getByRole('banner')
-        .getByRole('button', { disabled: true })
-        .first()
+      app.page.getByRole('banner').getByRole('button', {
+        name: /^Spotify quota reached\. .+ after .+\.$/,
+        disabled: true,
+      })
     ).toBeVisible();
   });
 
@@ -683,7 +737,9 @@ test.describe('F. features', () => {
     ).toBe(true);
     await grid.getByRole('button', { name: '#', exact: true }).click();
     const ranks = (await column(grid, '#')).map(Number);
-    expect(nonDecreasing(ranks) || nonIncreasing(ranks)).toBe(true);
+    expect(ranks.slice(0, 30)).toEqual(
+      Array.from({ length: 30 }, (_, i) => i + 1)
+    );
   });
 
   test('F05 a playlist ranks by plays; Playlist order keeps its order', async ({
@@ -795,6 +851,7 @@ test.describe('F. features', () => {
     await app.page.getByRole('tab', { name: 'Open Key' }).click();
     await app.page.evaluate((h) => (location.hash = h), '#/top');
     const open = (await column(grid, 'Key')).filter((k) => /\d/.test(k));
+    expect(open.length).toBeGreaterThan(5);
     expect(open.every((k) => /^\d{1,2}[dm]$/.test(k))).toBe(true);
     await app.page.evaluate((h) => (location.hash = h), '#/settings');
     await app.page.getByRole('tab', { name: 'Camelot' }).click();
@@ -827,9 +884,12 @@ test.describe('F. features', () => {
     await app.open((ids) => `#/playlist/${enc(ids.playlist ?? '')}`);
     await app.page.getByRole('tab', { name: 'Match' }).click();
     const grid = app.page.getByRole('grid').first();
-    // The seed: the first row with a key.
+    // The seed: the first row with a BPM and a key.
     const keys = await column(grid, 'Key');
-    const at = keys.findIndex((k) => /^\d{1,2}[AB]$/.test(k));
+    const bpms = await column(grid, 'BPM');
+    const at = keys.findIndex(
+      (k, i) => /^\d{1,2}[AB]$/.test(k) && num(bpms[i]) !== null
+    );
     const titles = await column(grid, 'Title');
     await grid
       .getByRole('row')
@@ -837,16 +897,24 @@ test.describe('F. features', () => {
       .click({ position: { x: 120, y: 20 } });
     await expect(app.page.getByText(/^Matching: /)).toContainText(titles[at]);
     const relations = await column(grid, 'Relation');
+    // The cell prints adjacent keys as +1 or −1 (matchCells.ts); a row
+    // with no compatible key, out of tolerance or with no data prints none.
     const rank: Record<string, number> = {
       'same key': 0,
       relative: 1,
-      adjacent: 2,
+      '+1': 2,
+      '−1': 2,
       boost: 3,
     };
-    const known = relations.map((r) => rank[r]).filter((r) => r !== undefined);
-    expect(known.length).toBeGreaterThan(0);
-    // Compatible keys first, best relation first.
-    expect(nonDecreasing(known)).toBe(true);
+    const none = (r: string) => r === '' || r.includes('no data');
+    const unknown = relations.filter((r) => !none(r) && !(r in rank));
+    expect(unknown, 'a relation the suite does not know').toEqual([]);
+    const order = relations.map((r) => rank[r] ?? 4);
+    // Compatible keys first, best relation first, then every other row.
+    expect(nonDecreasing(order)).toBe(true);
+    for (const r of [0, 2, 4]) {
+      expect(order, `relation rank ${r} met`).toContain(r);
+    }
     expect(await column(grid, 'Title')).not.toContain(titles[at]);
   });
 
@@ -938,6 +1006,21 @@ test.describe('F. features', () => {
     await expect(
       app.page.getByRole('button', { name: 'Saved ✓' })
     ).toBeVisible();
+    // Kept: closed, another screen, then the Mix screen mounted again reads
+    // the saved mixes back from this browser's database (the demo refills
+    // its database on a reload, so no reload here).
+    await app.page.getByRole('button', { name: 'Close this mix' }).click();
+    await app.page.evaluate((h) => (location.hash = h), '#/top');
+    await expect(app.page.getByRole('heading', { level: 1 })).toHaveText(
+      'Listening'
+    );
+    await app.page.evaluate((h) => (location.hash = h), '#/mix');
+    await app.page
+      .getByRole('link', { name: /^Closing set at the Dock/ })
+      .first()
+      .click();
+    await openGrid(app.page);
+    await expect(summary).toContainText(`${before + 1} validated`);
   });
 
   test('F12b Mix: removing a saved mix asks first; Yes removes it', async ({
@@ -987,6 +1070,63 @@ test.describe('F. features', () => {
     await expect(grid).toContainText('Pasted Title');
     await expect(grid).not.toContainText('Manual Title');
     expect(app.confirms).toHaveLength(2);
+  });
+
+  test('F12d Mix: the description over edited rows asks first', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(HARBOUR)}`);
+    await openGrid(app.page);
+    // A lookup that read a description keeps its rows on the view (a saved
+    // mix does not): the demo sets that view over the open mix.
+    const row = (artist: string, title: string, startSec: number) => ({
+      startSec,
+      endSec: null,
+      artist,
+      title,
+      label: null,
+      source: 'description',
+      gap: false,
+      detected: null,
+      referenceCount: null,
+    });
+    await app.set('mixState', {
+      status: 'ready',
+      view: {
+        url: HARBOUR,
+        title: 'Peak time set at the Harbour',
+        author: 'Demo DJ',
+        playerSrc: null,
+        sources: {
+          trackid: true,
+          description: true,
+          pasted: false,
+          linkOut: null,
+        },
+        descriptionRows: [
+          row('Described Artist', 'Described Title', 0),
+          row('Second Described', 'Another Title', 300),
+        ],
+        trackid: null,
+        oembedError: null,
+        trackidError: null,
+        shortLink: false,
+      },
+    });
+    await addManualRow(app.page);
+    const grid = await openGrid(app.page);
+    const replace = app.page.getByRole('button', {
+      name: 'Replace with the description tracklist',
+    });
+    await replace.click();
+    expect(app.confirms).toEqual([
+      'confirm: Replace your edited tracklist with the one from the description?',
+    ]);
+    await expect(grid).toContainText('Manual Title');
+    app.answer = true;
+    await replace.click();
+    await expect(grid).toContainText('Described Title');
+    await expect(grid).not.toContainText('Manual Title');
   });
 
   test('F13 Create playlist: Validated only or All tracks, gated by the scope, no request', async ({
@@ -1131,10 +1271,46 @@ test.describe('F. features', () => {
     await expect(
       app.page.getByRole('button', { name: 'Sign out' })
     ).toBeVisible();
-    // The demo has no server address, so the tap stops before its question
-    // (`removeServerData` needs a configured server): the owner's (T115).
+    // The demo has no server address, so the tap stops before its
+    // question; F18b asks it with a fake address.
     await app.page.getByRole('button', { name: 'Remove server data' }).click();
     expect(app.confirms).toEqual([]);
+  });
+
+  test.describe('with a fake server address', () => {
+    // The second dev server of regression.config.ts: its demo believes in a
+    // server at a fake 127.0.0.1 address, which the test answers itself.
+    test.use({ baseURL: 'http://127.0.0.1:5174/myOwnSpotifyData/' });
+
+    test('F18b Remove server data asks first; No sends nothing', async ({
+      app,
+    }) => {
+      await app.open('#/settings');
+      const sent: string[] = [];
+      await app.page.route('**/fake-server/**', (route) => {
+        sent.push(`${route.request().method()} ${route.request().url()}`);
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: '[]',
+        });
+      });
+      await app.set('serverSession', SERVER_SESSION);
+      await app.set('serverState', SERVER_CONNECTED);
+      const remove = app.page.getByRole('button', {
+        name: 'Remove server data',
+      });
+      await expect(remove).toBeEnabled();
+      const before = sent.length;
+      await remove.click();
+      expect(app.confirms).toEqual([
+        'confirm: Remove all your data from the server? Local data on this browser is kept.',
+      ]);
+      await expect(
+        app.page.getByText('Connected as dj@example.com.')
+      ).toBeVisible();
+      expect(sent.slice(before), 'requests after No').toEqual([]);
+    });
   });
 
   test('F19 Identify on my computer: the queue lists requests; Cancel and Stop ask first', async ({
@@ -1330,6 +1506,272 @@ async function escapeWhenDrawn(page: Page, selector: string): Promise<void> {
   }, selector);
 }
 
+// ------------------------------- R. Rounds 003 and 004 (inventory F19)
+
+/** Each track row of the open mix: its clip count and best score, if heard. */
+async function heardFigures(
+  grid: Locator
+): Promise<{ hits: number; best: number }[]> {
+  const texts = await grid.evaluate((g) => {
+    const body = g.querySelectorAll('[role=rowgroup]')[1];
+    return [...body.querySelectorAll('[role=row]')].map(
+      (r) => r.getAttribute('aria-label') ?? r.textContent ?? ''
+    );
+  });
+  return texts.flatMap((t) => {
+    const m = /(\d+)× · (?:best )?(\d+) %/.exec(t);
+    return m ? [{ hits: Number(m[1]), best: Number(m[2]) }] : [];
+  });
+}
+
+/** The Mixes list with the server signed in (demo controls only). */
+async function signedInQueue(app: App): Promise<Locator> {
+  await app.open('#/mix');
+  await app.set('serverSession', SERVER_SESSION);
+  await app.set('serverState', SERVER_CONNECTED);
+  const list = app.page.getByRole('region', { name: 'Mixes' });
+  await list.getByRole('heading', { name: 'Mixes' }).waitFor();
+  return list;
+}
+
+test.describe('R. rounds 003 and 004', () => {
+  test('R01 a second listen says its speed', async ({ app }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    await expect(
+      grid.getByRole('row').filter({ hasText: 'Juno Haze – Neon Shadow' })
+    ).toContainText('second listen · +4 %');
+    await expect(
+      grid.getByRole('row').filter({ hasText: 'Lumen Rivers – Garden Gravity' })
+    ).toContainText('second listen · −4 %');
+  });
+
+  test('R02 a candidate from a comment is flagged not heard and has no score', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    const row = grid
+      .getByRole('row')
+      .filter({ hasText: 'from a comment by night_owl' });
+    await expect(row).toHaveCount(1);
+    await expect(row).toContainText('not heard');
+    await expect(row).not.toContainText(/heard \d+×/);
+    // It starts To review: Validated only leaves it out, All tracks keeps it.
+    await expect(
+      row.getByRole('button', { name: /^Validate / })
+    ).toHaveAttribute('aria-pressed', 'false');
+    const allChip = app.page.getByRole('tab', { name: /^All \(\d+\)$/ });
+    const tracks = Number(
+      /\((\d+)\)/.exec((await allChip.textContent()) ?? '')?.[1]
+    );
+    await expect(
+      app.page.getByRole('tab', { name: `All tracks (${tracks})` })
+    ).toBeVisible();
+  });
+
+  test('R03 clues around a gap and the set-wide clues open as plain lines', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    await openGrid(app.page);
+    await app.page
+      .getByText(/^Tracklist from the description/)
+      .first()
+      .click();
+    const setWide = app.page.getByRole('group').filter({
+      hasText: /Tracklist from the description \(3 lines, no times\)/,
+    });
+    await expect(setWide.getByRole('listitem')).toHaveCount(3);
+    await app.page.getByText('2 clues around here').click();
+    const gap = app.page
+      .getByRole('group')
+      .filter({ hasText: /2 clues around here/ });
+    await expect(gap.getByRole('listitem')).toHaveCount(2);
+    await expect(gap.getByRole('listitem').first()).toHaveText(
+      /^\d+:\d{2} · night_owl · ID\? sounds like Moreau Unit/
+    );
+  });
+
+  test('R04 the run line: second pass, resumed, warnings', async ({ app }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    await openGrid(app.page);
+    await expect(
+      app.page.getByText(
+        'Second pass: 41 places · 3 found · Resumed (120 clips kept)'
+      )
+    ).toBeVisible();
+    await app.page.getByText('1 warning', { exact: true }).click();
+    await expect(
+      app.page
+        .getByRole('group')
+        .filter({ hasText: /1 warning/ })
+        .getByRole('listitem')
+    ).toHaveCount(1);
+  });
+
+  test('R05 a set stopped early says where, with Ask again once signed in', async ({
+    app,
+  }) => {
+    const list = await signedInQueue(app);
+    const dock = list.getByRole('listitem').filter({
+      has: app.page.getByRole('link', { name: /^Closing set at the Dock/ }),
+    });
+    await expect(dock).toContainText(
+      'Stopped early at 01:12:00 (by you); ask again later for the rest'
+    );
+    await expect(dock.getByRole('button', { name: 'Ask again' })).toBeVisible();
+    await dock.getByRole('link', { name: /^Closing set at the Dock/ }).click();
+    await openGrid(app.page);
+    const head = app.page.getByRole('article', {
+      name: 'Closing set at the Dock',
+    });
+    await expect(head).toContainText(/Stopped early at 01:12:00/);
+    await expect(head.getByRole('button', { name: 'Ask again' })).toBeVisible();
+  });
+
+  test('R06 every heard row says heard N× · best X %', async ({ app }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    const figures = await heardFigures(grid);
+    // 17 tracks: one candidate (not heard), the rest heard.
+    expect(figures).toHaveLength(16);
+    expect(
+      figures.every((f) => f.hits >= 1 && f.best > 0 && f.best <= 100)
+    ).toBe(true);
+  });
+
+  test('R07 Sort by Clips heard, then Best score: most first', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    await app.page.getByLabel('Sort').selectOption({ label: 'Clips heard' });
+    const byHits = await heardFigures(grid);
+    expect(byHits).toHaveLength(16);
+    expect(nonIncreasing(byHits.map((f) => f.hits))).toBe(true);
+    await app.page.getByLabel('Sort').selectOption({ label: 'Best score' });
+    const byBest = await heardFigures(grid);
+    expect(byBest).toHaveLength(16);
+    expect(nonIncreasing(byBest.map((f) => f.best))).toBe(true);
+    await app.page.getByLabel('Sort').selectOption({ label: 'Time' });
+    const times = await column(grid, 'Time');
+    expect(times[0]).toBe('0:00');
+  });
+
+  test('R08 Heard once shows only the tracks heard once, with their count', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    const once = (await heardFigures(grid)).filter((f) => f.hits === 1).length;
+    const chip = app.page.getByRole('tab', { name: `Heard once (${once})` });
+    await chip.click();
+    const shown = await heardFigures(grid);
+    expect(shown).toHaveLength(once);
+    expect(shown.every((f) => f.hits === 1)).toBe(true);
+  });
+
+  test('R09 the Mixes list draws each request’s progress', async ({ app }) => {
+    await app.open('#/mix');
+    const list = app.page.getByRole('region', { name: 'Mixes' });
+    for (const line of [
+      'First pass · 47 % · about 25 min left',
+      'Second pass ×1.04 · 29 % · about 9 min left',
+      'Paused by Shazam until 13:35 · Shazam refuses often: a VPN or a shared network?',
+      'First pass · 20 % · last news 12:35: the computer stopped sending news',
+      'Second pass ×0.96 · 73 % · stopping…',
+    ]) {
+      await expect(list.getByText(line, { exact: true })).toBeVisible();
+    }
+    await expect(
+      list.getByRole('progressbar', { name: 'First pass' })
+    ).toHaveCount(2);
+  });
+
+  test('R10 Cancel, Move to top and Stop sit on the right rows; Move to top needs the server', async ({
+    app,
+  }) => {
+    await app.open('#/mix');
+    const list = app.page.getByRole('region', { name: 'Mixes' });
+    const rowOf = (name: RegExp) =>
+      list.getByRole('listitem').filter({
+        has: app.page.getByRole('button', { name }),
+      });
+    // Queued: the first in line has Cancel only; the next can move up.
+    const first = rowOf(/^youtube\.com · demoSet0003 Queued/);
+    const next = rowOf(/^soundcloud\.com · lakeside-open-air Queued/);
+    await expect(
+      first.getByRole('button', { name: 'Move to top' })
+    ).toHaveCount(0);
+    await expect(first.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    await expect(
+      next.getByRole('button', { name: 'Move to top' })
+    ).toBeVisible();
+    // The younger request moved to the top sits above the older one.
+    const order = await list
+      .getByRole('button', { name: / Queued$/ })
+      .allTextContents();
+    expect(order.map((t) => t.split(' ')[2].replace(/Queued$/, ''))).toEqual([
+      'demoSet0003',
+      'lakeside-open-air',
+    ]);
+    // Running: Stop; stopping: Stop disabled.
+    await expect(
+      rowOf(/warehouse-b2b-all-night Identifying/).getByRole('button', {
+        name: 'Stop',
+        exact: true,
+      })
+    ).toBeEnabled();
+    await expect(
+      rowOf(/after-hours-at-the-pier Stopping…/).getByRole('button', {
+        name: 'Stop',
+        exact: true,
+      })
+    ).toBeDisabled();
+    // Without the server the tap says so, asks nothing and sends nothing.
+    await next.getByRole('button', { name: 'Move to top' }).click();
+    await expect(
+      list.getByText('Sign in to the server (Settings)')
+    ).toBeVisible();
+    expect(app.confirms).toEqual([]);
+  });
+
+  test('R11 Check now, and Checking… while it runs', async ({ app }) => {
+    const list = await signedInQueue(app);
+    await expect(
+      list.getByText(/^7 requests waiting or running · checked every minute\.$/)
+    ).toBeVisible();
+    await expect(list.getByRole('button', { name: 'Check now' })).toBeEnabled();
+    await app.set('serverState', { ...SERVER_CONNECTED, status: 'pulling' });
+    await expect(
+      list.getByRole('button', { name: 'Checking…' })
+    ).toBeDisabled();
+  });
+
+  test('R12 a request already gone, and a server without migration 0003, say so', async ({
+    app,
+  }) => {
+    const list = await signedInQueue(app);
+    for (const note of ['Already taken by your computer', 'Already finished']) {
+      await app.set('mixQueueNote', note);
+      await expect(list.getByText(note, { exact: true })).toBeVisible();
+    }
+    const migration =
+      'Apply migration 0003 on the server to use Cancel, Move to top and Stop';
+    await app.set('mixError', migration);
+    await expect(list.getByText(migration)).toBeVisible();
+  });
+
+  test('R13 the worker help warns against a VPN', async ({ app }) => {
+    await app.open('#/mix');
+    await app.page.getByText('Run the worker on your computer').click();
+    await expect(
+      app.page.getByText(/Don't run the worker on a VPN/)
+    ).toBeVisible();
+  });
+});
+
 // ------------------------------------------- Y. Release year (round 005)
 
 test.describe('Y. release year', () => {
@@ -1343,20 +1785,28 @@ test.describe('Y. release year', () => {
       '#/crate/classics',
       '#/crate/year',
       '#/crate/finish',
+      (ids: DemoIds) => `#/playlist/${enc(ids.bigPlaylist ?? '')}`,
+      (ids: DemoIds) => `#/artist/${enc(ids.artist ?? '')}`,
     ]) {
-      await app.open(hash);
-      const grid = main(app.page).getByRole('grid').first();
+      const at = await app.open(hash);
+      // The artist's tracks sit beside the list: the second grid there.
+      const grid = main(app.page)
+        .getByRole('grid')
+        .filter({ has: app.page.getByRole('columnheader', { name: 'Key' }) })
+        .first();
       await grid.waitFor();
+      await showAll(app.page);
       const heads = await headers(grid);
-      expect(heads.indexOf('Released'), hash).toBe(heads.indexOf('Key') + 1);
+      expect(heads.indexOf('Released'), at).toBe(heads.indexOf('Key') + 1);
       const years = await column(grid, 'Released');
+      expect(years.length, at).toBeGreaterThan(0);
       expect(
         years.filter((y) => y === '0'),
-        hash
+        at
       ).toEqual([]);
       expect(
         years.every((y) => /^\d{4}$/.test(y) || y.includes('no data')),
-        hash
+        at
       ).toBe(true);
     }
   });
