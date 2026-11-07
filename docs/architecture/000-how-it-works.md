@@ -378,11 +378,26 @@ screen, grouped by role under `src/ui/`.
   check and axe, and saves screenshots; `keyboard.shots.ts` walks every screen with the keyboard; both open pages through
   `open.ts`, so a `console.error` fails either. The runner always starts this worktree's own server (never reuses one on 5173),
   and a full run first empties `findings/` and `pages/` (`global-setup.ts`); `summary.ts` and `contact-sheet.ts` read the results.
-- **Release year** (round 005, F20): the data is merged (`yearOf` `model/year.ts`, `applyYearView`/`decadesPresent`
-  `model/yearView.ts`, a Mix row's own `year`/`yearFrom`, `viewRows`' `'year'` sort and decade in `features/mix/worker.ts`); main's
-  old-style `components/YearView.tsx` and year pill were not carried over. Where the redesign shows it (a Year column, the decade
-  in the Filters fold, the details sheet, Settings · Audio data, the Mix tracklist) is `specs/003-web-first-redesign/contracts/screens.md`
-  "From main after the redesign started", built in S13c.
+- **Release year** (round 005, F20; built in S13c from `specs/003-web-first-redesign/contracts/screens.md` "From main after
+  the redesign started"). Data: `yearOf`/`datedYear` (`model/year.ts`: ReccoBeats' earliest album, then a sync's album year,
+  then a Top list's), cached per model by `trackYear`; a Mix row's own `year`/`yearFrom`. Display, sort and filter only
+  (FR-049): no ranking, Crate, Match or gate reads it.
+  - **Released column**: `yearColumn` (`ui/table/columns.tsx`), priority 2, 88 px, oldest first, undated last; `NoData` in a
+    cell, nothing in the two-line meta line (`Column.compactCell`). On Top (Tracks), Playlist, Artist, the five Crate views
+    (`crateColumns`) and the Mix tracklist (the row's own year, its source in the tooltip, no header sort).
+  - **Decade**: `TrackFilter.decade` (`ui/filters/trackFilter.ts`); chips in `FilterBar` for the decades present; an undated
+    row fails it; it counts in Clear filters and "Showing N of M"; a decade absent from the rows is ignored (`forDecades`).
+  - **Sort by year**: `DataTable` always measures its width and reports `onLayout({ twoLine, widestPriority })`
+    (`ui/table/layout.ts`); each screen keeps the last layout in local state, and `trackFilterView` draws "Sort by year, oldest
+    first" (a toggle chip, `role=switch`) only when `yearSortOffered`: two-line items or a table under 720 px. On, the table's
+    sort is `{ columnId: 'released', direction: 'asc' }`; off, the screen's default.
+  - **Details**: `yearFact` (`ui/details/trackFacts.ts`) gives the sheet's "Released 1993 · ReccoBeats (earliest album)" or
+    "· album", `NoData` when undated.
+  - **Mix**: the Sort select gains "Year, oldest first" and shows when a row is counted or dated; a Decade select ("All
+    decades", each decade present) combines with the review chips; the edited row stays visible (`TracklistTable.tsx`). A
+    rename drops the year unless the row is renamed back to the identified track and the year is not Spotify's
+    (`editTracklistRow`, S13b N1).
+  - **Activity**: the look-up entry reads "Looking up release years" during `PASS_YEARS` (`ui/jobs.ts`).
 
 ## 14. Jobs and state (`model/state.ts`)
 

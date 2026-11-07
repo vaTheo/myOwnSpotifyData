@@ -24,6 +24,10 @@ Overview. Behaviour that changed: Check on Spotify reads `GET /search` on its ow
 only or All tracks picks (D6); a quota answer to any Spotify read now locks all of them. No new Spotify endpoint, scope, write
 or host; rankings, Crate rules, Match and gates unchanged; no `confirm()` text changed; no `DB_VERSION` bump (optional Mix row
 fields).
+The release year (main's round 005) is a **Released** column on every song table and on the open mix, a line in a track's
+details, a **decade** in the Filters, and _Sort by year, oldest first_ in the Filters wherever the column cannot be sorted from
+its header (a phone, a narrow table); the open mix has a Year sort and a Decade menu; the Activity button says "Looking up
+release years" during the look-up's third pass. A renamed mix track drops a year that belonged to the old track.
 For developers: `yarn shots`, a dev-only visual loop on `?demo` data. [ADR-11](docs/architecture/700-adr/ADR-11-web-first-material-3.md),
 [spec](docs/specs/2026-11-06-web-first-redesign-design.md), the full round under `specs/003-web-first-redesign/`. Nothing to do
 after upgrading.
