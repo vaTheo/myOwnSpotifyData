@@ -3,6 +3,7 @@ import { checkLine, rowsToCheck } from '../../features/mix/spotifyCheck';
 import {
   checkLockMessage,
   mixRows,
+  spotifyBusyMessage,
   spotifyCheckState,
   spotifyLockedUntil,
   startSpotifyCheck,
@@ -28,6 +29,12 @@ export function ReviewHead(p: { url: string }) {
   const left = rowsToCheck(rows).length;
   // A quota lock-out (the check's or the sync's): no read until it lapses.
   const locked = spotifyLockedUntil();
+  // One Spotify reader at a time (S13): a check of another mix, a sync,
+  // Create playlist or Like all songs running rests the button.
+  const busy =
+    s.status === 'running' && !mine
+      ? 'Check on Spotify is reading another mix: check this one once it ends.'
+      : spotifyBusyMessage('check');
   return (
     <div class="mix-review-head">
       <div class="mix-review-line">
@@ -43,7 +50,7 @@ export function ReviewHead(p: { url: string }) {
         ) : (
           <Button
             icon="search"
-            disabled={left === 0 || locked !== null}
+            disabled={left === 0 || locked !== null || busy !== null}
             onClick={() => void startSpotifyCheck()}
           >
             Check on Spotify
@@ -73,10 +80,13 @@ export function ReviewHead(p: { url: string }) {
       {mine && s.status === 'error' ? (
         <StatusLine kind="error">{s.message}</StatusLine>
       ) : (
-        locked !== null &&
-        !running && (
+        !running &&
+        (locked !== null ? (
           <StatusLine kind="warning">{checkLockMessage(locked)}</StatusLine>
-        )
+        ) : (
+          busy !== null &&
+          left > 0 && <StatusLine kind="warning">{busy}</StatusLine>
+        ))
       )}
     </div>
   );

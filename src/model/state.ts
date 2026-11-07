@@ -53,6 +53,7 @@ import {
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
   applyAnswers,
+  keepStoredAnswers,
   rowsToCheck,
   runSpotifyCheck,
   type CheckAnswer,
@@ -61,6 +62,7 @@ import { QuotaError } from '../spotify/errors';
 import {
   QUOTA_LOCK_KEY,
   activeLock,
+  busyRefusal,
   lapseDelay,
   laterLock,
   parseStoredLock,
@@ -636,6 +638,12 @@ export type CreatePlaylistState =
     };
 
 /**
+ * The create job as the screen holds it: every arm but idle names the mix
+ * it belongs to (`mixUrl`), so another mix never shows its lines (S13 B2).
+ */
+export type CreatePlaylistJob = CreatePlaylistState & { mixUrl?: string };
+
+/**
  * The Playlist screen's like-all-songs job (like-playlist spec §3). Every arm
  * but idle names its playlist so the lines never show on another one.
  * `liked`/`toLike` on `error` are set only when the write phase failed.
@@ -662,9 +670,16 @@ export type LikeState =
 
 export const likeState = signal<LikeState>({ status: 'idle' });
 
-export const createPlaylistState = signal<CreatePlaylistState>({
+export const createPlaylistState = signal<CreatePlaylistJob>({
   status: 'idle',
 });
+
+/** True while Create playlist reads or writes Spotify. */
+export function isCreating(s: CreatePlaylistState): boolean {
+  return (
+    s.status === 'resolving' || s.status === 'creating' || s.status === 'adding'
+  );
+}
 
 /** The owner's Validated only / All tracks pick for one mix (T119); none
  *  picked: `defaultChoice`. Keyed by the mix so another mix starts fresh. */
@@ -721,6 +736,25 @@ export function noteQuotaLock(retryAt: number): void {
 /** The quota lock-out still holding, or null. */
 export function spotifyLockedUntil(now = Date.now()): number | null {
   return activeLock(spotifyQuotaLock.value, now);
+}
+
+/**
+ * One Spotify reader at a time (S13): sync, Check on Spotify, Create
+ * playlist and Like all songs each refuse to start while another of them
+ * runs, so two never double the request rate toward the lock-out. The
+ * refusal, or null when `reader` may start; the buttons read it to disable
+ * themselves and say why, inline.
+ */
+export function spotifyBusyMessage(reader: SpotifyReader): string | null {
+  return busyRefusal(
+    {
+      sync: syncState.value.status === 'running',
+      check: spotifyCheckState.value.status === 'running',
+      create: isCreating(createPlaylistState.value),
+      like: isLiking(likeState.value),
+    },
+    reader
+  );
 }
 
 /** The reader's refusal naming the held lock's end, or null when none. */
@@ -924,6 +958,13 @@ export async function startSync(priorityId?: string): Promise<void> {
   const locked = spotifyLockedUntil();
   if (locked !== null) {
     banner.value = warnBanner(lockMessage(locked));
+    return;
+  }
+  // One Spotify reader at a time (S13); its buttons are disabled meanwhile,
+  // so this is said only to a sync started another way.
+  const busy = spotifyBusyMessage('sync');
+  if (busy !== null) {
+    banner.value = warnBanner(busy);
     return;
   }
   clearBanner();
@@ -1560,27 +1601,25 @@ export async function saveMix(): Promise<boolean> {
  * navigation cannot lose it) and reveals the needScope prompt instead.
  */
 export async function startCreatePlaylist(): Promise<void> {
-  const status = createPlaylistState.value.status;
-  if (status === 'resolving' || status === 'creating' || status === 'adding') {
-    return;
-  }
+  if (isCreating(createPlaylistState.value)) return;
   const state = mixState.value;
   if (state.status !== 'ready') return;
   const view = state.view;
+  const mixUrl = view.url;
   const rows = mixRows.value;
   const extras = savedExtras(view.url);
 
   if (!canCreatePlaylists(auth.session.value)) {
     if (!(await saveMix())) return;
-    createPlaylistState.value = { status: 'needScope' };
+    createPlaylistState.value = { status: 'needScope', mixUrl };
     return;
   }
 
   // Its searches read Spotify: not inside the quota lock-out, whichever
-  // reader met it (S08d).
-  const refused = heldQuotaMessage('create');
+  // reader met it (S08d), nor beside another reader (S13).
+  const refused = heldQuotaMessage('create') ?? spotifyBusyMessage('create');
   if (refused !== null) {
-    createPlaylistState.value = { status: 'error', message: refused };
+    createPlaylistState.value = { status: 'error', message: refused, mixUrl };
     return;
   }
   // Validated only or All tracks (T119, owner's D6); the mix itself is
@@ -1595,7 +1634,8 @@ export async function startCreatePlaylist(): Promise<void> {
     status: 'resolving',
     done: 0,
     total: 0,
-  } as CreatePlaylistState;
+    mixUrl,
+  } as CreatePlaylistJob;
 
   const rawTitle = (view.title ?? 'Mix tracklist').trim() || 'Mix tracklist';
   const name = (
@@ -1611,7 +1651,7 @@ export async function startCreatePlaylist(): Promise<void> {
     {
       client: api,
       onState: (s) => {
-        createPlaylistState.value = s;
+        createPlaylistState.value = { ...s, mixUrl };
       },
     },
     { name, description, rows: toAdd }
@@ -1638,6 +1678,9 @@ export async function startCreatePlaylist(): Promise<void> {
   // rather than through `saveMix` (which reads live state), then reflect the
   // link on the open view only if this same mix is still open.
   if (outcome.playlistId !== null) {
+    // A check's answers stored meanwhile are kept (S13 B3): the captured
+    // rows predate them.
+    const stored = savedMixes.value.find((m) => m.url === view.url);
     const row: MixRow = {
       url: view.url,
       title: view.title,
@@ -1645,7 +1688,7 @@ export async function startCreatePlaylist(): Promise<void> {
       playerSrc: view.playerSrc,
       slug: view.trackid?.slug ?? null,
       sources: view.sources,
-      rows,
+      rows: keepStoredAnswers(rows, stored?.rows ?? []),
       ...extras,
       savedAt: Date.now(),
       playlistUrl: outcome.url ?? undefined,
@@ -1781,8 +1824,9 @@ export async function startSpotifyCheck(): Promise<void> {
     fail(checkLockMessage(locked));
     return;
   }
-  if (syncState.value.status === 'running') {
-    fail('A sync is reading Spotify: check once it ends.');
+  const busy = spotifyBusyMessage('check');
+  if (busy !== null) {
+    fail(busy);
     return;
   }
   const rows = mixRows.value;
@@ -1874,7 +1918,11 @@ async function keepChecks(
     mixError.value = `Could not save the mix: ${storageMessage(err)}`;
     return;
   }
-  await loadSavedMixes();
+  // The list refreshed without `loadSavedMixes`, which clears `mixError`:
+  // the mix open now may be showing its own failure (S13 B4).
+  const read = await readMixesForSearch();
+  if ('mixes' in read) savedMixes.value = read.mixes;
+  else mixError.value = read.error;
   void queueServerPush(['mixes']);
 }
 
@@ -1889,7 +1937,11 @@ export function closeMix(): void {
   mixRows.value = [];
   mixRemoved.value = [];
   mixError.value = null;
-  createPlaylistState.value = { status: 'idle' };
+  // A run going on keeps its state: it names its mix, and the Activity
+  // button still follows it.
+  if (!isCreating(createPlaylistState.value)) {
+    createPlaylistState.value = { status: 'idle' };
+  }
 }
 
 /**
@@ -1907,7 +1959,7 @@ export async function startLikePlaylist(playlistId: string): Promise<void> {
     likeState.value = { status: 'needScope', playlistId };
     return;
   }
-  const refused = heldQuotaMessage('like');
+  const refused = heldQuotaMessage('like') ?? spotifyBusyMessage('like');
   if (refused !== null) {
     likeState.value = { status: 'error', playlistId, message: refused };
     return;

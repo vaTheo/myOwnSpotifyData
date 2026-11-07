@@ -337,3 +337,304 @@ describe('loadServerPending (S11, parked minor)', () => {
     }
   });
 });
+
+/* ---------- S13: one Spotify reader at a time, and the Mix wiring ---------- */
+
+/** A search answer naming `title` by Artist, as `pickMatch` accepts it. */
+function hit(title: string) {
+  return {
+    tracks: {
+      items: [
+        {
+          uri: `spotify:track:${title}id`,
+          id: `${title}id`,
+          name: title,
+          artists: [{ id: null, name: 'Artist' }],
+        },
+      ],
+    },
+  };
+}
+
+function searchAnswers(found: string[]): void {
+  mocks.get.mockImplementation(
+    async (_path: string, query?: { q?: string }) => {
+      const q = String(query?.q ?? '');
+      const t = found.find((f) => q.includes(f));
+      return t === undefined ? { tracks: { items: [] } } : hit(t);
+    }
+  );
+}
+
+function playlistAnswers(): void {
+  mocks.post.mockImplementation(async (path: string) =>
+    path === '/me/playlists'
+      ? {
+          id: 'PL',
+          external_urls: { spotify: 'https://open.spotify.com/playlist/PL' },
+        }
+      : {}
+  );
+}
+
+async function putMixCalls() {
+  const repo = await import('../db/repo');
+  return vi.mocked(repo.putMix).mock.calls.map((c) => c[0]);
+}
+
+describe('one Spotify reader at a time (S13, B3/B6)', () => {
+  beforeEach(() => {
+    state.savedMixes.value = [];
+    state.mixError.value = null;
+  });
+
+  const running = {
+    sync: () => {
+      state.syncState.value = {
+        status: 'running',
+        done: 0,
+        total: 1,
+        current: null,
+        pending: [],
+      } as never;
+    },
+    check: () => {
+      state.spotifyCheckState.value = {
+        status: 'running',
+        url: 'https://soundcloud.com/demo/other',
+        done: 0,
+        total: 3,
+        stopping: false,
+      };
+    },
+    create: () => {
+      state.createPlaylistState.value = {
+        status: 'resolving',
+        done: 0,
+        total: 3,
+        mixUrl: 'https://soundcloud.com/demo/other',
+      };
+    },
+    like: () => {
+      state.likeState.value = {
+        status: 'liking',
+        playlistId: 'Q',
+        done: 0,
+        total: 3,
+      };
+    },
+  };
+
+  for (const other of ['sync', 'create', 'like'] as const) {
+    it(`Check on Spotify refuses while ${other} runs, inline`, async () => {
+      running[other]();
+      await state.startSpotifyCheck();
+      expect(mocks.get).not.toHaveBeenCalled();
+      const s = state.spotifyCheckState.value;
+      expect(s.status === 'error' && s.message).toMatch(
+        /is reading Spotify: check once it ends\.$/
+      );
+    });
+  }
+
+  for (const other of ['sync', 'check', 'like'] as const) {
+    it(`Create playlist refuses while ${other} runs, inline`, async () => {
+      running[other]();
+      await state.startCreatePlaylist();
+      expect(mocks.get).not.toHaveBeenCalled();
+      expect(mocks.post).not.toHaveBeenCalled();
+      const s = state.createPlaylistState.value;
+      expect(s.status === 'error' && s.message).toMatch(
+        /is reading Spotify: create the playlist once it ends\.$/
+      );
+      expect(s.mixUrl).toBe(URL);
+    });
+  }
+
+  for (const other of ['sync', 'check', 'create'] as const) {
+    it(`Like all songs refuses while ${other} runs, inline`, async () => {
+      running[other]();
+      await state.startLikePlaylist('P');
+      expect(mocks.get).not.toHaveBeenCalled();
+      const s = state.likeState.value;
+      expect(s.status === 'error' && s.message).toMatch(
+        /is reading Spotify: like the songs once it ends\.$/
+      );
+    });
+  }
+
+  for (const other of ['check', 'create', 'like'] as const) {
+    it(`sync refuses while ${other} runs (a banner, as its refusals are)`, async () => {
+      running[other]();
+      await state.startSync();
+      expect(mocks.get).not.toHaveBeenCalled();
+      expect(state.syncState.value.status).toBe('idle');
+      expect(state.banner.value?.text).toMatch(
+        /is reading Spotify: sync once it ends\.$/
+      );
+    });
+  }
+
+  it('spotifyBusyMessage is null when nothing else reads Spotify', () => {
+    expect(state.spotifyBusyMessage('check')).toBeNull();
+    running.check();
+    expect(state.spotifyBusyMessage('check')).toBeNull();
+    expect(state.spotifyBusyMessage('create')).toMatch(/^Check on Spotify/);
+  });
+});
+
+describe('Create playlist names its mix (S13, B2)', () => {
+  beforeEach(async () => {
+    const repo = await import('../db/repo');
+    vi.mocked(repo.putMix).mockClear();
+    state.savedMixes.value = [];
+  });
+
+  it('every state of the run carries the mix url', async () => {
+    searchAnswers(['One', 'Two']);
+    playlistAnswers();
+    const seen: (string | undefined)[] = [];
+    const stop = state.createPlaylistState.subscribe((s) => {
+      if (s.status !== 'idle') seen.push(s.mixUrl);
+    });
+    await state.startCreatePlaylist();
+    stop();
+    expect(seen.length).toBeGreaterThan(2);
+    expect(new Set(seen)).toEqual(new Set([URL]));
+    expect(state.createPlaylistState.value.status).toBe('done');
+  });
+
+  it('closing the mix keeps a running create, and resets a finished one', () => {
+    state.createPlaylistState.value = { status: 'adding', mixUrl: URL };
+    state.closeMix();
+    expect(state.createPlaylistState.value.status).toBe('adding');
+    state.createPlaylistState.value = {
+      status: 'error',
+      message: 'x',
+      mixUrl: URL,
+    };
+    state.closeMix();
+    expect(state.createPlaylistState.value.status).toBe('idle');
+  });
+});
+
+describe('the Mix wiring in state.ts (S13, B5)', () => {
+  beforeEach(async () => {
+    const repo = await import('../db/repo');
+    vi.mocked(repo.putMix).mockClear();
+    vi.mocked(repo.putMix).mockResolvedValue(undefined);
+    vi.mocked(repo.getMixes).mockResolvedValue([]);
+    state.savedMixes.value = [];
+    state.mixError.value = null;
+    state.mixRemoved.value = [];
+    state.createChoice.value = null;
+  });
+
+  it('Create keeps the check answers already stored for the mix (B3)', async () => {
+    const checkedTwo = {
+      ...row('Two'),
+      spotify: { id: 'S2', url: 'https://open.spotify.com/track/S2' },
+      checkedAt: 7,
+    };
+    state.savedMixes.value = [
+      { url: URL, rows: [row('One'), checkedTwo], savedAt: 1 } as never,
+    ];
+    searchAnswers(['One', 'Two']);
+    playlistAnswers();
+    await state.startCreatePlaylist();
+    const [saved] = await putMixCalls();
+    expect(saved.rows[1]).toMatchObject({
+      spotify: { id: 'S2' },
+      checkedAt: 7,
+    });
+    expect(saved.playlistId).toBe('PL');
+  });
+
+  it('Validated only adds the validated tracks alone', async () => {
+    state.mixRows.value = [{ ...row('One'), validated: true }, row('Two')];
+    searchAnswers(['One', 'Two']);
+    playlistAnswers();
+    await state.startCreatePlaylist();
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+    expect(mocks.post).toHaveBeenCalledWith('/playlists/PL/items', {
+      uris: ['spotify:track:Oneid'],
+    });
+  });
+
+  it('a check on the open mix saves its answers with the mix', async () => {
+    searchAnswers(['One']);
+    const flashes = state.mixCheckSaved.value;
+    await state.startSpotifyCheck();
+    const calls = await putMixCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].rows[0]).toMatchObject({ spotify: { id: 'Oneid' } });
+    expect(calls[0].rows[1]).toMatchObject({ spotify: 'not-found' });
+    expect(state.mixCheckSaved.value).toBe(flashes + 1);
+  });
+
+  it('a check whose mix was closed saves on the saved copy, leaving the mix error alone (B4)', async () => {
+    state.savedMixes.value = [
+      { url: URL, rows: [row('One'), row('Two')], savedAt: 1 } as never,
+    ];
+    mocks.get.mockImplementation(async () => {
+      state.closeMix();
+      state.mixError.value = 'Could not save the mix: B';
+      return hit('One');
+    });
+    await state.startSpotifyCheck();
+    const calls = await putMixCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(URL);
+    expect(calls[0].rows[0]).toMatchObject({ spotify: { id: 'Oneid' } });
+    expect(calls[0].rows[1].spotify).toBeUndefined();
+    expect(state.mixError.value).toBe('Could not save the mix: B');
+  });
+
+  it('Disconnect during a check writes nothing and shows nothing', async () => {
+    mocks.get.mockImplementation(async () => {
+      await state.disconnect();
+      return hit('One');
+    });
+    await state.startSpotifyCheck();
+    expect(await putMixCalls()).toHaveLength(0);
+    expect(state.spotifyCheckState.value.status).toBe('idle');
+  });
+
+  it('Save mix keeps the clues, run, request and removed tracks', async () => {
+    state.savedMixes.value = [
+      {
+        url: URL,
+        rows: [],
+        savedAt: 1,
+        clues: { genres: ['techno'] },
+        run: { id: 'r1' },
+        identifyJobId: 'job-1',
+        identifiedAt: 5,
+      } as never,
+    ];
+    state.mixRemoved.value = [{ artist: 'A', title: 'T', isrc: null }];
+    expect(await state.saveMix()).toBe(true);
+    const [saved] = await putMixCalls();
+    expect(saved).toMatchObject({
+      clues: { genres: ['techno'] },
+      run: { id: 'r1' },
+      identifyJobId: 'job-1',
+      identifiedAt: 5,
+      removed: [{ artist: 'A', title: 'T', isrc: null }],
+    });
+  });
+
+  it('deleting a scan row puts it in the removed tracks Save mix keeps', async () => {
+    state.mixRows.value = [
+      { ...row('One'), detected: { artist: 'Scan', title: 'Heard' } },
+      row('Two'),
+    ];
+    state.deleteMixRow(0);
+    expect(state.mixRows.value.map((r) => r.title)).toEqual(['Two']);
+    await state.saveMix();
+    const [saved] = await putMixCalls();
+    expect(saved.removed).toEqual([
+      { artist: 'Scan', title: 'Heard', isrc: null },
+    ]);
+  });
+});

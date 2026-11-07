@@ -7,6 +7,7 @@ import {
   applyAnswers,
   checkLine,
   checkedRow,
+  keepStoredAnswers,
   rowsToCheck,
   runSpotifyCheck,
   storedUri,
@@ -146,6 +147,42 @@ describe('applyAnswers (fix round 1)', () => {
     // Places gone and two candidates left: dropped, not guessed.
     const moved = [row('Same'), row('Same')];
     expect(applyAnswers(moved, [missed(5, 'Same')])).toEqual(moved);
+  });
+});
+
+describe('keepStoredAnswers (S13 B3)', () => {
+  const checked = (title: string, id: string | null) =>
+    checkedRow(row(title), id === null ? null : `spotify:track:${id}`, 5);
+
+  it('puts a stored answer on the same unchecked row', () => {
+    const out = keepStoredAnswers(
+      [row('One'), row('Two')],
+      [row('One'), checked('Two', 'B')]
+    );
+    expect(out[0].spotify).toBeUndefined();
+    expect(out[1]).toMatchObject({
+      spotify: { id: 'B', url: 'https://open.spotify.com/track/B' },
+      checkedAt: 5,
+    });
+  });
+
+  it('never replaces an answer the row already holds', () => {
+    const mine = checkedRow(row('One'), 'spotify:track:A', 9);
+    const out = keepStoredAnswers([mine], [checked('One', null)]);
+    expect(out[0]).toMatchObject({ spotify: { id: 'A' }, checkedAt: 9 });
+  });
+
+  it('drops a stored answer whose row now reads another track', () => {
+    const out = keepStoredAnswers([row('Edited')], [checked('One', 'A')]);
+    expect(out[0].spotify).toBeUndefined();
+  });
+
+  it('follows a row moved up by a deletion', () => {
+    const out = keepStoredAnswers(
+      [row('Two')],
+      [row('One'), checked('Two', 'B')]
+    );
+    expect(out[0]).toMatchObject({ spotify: { id: 'B' } });
   });
 });
 

@@ -817,6 +817,7 @@ export const PAGES: ShotPage[] = [
           status: 'resolving',
           done: 2,
           total: 4,
+          mixUrl: SUNRISE,
         },
       ]);
     },
@@ -835,6 +836,7 @@ export const PAGES: ShotPage[] = [
           added: 2,
           total: 4,
           unmatched: UNMATCHED,
+          mixUrl: SUNRISE,
         },
       ]);
       const notFound = page.getByText(/^2 not found/);
@@ -856,6 +858,7 @@ export const PAGES: ShotPage[] = [
           url: 'https://open.spotify.com/playlist/demoPlaylist01',
           added: 0,
           total: 4,
+          mixUrl: SUNRISE,
         },
       ]);
     },
@@ -875,6 +878,7 @@ export const PAGES: ShotPage[] = [
             status: 'error',
             message:
               'Spotify quota reached. Try again after 6 Nov 2026, 16:00.',
+            mixUrl: SUNRISE,
           },
         ]
       );
@@ -885,7 +889,10 @@ export const PAGES: ShotPage[] = [
     id: 'mix-create-scope',
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: async (page) => {
-      await createCard(page, ['createPlaylistState', { status: 'needScope' }]);
+      await createCard(page, [
+        'createPlaylistState',
+        { status: 'needScope', mixUrl: SUNRISE },
+      ]);
     },
   },
   {

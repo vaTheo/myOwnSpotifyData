@@ -115,6 +115,30 @@ export function applyAnswers(
   return out;
 }
 
+/**
+ * The answers a stored copy of the mix already holds, put on the rows that
+ * have none (by place and text, as `applyAnswers`), so a save from rows
+ * captured earlier (Create playlist's) never erases a check's answers.
+ */
+export function keepStoredAnswers(
+  rows: readonly TracklistRow[],
+  stored: readonly TracklistRow[]
+): TracklistRow[] {
+  const answers: CheckAnswer[] = [];
+  stored.forEach((r, index) => {
+    if (r.gap || r.spotify === undefined) return;
+    if (rows[index]?.spotify !== undefined) return;
+    answers.push({
+      index,
+      artist: r.artist,
+      title: r.title,
+      spotify: r.spotify,
+      checkedAt: r.checkedAt ?? 0,
+    });
+  });
+  return answers.length === 0 ? rows.slice() : applyAnswers(rows, answers);
+}
+
 /** "Checked 12 of 40". */
 export function checkLine(done: number, total: number): string {
   return `Checked ${done} of ${total}`;
