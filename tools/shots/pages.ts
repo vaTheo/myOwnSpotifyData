@@ -274,6 +274,53 @@ async function pickKey(
   await page.getByRole('radio', { name: code, exact: true }).click();
 }
 
+/** The first FilterBar's decade chip (round 005, S13c). */
+async function pickDecade(page: Page, label: string): Promise<void> {
+  await showFilters(page);
+  await page
+    .getByRole('group', { name: 'Decade' })
+    .first()
+    .getByRole('button', { name: label, exact: true })
+    .click();
+}
+
+/**
+ * Oldest first, the way the width allows (round 005): the Released header
+ * where it is drawn, else the filters' "Sort by year, oldest first".
+ */
+async function sortByYear(page: Page): Promise<void> {
+  await showFilters(page);
+  const header = page.getByRole('button', { name: 'Released', exact: true });
+  if (await header.first().isVisible()) {
+    await header.first().click();
+    return;
+  }
+  await page
+    .getByRole('switch', { name: 'Sort by year, oldest first' })
+    .first()
+    .check();
+}
+
+/**
+ * Where the Released header is drawn, the switch is not; where it is not,
+ * the switch is (screens.md "From main…" §2).
+ */
+async function yearSortOnce(page: Page): Promise<string[]> {
+  // A sortable header is a button; two-line items keep the header row for
+  // screen readers only, without buttons.
+  const header = await page
+    .getByRole('columnheader', { name: 'Released' })
+    .getByRole('button')
+    .first()
+    .isVisible();
+  const toggle = await page
+    .getByRole('switch', { name: 'Sort by year, oldest first' })
+    .count();
+  if (header && toggle) return ['both the Released header and the switch'];
+  if (!header && !toggle) return ['no way to sort by year at this width'];
+  return [];
+}
+
 /** A filter is in force: "Showing N of M" says so. */
 async function showing(page: Page): Promise<string[]> {
   return (await page.getByText(/^Showing [\d,]+ of [\d,]+$/).count())
@@ -1619,6 +1666,89 @@ export const PAGES: ShotPage[] = [
     hash: '#/crate/finish',
     setup: (page) => bpmRange(page, '120', '130'),
     expect: showing,
+  },
+  // Round 005 (S13c): the release year on every song table
+  {
+    // A decade among the chips: the Released column (or the meta line)
+    // shows only 90s years; "Showing N of M" and Clear filters count it.
+    id: 'year-top-decade',
+    hash: '#/top',
+    setup: (page) => pickDecade(page, '90s'),
+    expect: async (page) => [
+      ...(await showing(page)),
+      ...(await yearSortOnce(page)),
+    ],
+  },
+  {
+    // Oldest first: the header on wide tables, the switch on narrow ones;
+    // undated songs (a dash, never 0) last.
+    id: 'year-top-sort',
+    hash: '#/top',
+    setup: sortByYear,
+    expect: yearSortOnce,
+  },
+  {
+    id: 'year-playlist-sort',
+    hash: (ids) => `#/playlist/${enc(ids.bigPlaylist ?? '')}`,
+    setup: sortByYear,
+    expect: yearSortOnce,
+  },
+  {
+    // Beside the list pane (two-line items below 1200): the switch.
+    id: 'year-artist',
+    hash: (ids) => `#/artist/${enc(ids.artist ?? '')}`,
+    setup: showFilters,
+    expect: yearSortOnce,
+  },
+  {
+    id: 'year-crate-decade',
+    hash: '#/crate/classics',
+    setup: (page) => pickDecade(page, '2000s'),
+    expect: showing,
+  },
+  {
+    // The sheet's Audio block: "Released 1993 · ReccoBeats (earliest
+    // album)" or "· album".
+    id: 'year-details',
+    hash: '#/top',
+    setup: firstRow,
+    expect: async (page) =>
+      (await page.locator('.side-sheet').getByText('Released').count())
+        ? []
+        : ['no Released line in the details'],
+  },
+  {
+    // The open mix sorted by year, one decade: the Released column, the
+    // Decade select beside Sort, the caption.
+    id: 'mix-year',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await page.getByLabel('Sort').selectOption('year');
+      await page.getByLabel('Decade').selectOption({ label: '90s' });
+    },
+    expect: async (page) =>
+      (await page.getByText(/^Hidden, not deleted/).count())
+        ? []
+        : ['no caption with a decade on'],
+  },
+  {
+    // The look-up's third pass, seen from the Activity button (§5).
+    id: 'activity-years',
+    hash: '#/top',
+    setup: async (page) => {
+      await setState(page, 'lookupState', {
+        status: 'running',
+        pass: 'release years',
+        done: 120,
+        total: 900,
+      });
+      await page.getByRole('button', { name: /^Running/ }).click();
+    },
+    expect: async (page) =>
+      (await page.getByText('Looking up release years').count())
+        ? []
+        : ['the Activity entry does not name the years pass'],
   },
   {
     // S04 parked fix 2: a sort chosen on a large window, then a phone.
