@@ -23,6 +23,7 @@ interface Fake {
   signedIn: boolean;
   lastSyncAt: number | null;
   lockedUntil: number | null;
+  spotifyHeld: boolean;
   idle: Promise<void>;
 }
 
@@ -41,6 +42,7 @@ function fake(init: Partial<Fake> = {}): Fake {
     signedIn: true,
     lastSyncAt: null,
     lockedUntil: null,
+    spotifyHeld: false,
     idle: Promise.resolve(),
     ...init,
     deps: undefined as unknown as ChainDeps,
@@ -53,6 +55,7 @@ function fake(init: Partial<Fake> = {}): Fake {
     now: () => T,
     lastSyncAt: () => f.lastSyncAt,
     lockedUntil: () => f.lockedUntil,
+    spotifyHeld: () => f.spotifyHeld,
     run: async (step, auto) => {
       f.calls.push([step, auto]);
       if (f.block.has(step)) {
@@ -118,6 +121,18 @@ describe('createChain', () => {
     const f = fake({ lockedUntil: T + 60_000 });
     await createChain(f.deps).trigger();
     expect(f.calls.map(([s]) => s)).toEqual(['features', 'reach']);
+  });
+
+  it('skips spotify while it is held (another account to confirm)', async () => {
+    const f = fake({ spotifyHeld: true });
+    await createChain(f.deps).trigger();
+    expect(f.calls.map(([s]) => s)).toEqual(['features', 'reach']);
+  });
+
+  it('still runs a tapped spotify while held', async () => {
+    const f = fake({ spotifyHeld: true });
+    await createChain(f.deps).request('spotify');
+    expect(f.calls).toEqual([['spotify', false]]);
   });
 
   it('runs spotify at most once per session', async () => {

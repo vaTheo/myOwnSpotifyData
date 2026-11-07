@@ -39,7 +39,9 @@ starts an import.
 **Negative / watch for:** an automatic Spotify read is still a read: a new job that reads Spotify joins the chain behind the same
 gate, never on its own trigger. Two devices running the reach run at once each push their dataset and the newer wins (the chain starts
 after the pull, so the second usually starts from the first's results). A long first run stalls when the phone sleeps (no wake lock)
-and continues on return.
+and continues on return. Spotify's lock-out (`retryAt`) is stored per device and not sent to the server, so another device's chain may
+make one sync attempt inside a lock before it is locked too. An automatic sync never asks the account-switch question: it is held
+while the account-mismatch notice is up and answers "no" otherwise.
 
 ## Links
 

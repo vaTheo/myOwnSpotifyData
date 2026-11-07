@@ -21,6 +21,7 @@ import { rankMatches, type MatchResult } from '../model/match';
 import {
   historySummary,
   isSyncBusy,
+  jobsBusy,
   heldQuotaMessage,
   spotifyBusyMessage,
   keyNotation,
@@ -275,6 +276,10 @@ export function PlaylistActions({ id }: { id: string }) {
   const syncBusy = running ? null : spotifyBusyMessage('sync');
   const busy =
     isSyncBusy(syncState.value) || locked !== null || syncBusy !== null;
+  // The automatic chain runs the BPM and reach jobs in the background
+  // (round 006): a sync started beside one would clobber its model rebuild.
+  const otherJob = !running && jobsBusy();
+  const syncDisabled = busy || otherJob;
   const like = likeState.value;
   const liking = isLiking(like);
   const likeBusy = liking ? null : spotifyBusyMessage('like');
@@ -288,7 +293,7 @@ export function PlaylistActions({ id }: { id: string }) {
         <IconButton
           icon="sync"
           label={syncLabel}
-          disabled={busy}
+          disabled={syncDisabled}
           onClick={() => void startSync(id)}
         />
         <IconButton
@@ -305,7 +310,7 @@ export function PlaylistActions({ id }: { id: string }) {
       <Button
         variant="text"
         icon="sync"
-        disabled={busy}
+        disabled={syncDisabled}
         onClick={() => void startSync(id)}
       >
         {syncLabel}

@@ -44,6 +44,12 @@ export interface ChainDeps {
   lastSyncAt(): number | null;
   /** `syncState.retryAt` while locked, else null. */
   lockedUntil(): number | null;
+  /**
+   * True while the automatic Spotify step must wait for the owner: another
+   * account is connected and only a tap may answer the account-switch
+   * question.
+   */
+  spotifyHeld(): boolean;
   /** Runs the job; `auto` is false for a tap. Never throws. */
   run(step: AutoStep, auto: boolean): Promise<StepResult>;
   onView(view: ChainView): void;
@@ -79,6 +85,10 @@ export function createChain(deps: ChainDeps): Chain {
   let spotifyRan = false;
   const failed = new Set<AutoStep>();
 
+  const spotifyDueNow = () =>
+    !deps.spotifyHeld() &&
+    isSpotifyDue(deps.lastSyncAt(), deps.lockedUntil(), deps.now());
+
   const emit = () =>
     deps.onView({
       current,
@@ -101,10 +111,7 @@ export function createChain(deps: ChainDeps): Chain {
         continue;
       }
       if (entry.step === 'spotify') {
-        if (
-          entry.auto &&
-          !isSpotifyDue(deps.lastSyncAt(), deps.lockedUntil(), deps.now())
-        ) {
+        if (entry.auto && !spotifyDueNow()) {
           emit();
           continue;
         }
@@ -135,12 +142,7 @@ export function createChain(deps: ChainDeps): Chain {
       if (loop || !deps.autoOn() || !deps.signedIn()) return Promise.resolve();
       for (const step of AUTO_STEPS) {
         if (failed.has(step)) continue;
-        if (
-          step === 'spotify' &&
-          (spotifyRan ||
-            !isSpotifyDue(deps.lastSyncAt(), deps.lockedUntil(), deps.now()))
-        )
-          continue;
+        if (step === 'spotify' && (spotifyRan || !spotifyDueNow())) continue;
         queue.push({ step, auto: true });
       }
       return start();

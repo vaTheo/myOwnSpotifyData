@@ -146,6 +146,7 @@ import {
   type ChainView,
   type StepResult,
 } from './autoChain';
+import { featuresChanged, reachChanged } from './pushAfter';
 import { errorBanner, warnBanner, type BannerMessage } from './banner';
 
 export const model = signal<Model | null>(null);
@@ -885,6 +886,8 @@ const autoChain = createChain({
   lastSyncAt: () => lastSyncAt.value,
   // The one quota lock-out, whichever Spotify reader met it (S08d).
   lockedUntil: () => spotifyLockedUntil(),
+  // Another account was connected: the wipe question waits for a tap.
+  spotifyHeld: () => banner.value?.text === ACCOUNT_MISMATCH_NOTICE,
   run: runStep,
   onView: (view) => {
     chainView.value = view;
@@ -1099,7 +1102,10 @@ export async function startSync(
       onState: (state) => {
         syncState.value = state;
       },
+      // A destructive question follows a tap, never an automatic run: an
+      // automatic sync that meets another account cancels (round 006).
       confirmAccountSwitch: () => {
+        if (auto) return false;
         const ok = confirm(ACCOUNT_SWITCH_CONFIRM);
         if (ok) accountSwitched = true;
         return ok;
@@ -1240,7 +1246,7 @@ export async function startLookup(opts: JobOptions = {}): Promise<void> {
   if (state.status === 'error' && !auto) {
     banner.value = errorBanner(state.message, ['settings']);
   }
-  if (state.status === 'done') void queueServerPush(['features']);
+  if (featuresChanged(state)) void queueServerPush(['features']);
 }
 
 export async function startRekordboxImport(file: File): Promise<void> {
@@ -1317,7 +1323,7 @@ export async function startReach(opts: JobOptions = {}): Promise<void> {
   if (state.status === 'error' && !auto) {
     banner.value = errorBanner(state.message, ['settings']);
   }
-  if (state.status !== 'error') void queueServerPush(['reach']);
+  if (reachChanged(state)) void queueServerPush(['reach']);
 }
 
 const MIX_NOT_A_LINK =

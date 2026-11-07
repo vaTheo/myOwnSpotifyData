@@ -429,7 +429,11 @@ one at a time after `waitIdle()` (no `jobsBusy()` job running): `spotify` when `
 `AUTO_SYNC_AGE_MS` = 12 h, the shared quota lock `spotifyLockedUntil()` lapsed) and not yet run this page session; `features`; `reach`. A step that ends `error` is kept
 in `failed` and skipped by later triggers of the session. The three wrappers take `{ auto: true }`: no wake lock, no `clearBanner()`,
 no banner but the lock-out and the expired-login logout. The Settings buttons (Sync now, Look up BPM and key, Look up artists) and the Updates section's Retry call `requestJob`, which
-puts the job first (even with the switch off). `disconnect` calls `autoChain.stop()` first. The Settings Updates section's six lines (`src/ui/settings/UpdatesSection.tsx`) come from
+puts the job first (even with the switch off). `disconnect` calls `autoChain.stop()` first. The automatic Spotify step is held
+(`spotifyHeld`) while the account-mismatch notice is up, and an automatic sync answers the account-switch question "no" without
+asking: that `confirm()` follows a tap only. The BPM and reach runs push only when they looked something up (`featuresChanged`,
+`reachChanged`, `src/model/pushAfter.ts`), so a resume with nothing new sends nothing. "Sync this playlist" is disabled while
+`jobsBusy()`. The Settings Updates section's six lines (`src/ui/settings/UpdatesSection.tsx`) come from
 `updateLines` (`src/model/updateLines.ts`, pure). The switch is `localStorage` `autoUpdates` (`'off'` = off).
 
 The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:888`). The mix and like
@@ -442,7 +446,7 @@ a copy the owner saved during the run wins (validates, edits, removed tracks) an
 rows of the tap with the check answers already stored (`keepStoredAnswers`). Like a check that ends in the background, it refreshes the
 saved mixes without clearing the open mix's error.
 
-Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
+Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a tapped sync, never an automatic one
 (`ACCOUNT_SWITCH_CONFIRM`, `:996`), an import that covers less than the stored history (`replaceQuestion`, `:1048`), Remove server data
 (`REMOVE_SERVER_DATA_CONFIRM`, `:442`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:2187`, asked from the request's row in the Mixes list,
 `ui/mix/MixListPane.tsx`) and Stop a running scan (`STOP_REQUEST_CONFIRM`, `:2204`, round 004, asked from the Mixes list row or
