@@ -104,6 +104,18 @@ for (const shot of PAGES) {
     if (shot.setup) await shot.setup(page);
     await page.waitForTimeout(150);
 
+    // A page judged while blank or still loading passes every check for
+    // nothing (seen once per engine on a cold dev server, S11).
+    const unready = await page.evaluate(() =>
+      document.querySelector('.screen-loading')
+        ? 'still loading the library'
+        : (document.body.innerText ?? '').trim() === ''
+          ? 'blank page'
+          : null
+    );
+    if (unready) {
+      findings.push({ check: 'page', selector: shot.id, detail: unready });
+    }
     findings.push(...(await page.evaluate(layoutChecks)));
     if (shot.expect) {
       for (const detail of await shot.expect(page)) {

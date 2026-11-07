@@ -25,6 +25,7 @@ const extraBrowsers =
           name: 'firefox-1440',
           use: {
             ...devices['Desktop Firefox'],
+            deviceScaleFactor: 1,
             viewport: { width: 1440, height: 900 },
           },
         },
@@ -32,6 +33,7 @@ const extraBrowsers =
           name: 'webkit-1440',
           use: {
             ...devices['Desktop Safari'],
+            deviceScaleFactor: 1,
             viewport: { width: 1440, height: 900 },
           },
         },
