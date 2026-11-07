@@ -1,10 +1,16 @@
 import type { ComponentChildren, JSX } from 'preact';
 import { Fragment } from 'preact';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'preact/hooks';
 import { PAGE_SIZE } from '../../model/crate';
 import { Icon } from '../icons';
 import { windowClass } from '../layout/windowClass';
-import { moveIndex } from './keyboard';
+import { moveIndex, rovingTarget } from './keyboard';
 import { shownToReveal } from './paging';
 import {
   nextSort,
@@ -60,6 +66,12 @@ function useWidth(
   on: boolean
 ): number | null {
   const [width, setWidth] = useState<number | null>(null);
+  // The first width is read before the browser paints, so a table that
+  // fits never shows its two-line items for a frame (S09 round 1).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (on && el) setWidth(Math.round(el.getBoundingClientRect().width));
+  }, [on]);
   useEffect(() => {
     const el = ref.current;
     if (!on || !el || typeof ResizeObserver === 'undefined') {
@@ -262,7 +274,8 @@ export function DataTable<Row>(p: {
     );
   }
 
-  const tabTarget = active ?? 0;
+  // A filter may leave fewer rows: the Tab stop stays on one (FR-043).
+  const tabTarget = rovingTarget(active, visible.length);
   let lastGroup: string | null | undefined;
 
   const rowsOut = visible.map(({ row, rank }, index) => {

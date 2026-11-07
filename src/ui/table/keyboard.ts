@@ -38,3 +38,13 @@ export function moveIndex(
   }
   return Math.min(last, Math.max(0, next));
 }
+
+/**
+ * The row that holds the table's one Tab stop (roving tabindex): the last
+ * focused row while it is still on screen, else the nearest one, so a
+ * filter that leaves fewer rows never leaves the table without a Tab stop.
+ */
+export function rovingTarget(active: number | null, count: number): number {
+  if (count === 0 || active === null) return 0;
+  return Math.min(Math.max(0, active), count - 1);
+}
