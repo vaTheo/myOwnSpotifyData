@@ -18,27 +18,29 @@ const WIDTHS = [
   { name: '390', viewport: { width: 390, height: 844 } },
 ];
 
-const extraBrowsers =
-  process.env.SHOTS_BROWSERS === 'all'
-    ? [
-        {
-          name: 'firefox-1440',
-          use: {
-            ...devices['Desktop Firefox'],
-            deviceScaleFactor: 1,
-            viewport: { width: 1440, height: 900 },
-          },
-        },
-        {
-          name: 'webkit-1440',
-          use: {
-            ...devices['Desktop Safari'],
-            deviceScaleFactor: 1,
-            viewport: { width: 1440, height: 900 },
-          },
-        },
-      ]
-    : [];
+/**
+ * Other engines, on demand only (T099): `SHOTS_BROWSERS=all` (both),
+ * `firefox` or `webkit`, at 1440 px. `browserName` is set here, else the
+ * top-level `chromium` wins over the device preset. WebKit needs system
+ * libraries Debian names differently (libicu74, libjpeg-turbo8): on the
+ * owner's LMDE 7 it does not launch without them.
+ */
+const ENGINES = {
+  firefox: { device: 'Desktop Firefox', browserName: 'firefox' },
+  webkit: { device: 'Desktop Safari', browserName: 'webkit' },
+} as const;
+const wanted = process.env.SHOTS_BROWSERS ?? '';
+const extraBrowsers = (Object.keys(ENGINES) as (keyof typeof ENGINES)[])
+  .filter((e) => wanted === 'all' || wanted.split(',').includes(e))
+  .map((e) => ({
+    name: `${e}-1440`,
+    use: {
+      ...devices[ENGINES[e].device],
+      browserName: ENGINES[e].browserName,
+      deviceScaleFactor: 1,
+      viewport: { width: 1440, height: 900 },
+    },
+  }));
 
 export default defineConfig({
   testDir: '.',
