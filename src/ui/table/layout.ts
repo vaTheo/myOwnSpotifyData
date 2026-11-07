@@ -22,9 +22,13 @@ export function widestPriority(width: number | null): 1 | 2 | 3 | 4 {
 /** The narrowest a title may be drawn in a table (SC-001): about 20 characters. */
 export const MIN_TITLE_PX = 160;
 
-/** A row's own padding (8 px start, 16 px end) and a cell's (8 px each side). */
-const ROW_PAD = 24;
-const CELL_PAD = 16;
+/**
+ * A row's own padding (8 px start, 16 px end) and a cell's (8 px each
+ * side), from `.dt`'s `--dt-pad` in `styles.css`; `layout.test.ts` reads
+ * the stylesheet and fails if they drift.
+ */
+export const ROW_PAD = 24;
+export const CELL_PAD = 16;
 
 /** What `titleRoom` reads of a column. */
 export interface ColumnTrack {
@@ -35,16 +39,17 @@ export interface ColumnTrack {
 }
 
 /**
- * The width the title text gets in a table `width` px wide, at the level
- * the container queries draw there: the free width (after the fixed
- * columns and the row's padding) shared by the flexible columns' `fr`, a
- * column's minimum honoured. Null without a `title` column.
+ * The width the title text gets in a table `width` px wide showing the
+ * columns up to `level` (by default the level the container queries draw
+ * there): the free width (after the fixed columns and the row's padding)
+ * shared by the flexible columns' `fr`, a column's minimum honoured. Null
+ * without a `title` column.
  */
 export function titleRoom(
   columns: readonly ColumnTrack[],
-  width: number
+  width: number,
+  level: 1 | 2 | 3 | 4 = widestPriority(width)
 ): number | null {
-  const level = widestPriority(width);
   const shown = columns.filter((c) => c.priority <= level);
   if (!shown.some((c) => c.id === 'title')) return null;
   let free = width - ROW_PAD;
@@ -82,22 +87,43 @@ export function titleRoom(
 }
 
 /**
- * A table width as one small number: the column-priority level times two,
- * plus one when the table draws two-line items: narrower than
- * `compactBelow`, or so narrow its title would get under `MIN_TITLE_PX`
- * (S13c review I1). Equal widths of one level give the same code, so
- * storing it skips re-renders.
+ * The columns a table draws at `width` so its title stays readable (S13c
+ * re-review N1): the container queries' level, lowered one priority at a
+ * time while the title would get under `MIN_TITLE_PX`, as a narrower
+ * window would. `fits` is false only when even the priority-1 columns
+ * leave the title too narrow: then the table draws two-line items.
+ */
+export function fitLevel(
+  columns: readonly ColumnTrack[],
+  width: number
+): { level: 1 | 2 | 3 | 4; fits: boolean } {
+  let level = widestPriority(width);
+  let room = titleRoom(columns, width, level);
+  while (level > 1 && room !== null && room < MIN_TITLE_PX) {
+    level = (level - 1) as 1 | 2 | 3;
+    room = titleRoom(columns, width, level);
+  }
+  return { level, fits: room === null || room >= MIN_TITLE_PX };
+}
+
+/**
+ * A table width as one small number: the column level it draws times two,
+ * plus one when it draws two-line items: narrower than `compactBelow`, or
+ * too narrow for a readable title even with only the priority-1 columns
+ * (`fitLevel`). Equal widths of one level give the same code, so storing it
+ * skips re-renders.
  */
 export function widthLevel(
   width: number,
   compactBelow?: number,
   columns?: readonly ColumnTrack[]
 ): number {
-  const room = columns ? titleRoom(columns, width) : null;
+  const fit = columns
+    ? fitLevel(columns, width)
+    : { level: widestPriority(width), fits: true };
   const narrow =
-    (compactBelow !== undefined && width < compactBelow) ||
-    (room !== null && room < MIN_TITLE_PX);
-  return widestPriority(width) * 2 + (narrow ? 1 : 0);
+    (compactBelow !== undefined && width < compactBelow) || !fit.fits;
+  return fit.level * 2 + (narrow ? 1 : 0);
 }
 
 /**

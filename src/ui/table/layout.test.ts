@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  CELL_PAD,
+  fitLevel,
   levelOf,
+  ROW_PAD,
   MIN_TITLE_PX,
   titleRoom,
   type ColumnTrack,
@@ -100,9 +105,13 @@ describe('titleRoom and two-line items (S13c review I1)', () => {
     // keeps 176 (160 of text) and the artists take the rest.
     expect(titleRoom(min, 900)).toBe(160);
     expect(levelOf(widthLevel(900, undefined, min)).narrow).toBe(false);
-    // 770 px: free 146, under the minimum: the title would overflow.
+    // 770 px: free 146, under the minimum: the title would overflow at
+    // level 2, so the table drops to level 1, where it fits.
     expect(titleRoom(min, 770)).toBe(130);
-    expect(levelOf(widthLevel(770, undefined, min)).narrow).toBe(true);
+    expect(levelOf(widthLevel(770, undefined, min))).toEqual({
+      widest: 1,
+      narrow: false,
+    });
   });
 
   it('counts the minimums of the other columns before the title', () => {
@@ -118,11 +127,40 @@ describe('titleRoom and two-line items (S13c review I1)', () => {
     expect(titleRoom(crate, 1100)).toBe(140);
   });
 
-  it('draws two-line items when the title would get under 160 px', () => {
+  it('hides columns by priority before it draws two-line items (re-review N1)', () => {
     expect(MIN_TITLE_PX).toBe(160);
-    expect(levelOf(widthLevel(770, undefined, top)).narrow).toBe(true);
-    expect(levelOf(widthLevel(1170, undefined, top)).narrow).toBe(false);
-    expect(levelOf(widthLevel(600, undefined, top)).narrow).toBe(false);
+    // 770 px: level 2 leaves the title 67 px; level 1 leaves it 370.
+    expect(fitLevel(top, 770)).toEqual({ level: 1, fits: true });
+    expect(levelOf(widthLevel(770, undefined, top))).toEqual({
+      widest: 1,
+      narrow: false,
+    });
+    expect(fitLevel(top, 1170)).toEqual({ level: 4, fits: true });
+    expect(fitLevel(top, 600)).toEqual({ level: 1, fits: true });
+    // Two-line items only when even the priority-1 columns leave too little.
+    const wide: ColumnTrack[] = [
+      { id: 'title', priority: 1, width: 'minmax(176px, 2fr)' },
+      { id: 'figures', priority: 1, width: '500px' },
+    ];
+    expect(fitLevel(wide, 650)).toEqual({ level: 1, fits: false });
+    expect(levelOf(widthLevel(650, undefined, wide)).narrow).toBe(true);
     expect(levelOf(widthLevel(770)).narrow).toBe(false);
+  });
+
+  it('pins its paddings to styles.css (re-review N5)', () => {
+    const css = readFileSync(
+      fileURLToPath(new URL('../../styles.css', import.meta.url)),
+      'utf8'
+    );
+    const pad = Number(/\.dt \{[^}]*--dt-pad:\s*(\d+)px/.exec(css)?.[1]);
+    expect(pad).toBe(8);
+    // .dt-row: 0 (pad * 2) 0 pad, so start + end = 3 pads.
+    expect(css).toMatch(
+      /\.dt-row \{[^}]*padding: 0 calc\(var\(--dt-pad\) \* 2\) 0 var\(--dt-pad\);/
+    );
+    expect(ROW_PAD).toBe(pad * 3);
+    // .dt-cell: 0 pad on both sides.
+    expect(css).toMatch(/\.dt-cell \{[^}]*padding: 0 var\(--dt-pad\);/);
+    expect(CELL_PAD).toBe(pad * 2);
   });
 });

@@ -1480,6 +1480,30 @@ a {
   }
 }
 
+/* The level `DataTable` draws (`data-level`, `fitLevel` in
+   `ui/table/layout.ts`): it hides more columns than the container queries
+   above when the title would otherwise get under 160 px. The paddings above
+   (--dt-pad) are mirrored by ROW_PAD and CELL_PAD in that file. */
+.dt[data-level='1'] .dt-row {
+  grid-template-columns: var(--dt-cols-1);
+}
+.dt[data-level='2'] .dt-row {
+  grid-template-columns: var(--dt-cols-2);
+}
+.dt[data-level='3'] .dt-row {
+  grid-template-columns: var(--dt-cols-3);
+}
+.dt[data-level='1'] .dt-cell.p2,
+.dt[data-level='1'] .dt-cell.p3,
+.dt[data-level='1'] .dt-cell.p4,
+.dt[data-level='2'] .dt-cell.p3,
+.dt[data-level='2'] .dt-cell.p4,
+.dt[data-level='3'] .dt-cell.p4 {
+  visibility: hidden;
+  height: 0;
+  padding: 0;
+}
+
 /* FR-023: a row with the keyboard focus shows its truncated text whole, by
    letting it wrap; the pointer gets the cell's tooltip instead. The row
    grows only when a text was cut. */
