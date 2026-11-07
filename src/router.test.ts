@@ -56,10 +56,16 @@ describe('sameScreen', () => {
 });
 
 describe('parseRoute', () => {
-  it('defaults to top for empty or unknown hashes', () => {
-    expect(parseRoute('')).toEqual({ name: 'top' });
-    expect(parseRoute('#')).toEqual({ name: 'top' });
-    expect(parseRoute('#/nope')).toEqual({ name: 'top' });
+  it('defaults to overview for empty or unknown hashes', () => {
+    expect(parseRoute('')).toEqual({ name: 'overview' });
+    expect(parseRoute('#')).toEqual({ name: 'overview' });
+    expect(parseRoute('#/')).toEqual({ name: 'overview' });
+    expect(parseRoute('#/nope')).toEqual({ name: 'overview' });
+  });
+
+  it('keeps #/top on Top now that the home is the Overview', () => {
+    expect(parseRoute('#/top')).toEqual({ name: 'top' });
+    expect(routeHref({ name: 'overview' })).toBe('#/');
   });
 
   it('parses every list screen', () => {
@@ -132,6 +138,7 @@ describe('parseRoute', () => {
 describe('routeHref', () => {
   it('round-trips every route', () => {
     const routes = [
+      { name: 'overview' },
       { name: 'top' },
       { name: 'playlists' },
       { name: 'playlist', id: 'abc' },
@@ -248,6 +255,7 @@ describe('the detail parameter (spec 003)', () => {
 
   it('round-trips a detail through routeHref', () => {
     const routes = [
+      { name: 'overview', detail: 'q' },
       { name: 'top', detail: 'abc' },
       { name: 'playlist', id: 'p 1', detail: '12' },
       { name: 'artist', key: 'name:daft punk', detail: 'x/y' },
@@ -274,6 +282,9 @@ describe('the mix key (spec 003)', () => {
 
 describe('destinationOf (spec 003, contracts/routes.md)', () => {
   it('places every route in its destination and tab', () => {
+    expect(destinationOf({ name: 'overview' })).toEqual({
+      destination: 'overview',
+    });
     expect(destinationOf({ name: 'top' })).toEqual({
       destination: 'listening',
       tab: 'top',

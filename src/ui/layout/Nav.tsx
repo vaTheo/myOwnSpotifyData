@@ -15,10 +15,17 @@ interface NavItem {
 }
 
 /**
- * The destinations in rail order (contracts/routes.md). Overview joins first
- * with US8; Settings is last and sits at the foot of the rail.
+ * The destinations in rail order (contracts/routes.md): Overview first, the
+ * home (US8); Settings last, at the foot of the rail. Five fit a phone's
+ * bottom bar, the most Material allows there.
  */
 export const NAV_ITEMS: NavItem[] = [
+  {
+    destination: 'overview',
+    label: 'Overview',
+    icon: 'home',
+    home: { name: 'overview' },
+  },
   {
     destination: 'listening',
     label: 'Listening',

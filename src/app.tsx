@@ -12,6 +12,7 @@ import { Import } from './ui/Import';
 import { AppFrame } from './ui/layout/AppFrame';
 import { rememberRoute } from './ui/layout/Nav';
 import { Workspace } from './ui/mix/Workspace';
+import { Overview } from './ui/overview/Overview';
 import { Playlists } from './ui/Playlists';
 import { Top } from './ui/Top';
 
@@ -44,6 +45,8 @@ export function installRouter(): void {
 
 function Screen({ route }: { route: Route }) {
   switch (route.name) {
+    case 'overview':
+      return <Overview />;
     case 'crate':
       return <CrateHub />;
     case 'crateView':

@@ -17,6 +17,7 @@ export type CrateView = (typeof CRATE_VIEWS)[number];
  * an open saved mix.
  */
 export type Route = (
+  | { name: 'overview' }
   | { name: 'top' }
   | { name: 'playlists' }
   | { name: 'playlist'; id: string }
@@ -84,8 +85,11 @@ function parsePath(path: string): Route {
       return { name: 'settings' };
     case 'mix':
       return tail ? { name: 'mix', key: decodeSegment(tail) } : { name: 'mix' };
-    default:
+    case 'top':
       return { name: 'top' };
+    default:
+      // The empty address, `#/` and anything unknown: the home (US8).
+      return { name: 'overview' };
   }
 }
 
@@ -95,6 +99,8 @@ function withDetail(href: string, detail: string | undefined): string {
 
 function pathHref(route: Route): string {
   switch (route.name) {
+    case 'overview':
+      return '#/';
     case 'playlist':
       return `#/playlist/${encodeURIComponent(route.id)}`;
     case 'artist':
@@ -144,6 +150,8 @@ export function destinationOf(route: Route): {
   tab?: DestinationTab;
 } {
   switch (route.name) {
+    case 'overview':
+      return { destination: 'overview' };
     case 'top':
       return { destination: 'listening', tab: 'top' };
     case 'crate':
