@@ -88,8 +88,8 @@ job runs next, before the rest of the chain.
 
 **Why this priority**: an automatic Spotify read is the one risk this round takes; the owner must be able to turn it off.
 
-**Independent Test**: switch off, reload: no Spotify sync, BPM or reach run starts by itself. Switch on during a chain's BPM step
-and tap the Sync now button: the Spotify sync runs as soon as the BPM step ends, then the chain resumes with Artist reach.
+**Independent Test**: switch off, reload: no Spotify sync, BPM or reach run starts by itself. With the switch on, during a chain's BPM step,
+tap the Sync now button: the Spotify sync runs as soon as the BPM step ends, then the chain resumes with Artist reach.
 
 **Acceptance Scenarios**:
 
