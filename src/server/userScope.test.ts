@@ -4,6 +4,10 @@ import {
   DEVICE_OWNER_KEY,
   activate,
   claim,
+  dbNameIn,
+  keyIn,
+  scopeChangedElsewhere,
+  scopeOf,
   dbNameFor,
   isUserId,
   keyFor,
@@ -222,5 +226,58 @@ describe('activate', () => {
       ok: false,
     });
     expect(s.map.size).toBe(0);
+  });
+});
+
+describe('pinned scope helpers', () => {
+  it('scopeOf is empty for the claimer, nobody or no server, the id otherwise', () => {
+    const s = new Mem();
+    expect(scopeOf(s, true)).toBe('');
+    activate(s, { userId: A, email: '' }, true);
+    expect(scopeOf(s, true)).toBe('');
+    activate(s, { userId: B, email: '' }, true);
+    expect(scopeOf(s, true)).toBe(B);
+    expect(scopeOf(s, false)).toBe('');
+  });
+
+  it('names from a scope id', () => {
+    expect(dbNameIn('spotify-dj', '')).toBe('spotify-dj');
+    expect(dbNameIn('spotify-dj', B)).toBe(`spotify-dj-u-${B}`);
+    expect(keyIn('session', '')).toBe('session');
+    expect(keyIn('session', B)).toBe(`session:${B}`);
+  });
+});
+
+describe('scopeChangedElsewhere', () => {
+  function device(): Mem {
+    const s = new Mem();
+    activate(s, { userId: A, email: '' }, true);
+    return s;
+  }
+
+  it("the owner's tab reloads when another tab makes B active", () => {
+    const s = device();
+    writeActive(s, { userId: B, email: '' });
+    expect(scopeChangedElsewhere(ACTIVE_KEY, s, true, '')).toBe(true);
+  });
+
+  it("B's tab reloads when another tab signs out (pointer removed)", () => {
+    const s = device();
+    writeActive(s, null);
+    expect(scopeChangedElsewhere(ACTIVE_KEY, s, true, B)).toBe(true);
+    expect(scopeChangedElsewhere(null, s, true, B)).toBe(true);
+  });
+
+  it('no reload when the resolved scope is the pinned one', () => {
+    const s = device();
+    writeActive(s, null);
+    expect(scopeChangedElsewhere(ACTIVE_KEY, s, true, '')).toBe(false);
+  });
+
+  it('ignores other keys and a device without a server', () => {
+    const s = device();
+    writeActive(s, { userId: B, email: '' });
+    expect(scopeChangedElsewhere('quotaLock', s, true, '')).toBe(false);
+    expect(scopeChangedElsewhere(ACTIVE_KEY, s, false, '')).toBe(false);
   });
 });

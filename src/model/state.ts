@@ -109,8 +109,12 @@ import {
 import { LINK_BROWSER_MESSAGE, type ServerResult } from '../server/client';
 import { serverAuth, serverClient, serverConfigured } from '../server/browser';
 import { DATASETS } from '../server/datasets';
-import { scopeEnabled, scopeStorage } from '../server/scopeBrowser';
-import { activate } from '../server/userScope';
+import {
+  pinnedScope,
+  scopeEnabled,
+  scopeStorage,
+} from '../server/scopeBrowser';
+import { activate, scopeOf, type Activation } from '../server/userScope';
 import {
   JOB_HISTORY_MAX,
   UPDATE_APP_MESSAGE,
@@ -504,7 +508,7 @@ export const SERVER_NO_USER_MESSAGE =
 
 type Activated = 'none' | 'ok' | 'reload' | 'invalid';
 
-/** The activation, and for an unnamed session the sign-out it started. */
+/** The activation, and for a refused session the sign-out it started. */
 function activateStored(): { status: Activated; signedOut: Promise<void> } {
   const current = serverAuth.session.value;
   const storage = scopeStorage();
@@ -512,18 +516,30 @@ function activateStored(): { status: Activated; signedOut: Promise<void> } {
   if (!serverConfigured || !current || !storage) {
     return { status: 'none', signedOut: done };
   }
-  const result = activate(
-    storage,
-    { userId: current.userId, email: current.email },
-    scopeEnabled()
-  );
+  let result: Activation;
+  let message = SERVER_NO_USER_MESSAGE;
+  try {
+    const enabled = scopeEnabled();
+    // Pinned before the pointer moves: the names this page opened with.
+    const opened = pinnedScope();
+    result = activate(
+      storage,
+      { userId: current.userId, email: current.email },
+      enabled
+    );
+    // The page's names were pinned at load: any other scope needs a reload.
+    if (result.ok && scopeOf(storage, enabled) !== opened) {
+      result = { ok: true, reload: true };
+    }
+  } catch (err) {
+    // localStorage refused the pointer (full, locked down): never half-active.
+    result = { ok: false };
+    message = `Could not record who is signed in on this device: ${storageMessage(err)}`;
+  }
   if (result.ok) {
     return { status: result.reload ? 'reload' : 'ok', signedOut: done };
   }
-  const refused: ServerStatus = {
-    status: 'error',
-    message: SERVER_NO_USER_MESSAGE,
-  };
+  const refused: ServerStatus = { status: 'error', message };
   serverState.value = refused;
   // signOut clears the session's own error; the card keeps this one.
   const signedOut = serverAuth.signOut().then(() => {

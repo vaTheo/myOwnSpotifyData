@@ -83,7 +83,7 @@ export function claim(storage: StorageLike, userId: string): string {
 }
 
 /** `''` for the claimer, nobody, or no server; `<id>` for any other user. */
-function scopeId(storage: StorageLike, enabled: boolean): string {
+export function scopeOf(storage: StorageLike, enabled: boolean): string {
   if (!enabled) return '';
   const active = readActive(storage);
   if (!active) return '';
@@ -91,13 +91,22 @@ function scopeId(storage: StorageLike, enabled: boolean): string {
   return owner === active.userId ? '' : active.userId;
 }
 
+/** The database name for a scope id from `scopeOf`. */
+export function dbNameIn(base: string, scope: string): string {
+  return scope ? `${base}-u-${scope}` : base;
+}
+
+/** The storage key for a scope id from `scopeOf`. */
+export function keyIn(base: string, scope: string): string {
+  return scope ? `${base}:${scope}` : base;
+}
+
 export function dbNameFor(
   base: string,
   storage: StorageLike,
   enabled: boolean
 ): string {
-  const id = scopeId(storage, enabled);
-  return id ? `${base}-u-${id}` : base;
+  return dbNameIn(base, scopeOf(storage, enabled));
 }
 
 export function keyFor(
@@ -105,8 +114,24 @@ export function keyFor(
   storage: StorageLike,
   enabled: boolean
 ): string {
-  const id = scopeId(storage, enabled);
-  return id ? `${base}:${id}` : base;
+  return keyIn(base, scopeOf(storage, enabled));
+}
+
+/**
+ * A `storage` event from another tab (`key`, null for a clear) changed who is
+ * active on the device: true when the scope it now resolves to is not the one
+ * this page pinned at load, so the page must reload (FR-002).
+ */
+export function scopeChangedElsewhere(
+  key: string | null,
+  storage: StorageLike,
+  enabled: boolean,
+  pinned: string
+): boolean {
+  if (key !== null && key !== ACTIVE_KEY && key !== DEVICE_OWNER_KEY) {
+    return false;
+  }
+  return scopeOf(storage, enabled) !== pinned;
 }
 
 /** True when the page must reload to leave one user's data for another's. */

@@ -1,7 +1,6 @@
 import { demoVariant, memoryStorage } from '../dev/flag';
 import { CLIENT_ID, redirectUri } from '../env';
-import { scopeEnabled } from '../server/scopeBrowser';
-import { scopedStorage } from '../server/userScope';
+import { scopedView } from '../server/scopeBrowser';
 import {
   PKCE_KEY,
   SCOPES,
@@ -20,12 +19,9 @@ function sessionStorageFor(): StorageLike {
   if (!import.meta.env.DEV || demoVariant() === null) {
     // One Spotify login per server user (ADR-13): the device's claimer keeps
     // `session` and `pkce`, any other user `session:<id>` and `pkce:<id>`.
-    return scopedStorage(
-      localStorage,
-      localStorage,
-      [SESSION_KEY, PKCE_KEY],
-      scopeEnabled()
-    );
+    // The scope is pinned at page load (scopeBrowser), so another tab's
+    // sign-in never moves this page onto another user's keys.
+    return scopedView(localStorage, [SESSION_KEY, PKCE_KEY]);
   }
   // `?demo=signed-out` shows the Connect screen.
   if (demoVariant() === 'signed-out') return memoryStorage({});

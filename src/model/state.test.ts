@@ -46,6 +46,7 @@ vi.mock('../server/browser', async () => {
       linkSent: s(false),
       lastError: s(null),
       getAccessToken: vi.fn(),
+      completeLink: vi.fn(async () => 'ok'),
       signOut: vi.fn(async () => undefined),
     },
   };
@@ -836,6 +837,7 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
 
 describe('activateServerUser', () => {
   const OWNER = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
+  const OTHER = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
   const map = new Map<string, string>();
   const storage = {
     getItem: (k: string) => map.get(k) ?? null,
@@ -874,15 +876,78 @@ describe('activateServerUser', () => {
 
   it('a session whose token names no account is signed out with a message, never activated', async () => {
     session.value = { userId: null, email: 'me@x.y' };
+    // The real signOut clears the card's state: the message must survive it.
+    vi.mocked(serverAuth.signOut).mockImplementationOnce(async () => {
+      state.serverState.value = { status: 'signedOut' };
+    });
     expect(state.activateServerUser()).toBe('invalid');
     expect(scope.readActive(storage)).toBeNull();
     expect(map.size).toBe(0);
     expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
-    await Promise.resolve();
+    await vi.waitFor(() =>
+      expect(state.serverState.value).toEqual({
+        status: 'error',
+        message: state.SERVER_NO_USER_MESSAGE,
+      })
+    );
+  });
+
+  it('a localStorage that refuses writes shows an error and signs out, never a blank page', async () => {
+    session.value = { userId: OWNER, email: 'me@x.y' };
+    setScopeForTests({
+      storage: {
+        getItem: () => null,
+        setItem: () => {
+          throw new DOMException('full', 'QuotaExceededError');
+        },
+        removeItem: () => undefined,
+      },
+      enabled: true,
+    });
+    expect(state.activateServerUser()).toBe('invalid');
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() =>
+      expect(state.serverState.value).toEqual({
+        status: 'error',
+        message:
+          'Could not record who is signed in on this device: Local storage is full. Free space on the phone and try again.',
+      })
+    );
+  });
+
+  it("completeServerLink: another user than the page's is 'reload'", async () => {
+    scope.activate(storage, { userId: OWNER, email: 'me@x.y' }, true);
+    setScopeForTests({ storage, enabled: true }); // the page opened as the owner
+    session.value = { userId: OTHER, email: 'b@x.y' };
+    await expect(
+      state.completeServerLink(new URLSearchParams('link=server&code=c'))
+    ).resolves.toBe('reload');
+    expect(scope.readActive(storage)?.userId).toBe(OTHER);
+  });
+
+  it("completeServerLink: the same user is 'ok', no reload", async () => {
+    scope.activate(storage, { userId: OWNER, email: 'me@x.y' }, true);
+    setScopeForTests({ storage, enabled: true });
+    session.value = { userId: OWNER, email: 'me@x.y' };
+    await expect(
+      state.completeServerLink(new URLSearchParams('link=server&code=c'))
+    ).resolves.toBe('ok');
+  });
+
+  it("completeServerLink: a token without sub is 'invalid', signed out, message kept", async () => {
+    session.value = { userId: null, email: 'me@x.y' };
+    vi.mocked(serverAuth.signOut).mockImplementationOnce(async () => {
+      state.serverState.value = { status: 'signedOut' };
+    });
+    await expect(
+      state.completeServerLink(new URLSearchParams('link=server&code=c'))
+    ).resolves.toBe('invalid');
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
     expect(state.serverState.value).toEqual({
       status: 'error',
       message: state.SERVER_NO_USER_MESSAGE,
     });
+    expect(scope.readActive(storage)).toBeNull();
   });
 
   it('is none without a server', () => {

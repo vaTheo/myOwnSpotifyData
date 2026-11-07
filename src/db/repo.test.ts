@@ -717,6 +717,7 @@ describe('worker round additions (no DB_VERSION bump)', () => {
 
 describe('per-user names (ADR-13)', () => {
   const OWNER = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
+  const OTHER = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
 
   /** A device the owner claimed, with `active` signed in (or nobody). */
   function scope(active: string | null, enabled: boolean): void {
@@ -743,7 +744,7 @@ describe('per-user names (ADR-13)', () => {
   it.each([
     ['the claimer is active', OWNER, true],
     ['nobody is signed in', null, true],
-    ['no server is set up', OWNER, false],
+    ['no server is set up, even with another user active', OTHER, false],
   ])('opens spotify-dj when %s', async (_label, active, enabled) => {
     scope(active, enabled);
     const db = await openDb();
@@ -752,7 +753,6 @@ describe('per-user names (ADR-13)', () => {
   });
 
   it('resolves the name through the scope at open and at wipe', async () => {
-    const OTHER = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
     scope(OTHER, true);
     const db = await openDb();
     expect(db.name).toBe(`spotify-dj-u-${OTHER}`);

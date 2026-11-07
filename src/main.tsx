@@ -14,6 +14,7 @@ import {
   startServerSync,
 } from './model/state';
 import { installAutoSync } from './server/autoSync';
+import { watchScope } from './server/scopeBrowser';
 import { LINK_MARKER } from './server/session';
 import { AuthError } from './spotify/errors';
 import './ui/theme/tokens.css';
@@ -37,6 +38,8 @@ async function boot(): Promise<void> {
     location.reload();
     return;
   }
+  // Another tab signing in or out as someone else reloads this one (FR-002).
+  watchScope();
   if (returning) bootPhase.value = 'signin';
   else bootPhase.value = auth.session.value ? 'loading' : 'ready';
   installRouter();

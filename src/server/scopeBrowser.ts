@@ -1,13 +1,15 @@
 import type { StorageLike } from '../auth/session';
 import { SUPABASE_KEY, SUPABASE_URL } from '../env';
-import { dbNameFor, keyFor } from './userScope';
+import { dbNameIn, keyIn, scopeChangedElsewhere, scopeOf } from './userScope';
 
 /**
  * The browser side of `userScope` (ADR-13): which user's names this page
- * uses. Read lazily at every call, from `localStorage`, so the db layer and
- * the Spotify session need no server client. `enabled` comes from the server
- * settings alone: without them every name is today's (FR-008). Under Vitest
- * there is no `localStorage`, so every name is today's too.
+ * uses. The scope is resolved once, on first use, and kept for the page's
+ * life: another tab changing the pointer must never move this page onto
+ * another user's database or Spotify keys (FR-002); `watchScope` reloads the
+ * page instead. No server client here, so the db layer stays free of it.
+ * `enabled` comes from the server settings alone: without them every name is
+ * today's (FR-008). Without `localStorage` (Vitest, blocked storage) too.
  */
 
 interface ScopeSource {
@@ -16,10 +18,15 @@ interface ScopeSource {
 }
 
 let override: ScopeSource | null = null;
+let pinned: string | null = null;
 
-/** Tests only: inject a storage and the server switch; `null` restores the browser's. */
+/**
+ * Tests only: inject a storage and the server switch; `null` restores the
+ * browser's. Either way the pinned scope is dropped and resolved again.
+ */
 export function setScopeForTests(next: ScopeSource | null): void {
   override = next;
+  pinned = null;
 }
 
 function source(): ScopeSource {
@@ -42,14 +49,69 @@ export function scopeEnabled(): boolean {
   return source().enabled;
 }
 
+/** This page's scope id (`''` = today's names), fixed on first use. */
+export function pinnedScope(): string {
+  if (pinned === null) {
+    const { storage, enabled } = source();
+    try {
+      pinned = storage ? scopeOf(storage, enabled) : '';
+    } catch {
+      pinned = ''; // storage blocked: today's names
+    }
+  }
+  return pinned;
+}
+
 /** `base` for the claimer, nobody or no server; `base-u-<id>` otherwise. */
 export function scopedDbName(base: string): string {
-  const { storage, enabled } = source();
-  return storage ? dbNameFor(base, storage, enabled) : base;
+  return dbNameIn(base, pinnedScope());
 }
 
 /** `base` for the claimer, nobody or no server; `base:<id>` otherwise. */
 export function scopedKey(base: string): string {
-  const { storage, enabled } = source();
-  return storage ? keyFor(base, storage, enabled) : base;
+  return keyIn(base, pinnedScope());
+}
+
+/** A view of `storage` where the listed keys carry this page's scope. */
+export function scopedView(
+  storage: StorageLike,
+  keys: readonly string[]
+): StorageLike {
+  const map = (key: string): string =>
+    keys.includes(key) ? scopedKey(key) : key;
+  return {
+    getItem: (key) => storage.getItem(map(key)),
+    setItem: (key, value) => storage.setItem(map(key), value),
+    removeItem: (key) => storage.removeItem(map(key)),
+  };
+}
+
+interface StorageEventTarget {
+  addEventListener(
+    type: 'storage',
+    listener: (e: { key: string | null }) => void
+  ): void;
+}
+
+/**
+ * Reloads the page when another tab makes a different user active on this
+ * device. Installed once from boot; a no-op without `window` or storage.
+ */
+export function watchScope(
+  target: StorageEventTarget | undefined = typeof window === 'undefined'
+    ? undefined
+    : window,
+  reload: () => void = () => location.reload()
+): void {
+  if (!target) return;
+  const mine = pinnedScope();
+  target.addEventListener('storage', (e) => {
+    const { storage, enabled } = source();
+    if (!storage) return;
+    try {
+      if (scopeChangedElsewhere(e.key, storage, enabled, mine)) reload();
+    } catch {
+      // Storage became unreadable: keep the page as it is.
+    }
+  });
 }
