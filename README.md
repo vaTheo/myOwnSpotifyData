@@ -112,8 +112,8 @@ phone. It is dark, with chartreuse marking what you act on.
 - A value the app does not have shows as a dash ("no data"), never as 0.
 - **Release year** is a column on every song table and a line in a track's
   details; a song no source dates shows a dash, never a 0. Sort by it like
-  any column (oldest first, undated last; on a phone, _Sort by year_ in the
-  Filters). Years come from the album Spotify lists when you sync (a playlist
+  any column (oldest first, undated last; on a phone or wherever the column
+  does not fit, _Sort by year_ in the Filters). Years come from the album Spotify lists when you sync (a playlist
   synced before this feature gets them once it is synced again), from
   Settings → Audio data's look-up (ReccoBeats' earliest album year: the
   original release rather than a remaster or a compilation) and, on a mix,

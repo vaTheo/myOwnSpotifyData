@@ -211,8 +211,10 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 - Round 005: `searchTrack` also returns the matched album's year (same answer, no extra call); `runCreatePlaylist` returns the
   years on every exit path and `applyYears` writes them, `yearFrom: 'spotify'`, on the undated rows only (a row edited meanwhile
   is left alone). The search runs on `tracksToAdd`'s rows; `startCreatePlaylist` puts the years on the whole working list of the
-  tap (same row objects), on the open rows and, on a mix saved before the tap and not saved again during the run (S13 N1), saves
-  them even when the playlist creation then fails.
+  tap (same row objects) and saves them even when the playlist creation then fails (with the tap's `extras` and the stored
+  check answers). A copy saved during the run (S13 N1) and the open rows get them by track (`applyYearsByTrack`, `sameTrack` on
+  artist and title, never the ISRC). Check on Spotify keeps the same year with its answer (`CheckAnswer.year`), and
+  `applyAnswers` dates an undated row from it.
 - `worker.ts` (pure, worker round): `resultToRows` (the worker's result through `parseTracklistifyJson`, re-checked), `mergeWorkerRows`
   (a new result replaces untouched scan rows only), `jobView` and `requestStatusText` (the one wording of the Identify button and the
   request's state line for every server and request state). `url.ts` gains `requestKey`, the canonical link of a request.
