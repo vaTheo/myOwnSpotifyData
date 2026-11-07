@@ -506,6 +506,17 @@ function buildFeatures(rand: Rand, lib: Built): FeatureRow[] {
             energy: Math.round(rand() * 100) / 100,
             fetchedAt,
           },
+          // Round 005 (S13c): ReccoBeats' earliest album on a third of its
+          // rows, a few years before the synced album's (a reissue). No
+          // draw from `rand`, so the rest of the demo stays as it was.
+          ...(i % 3 === 0 && t.albumYear !== undefined
+            ? {
+                releaseYear: {
+                  year: Math.max(1960, t.albumYear - (i % 7)),
+                  checkedAt: fetchedAt,
+                },
+              }
+            : {}),
           updatedAt: fetchedAt,
         });
       }
