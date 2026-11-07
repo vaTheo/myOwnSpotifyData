@@ -266,3 +266,45 @@ describe('readMixesForSearch (S09 round 1)', () => {
     state.mixError.value = null;
   });
 });
+
+describe('loadServerPending (S11, parked minor)', () => {
+  it('a late read never puts older flags back over a newer one', async () => {
+    const repo = await import('../db/repo');
+    let releaseOld: (v: unknown) => void = () => undefined;
+    vi.mocked(repo.getMeta)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseOld = resolve;
+          })
+      )
+      .mockResolvedValueOnce({ history: true } as never);
+    const first = state.loadServerPending();
+    await state.loadServerPending();
+    expect(state.serverPending.value).toEqual({ history: true });
+    releaseOld({});
+    await first;
+    expect(state.serverPending.value).toEqual({ history: true });
+    state.serverPending.value = null;
+  });
+
+  it('a late failed read leaves a newer good read alone', async () => {
+    const repo = await import('../db/repo');
+    let failOld: (e: unknown) => void = () => undefined;
+    vi.mocked(repo.getMeta)
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            failOld = reject;
+          })
+      )
+      .mockResolvedValueOnce({ mixes: true } as never);
+    const first = state.loadServerPending();
+    await state.loadServerPending();
+    failOld(new Error('disk gone'));
+    await first;
+    expect(state.serverPending.value).toEqual({ mixes: true });
+    expect(state.serverPendingError.value).toBeNull();
+    state.serverPending.value = null;
+  });
+});

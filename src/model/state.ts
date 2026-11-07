@@ -192,13 +192,23 @@ export const serverPending = signal<ServerPending | null>(null);
 /** Why the pending flags could not be read, or null. */
 export const serverPendingError = signal<string | null>(null);
 
+/**
+ * Counts every read and write of `serverPending`: a read that ends after a
+ * newer read or write began leaves the screen alone, so a late answer never
+ * puts older flags back.
+ */
+let pendingSeq = 0;
+
 /** Reads the pending flags into `serverPending`; never throws. */
 export async function loadServerPending(): Promise<void> {
+  const seq = ++pendingSeq;
   try {
-    serverPending.value =
-      (await getMeta<ServerPending>(SERVER_PENDING_META)) ?? {};
+    const pending = (await getMeta<ServerPending>(SERVER_PENDING_META)) ?? {};
+    if (seq !== pendingSeq) return;
+    serverPending.value = pending;
     serverPendingError.value = null;
   } catch (err) {
+    if (seq !== pendingSeq) return;
     serverPendingError.value = `Could not read the changes waiting to send: ${describeError(err)}`;
   }
 }
@@ -305,7 +315,9 @@ export async function queueServerPush(
     const pending = (await getMeta<ServerPending>(SERVER_PENDING_META)) ?? {};
     for (const name of names) pending[name] = true;
     await putMeta(SERVER_PENDING_META, pending);
+    pendingSeq += 1;
     serverPending.value = pending;
+    serverPendingError.value = null;
   }
   if (!serverAuth.session.value) return;
   if (pushRunning) {
