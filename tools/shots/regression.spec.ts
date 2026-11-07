@@ -1293,7 +1293,6 @@ test.describe('F. features', () => {
   test('F21e Escape closes the list–detail pane the moment it is drawn', async ({
     app,
   }) => {
-    test.fail(true, 'ListDetail registers its Escape layer after paint');
     await app.open('#/playlists');
     for (let i = 0; i < 4; i += 1) {
       // The pane: Escape the moment the detail is drawn.

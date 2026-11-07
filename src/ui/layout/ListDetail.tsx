@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { PAGE_SIZE } from '../../model/crate';
 import { TrackRow } from '../components/TrackRow';
 import { shownToReveal } from '../table/paging';
@@ -53,7 +53,10 @@ export function ListDetail(p: {
   const onClose = useRef(p.onClose);
   onClose.current = p.onClose;
 
-  useEffect(() => {
+  // A layout effect, like the side sheet's (S13): the layer is there as soon
+  // as the pane is drawn, so an Escape pressed at once is not lost (S14,
+  // regression F21e).
+  useLayoutEffect(() => {
     if (!split) return;
     return pushEscapeLayer(() => {
       const id = selectedId.current;
