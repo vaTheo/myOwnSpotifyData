@@ -685,8 +685,8 @@ details.card > summary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 48px;
+  min-height: 48px;
   color: var(--muted);
 }
 
@@ -3427,6 +3427,18 @@ details.mix-clues > summary:focus-visible {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
+}
+
+/* Validated only / All tracks: each segment as wide as its words, on one
+   line (equal halves wrapped "Validated only (4)"). */
+.mix-create .segmented {
+  max-width: 100%;
+  margin-bottom: 0;
+}
+
+.mix-create .segmented button {
+  flex: 1 1 auto;
+  white-space: nowrap;
 }
 
 .mix-notfound {
