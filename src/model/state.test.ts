@@ -536,9 +536,11 @@ describe('the Mix wiring in state.ts (S13, B5)', () => {
       spotify: { id: 'S2', url: 'https://open.spotify.com/track/S2' },
       checkedAt: 7,
     };
-    state.savedMixes.value = [
+    // Stored before the tap: Create re-reads it when it ends (N1).
+    const repo = await import('../db/repo');
+    vi.mocked(repo.getMixes).mockResolvedValue([
       { url: URL, rows: [row('One'), checkedTwo], savedAt: 1 } as never,
-    ];
+    ]);
     searchAnswers(['One', 'Two']);
     playlistAnswers();
     await state.startCreatePlaylist();
@@ -636,5 +638,68 @@ describe('the Mix wiring in state.ts (S13, B5)', () => {
     expect(saved.removed).toEqual([
       { artist: 'Scan', title: 'Heard', isrc: null },
     ]);
+  });
+});
+
+describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
+  /** putMix and getMixes over one in-memory store, as IndexedDB would. */
+  async function memoryStore() {
+    const repo = await import('../db/repo');
+    const store = new Map<string, unknown>();
+    vi.mocked(repo.putMix).mockReset();
+    vi.mocked(repo.putMix).mockImplementation(async (row) => {
+      store.set(row.url, structuredClone(row));
+    });
+    vi.mocked(repo.getMixes).mockImplementation(
+      async () => [...store.values()] as never
+    );
+    return store;
+  }
+
+  beforeEach(() => {
+    state.savedMixes.value = [];
+    state.mixError.value = null;
+    state.mixRemoved.value = [];
+    state.createChoice.value = null;
+  });
+
+  it('keeps a validate the owner saved during the run (N1)', async () => {
+    const store = await memoryStore();
+    searchAnswers(['One', 'Two']);
+    mocks.post.mockImplementation(async (path: string) => {
+      if (path === '/me/playlists') {
+        // The owner validates a track and saves while Create runs.
+        state.toggleValidated(1);
+        await state.saveMix();
+        return {
+          id: 'PL',
+          external_urls: { spotify: 'https://open.spotify.com/playlist/PL' },
+        };
+      }
+      return {};
+    });
+    await state.startCreatePlaylist();
+    const saved = store.get(URL) as {
+      rows: TracklistRow[];
+      playlistId: string;
+    };
+    expect(saved.rows[1].validated).toBe(true);
+    expect(saved.playlistId).toBe('PL');
+  });
+
+  it('a create for another mix ending leaves the open mix error alone (N3)', async () => {
+    await memoryStore();
+    searchAnswers(['One', 'Two']);
+    mocks.post.mockImplementation(async (path: string) => {
+      if (path === '/me/playlists') {
+        state.closeMix();
+        state.mixError.value = 'Could not save the mix: B';
+        return { id: 'PL', external_urls: {} };
+      }
+      return {};
+    });
+    await state.startCreatePlaylist();
+    expect(state.mixError.value).toBe('Could not save the mix: B');
+    expect(state.savedMixes.value.map((m) => m.url)).toEqual([URL]);
   });
 });

@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   defaultChoice,
+  rowAfterCreate,
   runCreatePlaylist,
   tracksToAdd,
 } from './createPlaylist';
 import type { CreatePlaylistState } from '../../model/state';
 import type { Query, SpotifyClient } from '../../spotify/client';
 import type { ApiPlaylist } from '../../spotify/types';
-import type { TracklistRow } from '../../db/schema';
+import type { MixRow, TracklistRow } from '../../db/schema';
 import { ApiError, QuotaError } from '../../spotify/errors';
 
 const ARTIST = 'Artist';
@@ -460,5 +461,46 @@ describe('defaultChoice', () => {
 
   it('ignores a validated gap row', () => {
     expect(defaultChoice([id('A'), { ...gap, validated: true }])).toBe('all');
+  });
+});
+
+describe('rowAfterCreate (S13 N1): what Create saves when it ends', () => {
+  const mix = (rows: TracklistRow[], savedAt: number): MixRow =>
+    ({ url: 'u', title: 't', rows, savedAt }) as unknown as MixRow;
+  const made = {
+    playlistUrl: 'https://open.spotify.com/playlist/PL',
+    playlistId: 'PL',
+  };
+
+  it('keeps a review the owner saved during the run, adding only the playlist', () => {
+    const tapped = mix([id('One'), id('Two')], 100);
+    const stored = {
+      ...mix([{ ...id('One'), validated: true }], 150),
+      removed: [{ artist: 'A', title: 'Gone', isrc: null }],
+    };
+    const out = rowAfterCreate(tapped, stored, 120, made, 200);
+    expect(out.rows).toEqual([{ ...id('One'), validated: true }]);
+    expect(out.removed).toEqual([{ artist: 'A', title: 'Gone', isrc: null }]);
+    expect(out).toMatchObject({ ...made, savedAt: 200 });
+  });
+
+  it('saves the rows of the tap when nothing was saved since, with stored answers', () => {
+    const checked = {
+      ...id('Two'),
+      spotify: { id: 'S2', url: 'https://open.spotify.com/track/S2' },
+      checkedAt: 7,
+    };
+    const tapped = mix([id('One'), id('Two')], 100);
+    const stored = mix([id('One'), checked], 90);
+    const out = rowAfterCreate(tapped, stored, 120, made, 200);
+    expect(out.rows[1]).toMatchObject({ spotify: { id: 'S2' }, checkedAt: 7 });
+    expect(out).toMatchObject({ ...made, savedAt: 200 });
+  });
+
+  it('saves the rows of the tap for a mix never saved', () => {
+    const tapped = mix([id('One')], 100);
+    expect(rowAfterCreate(tapped, undefined, 120, made, 200).rows).toEqual([
+      id('One'),
+    ]);
   });
 });
