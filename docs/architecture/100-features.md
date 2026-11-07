@@ -47,6 +47,7 @@ same commit as any feature change ([Contributing](../dev-guide/000-contributing.
 | F8 | ReccoBeats | track ids, ISRCs | Settings · Audio data · Look up |
 | F11 | MusicBrainz, ListenBrainz, Deezer, Wikidata, Wikimedia | artist ids, ISRCs, article titles | Settings · Artist reach · Look up artists |
 | F12 | SoundCloud (oEmbed, player), TrackId.net | the pasted mix URL | `#/mix` · Look up |
+| F12 (Spotify Search) | Spotify Web API `GET /search` | a mix track's artist and title, or its ISRC (`searchTrack`) | `#/mix` · Check on Spotify (one track at a time, Stop) and Create playlist from mix, on a tap only |
 | F18 | the owner's own Supabase project | every dataset the app builds: library and playlists, play counts, BPM and key, artist reach, saved mixes; never the Spotify token | after each job and on open, when signed in to the server |
 | F19 | the owner's own Supabase project | the link of a set to identify (a request); the worker on the owner's computer sends back the tracklist JSON; the audio never leaves that computer | on the Identify on my computer tap; the worker, when the owner runs it |
 | F19 (worker, round 003) | Deezer search and tracks, MusicBrainz recordings, Discogs releases (keyless) | from the owner's computer only: an artist and title written in a set's comment or description, or a Discogs/Deezer id from a link | per set, at most `WORKER_LOOKUPS` clues |
