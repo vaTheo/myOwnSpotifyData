@@ -140,6 +140,12 @@ import {
 import { formatDateTime } from '../ui/format';
 import { describeError, storageMessage } from '../util/errors';
 import { buildModel, type Model } from './aggregate';
+import {
+  createChain,
+  type AutoStep,
+  type ChainView,
+  type StepResult,
+} from './autoChain';
 import { errorBanner, warnBanner, type BannerMessage } from './banner';
 
 export const model = signal<Model | null>(null);
@@ -817,6 +823,96 @@ export function setKeyNotation(value: KeyNotation): void {
   }
 }
 
+/* ---------- automatic updates (round 006, ADR-11) ---------- */
+
+const AUTO_UPDATES_KEY = 'autoUpdates';
+
+function storedAutoUpdates(): boolean {
+  try {
+    return localStorage.getItem(AUTO_UPDATES_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+/** The Automatic updates switch, per device; on by default. */
+export const autoUpdates = signal<boolean>(storedAutoUpdates());
+
+export const chainView = signal<ChainView>({
+  current: null,
+  waiting: [],
+  failed: [],
+});
+
+/** Resolves on the first moment no library job runs. */
+function waitIdle(): Promise<void> {
+  return new Promise((resolve) => {
+    let dispose: (() => void) | null = null;
+    let done = false;
+    dispose = effect(() => {
+      if (done || jobsBusy()) return;
+      done = true;
+      // The effect runs once synchronously: dispose after it returns.
+      queueMicrotask(() => dispose?.());
+      resolve();
+    });
+  });
+}
+
+async function runStep(step: AutoStep, auto: boolean): Promise<StepResult> {
+  switch (step) {
+    case 'spotify': {
+      await startSync(undefined, { auto });
+      return syncState.value.status === 'error' ? 'failed' : 'done';
+    }
+    case 'features': {
+      await startLookup({ auto });
+      return lookupState.value.status === 'error' ? 'failed' : 'done';
+    }
+    case 'reach': {
+      await startReach({ auto });
+      return reachState.value.status === 'error' ? 'failed' : 'done';
+    }
+  }
+}
+
+const autoChain = createChain({
+  autoOn: () => autoUpdates.value,
+  signedIn: () => auth.session.value !== null,
+  busy: jobsBusy,
+  waitIdle,
+  now: () => Date.now(),
+  lastSyncAt: () => lastSyncAt.value,
+  lockedUntil: () => {
+    const s = syncState.value;
+    return s.status === 'locked' ? s.retryAt : null;
+  },
+  run: runStep,
+  onView: (view) => {
+    chainView.value = view;
+  },
+});
+
+/** After the server sync of an open or a return to the app. */
+export function runAutoChain(): void {
+  void autoChain.trigger();
+}
+
+/** A job button or a Retry: runs next, before the rest of the chain. */
+export function requestJob(step: AutoStep): void {
+  void autoChain.request(step);
+}
+
+export function setAutoUpdates(on: boolean): void {
+  autoUpdates.value = on;
+  try {
+    localStorage.setItem(AUTO_UPDATES_KEY, on ? 'on' : 'off');
+  } catch {
+    // The choice still applies to this session.
+  }
+  if (on) runAutoChain();
+}
+
 export const CRATE_NOTICE_META = 'crateNoticeShown';
 
 const CRATE_NOTICE = 'The new Crate views need your history imported again.';
@@ -954,7 +1050,20 @@ export function jobsBusy(): boolean {
   );
 }
 
-export async function startSync(priorityId?: string): Promise<void> {
+/**
+ * How a job was started. `auto` (the chain, round 006): no screen wake lock,
+ * and no banner except the Spotify lock-out and an expired login; the
+ * failure shows on the Updates card and the job's own card.
+ */
+export interface JobOptions {
+  auto?: boolean;
+}
+
+export async function startSync(
+  priorityId?: string,
+  opts: JobOptions = {}
+): Promise<void> {
+  const auto = opts.auto === true;
   const current = syncState.value;
   if (current.status === 'running') return;
   // The one quota lock-out, whichever reader met it (S08d).
@@ -970,7 +1079,7 @@ export async function startSync(priorityId?: string): Promise<void> {
     banner.value = warnBanner(busy);
     return;
   }
-  clearBanner();
+  if (!auto) clearBanner();
   // Claim the running state synchronously so a second tap cannot start a
   // second sync before runSync reports its first state. `as SyncState` keeps
   // the signal at its declared union type: without it TypeScript narrows
@@ -997,7 +1106,8 @@ export async function startSync(priorityId?: string): Promise<void> {
         if (ok) accountSwitched = true;
         return ok;
       },
-      acquireWakeLock: 'wakeLock' in navigator ? acquireWakeLock : undefined,
+      acquireWakeLock:
+        !auto && 'wakeLock' in navigator ? acquireWakeLock : undefined,
     },
     { priorityId }
   );
@@ -1011,7 +1121,7 @@ export async function startSync(priorityId?: string): Promise<void> {
   }
   // Settings prints the same sync failure, lock and cancellation in its own
   // card.
-  if (state.status === 'error') {
+  if (state.status === 'error' && !auto) {
     banner.value = errorBanner(state.message, ['settings']);
   }
   if (state.status === 'locked') {
@@ -1021,7 +1131,7 @@ export async function startSync(priorityId?: string): Promise<void> {
   // A refused account switch is a cancellation, not a failure: amber, muted
   // on Settings (it already prints the same line inline), still visible from
   // a Playlist screen's own "Sync this playlist" trigger.
-  if (state.status === 'cancelled') {
+  if (state.status === 'cancelled' && !auto) {
     banner.value = warnBanner(state.message, ['settings']);
   }
   // Last, so it wins the banner: an error or a lock is still on the Settings
@@ -1091,12 +1201,13 @@ function libraryTracks(m: Model): LibraryTrack[] {
   return out;
 }
 
-/** Never on load: the ReccoBeats lookup runs only from this button. */
-export async function startLookup(): Promise<void> {
+/** From the Settings button or the automatic chain (round 006, ADR-11). */
+export async function startLookup(opts: JobOptions = {}): Promise<void> {
+  const auto = opts.auto === true;
   if (lookupState.value.status === 'running') return;
   const m = model.value;
   if (!m) return;
-  clearBanner();
+  if (!auto) clearBanner();
   // Claimed synchronously so a second tap cannot start a second lookup.
   // `as LookupState` keeps the signal at its declared union type: without
   // it TypeScript narrows lookupState.value to this literal for the rest of
@@ -1128,7 +1239,7 @@ export async function startLookup(): Promise<void> {
   // run still shows its coverage.
   await loadFromDb();
   const state = lookupState.value;
-  if (state.status === 'error') {
+  if (state.status === 'error' && !auto) {
     banner.value = errorBanner(state.message, ['settings']);
   }
   if (state.status === 'done') void queueServerPush(['features']);
@@ -1162,12 +1273,13 @@ export async function startRekordboxImport(file: File): Promise<void> {
   if (state.status === 'done') void queueServerPush(['features']);
 }
 
-/** Never on load: the artist reach run starts only from this button. */
-export async function startReach(): Promise<void> {
+/** From the Settings button or the automatic chain (round 006, ADR-11). */
+export async function startReach(opts: JobOptions = {}): Promise<void> {
+  const auto = opts.auto === true;
   if (reachState.value.status === 'running') return;
   const m = model.value;
   if (!m) return;
-  clearBanner();
+  if (!auto) clearBanner();
   // Claimed synchronously so a second tap cannot start a second run.
   // `as ReachState` keeps the signal at its declared union type, as in
   // startSync and startLookup.
@@ -1193,7 +1305,8 @@ export async function startReach(): Promise<void> {
       onState: (state) => {
         reachState.value = state;
       },
-      acquireWakeLock: 'wakeLock' in navigator ? acquireWakeLock : undefined,
+      acquireWakeLock:
+        !auto && 'wakeLock' in navigator ? acquireWakeLock : undefined,
     },
     reachCandidates(m),
     [...m.identities.values()],
@@ -1203,7 +1316,7 @@ export async function startReach(): Promise<void> {
   // still shows its coverage.
   await loadFromDb();
   const state = reachState.value;
-  if (state.status === 'error') {
+  if (state.status === 'error' && !auto) {
     banner.value = errorBanner(state.message, ['settings']);
   }
   if (state.status !== 'error') void queueServerPush(['reach']);
@@ -2089,6 +2202,8 @@ export async function removeMix(url: string): Promise<void> {
 }
 
 export async function disconnect(): Promise<void> {
+  // Nothing more starts by itself; the step running finishes first.
+  autoChain.stop();
   if (jobsBusy()) {
     banner.value = warnBanner(
       'Wait for the current sync, history import, lookup, Rekordbox import or artist lookup to finish before disconnecting.'

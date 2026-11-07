@@ -7,6 +7,7 @@ import {
   hasActiveRequest,
   loadFromDb,
   recordConnectedAccount,
+  runAutoChain,
   serverAutoSyncEnabled,
   startServerPull,
   startServerSync,
@@ -77,6 +78,10 @@ async function boot(): Promise<void> {
   // delays "Loading your library…" (US3). Whatever this device changed while
   // the server was unreachable goes first, then the pull.
   if (auth.session.value) await startServerSync();
+  // Then the jobs that keep the library current (round 006, ADR-11): the
+  // Spotify sync when the library is older than 12 hours, the BPM and key
+  // run, Artist reach; one at a time, only what is missing.
+  runAutoChain();
   // Then the server keeps itself current: on return to the app, when the
   // network is back, and every minute while a request runs on the computer.
   installAutoSync({
@@ -85,10 +90,24 @@ async function boot(): Promise<void> {
     now: Date.now,
     enabled: serverAutoSyncEnabled,
     hasActiveRequest,
-    sync: startServerSync,
+    sync: async () => {
+      await startServerSync();
+      runAutoChain();
+    },
     pull: async () => {
       await startServerPull();
     },
+  });
+  // Without the server, the same return-to-the-app triggers run the chain
+  // alone (round 006): the two installs are never enabled together.
+  installAutoSync({
+    doc: document,
+    win: window,
+    now: Date.now,
+    enabled: () => !serverAutoSyncEnabled() && auth.session.value !== null,
+    hasActiveRequest: () => false,
+    sync: async () => runAutoChain(),
+    pull: async () => {},
   });
 }
 
