@@ -26,8 +26,8 @@ screen; how the app looks, where things sit and how a change to a screen is chec
 - **Material Design 3, dark only, chartreuse.** Material's dark colour scheme generated once from the seed `#7FFF00` (computed
   outside the repo, kept as tokens in `src/ui/theme/tokens.css`), with chartreuse kept as itself for the accent: the current
   destination, primary buttons, selection, sort direction, focus ring, progress, links and every chart's main series; never large
-  areas. No light theme and no switch (the owner: "I want you to keep the darkmode"). Roboto is served by the app; 46
-  Material Symbols are inline paths (`src/ui/icons.tsx`). Components read tokens only, never raw colours. The twelve Camelot colours stay as data
+  areas. No light theme and no switch (the owner: "I want you to keep the darkmode"). Roboto is served by the app; 39
+  Material Symbols, 6 with a filled variant, are inline paths (`src/ui/icons.tsx`). Components read tokens only, never raw colours. The twelve Camelot colours stay as data
   colours.
 - **Five destinations**: Overview (the home, `#/`), Listening (Top, Crate), Library (Playlists, Artists), Mix and Settings: a
   side rail from 600 px, Settings at its foot; a five-item bottom bar on phones. Every address that existed keeps working, inside

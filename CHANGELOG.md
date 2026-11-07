@@ -18,7 +18,8 @@ the requests to your computer (Move to top, Cancel, Stop, Ask again, "Already fi
 under the open mix, **Check on Spotify**, a per-track review (Validate, Remove, the chips To review, Validated, Not on Spotify,
 Heard once), and Create playlist with **Validated only** or **All tracks** (a track from a comment joins Validated only once
 validated; amends [ADR-10](docs/architecture/700-adr/ADR-10-name-lookup-for-clues.md)); a later worker result keeps the review.
-One Spotify quota lock-out now holds for every Spotify read and survives a reload. Old addresses keep working; `#/` opens the
+One Spotify quota lock-out now holds for every Spotify read and survives a reload, and those reads take turns (sync,
+Check on Spotify, Create playlist and Like all songs never run two at once; a running check shows in the Activity button). Old addresses keep working; `#/` opens the
 Overview. Behaviour that changed: Check on Spotify reads `GET /search` on its own tap; Create playlist adds what Validated
 only or All tracks picks (D6); a quota answer to any Spotify read now locks all of them. No new Spotify endpoint, scope, write
 or host; rankings, Crate rules, Match and gates unchanged; no `confirm()` text changed; no `DB_VERSION` bump (optional Mix row
