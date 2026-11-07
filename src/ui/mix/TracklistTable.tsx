@@ -70,7 +70,7 @@ interface Line {
 }
 
 /**
- * A sortable column's sort, from `tracklistSort` (spec 008): the value the
+ * A sortable column's sort, from `tracklistSort` (spec 009): the value the
  * table sorts by and the direction of the first click.
  */
 function sorts(id: SortId): {

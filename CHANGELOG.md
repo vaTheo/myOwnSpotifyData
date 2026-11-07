@@ -3,6 +3,15 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-07 — Sortable Mix tracklist
+
+Every column of the open mix's tracklist with a comparable value now sorts from its header: **Confidence** (best matches first, click
+again for the weakest first), Time, Artist – Title, Label, Source, In your library, Released, Spotify and Review, plus a **Clips**
+column when a set has clip counts. The **Sort** menu is rebuilt from the same columns, with **Set order** and a direction button, so
+a phone can sort too; header and menu always agree. Tracks with no value stay last in both directions, and the sort is not saved with
+the mix. "Best score" is now Confidence and "Year, oldest first" is Released. Spec: `specs/009-mix-sortable-columns/`. No
+`DB_VERSION` bump.
+
 ## 2026-11-07 — Lists keep loading as you scroll
 
 Every long list (Top, Playlists, a playlist, Artists, the Crate views, Under the radar, a mix) now shows 100 more rows by itself when

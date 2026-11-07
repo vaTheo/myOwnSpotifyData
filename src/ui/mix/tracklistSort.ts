@@ -5,7 +5,7 @@ import { sourceLabel } from './rowText';
 import type { SortDirection, SortState, SortValue } from '../table/sort';
 
 /**
- * What each Mix tracklist column sorts by (spec 008). Pure, so every rule is
+ * What each Mix tracklist column sorts by (spec 009). Pure, so every rule is
  * pinned by a test. `null` is a missing value: the table puts it last in both
  * directions and nothing prints it as zero. Ties keep the set's order.
  */

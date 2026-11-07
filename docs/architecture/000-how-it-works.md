@@ -404,7 +404,7 @@ screen, grouped by role under `src/ui/`.
     sort is `{ columnId: 'released', direction: 'asc' }`; off, the screen's default.
   - **Details**: `yearFact` (`ui/details/trackFacts.ts`) gives the sheet's "Released 1993 · ReccoBeats (earliest album)" or
     "· album", `NoData` when undated.
-  - **Mix**: the Sort select gains "Year, oldest first" and shows when a row is counted or dated; a Decade select ("All
+  - **Mix**: the Released column sorts like any other (spec 009, below); a Decade select ("All
     decades", each decade present) combines with the review chips; the edited row stays visible (`TracklistTable.tsx`). A
     rename drops the year unless the row is renamed back to the identified track and the year is not Spotify's
     (`editTracklistRow`, S13b N1).
@@ -414,6 +414,14 @@ screen, grouped by role under `src/ui/`.
   - **Cost** (round 006 fix): the year pass skips a track Spotify already dates (`albumDatedIds`, `model/year.ts`: a synced album
     year or a Top item's), whose year still shows from the album; ReccoBeats' album list is asked only for the rest. Its ReccoBeats
     id lookups run first as their own counted pass (`PASS_RIDS`), so the line moves from the start instead of sitting at 0.
+- **Mix tracklist sort** (spec 009): the table's own `SortState` is the one sort. Every column with a comparable value has a
+  `sortValue` and a first direction in `ui/mix/tracklistSort.ts` (`sortValue`, `SORT_FIRST`): Time, Artist – Title, Label, Source,
+  Confidence (highest first), Clips (only when a row has clip counts; most first), In your library (matched first), Released,
+  Spotify (not found, unchecked, found) and Review (to review first); Listen and More do not sort. `DataTable` sorts: missing values
+  last in both directions, ties in set order. The Sort select (all widths, `TracklistTable.tsx`) is built by `sortChoices` from the
+  same columns, with "Set order" and a direction button, so a phone picks what a header would; `effectiveSort` falls back to the
+  set's order when a column no longer applies. `tracklistView` (chip, decade, the edited row) and `viewRows` only filter now;
+  `RowSort` is gone. The sort is component state: not saved with the mix, no Spotify read.
 
 ## 14. Jobs and state (`model/state.ts`)
 

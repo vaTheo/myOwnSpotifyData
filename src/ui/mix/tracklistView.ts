@@ -18,7 +18,7 @@ export interface TracklistView {
 /**
  * The tracklist's view (spec 003 §12, round 004, round 005): the decade and
  * the review chip, as indexes into `rows` in set order so Edit and Delete act
- * on the real row. The order is the table's own sort (spec 008, see
+ * on the real row. The order is the table's own sort (spec 009, see
  * `tracklistSort`). A choice the current rows no longer allow falls back and
  * never empties the list. The row being edited stays visible whatever the
  * view (main's rule: Add track's new row is undated and never heard).

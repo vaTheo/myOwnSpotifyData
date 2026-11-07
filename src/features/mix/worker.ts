@@ -632,7 +632,7 @@ export function rowYear(row: TracklistRow): number | null {
  * `rows` in set order (so Edit and Delete still act on the real row). "Heard
  * once" keeps rows matched by a single clip; `decade` keeps the rows dated in
  * that decade (round 005). Both hide, never delete. The order is the table's
- * own sort (spec 008).
+ * own sort (spec 009).
  */
 export function viewRows(
   rows: readonly TracklistRow[],
