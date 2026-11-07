@@ -19,6 +19,7 @@ import {
   historySummary,
   isSyncBusy,
   heldQuotaMessage,
+  spotifyBusyMessage,
   keyNotation,
   likeState,
   model,
@@ -265,13 +266,17 @@ export function PlaylistActions({ id }: { id: string }) {
   // button says so instead of "Syncing…" (round 1).
   const locked = heldQuotaMessage('sync');
   const running = syncState.value.status === 'running';
-  const busy = isSyncBusy(syncState.value) || locked !== null;
+  // One Spotify reader at a time (S13): the other reader running is named.
+  const syncBusy = running ? null : spotifyBusyMessage('sync');
+  const busy =
+    isSyncBusy(syncState.value) || locked !== null || syncBusy !== null;
   const like = likeState.value;
   const liking = isLiking(like);
+  const likeBusy = liking ? null : spotifyBusyMessage('like');
   const syncLabel = running
     ? 'Syncing…'
-    : (locked ?? (busy ? 'Syncing…' : 'Sync this playlist'));
-  const likeLabel = likeButtonLabel(like, id);
+    : (locked ?? syncBusy ?? (busy ? 'Syncing…' : 'Sync this playlist'));
+  const likeLabel = likeBusy ?? likeButtonLabel(like, id);
   if (windowClass.value === 'compact') {
     return (
       <>
@@ -284,7 +289,7 @@ export function PlaylistActions({ id }: { id: string }) {
         <IconButton
           icon="favorite"
           label={likeLabel}
-          disabled={liking}
+          disabled={liking || likeBusy !== null}
           onClick={() => void startLikePlaylist(id)}
         />
       </>
@@ -303,7 +308,7 @@ export function PlaylistActions({ id }: { id: string }) {
       <Button
         variant="text"
         icon="favorite"
-        disabled={liking}
+        disabled={liking || likeBusy !== null}
         onClick={() => void startLikePlaylist(id)}
       >
         {likeLabel}

@@ -8,7 +8,9 @@ import {
   createChoice,
   createChoiceFor,
   createPlaylistState,
+  isCreating,
   mixRows,
+  spotifyBusyMessage,
   spotifyLockedUntil,
   startCreatePlaylist,
   type MixView,
@@ -72,16 +74,20 @@ function NotFound(p: { unmatched: UnmatchedRow[] }) {
  */
 export function CreatePlaylistCard(p: { view: MixView }) {
   const { view } = p;
-  const cs = createPlaylistState.value;
+  const job = createPlaylistState.value;
+  // Only this mix's run shows here (S13 B2); a run for another mix rests
+  // the button with a line.
+  const cs =
+    job.status === 'idle' || job.mixUrl === view.url
+      ? job
+      : ({ status: 'idle' } as const);
+  const elsewhere = isCreating(job) && job.mixUrl !== view.url;
   const rows = mixRows.value;
   const choice = createChoiceFor(view.url, rows);
   const validatedCount = tracksToAdd(rows, 'validated').length;
   const allCount = tracksToAdd(rows, 'all').length;
   const count = choice === 'validated' ? validatedCount : allCount;
-  const running =
-    cs.status === 'resolving' ||
-    cs.status === 'creating' ||
-    cs.status === 'adding';
+  const running = isCreating(cs);
   // The one Spotify quota lock-out: said here unless the error says it.
   const lockLine = quotaRefusal(
     'create',
@@ -89,6 +95,10 @@ export function CreatePlaylistCard(p: { view: MixView }) {
     Date.now(),
     formatDateTime
   );
+  // One Spotify reader at a time (S13): another one running rests it.
+  const busyLine = elsewhere
+    ? 'Create playlist is running for another mix: create this one once it ends.'
+    : spotifyBusyMessage('create');
   return (
     <Card title="Create playlist" class="mix-create">
       {allCount > 0 ? (
@@ -115,7 +125,9 @@ export function CreatePlaylistCard(p: { view: MixView }) {
           <Button
             variant="filled"
             icon="queue_music"
-            disabled={running || count === 0 || lockLine !== null}
+            disabled={
+              running || count === 0 || lockLine !== null || busyLine !== null
+            }
             onClick={() => void startCreatePlaylist()}
           >
             {running ? 'Creating playlist…' : 'Create playlist from mix'}
@@ -127,6 +139,10 @@ export function CreatePlaylistCard(p: { view: MixView }) {
       {lockLine !== null && cs.status !== 'error' && !running && (
         <StatusLine kind="warning">{lockLine}</StatusLine>
       )}
+      {busyLine !== null &&
+        lockLine === null &&
+        cs.status !== 'error' &&
+        !running && <StatusLine kind="warning">{busyLine}</StatusLine>}
       {cs.status === 'needScope' && (
         <>
           <StatusLine kind="warning">

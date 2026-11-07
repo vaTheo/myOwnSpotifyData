@@ -63,3 +63,49 @@ export function quotaRefusal(
     ? null
     : `Spotify quota reached. ${AGAIN[reader]} after ${format(held)}.`;
 }
+
+/* ---------- one Spotify reader at a time (S13) ---------- */
+
+/** The readers that may run for a while; the Connect `/me` call is one
+ *  request on a tap and never runs beside them. */
+export type LongReader = Exclude<SpotifyReader, 'account'>;
+
+/** Which long readers are running now. */
+export type RunningReaders = Record<LongReader, boolean>;
+
+const READER_ORDER: readonly LongReader[] = ['sync', 'check', 'create', 'like'];
+
+const READER_NAME: Record<LongReader, string> = {
+  sync: 'A sync',
+  check: 'Check on Spotify',
+  create: 'Create playlist',
+  like: 'Like all songs',
+};
+
+const READER_VERB: Record<SpotifyReader, string> = {
+  sync: 'sync',
+  check: 'check',
+  create: 'create the playlist',
+  like: 'like the songs',
+  account: 'connect',
+};
+
+/** Another reader running beside `asking`, or null: two at once double the
+ *  request rate toward the quota lock-out (ADR-02). */
+export function busyReader(
+  running: RunningReaders,
+  asking: SpotifyReader
+): LongReader | null {
+  return READER_ORDER.find((r) => r !== asking && running[r]) ?? null;
+}
+
+/** The refusal while another reader runs, else null (it may read). */
+export function busyRefusal(
+  running: RunningReaders,
+  asking: SpotifyReader
+): string | null {
+  const busy = busyReader(running, asking);
+  return busy === null
+    ? null
+    : `${READER_NAME[busy]} is reading Spotify: ${READER_VERB[asking]} once it ends.`;
+}

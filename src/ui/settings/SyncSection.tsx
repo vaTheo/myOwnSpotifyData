@@ -2,6 +2,7 @@ import {
   isSyncBusy,
   lastSyncAt,
   reachState,
+  spotifyBusyMessage,
   spotifyLockedUntil,
   startSync,
   syncState,
@@ -31,6 +32,9 @@ export function SyncSection() {
     locked && state.status === 'locked' && state.retryAt >= (shared ?? 0)
       ? null
       : quotaRefusal('sync', shared, Date.now(), formatDateTime);
+  // One Spotify reader at a time (S13): Check on Spotify, Create playlist
+  // or Like all songs running rests the button, with its line.
+  const busyLine = running ? null : spotifyBusyMessage('sync');
   return (
     <Card
       id={sectionDomId('sync')}
@@ -61,6 +65,7 @@ export function SyncSection() {
       {sharedLine !== null && (
         <StatusLine kind="warning">{sharedLine}</StatusLine>
       )}
+      {busyLine !== null && <StatusLine kind="warning">{busyLine}</StatusLine>}
       {state.status === 'cancelled' && <StatusLine>{state.message}</StatusLine>}
       {state.status === 'error' && (
         <StatusLine kind="error">Last error: {state.message}</StatusLine>
@@ -71,6 +76,7 @@ export function SyncSection() {
           disabled={
             isSyncBusy(state) ||
             shared !== null ||
+            busyLine !== null ||
             reachState.value.status === 'running'
           }
           onClick={() => void startSync()}

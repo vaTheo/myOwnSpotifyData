@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   activeLock,
+  busyReader,
+  busyRefusal,
   lapseDelay,
   laterLock,
   MAX_TIMER_MS,
@@ -82,5 +84,45 @@ describe('quotaRefusal: every Spotify reader refuses inside the lock', () => {
       expect(quotaRefusal(reader, 1_000, 1_000, fmt)).toBeNull();
       expect(quotaRefusal(reader, null, 1_000, fmt)).toBeNull();
     }
+  });
+});
+
+describe('busyReader / busyRefusal (S13: one Spotify reader at a time)', () => {
+  const none = { sync: false, check: false, create: false, like: false };
+
+  it('lets a reader start when no other reads Spotify', () => {
+    expect(busyReader(none, 'check')).toBeNull();
+    expect(busyRefusal(none, 'sync')).toBeNull();
+  });
+
+  it('ignores the asking reader itself (its own re-entry guard holds it)', () => {
+    expect(busyReader({ ...none, check: true }, 'check')).toBeNull();
+  });
+
+  it('refuses each pair, naming the reader that runs', () => {
+    expect(busyRefusal({ ...none, sync: true }, 'check')).toBe(
+      'A sync is reading Spotify: check once it ends.'
+    );
+    expect(busyRefusal({ ...none, check: true }, 'create')).toBe(
+      'Check on Spotify is reading Spotify: create the playlist once it ends.'
+    );
+    expect(busyRefusal({ ...none, create: true }, 'check')).toBe(
+      'Create playlist is reading Spotify: check once it ends.'
+    );
+    expect(busyRefusal({ ...none, like: true }, 'sync')).toBe(
+      'Like all songs is reading Spotify: sync once it ends.'
+    );
+    expect(busyRefusal({ ...none, check: true }, 'like')).toBe(
+      'Check on Spotify is reading Spotify: like the songs once it ends.'
+    );
+    expect(busyRefusal({ ...none, sync: true }, 'create')).toBe(
+      'A sync is reading Spotify: create the playlist once it ends.'
+    );
+  });
+
+  it('names the first running one when several run', () => {
+    expect(busyReader({ ...none, sync: true, like: true }, 'check')).toBe(
+      'sync'
+    );
   });
 });
