@@ -9,6 +9,7 @@ from mix_worker.clues import (
     Lookups,
     attach,
     candidate_track,
+    fill_years,
     from_info,
     from_text,
     names_a_track,
@@ -16,6 +17,7 @@ from mix_worker.clues import (
     read,
     readings,
     split_tracklist,
+    valid_year,
 )
 from mix_worker.scan import hhmmss
 
@@ -407,3 +409,178 @@ class TracklistRows(unittest.TestCase):
             lookups=None, hhmmss=hhmmss, line=lambda t: None,
         )
         self.assertEqual(got.candidates[0]["metadata"], {"label": "Label"})
+
+
+class YearCatalogues:
+    """Deezer and MusicBrainz answers by ISRC (research R2), trimmed."""
+
+    def __init__(self, deezer=None, musicbrainz=None, fail_on=None):
+        self.urls = []
+        self.deezer = deezer or {}
+        self.musicbrainz = musicbrainz or {}
+        self.fail_on = fail_on
+
+    def __call__(self, url):
+        import urllib.error
+
+        self.urls.append(url)
+        if self.fail_on and self.fail_on in url:
+            raise OSError("down")
+        if url.startswith("https://api.deezer.com/track/isrc:"):
+            isrc = url.rsplit(":", 1)[1]
+            return self.deezer.get(isrc, {"error": {"type": "DataException", "message": "no data", "code": 800}})
+        if url.startswith("https://musicbrainz.org/ws/2/isrc/"):
+            isrc = url.split("/isrc/")[1].split("?")[0]
+            if isrc not in self.musicbrainz:
+                raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+            return self.musicbrainz[isrc]
+        raise AssertionError(url)
+
+
+def heard(isrc=None, year=None, origin=None):
+    meta = {}
+    if isrc:
+        meta["isrc"] = isrc
+    if year is not None:
+        meta["release_date"] = year
+    t = {"song_name": "T", "artist": "A", "time_in_mix": "00:01:00"}
+    if meta:
+        t["metadata"] = meta
+    if origin:
+        t["origin"] = origin
+    return t
+
+
+class Years(unittest.TestCase):
+    def lookups(self, fake, budget=100, used=0):
+        lk = Lookups(fetch=fake, sleep=lambda s: None, line=lambda t: None, budget=budget, clock=lambda: 1e6, this_year=lambda: 2026)
+        lk.used = used
+        return lk
+
+    def test_valid_year(self):
+        self.assertEqual(valid_year("1993", 2026), 1993)
+        self.assertEqual(valid_year("1993-05", 2026), 1993)
+        self.assertEqual(valid_year("1993-05-17", 2026), 1993)
+        self.assertEqual(valid_year("2027-01-01", 2026), 2027)
+        for bad in ("0000", "0000-00-00", "1899", "2028", "abcd", "93", "", None, 1993):
+            self.assertIsNone(valid_year(bad, 2026), bad)
+
+    def test_earliest_of_deezer_and_musicbrainz(self):
+        fake = YearCatalogues(
+            deezer={
+                "AAA": {"id": 1, "isrc": "AAA", "release_date": "2004-03-01", "album": {"release_date": "2003-11-10"}},
+                "BBB": {"id": 2, "isrc": "BBB", "release_date": "1995-01-01", "album": {"release_date": "0000-00-00"}},
+            },
+            musicbrainz={
+                "AAA": {"recordings": [{"releases": [{"date": "2001-06"}, {"date": ""}, {}]}, {"releases": [{"date": "1999"}]}]},
+                "BBB": {"recordings": [{"releases": [{"date": "1996-02-02"}]}]},
+            },
+        )
+        lk = self.lookups(fake)
+        self.assertEqual(lk.release_year("AAA"), (1999, "musicbrainz"))
+        self.assertEqual(lk.release_year("BBB"), (1995, "deezer"))
+        self.assertIsNone(lk.release_year("CCC"))  # Deezer "no data", MusicBrainz 404
+        self.assertEqual(lk.used, 3)
+
+    def test_deezer_answer_for_another_isrc_is_ignored(self):
+        fake = YearCatalogues(deezer={"AAA": {"id": 1, "isrc": "ZZZ", "release_date": "1990-01-01"}})
+        self.assertIsNone(self.lookups(fake).release_year("AAA"))
+
+    def test_fill_writes_year_and_source_only_where_missing(self):
+        fake = YearCatalogues(
+            deezer={"AAA": {"id": 1, "isrc": "AAA", "release_date": "2004-03-01"}},
+            musicbrainz={"AAA": {"recordings": [{"releases": [{"date": "2001"}]}]}},
+        )
+        tracks = [
+            heard("AAA"),
+            heard("DATED", "1993"),
+            heard(),  # no ISRC
+            heard("CLUE", origin="clue"),
+            heard("NONE"),
+            heard("BAD", "0000"),
+        ]
+        lines = []
+        lk = self.lookups(fake)
+        summary = fill_years(tracks, lk, lines.append)
+        self.assertEqual(tracks[0]["metadata"], {"isrc": "AAA", "release_date": "2001", "release_date_from": "musicbrainz"})
+        self.assertEqual(tracks[1]["metadata"], {"isrc": "DATED", "release_date": "1993"})
+        self.assertNotIn("metadata", tracks[2])
+        self.assertEqual(tracks[3]["metadata"], {"isrc": "CLUE"})
+        self.assertEqual(tracks[4]["metadata"], {"isrc": "NONE"})
+        self.assertEqual(tracks[5]["metadata"], {"isrc": "BAD"})  # junk year removed
+        asked = {u.split("isrc")[1][1:].split("?")[0] for u in fake.urls}
+        self.assertEqual(asked, {"AAA", "NONE", "BAD"})
+        self.assertEqual(summary, {"asked": 3, "filled": 1})
+        self.assertEqual(lines, ["  years · filled 1 of 3 by ISRC"])
+
+    def test_nothing_to_ask(self):
+        fake = YearCatalogues()
+        lines = []
+        junk = heard(year="0000")  # no ISRC: nothing to ask, the junk year still goes
+        self.assertIsNone(fill_years([heard("A", "1993"), heard(), junk], self.lookups(fake), lines.append))
+        self.assertNotIn("release_date", junk["metadata"])
+        self.assertEqual(fake.urls, [])
+        self.assertEqual(lines, [])
+
+    def test_a_failure_stops_the_step_and_keeps_what_was_filled(self):
+        fake = YearCatalogues(deezer={"AAA": {"id": 1, "isrc": "AAA", "release_date": "1990"}}, musicbrainz={"AAA": {"recordings": []}}, fail_on="BBB")
+        tracks = [heard("AAA"), heard("BBB"), heard("CCC")]
+        lines = []
+        summary = fill_years(tracks, self.lookups(fake), lines.append)
+        self.assertEqual(tracks[0]["metadata"]["release_date"], "1990")
+        self.assertNotIn("release_date", tracks[1]["metadata"])
+        self.assertFalse(any("CCC" in u for u in fake.urls))
+        self.assertEqual(summary, {"asked": 2, "filled": 1})
+        self.assertEqual(len(lines), 1)
+        self.assertTrue(lines[0].startswith("  years · stopped: OSError"), lines[0])
+
+    def test_the_shared_cap_is_respected(self):
+        fake = YearCatalogues(deezer={"AAA": {"id": 1, "isrc": "AAA", "release_date": "1990"}})
+        tracks = [heard("AAA"), heard("BBB"), heard("CCC")]
+        lines = []
+        lk = self.lookups(fake, budget=10, used=9)  # clues spent 9 of 10 first
+        summary = fill_years(tracks, lk, lines.append)
+        self.assertEqual(lk.used, 10)
+        self.assertFalse(any("BBB" in u or "CCC" in u for u in fake.urls))
+        self.assertEqual(summary, {"asked": 1, "filled": 1})
+        self.assertEqual(lines, ["  years · filled 1 of 1 by ISRC · 2 not asked (lookup cap)"])
+
+    def test_same_isrc_asked_once(self):
+        fake = YearCatalogues(deezer={"AAA": {"id": 1, "isrc": "AAA", "release_date": "1990"}})
+        tracks = [heard("AAA"), heard("AAA")]
+        lk = self.lookups(fake)
+        self.assertEqual(fill_years(tracks, lk, lambda t: None), {"asked": 2, "filled": 2})
+        self.assertEqual(lk.used, 1)
+        self.assertEqual(len(fake.urls), 2)  # one Deezer, one MusicBrainz
+
+    def test_pace_between_catalogues(self):
+        fake = YearCatalogues(deezer={"AAA": {"id": 1, "isrc": "AAA", "release_date": "1990"}})
+        sleeps = []
+        t = [0.0]
+
+        def sleep(s):
+            sleeps.append(round(s, 2))
+            t[0] += s
+
+        lk = Lookups(fetch=fake, sleep=sleep, line=lambda x: None, budget=10, clock=lambda: t[0], this_year=lambda: 2026)
+        fill_years([heard("AAA"), heard("BBB")], lk, lambda x: None)
+        self.assertEqual(sleeps, [0.2, 0.9])
+
+    def test_musicbrainz_failing_after_deezer_keeps_deezers_year(self):
+        fake = YearCatalogues(deezer={"AAA": {"id": 1, "isrc": "AAA", "release_date": "1990-04-01"}}, fail_on="musicbrainz.org/ws/2/isrc/AAA")
+        tracks = [heard("AAA"), heard("BBB", "0000")]
+        lines = []
+        summary = fill_years(tracks, self.lookups(fake), lines.append)
+        self.assertEqual(tracks[0]["metadata"], {"isrc": "AAA", "release_date": "1990", "release_date_from": "deezer"})
+        self.assertEqual(tracks[1]["metadata"], {"isrc": "BBB"})  # not asked, junk year removed
+        self.assertFalse(any("BBB" in u for u in fake.urls))
+        self.assertEqual(summary, {"asked": 1, "filled": 1})
+        self.assertEqual(lines, ["  years · stopped: OSError: down · filled 1 of 1 by ISRC"])
+
+    def test_musicbrainz_failing_without_deezer_year_stops_with_nothing(self):
+        fake = YearCatalogues(fail_on="musicbrainz.org/ws/2/isrc/AAA")
+        tracks = [heard("AAA")]
+        lines = []
+        self.assertEqual(fill_years(tracks, self.lookups(fake), lines.append), {"asked": 1, "filled": 0})
+        self.assertEqual(tracks[0]["metadata"], {"isrc": "AAA"})
+        self.assertTrue(lines[0].startswith("  years · stopped: OSError"))

@@ -1,6 +1,7 @@
 import { hasScope, type Session } from '../../auth/session';
 import type { TracklistRow } from '../../db/schema';
 import { normalize } from '../../model/normalize';
+import { parseYear } from '../../model/year';
 import type { SpotifyClient } from '../../spotify/client';
 import type { ApiSearchTracks, ApiTrack } from '../../spotify/types';
 import {
@@ -142,6 +143,9 @@ export interface RowMatch {
   /** null = unmatched (nothing confident, or an inert row). */
   uri: string | null;
   matchedName: string | null;
+  /** Round 005: the year of the matched track's album, from the same search
+   *  answer; null when unmatched or the album has no valid date. */
+  year: number | null;
 }
 
 /**
@@ -154,7 +158,8 @@ export async function searchTrack(
   client: Pick<SpotifyClient, 'get'>,
   row: TracklistRow
 ): Promise<RowMatch> {
-  if (!isIdentified(row)) return { row, uri: null, matchedName: null };
+  if (!isIdentified(row))
+    return { row, uri: null, matchedName: null, year: null };
   const artist = stripQuotes(primaryArtist(row.artist));
   const title = stripQuotes(row.title);
   // isrc/confidence are only trustworthy while the row still reads exactly
@@ -178,7 +183,13 @@ export async function searchTrack(
     });
     const items = Array.isArray(res.tracks?.items) ? res.tracks.items : [];
     const hit = pickMatch(row, items);
-    if (hit) return { row, uri: hit.uri, matchedName: hit.name };
+    if (hit)
+      return {
+        row,
+        uri: hit.uri,
+        matchedName: hit.name,
+        year: parseYear(hit.album?.release_date),
+      };
   }
-  return { row, uri: null, matchedName: null };
+  return { row, uri: null, matchedName: null, year: null };
 }

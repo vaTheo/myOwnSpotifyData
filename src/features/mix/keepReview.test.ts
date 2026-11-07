@@ -94,6 +94,16 @@ describe('mergeKeepingReview (T125, owner D1)', () => {
     expect(out).toEqual([{ ...incoming[0], validated: true, ...FOUND }]);
   });
 
+  it('keeps a year the row had when the new result dates it not; a new year wins (round 005)', () => {
+    const dated = scan({ year: 1993, yearFrom: 'spotify' });
+    const out = mergeKeepingReview([dated], [scan({ hits: 2 })], []);
+    expect(out).toEqual([
+      { ...scan({ hits: 2 }), year: 1993, yearFrom: 'spotify' },
+    ]);
+    const shazam = scan({ year: 1991, yearFrom: 'shazam' });
+    expect(mergeKeepingReview([dated], [shazam], [])).toEqual([shazam]);
+  });
+
   it('refused: the same title by another artist arrives To review', () => {
     const existing = [scan({ artist: 'Four', ...FOUND })];
     const incoming = [scan({ artist: 'Four Tet' })];

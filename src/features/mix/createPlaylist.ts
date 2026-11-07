@@ -31,6 +31,11 @@ export interface CreatePlaylistOutcome {
    *  lapses), so the wrapper remembers it app-wide before the error
    *  becomes text (S08d). */
   quotaUntil?: number;
+  /** Round 005: the year each undated row took from its match, kept even
+   *  when a later step failed. Keyed on the input row object. */
+  years: Map<TracklistRow, number>;
+  /** The input rows with those years applied (`yearFrom: 'spotify'`). */
+  rows: TracklistRow[];
 }
 
 /** Which tracks Create playlist adds (spec 003 §12, owner's D6). */
@@ -61,6 +66,24 @@ function quotaOf(err: unknown): { quotaUntil?: number } {
   return err instanceof QuotaError ? { quotaUntil: err.retryAt } : {};
 }
 
+/**
+ * `rows` with the learned years set on the rows that carry none. Matched by
+ * object identity, so a row edited since (a new object) is left alone; an
+ * unchanged row keeps its identity.
+ */
+export function applyYears(
+  rows: TracklistRow[],
+  years: Map<TracklistRow, number>
+): TracklistRow[] {
+  if (years.size === 0) return rows;
+  return rows.map((row) => {
+    const year = years.get(row);
+    return year === undefined || typeof row.year === 'number'
+      ? row
+      : { ...row, year, yearFrom: 'spotify' as const };
+  });
+}
+
 const ADD_BATCH = 100;
 
 /**
@@ -68,7 +91,8 @@ const ADD_BATCH = 100;
  * adds the matched URIs in <=100 batches preserving order. Never throws: every
  * failure ends in an `error` onState (a partial add failure still surfaces the
  * created playlist's url and the count added so far). Returns the id/url so the
- * wrapper can persist them onto the mix.
+ * wrapper can persist them onto the mix, and the years the matches taught,
+ * on every exit path (round 005).
  */
 export async function runCreatePlaylist(
   deps: CreatePlaylistDeps,
@@ -82,6 +106,18 @@ export async function runCreatePlaylist(
   const total = identified.length;
   const uris: string[] = [];
   const unmatched: UnmatchedRow[] = [];
+  const years = new Map<TracklistRow, number>();
+  const outcome = (
+    playlistId: string | null,
+    url: string | null,
+    err?: unknown
+  ): CreatePlaylistOutcome => ({
+    playlistId,
+    url,
+    ...quotaOf(err),
+    years,
+    rows: applyYears(rows, years),
+  });
   onState({ status: 'resolving', done: 0, total });
   let done = 0;
   for (const row of identified) {
@@ -97,8 +133,11 @@ export async function runCreatePlaylist(
       match = await searchTrack(client, row);
     } catch (err) {
       onState({ status: 'error', message: describeError(err) });
-      return { playlistId: null, url: null, ...quotaOf(err) };
+      return outcome(null, null, err);
     }
+    // A dated row keeps its year (Shazam's or a catalogue's).
+    if (match.year !== null && typeof row.year !== 'number')
+      years.set(row, match.year);
     if (match.uri !== null) uris.push(match.uri);
     else
       unmatched.push({
@@ -123,7 +162,7 @@ export async function runCreatePlaylist(
     });
   } catch (err) {
     onState({ status: 'error', message: describeError(err) });
-    return { playlistId: null, url: null, ...quotaOf(err) };
+    return outcome(null, null, err);
   }
   const playlistId = playlist.id;
   const url = playlist.external_urls?.spotify ?? null;
@@ -147,7 +186,7 @@ export async function runCreatePlaylist(
           added,
           total,
         });
-        return { playlistId, url, ...quotaOf(err) };
+        return outcome(playlistId, url, err);
       }
       added += batch.length;
     }
@@ -155,7 +194,7 @@ export async function runCreatePlaylist(
 
   // 4. Done.
   onState({ status: 'done', name, url, added: uris.length, total, unmatched });
-  return { playlistId, url };
+  return outcome(playlistId, url);
 }
 
 /**

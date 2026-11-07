@@ -11,13 +11,23 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.5.1: every probe line says how long Shazam took to answer (`· shazam 6.8 s`), and the scan ends with a summary
+  (`shazam · 712 answers · median 1.1 s · 140 over 5 s (20 %)`). On 2026-11-06 a call took 3 s in some hours and 9 s in others,
+  with the clip cut unchanged: this tells a slow Shazam from our own pace.
+- 0.5.0: each heard track carries its release year. Shazam's year is kept (an invalid one, like "0000", is removed); a track with an ISRC and no year gets the earliest
+  year Deezer or MusicBrainz give for that ISRC (`release_date`, with `release_date_from`). These lookups share the
+  `WORKER_LOOKUPS` cap with the clues (clues first; 0 turns both off); a catalogue that does not answer leaves the year out,
+  never fails the set. The log has one "years" line per set.
+
+- 0.4.1: back to 1.9 s + 0–30 % between Shazam calls (1.9 to 2.47 s). 0.4.0 shipped 1.5 s; a test at 1.0 s + 0–50 % was
+  refused every ~21 calls, while ~780 calls at 1.9 s off the VPN had none. Stay off a VPN: on one, refusals came every 24–380 calls.
 - 0.4.0: each heard track keeps how many 12 s clips matched it and its best score (`hits`); the phone shows the scan's
   progress (step, %, minutes left, Shazam pauses) and can Cancel, Move to top and Stop requests (needs migration
   `0003_job_control.sql`; without it the worker works as before and logs it once); Ask again continues a stopped set; two
   refusals close together warn about a VPN; the second pass tries ×1 everywhere, then ×0.96, then ×1.04.
 
 - 0.3.3: every line of a tracklist (description, or a comment listing 3+ tracks) becomes a row, catalogue or not; a
-  catalogue only adds the ISRC. Pacing: 1.5 s + 0–30 % between calls (1.5 to 1.95 s; ~780 calls at 1.9 s off the VPN had no refusal) and a 3-minute pause + 0–40 % after a refusal
+  catalogue only adds the ISRC. Pacing: 1.5 s + 0–30 % between calls (1.5 to 1.95 s) and a 3-minute pause + 0–40 % after a refusal
   (3:00 to 4:12); both spreads only add time and are settings (`WORKER_COOLDOWN_SPREAD_PERCENT`,
   `WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`).
 

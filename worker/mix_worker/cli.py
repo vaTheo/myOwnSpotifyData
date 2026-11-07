@@ -65,6 +65,9 @@ def build_deps(settings: Settings) -> Deps:
 
     log = Log(settings.log_file)
     shazam_calls: dict[str, float] = {}  # one count of Shazam calls for every set of this run
+    # Round 005: the clue step leaves its set's lookups here; the year step
+    # takes them (same budget, clues first) or makes its own (clues off).
+    per_set: dict[str, Any] = {}
     return Deps(
         client=ServerClient(settings.supabase_url, settings.supabase_key),
         download=lambda url, dest: do_download(url, dest, settings, line=log.line, max_duration=settings.max_duration_seconds or None),
@@ -72,24 +75,46 @@ def build_deps(settings: Settings) -> Deps:
         log=log,
         jitter=spread,
         scan_hooks=True,
-        clues=(lambda url, gaps, rows: gather_clues(settings, log, url, gaps, rows)) if settings.clues else None,
+        clues=(lambda url, gaps, rows: gather_clues(settings, log, url, gaps, rows, per_set)) if settings.clues else None,
+        years=(lambda tracks: fill_years(settings, log, tracks, per_set)) if settings.lookups > 0 else None,
     )
 
 
-def gather_clues(settings: Settings, log: Any, url: str, gaps: list[tuple[int, int]], rows: list[dict[str, Any]]) -> Any:
+def make_lookups(settings: Settings, log: Any) -> Any:
+    """The keyless catalogues with the real seams, a fresh budget per set;
+    None when `WORKER_LOOKUPS` is 0."""
+    from .clues import Lookups, fetch_json
+    from .scan import spread
+
+    if settings.lookups <= 0:
+        return None
+    agent = f"myOwnSpotifyData-worker/{__version__} (https://github.com/vaTheo/myOwnSpotifyData)"
+    return Lookups(fetch=lambda u: fetch_json(u, user_agent=agent), sleep=time.sleep, line=log.line, budget=settings.lookups, jitter=spread)
+
+
+def fill_years(settings: Settings, log: Any, tracks: list[dict[str, Any]], per_set: dict[str, Any]) -> Any:
+    """Round 005's year step: the set's lookups left by the clue step (one
+    budget for both), or fresh ones when the clue step did not run."""
+    from .clues import fill_years as fill
+
+    lookups = per_set.pop("lookups") if "lookups" in per_set else make_lookups(settings, log)
+    return fill(tracks, lookups, log.line) if lookups is not None else None
+
+
+def gather_clues(
+    settings: Settings, log: Any, url: str, gaps: list[tuple[int, int]], rows: list[dict[str, Any]], per_set: dict[str, Any] | None = None
+) -> Any:
     """Round 003's clue step with the real seams: yt-dlp for the clues, the
-    keyless catalogues for the lookups (a fresh budget per set)."""
+    keyless catalogues for the lookups (a fresh budget per set, handed on to
+    the year step through `per_set`)."""
     import yt_dlp  # type: ignore[import-untyped]
 
-    from .clues import Lookups, fetch_json, gather, read
-    from .scan import hhmmss, spread
+    from .clues import gather, read
+    from .scan import hhmmss
 
-    agent = f"myOwnSpotifyData-worker/{__version__} (https://github.com/vaTheo/myOwnSpotifyData)"
-    lookups = (
-        Lookups(fetch=lambda u: fetch_json(u, user_agent=agent), sleep=time.sleep, line=log.line, budget=settings.lookups, jitter=spread)
-        if settings.lookups > 0
-        else None
-    )
+    lookups = make_lookups(settings, log)
+    if per_set is not None:
+        per_set["lookups"] = lookups
     return gather(
         url,
         gaps,

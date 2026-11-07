@@ -486,3 +486,96 @@ describe('validateJobRow — round 004 columns', () => {
     }
   });
 });
+
+describe('round 005 years: a bad year is dropped, the row kept', () => {
+  it('keeps a valid albumYear on a track and drops an invalid one', () => {
+    const good = validateRow('tracks', { ...track, albumYear: 1993 });
+    expect(good).toEqual({ ok: true, row: { ...track, albumYear: 1993 } });
+    for (const albumYear of [0, 1899, 3000, 1993.5, '1993', null]) {
+      const res = validateRow('tracks', { ...track, albumYear });
+      expect(res).toEqual({ ok: true, row: track });
+    }
+  });
+
+  it('drops only the bad albumYear of a top item', () => {
+    const item = { rank: 1, id: 'x', imageUrl: null, spotifyUrl: null };
+    const res = validateRow('topItems', {
+      key: 'tracks:short_term',
+      fetchedAt: 1,
+      items: [
+        { ...item, albumYear: 2001 },
+        { ...item, id: 'y', albumYear: 'nope' },
+      ],
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const items = (res.row as unknown as { items: Record<string, unknown>[] })
+      .items;
+    expect(items[0].albumYear).toBe(2001);
+    expect('albumYear' in items[1]).toBe(false);
+    expect(items[1].id).toBe('y');
+  });
+
+  it('keeps a valid releaseYear and rid on a feature row, drops bad ones', () => {
+    const value = { bpm: 120, key: 1, major: true, energy: null, fetchedAt: 1 };
+    const row = {
+      trackId: 't1',
+      isrc: null,
+      updatedAt: 1,
+      reccobeats: { ...value, rid: 'abc-uuid' },
+      releaseYear: { year: 1971, checkedAt: 5 },
+    };
+    expect(validateRow('features', row)).toEqual({ ok: true, row });
+    expect(
+      validateRow('features', {
+        ...row,
+        releaseYear: { year: null, checkedAt: 5 },
+      }).ok
+    ).toBe(true);
+    for (const releaseYear of [
+      { year: 0, checkedAt: 5 },
+      { year: 1971 },
+      { year: '1971', checkedAt: 5 },
+      1971,
+    ]) {
+      const res = validateRow('features', { ...row, releaseYear });
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect('releaseYear' in res.row).toBe(false);
+        expect(res.row.reccobeats).toEqual({ ...value, rid: 'abc-uuid' });
+      }
+    }
+    for (const rid of [3, '', 'x'.repeat(101)]) {
+      const res = validateRow('features', {
+        ...row,
+        reccobeats: { ...value, rid },
+      });
+      expect(res).toEqual({ ok: true, row: { ...row, reccobeats: value } });
+    }
+  });
+
+  it('keeps a mix row year and source, drops a bad one without refusing the mix', () => {
+    const r0 = mixRow.rows[0];
+    const ok = validateMix({
+      ...mixRow,
+      rows: [{ ...r0, year: 1993, yearFrom: 'shazam' }],
+    });
+    expect(ok.ok && ok.row.rows[0]).toMatchObject({
+      year: 1993,
+      yearFrom: 'shazam',
+    });
+    const res = validateMix({
+      ...mixRow,
+      rows: [
+        { ...r0, year: 0, yearFrom: 'guess' },
+        { ...r0, year: 2010, yearFrom: 'spotify' },
+      ],
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect('year' in res.row.rows[0]).toBe(false);
+    expect('yearFrom' in res.row.rows[0]).toBe(false);
+    expect(res.row.rows[0].title).toBe('B');
+    expect(res.row.rows[1]).toMatchObject({ year: 2010, yearFrom: 'spotify' });
+  });
+});

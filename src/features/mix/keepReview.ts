@@ -69,6 +69,19 @@ function review(row: TracklistRow): Partial<TracklistRow> {
   };
 }
 
+/** Round 005: a year the row already had (Create playlist's Spotify album)
+ *  stays when the incoming row carries none; an incoming year wins. */
+function yearKept(
+  before: TracklistRow,
+  row: TracklistRow
+): Partial<TracklistRow> {
+  if (typeof row.year === 'number' || typeof before.year !== 'number')
+    return {};
+  return before.yearFrom === undefined
+    ? { year: before.year }
+    : { year: before.year, yearFrom: before.yearFrom };
+}
+
 /** By time, rows without a time last, stable among equals. */
 export function byTime(rows: TracklistRow[]): TracklistRow[] {
   return rows
@@ -118,7 +131,7 @@ export function mergeKeepingReview(
     const before = scans.find((s) => !matched.has(s) && sameTrack(s, row));
     if (before) {
       matched.add(before);
-      arriving.push({ ...row, ...review(before) });
+      arriving.push({ ...row, ...review(before), ...yearKept(before, row) });
     } else {
       arriving.push(row);
     }

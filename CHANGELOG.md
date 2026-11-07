@@ -28,6 +28,22 @@ For developers: `yarn shots`, a dev-only visual loop on `?demo` data. [ADR-11](d
 [spec](docs/specs/2026-11-06-web-first-redesign-design.md), the full round under `specs/003-web-first-redesign/`. Nothing to do
 after upgrading.
 
+## 2026-11-07 — Shazam's answer time in the worker log (worker 0.5.1)
+
+Each probe line of the worker log says how long Shazam took to answer, and each scan ends with the median and the share of answers
+over 5 s. The Kune scan (3 h) ran at about 3.3 s a call in some hours and 9 s in others, with the clip cut unchanged at 0.14 s: the
+extra time was inside the Shazam call. The next sets will show whether slow answers follow the number of calls or the hour.
+
+## 2026-11-07 — The release year of every song (worker 0.5.0)
+
+Every song list shows the year a song came out, beside BPM and key, with "Sort by year" (oldest first, undated last) and decade
+chips on Top (Tracks), a playlist, an artist and every Crate view; the Mix screen sorts by year and keeps one decade, with "heard
+once". Years come from the album a sync downloads (`album(name,release_date)`; resync an older playlist to get them), from a new
+third pass of Settings · Audio data · Look up (ReccoBeats' earliest album year, about 45 minutes the first time for 5,000 tracks),
+from Shazam on identified sets, from the worker (Deezer then MusicBrainz by ISRC, within `WORKER_LOOKUPS`) and from the album
+Create playlist matched. A pulled row with an invalid year loses that field, not the row. Spec: `specs/005-track-release-year/`.
+No `DB_VERSION` bump, no migration, no new host.
+
 ## 2026-11-06 — See, steer and trust the worker's scans (worker 0.4.0)
 
 Each heard track shows how many 12-second clips matched it and its best score ("heard 3× · best 91 %"), sortable, with a
@@ -46,7 +62,7 @@ deleted. A refusal during the second pass keeps what was found; the second pass 
 the worker takes a planned 3-minute break every 80 calls (all waits ± 40 %) so Shazam refuses less. After a refusal the
 pace comes back down; a refusal once tracks were found sends them as done, "stopped early"; sends to the server are retried;
 the Shazam library no longer retries silently. Since the day's refusals came at any pace, a refusal is now a flat 6-minute
-pause (up to 8 a set) and the pace (1.5 s + 0–30 % since 0.4.0, after ~780 calls without a refusal at 1.9 s off the VPN) is never slowed; a refusal pauses 3 min + 0–40 %. Every line of a tracklist in the description (or a comment listing 3+ tracks) becomes a
+pause (up to 8 a set) and the pace (1.9 s + 0–30 %: ~780 calls without a refusal off the VPN, while 1.0 s + 0–50 % was refused every ~21 calls) is never slowed; a refusal pauses 3 min + 0–40 %. Every line of a tracklist in the description (or a comment listing 3+ tracks) becomes a
 row even when no catalogue knows the track. Spec: `specs/003-fill-scan-gaps/`. No `DB_VERSION` bump.
 
 ## 2026-11-06 — Identify a mix on my computer (the worker)

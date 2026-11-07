@@ -22,7 +22,7 @@ describe('activeJobs (data-model §7)', () => {
         ...IDLE,
         sync: { status: 'error', message: 'x', pending: [] },
         import: { status: 'cancelled', message: 'x' },
-        lookup: { status: 'done', found: 1, notFound: 0, total: 1 },
+        lookup: { status: 'done', found: 1, notFound: 0, total: 1, years: 0 },
         server: {
           status: 'connected',
           lastSyncAt: null,

@@ -1,3 +1,7 @@
+import { useMemo } from 'preact/hooks';
+import { candidateIds } from '../../features/lookup';
+import type { Model } from '../../model/aggregate';
+import { yearOf } from '../../model/year';
 import {
   coverage,
   jobsBusy,
@@ -18,7 +22,12 @@ import { ProgressBar } from '../components/ProgressBar';
 import { SegmentedButtons } from '../components/SegmentedButtons';
 import { StatusLine } from '../components/StatusLine';
 import { formatDate } from '../format';
-import { coverageLine, rekordboxLine } from './lines';
+import {
+  coverageLine,
+  lookupDoneLine,
+  rekordboxLine,
+  yearsLine,
+} from './lines';
 import { sectionDomId } from './sections';
 
 const NOTATIONS: { value: KeyNotation; label: string }[] = [
@@ -26,6 +35,15 @@ const NOTATIONS: { value: KeyNotation; label: string }[] = [
   { value: 'open', label: 'Open Key' },
   { value: 'classic', label: 'Classic' },
 ];
+
+/** Round 005: the candidates of the BPM coverage that `yearOf` dates. */
+function datedCount(m: Model): number {
+  let dated = 0;
+  for (const candidate of candidateIds(m)) {
+    if (yearOf(m, candidate.id) !== null) dated++;
+  }
+  return dated;
+}
 
 /** Audio data (US5): the ReccoBeats lookup, the Rekordbox XML, key notation. */
 export function AudioSection() {
@@ -37,16 +55,22 @@ export function AudioSection() {
   // (spec §5.5): jobsBusy() gates this section as well as Disconnect.
   const busy = jobsBusy();
   const cov = m ? coverage(m) : null;
+  // The year scan reads every Top list per track: once per model, not once
+  // per progress tick.
+  const dated = useMemo(() => (m ? datedCount(m) : 0), [m]);
   const blocked = busy || !cov || cov.total === 0;
   return (
     <Card
       id={sectionDomId('audio')}
       class="settings-section"
       title="Audio data"
-      description="BPM and key for your tracks, from ReccoBeats and your Rekordbox collection."
+      description="BPM and key for your tracks, from ReccoBeats and your Rekordbox collection; release years from ReccoBeats."
     >
       {cov && cov.total > 0 ? (
-        <StatusLine>{coverageLine(cov)}</StatusLine>
+        <>
+          <StatusLine>{coverageLine(cov)}</StatusLine>
+          <StatusLine>{yearsLine(dated, cov.total)}</StatusLine>
+        </>
       ) : (
         <StatusLine>Sync or import a history first.</StatusLine>
       )}
@@ -58,14 +82,11 @@ export function AudioSection() {
           unit="tracks"
         />
       )}
-      {lookup.status === 'done' && lookup.total === 0 && (
+      {lookup.status === 'done' && lookup.total === 0 && lookup.years === 0 && (
         <StatusLine kind="success">Nothing new to look up.</StatusLine>
       )}
-      {lookup.status === 'done' && lookup.total > 0 && (
-        <StatusLine kind="success">
-          found {lookup.found.toLocaleString()} · not found{' '}
-          {lookup.notFound.toLocaleString()}
-        </StatusLine>
+      {lookup.status === 'done' && (lookup.total > 0 || lookup.years > 0) && (
+        <StatusLine kind="success">{lookupDoneLine(lookup)}</StatusLine>
       )}
       {lookup.status === 'error' && (
         <StatusLine kind="error">Last error: {lookup.message}</StatusLine>

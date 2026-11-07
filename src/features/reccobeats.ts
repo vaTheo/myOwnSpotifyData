@@ -1,8 +1,15 @@
 import type { FeatureValue } from '../db/schema';
+import { parseYear } from '../model/year';
 import { MAX_5XX_RETRIES, backoffMs, parseRetryAfter } from '../util/retry';
 
 /** Batch endpoint; an id is either a Spotify track id or an ISRC. */
 export const RECCOBEATS_URL = 'https://api.reccobeats.com/v1/audio-features';
+
+/** Track lookup by Spotify id or ISRC (round 005: gives ReccoBeats' own id). */
+export const RECCOBEATS_TRACK_URL = 'https://api.reccobeats.com/v1/track';
+
+/** Albums asked per track; a track sits on far fewer in practice. */
+export const ALBUM_PAGE_SIZE = 50;
 
 /** 41 or more ids answer 400 "size must be between 1 and 40". */
 export const MAX_IDS = 40;
@@ -53,6 +60,13 @@ function idFromHref(href: unknown): string | null {
   return last ?? null;
 }
 
+/** ReccoBeats' own id: a short non-empty string (a uuid), else null. */
+function ridOf(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' && value.length <= 100
+    ? value
+    : null;
+}
+
 function majorFrom(mode: unknown): boolean | null {
   if (mode === 1) return true;
   if (mode === 0) return false;
@@ -62,7 +76,9 @@ function majorFrom(mode: unknown): boolean | null {
 function toFeature(raw: unknown, fetchedAt: number): FetchedFeature {
   const tempo = num(field(raw, 'tempo'));
   const key = num(field(raw, 'key'));
+  const rid = ridOf(field(raw, 'id'));
   return {
+    ...(rid === null ? {} : { rid }),
     // A zero tempo is not a tempo; -1 is the API's "key unknown".
     bpm: tempo !== null && tempo > 0 ? tempo : null,
     key:
@@ -77,27 +93,13 @@ function toFeature(raw: unknown, fetchedAt: number): FetchedFeature {
 }
 
 /**
- * One request for at most `MAX_IDS` ids, retried on 429 (five times, honouring
- * `Retry-After`, unless it asks for more than a minute, which ends the lookup
- * at once) and on a 5xx, a network failure or a truncated body (three times,
- * backing off). Any other status throws at once. The batching and the
- * one-request-per-second pacing belong to the caller.
+ * One GET, retried on 429 (five times, honouring `Retry-After`, unless it asks
+ * for more than a minute, which ends the lookup at once) and on a 5xx, a
+ * network failure or a truncated body (three times, backing off). Any other
+ * status throws at once. Returns the parsed body. Shared by every ReccoBeats
+ * call so they fail the same way; the pacing belongs to the caller.
  */
-export async function fetchAudioFeatures(
-  ids: string[],
-  deps: FetchDeps
-): Promise<FeatureBatch> {
-  const byId = new Map<string, FetchedFeature>();
-  const byIsrc = new Map<string, FetchedFeature>();
-  if (ids.length === 0) return { byId, byIsrc };
-  if (ids.length > MAX_IDS) {
-    throw new Error(
-      `ReccoBeats takes at most ${MAX_IDS} ids per request ` +
-        `(size must be between 1 and ${MAX_IDS}), got ${ids.length}`
-    );
-  }
-  const now = deps.now ?? Date.now;
-  const url = `${RECCOBEATS_URL}?ids=${ids.map(encodeURIComponent).join(',')}`;
+async function getJson(url: string, deps: FetchDeps): Promise<unknown> {
   let attempts429 = 0;
   let attempts5xx = 0;
 
@@ -140,23 +142,99 @@ export async function fetchAudioFeatures(
       throw new Error(`ReccoBeats server error ${res.status}`);
     }
     if (!res.ok) throw new Error(`ReccoBeats error ${res.status}`);
-    let body: unknown;
     try {
-      body = await res.json();
+      return await res.json();
     } catch {
       // A truncated 200 is a transport failure, not "no results": marking
       // forty tracks notFound for ninety days over it would be wrong.
       if (await retryTransport()) continue;
       throw new Error('ReccoBeats returned a malformed response');
     }
-    const content = field(body, 'content');
-    const fetchedAt = now();
-    for (const raw of Array.isArray(content) ? content : []) {
-      const feature = toFeature(raw, fetchedAt);
-      const id = idFromHref(field(raw, 'href'));
-      if (id !== null) byId.set(id, feature);
-      if (feature.isrc !== null) byIsrc.set(feature.isrc, feature);
-    }
-    return { byId, byIsrc };
   }
+}
+
+function contentOf(body: unknown): unknown[] {
+  const content = field(body, 'content');
+  return Array.isArray(content) ? content : [];
+}
+
+function checkBatch(ids: string[]): void {
+  if (ids.length > MAX_IDS) {
+    throw new Error(
+      `ReccoBeats takes at most ${MAX_IDS} ids per request ` +
+        `(size must be between 1 and ${MAX_IDS}), got ${ids.length}`
+    );
+  }
+}
+
+function idsQuery(ids: string[]): string {
+  return ids.map(encodeURIComponent).join(',');
+}
+
+/**
+ * One request for at most `MAX_IDS` ids, with `getJson`'s retries. The
+ * batching and the one-request-per-second pacing belong to the caller.
+ */
+export async function fetchAudioFeatures(
+  ids: string[],
+  deps: FetchDeps
+): Promise<FeatureBatch> {
+  const byId = new Map<string, FetchedFeature>();
+  const byIsrc = new Map<string, FetchedFeature>();
+  if (ids.length === 0) return { byId, byIsrc };
+  checkBatch(ids);
+  const now = deps.now ?? Date.now;
+  const body = await getJson(`${RECCOBEATS_URL}?ids=${idsQuery(ids)}`, deps);
+  const fetchedAt = now();
+  for (const raw of contentOf(body)) {
+    const feature = toFeature(raw, fetchedAt);
+    const id = idFromHref(field(raw, 'href'));
+    if (id !== null) byId.set(id, feature);
+    if (feature.isrc !== null) byIsrc.set(feature.isrc, feature);
+  }
+  return { byId, byIsrc };
+}
+
+/**
+ * Round 005: ReccoBeats' own id for at most `MAX_IDS` Spotify ids, for rows
+ * stored before the audio-features answer's `id` was kept. Spotify id ->
+ * ReccoBeats id; a track ReccoBeats does not know is absent.
+ */
+export async function fetchTrackRids(
+  ids: string[],
+  deps: FetchDeps
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (ids.length === 0) return out;
+  checkBatch(ids);
+  const body = await getJson(
+    `${RECCOBEATS_TRACK_URL}?ids=${idsQuery(ids)}`,
+    deps
+  );
+  for (const raw of contentOf(body)) {
+    const spotifyId = idFromHref(field(raw, 'href'));
+    const rid = ridOf(field(raw, 'id'));
+    if (spotifyId !== null && rid !== null) out.set(spotifyId, rid);
+  }
+  return out;
+}
+
+/**
+ * Round 005: the earliest valid release year among the albums ReccoBeats
+ * lists for one of its tracks (the original release, not a compilation), or
+ * null when none carries a year. One page of `ALBUM_PAGE_SIZE` albums.
+ */
+export async function fetchAlbumYear(
+  rid: string,
+  deps: FetchDeps
+): Promise<number | null> {
+  const url = `${RECCOBEATS_TRACK_URL}/${encodeURIComponent(rid)}/album?size=${ALBUM_PAGE_SIZE}`;
+  const body = await getJson(url, deps);
+  let earliest: number | null = null;
+  for (const album of contentOf(body)) {
+    const year = parseYear(field(album, 'releaseDate'));
+    if (year !== null && (earliest === null || year < earliest))
+      earliest = year;
+  }
+  return earliest;
 }
