@@ -46,7 +46,9 @@ Node 24 (`.nvmrc`), yarn classic 1.22, install with `yarn`. `yarn dev` (open `ht
 `yarn test src/router.test.ts`, `yarn test -t "name"`, `yarn vitest` (watch), `yarn typecheck`, `yarn lint`, `yarn format` (not
 enforced), `yarn build`. A UI change ends with the visual loop: `yarn shots` (Playwright, dev only, every page at four widths on
 the demo data), `yarn shots:summary`, `yarn shots:sheet`; the demo is `yarn dev` opened with `?demo` (or `?demo=<variant>`), never
-the owner's data ([ADR-11](docs/architecture/700-adr/ADR-11-web-first-material-3.md)). Details: [Contributing](docs/dev-guide/000-contributing.md).
+the owner's data ([ADR-11](docs/architecture/700-adr/ADR-11-web-first-material-3.md)). Before a merge: `yarn regression` (the UI driven
+on the demo, one test per row of `specs/003-web-first-redesign/regression.md`) and `yarn invariants` (the branch against `main`).
+Details: [Contributing](docs/dev-guide/000-contributing.md).
 
 ## Non-negotiable rules
 
