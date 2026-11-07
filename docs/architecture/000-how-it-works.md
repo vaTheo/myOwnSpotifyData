@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-06
+> **Last updated**: 2026-11-07
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -11,7 +11,8 @@ decisions that still hold are in the [ADR index](700-adr/README.md); the rules f
 
 ## 1. The app in one paragraph
 
-A browser-only Preact web app the owner (a DJ) uses on an Android phone, added to the home screen from Chrome. It shows their most
+A browser-only Preact web app the owner (a DJ) uses mainly in a web browser on a computer, and on an Android phone (added to the
+home screen from Chrome). It shows their most
 played Spotify tracks, ranks their own playlists by play count, ranks artists by saved tracks, and helps prepare sets (BPM and key,
 match mode, under-the-radar artists, SoundCloud mix tracklists). Public repo `vaTheo/myOwnSpotifyData`, single `main` branch, deployed
 to GitHub Pages at `https://vatheo.github.io/myOwnSpotifyData/` by CI. No server code of the owner's: login is PKCE with a Client ID only
@@ -207,6 +208,20 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   only when it is an https `shazam.com` URL, dropped once the row is edited), drawn as Simple Icons (CC0) by `ui/components/DigLinks.tsx`.
   Spec 003 (T118): every track's **Listen** menu holds the same links (plain search pages, no request until opened).
 
+**The Mixes list and the queue** (spec 003 §12, T116, T121–T123):
+
+- `mixList.ts` (`mixListItems`, pure): saved mixes and worker requests in one list, one row per link, from data the app already
+  holds (the last pull's `mixJobs`, the saved mixes); no request, no poll of its own. Each row has one chip (Queued, Identifying,
+  Paused, Stopping…, Found tracks, Failed, Rejected, Saved · N tracks, Playlist made), its state line, the progress bar while it
+  runs, and its actions. Order (`queueOrder` in `worker.ts`): running first, then waiting in the order the worker takes them
+  (highest `priority` first, then the oldest, so **Move to top** shows first), then the rest newest first.
+- Actions on a row: **Move to top** and **Cancel** on a waiting request, **Stop** on a running one (disabled while Stopping…),
+  **Ask again** on a failed, rejected or stopped-early one, **Remove** in a saved mix's row menu. Cancel, Stop and Remove ask their
+  `confirm()` (§14). A request already taken or finished when the tap reaches the server says "Already taken by your computer"
+  or "Already finished" inline (`queue.ts` `goneNote`, `mixQueueNote`, ruling D4); a server without migration 0003 is named in
+  the inline error (ruling D5). The list's head counts what waits or runs, with **Check now** (`startServerSync`); the 60 s
+  auto-pull of §16 refreshes it.
+
 **The review** (spec 003 §12, S08c):
 
 - `spotifyCheck.ts` (**Check on Spotify**, T117): a read on the open mix header's tap only, never on load or open (ADR-02). Gated like
@@ -260,49 +275,102 @@ also saves episodes, albums and playlists; a song already liked is never re-save
 
 ## 13. `ui/` and routing
 
-One Preact component per screen plus small shared components (`ui/components/`).
+The web-first redesign ([ADR-11](700-adr/ADR-11-web-first-material-3.md), [spec](../specs/2026-11-06-web-first-redesign-design.md),
+full round under `specs/003-web-first-redesign/`): Material Design 3, dark only, built by hand on tokens. One Preact component per
+screen, grouped by role under `src/ui/`.
 
-- Tab bar: **Crate · Top · Playlists · Artists · Mix · Settings** (Mix a tab since 2026-11-06, the worker round). `#/import` is a
-  route, not a tab; `tabOf` in `app.tsx` maps it to `settings`. The default route stays `top`, even though Crate is the leftmost tab. Routes: `src/router.ts:42-68`.
-- The Crate's five views live in `ui/crate/` (`CrateView` dispatches, `shared.tsx` the row helpers and `Strip`, `labels.ts` the pure
-  history-copy helpers, `selections.ts` the module-level selection signals). Gated on `historySummary.version === 2`, never on rows.
-- `Artists.tsx` dispatches over two views the same way, with `UnderRadar.tsx` beside it and `artistSelections.ts` holding `artistView`,
-  `radarSort`, `radarFilter`. Under the radar is gated on `artistReachSummary.version === 1`; **Well known** is a heading at the bottom,
-  never a filter that removes rows.
-- `ui/mix/` is the `#/mix` workspace (spec 003 §12): `Workspace.tsx` lays out the left pane (`MixListPane.tsx`) beside the
-  open mix (`MixDetail.tsx`: `TracklistTable.tsx` on `DataTable`, `CreatePlaylistCard.tsx`, `Clues.tsx`) from expanded windows,
-  one column below; `#/mix/<key>` opens a saved mix from memory (`address.ts`), never a network call. No banner: every failure inline.
-- A new navigation scrolls to the top; back and forward do not: `installRouter` stamps `history.state` with `djVisited` (`visitEntry`)
-  and only calls `scrollTo(0, 0)` on an unstamped entry.
-- The shell paints before anything is awaited: `main.tsx` calls `render` before `completeLogin` and `loadFromDb`, and drives
-  `bootPhase` (`'signin' | 'loading' | 'ready'`, declared in `app.tsx`); nothing else writes it.
+- **Look**: `ui/theme/tokens.css` holds every colour, type, shape and motion token (`--md-sys-*`, `--app-*`): Material's dark
+  scheme from the seed `#7FFF00`, chartreuse kept as the accent. Components read tokens only. `theme/contrast.ts` and its test
+  check every text and control pair (WCAG 2.2 AA). Roboto is served from `public/fonts/`; `ui/icons.tsx` holds the inline
+  Material Symbols. Shared components live in `ui/components/` (`Button`, `IconButton`, `SegmentedButtons`, `Card`,
+  `StatusLine`, `EmptyState`, `Flag`, `KeyPill`/`BpmText`, `NoData` (a dash announced "no data", never 0), `ProgressBar`,
+  `TextField`, `FileDrop`, `Banner`).
+- **Size classes**: `ui/layout/windowClass.ts` (`windowClassOf`, the `windowClass` signal): compact < 600 px, medium 600–839,
+  expanded 840–1199, large ≥ 1200. CSS does the layout at the same breakpoints; the signal decides behaviour only (pane or full
+  screen, rail or bar).
+- **Frame**: `layout/AppFrame.tsx` draws `Nav.tsx` (a rail with labels from 600 px, Settings at its foot; a five-item bottom bar
+  on compact), `TopBar.tsx` (the title from `titles.ts`, back on a detail, the screen's actions, the search field, the Activity
+  button) and `ScreenTabs.tsx` (Top · Crate, Playlists · Artists). The frame paints before anything is awaited: `main.tsx` calls
+  `render` before `completeLogin` and `loadFromDb`, and drives `bootPhase` (`'signin' | 'loading' | 'ready'`, in `app.tsx`).
+  `ActivityButton.tsx` reads `activeJobs` (`ui/jobs.ts`, over the job signals of §14, read only) and links to the place that owns
+  each job; it never starts, stops or retries one. Banners sit under the top bar.
+- **Destinations and addresses** (`src/router.ts`): Overview (`#/`, also an empty or unknown address), Listening (`#/top`,
+  `#/crate`, `#/crate/<view>`, `#/crate/year/<YYYY-MM>`), Library (`#/playlists`, `#/playlist/<id>`, `#/artists`,
+  `#/artist/<key>`), Mix (`#/mix`; `#/mix/<key>` opens a saved mix from this browser, never a network call, and an unknown key
+  says so inline) and Settings (`#/settings`, `#/import`). `destinationOf(route)` gives the destination and tab; each destination
+  reopens the route last used in it this session. Any route may end with `?d=<id>`, the track details sheet over that screen: a
+  Spotify track id, a playlist entry's position on a playlist, a search result over any other screen. `routeHref` is the only
+  builder of addresses; `parseRoute` stays total.
+- **History**: a new navigation scrolls to the top; back and forward do not (`installRouter` stamps `history.state` with
+  `djVisited`, `visitEntry`). Opening the sheet pushes an entry; moving to another row with it open, Escape and ✕ replace it
+  (`details/navigate.ts`), so Back returns to the list.
+- **Tables** (`ui/table/`): `DataTable.tsx` (ARIA table roles on a CSS grid) with the `Column<Row>` builders of `columns.tsx`;
+  pure `sort.ts` (`sortRows`, `nextSort`: any column, both directions, missing values last, ranks from the full list),
+  `paging.ts` ("Showing 100 of 2,431", page by page) and `keyboard.ts` (arrows, Home and End, Enter opens). Columns hide by
+  priority as the table narrows. Compact windows, and a table beside a list pane on expanded windows, show two-line items
+  without sort headers (spec FR-015/016 as amended). Sort state is a signal per screen, for the session.
+- **Details and list–detail**: `layout/SideSheet.tsx` docks the sheet at 400 px on large windows, a modal on medium and
+  expanded, full screen on compact; `details/TrackDetails.tsx` with the pure `trackFacts.ts` shows everything the app holds for a
+  track. `layout/ListDetail.tsx` puts Playlists, Artists and the Mixes list beside the open item from 840 px; on compact the item
+  opens full screen with back. `layout/escape.ts` closes one layer per Escape by rank (search, Activity, the sheet, a folded
+  pane, the detail pane), and the focus goes back to the row (`data-row-id`, `layout/focus.ts`).
+- **Charts** (`ui/charts/`): inline SVG, no library. `series.ts` (pure: a month outside the history is a gap, zero is drawn as
+  zero), `MonthBars.tsx`, `Meter.tsx` (the finish rate in its band), `YearMonthGrid.tsx` (By year's period picker). Every chart
+  gives its values on hover, on focus and as text.
+- **Screens**: `overview/` (`blocks.ts`, pure, from stored data only, never Spotify, each block behind its screen's gate),
+  `Top.tsx` with `top/ComparePeriods.tsx` (the three periods side by side on large windows), `crate/` (`CrateHub` cards,
+  `CrateView` dispatching to the five view tables, `shared.tsx`, `labels.ts`, `selections.ts`; gated on
+  `historySummary.version === 2`, never on rows), `Playlists.tsx`, `Playlist.tsx` (one strip above the table: meta, Sync and
+  Like states, the order control; Match cells in `playlist/matchCells.ts`), `Artists.tsx` with `UnderRadar.tsx` (gated on
+  `artistReachSummary.version === 1`; **Well known** is a heading at the bottom, never a filter; listeners and fans in two
+  columns), `Artist.tsx`, `settings/` (`SettingsPage.tsx`, the seven sections of `sections.ts` with an index on large windows;
+  long jobs start only here; Disconnect alone in `DangerZone.tsx`), `Import.tsx` (a `FileDrop`) and `Connect.tsx`.
+- **Mix** (`ui/mix/`, §10): `Workspace.tsx` lays out `MixListPane.tsx` (the link field, Identify on my computer, the JSON import,
+  the Mixes list with the queue) beside `MixDetail.tsx` (the header with `RunLine.tsx`, the review line, `TracklistTable.tsx` on
+  `DataTable`, `CreatePlaylistCard.tsx`, `Clues.tsx`); from 840 to 1599 px the Mixes pane folds while a mix is open, behind a
+  "Mixes" button. No banner: every failure inline.
+- **Search and filters**: `search/searchIndex.ts` (pure `buildSearchIndex` over the model and the saved mixes, which are read
+  again on each opening; `searchAll` with the existing `normalize`), `SearchView.tsx` (`/`, Ctrl+K or ⌘K, or the top bar field;
+  results grouped, five a group with Show all), `choose.ts` (what a result opens; Escape clears the text, then closes).
+  `filters/trackFilter.ts` (pure: text, BPM range, one key with its compatible keys as Match's relations), `FilterBar.tsx` and
+  `KeyPicker.tsx` on every track table, with "Showing N of M" and Clear filters.
+- **Demo and the visual loop** (dev only; [Contributing](../dev-guide/000-contributing.md) "The visual loop"): `yarn dev` opened
+  with `?demo` or `?demo=<variant>` (`full`, `empty`, `old-import`, `no-reach`, `locked`, `signed-out`; `src/dev/flag.ts`) swaps
+  in the demo library of `src/dev/demo.ts`, kept in its own database (`spotify-dj-demo`), with an in-memory Spotify session and no
+  server, so the owner's data and logins are never touched; `window.__demo` sets job states for the shots. A production build
+  drops it (`import.meta.env.DEV`). `tools/shots/` (Playwright with axe-core, outside `yarn test` and CI): `pages.ts` lists every
+  page and state; `all.shots.ts` opens each at 1440, 1024, 768 and 390 px with the network blocked outside 127.0.0.1 and the
+  clock frozen, runs `checks.ts` (page scroll, clipped text, overlap, column alignment, target size, frame in viewport), the focus
+  check and axe, and saves screenshots; `keyboard.shots.ts` walks every screen with the keyboard; `summary.ts` and
+  `contact-sheet.ts` read the results.
 
 ## 14. Jobs and state (`model/state.ts`)
 
 | Job               | Wrapper                                                       | Started from                                                   | In `jobsBusy()`                                                                                                                                                       |
 | ----------------- | ------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sync              | `startSync` (`src/model/state.ts:379`)                        | Settings, a playlist's button                                  | yes                                                                                                                                                                   |
-| History import    | `startImport` (`:445`)                                        | `#/import`                                                     | yes                                                                                                                                                                   |
-| ReccoBeats lookup | `startLookup` (`:535`)                                        | Settings · Audio data                                          | yes                                                                                                                                                                   |
-| Rekordbox import  | `startRekordboxImport` (`:576`)                               | Settings · Audio data                                          | yes                                                                                                                                                                   |
-| Artist reach      | `startReach` (`:604`)                                         | Settings · Artist reach                                        | yes                                                                                                                                                                   |
-| Mix lookup        | `startMixLookup` (`:665`), `startTracklistifyImport` (`:753`) | `#/mix`                                                        | no                                                                                                                                                                    |
-| Create playlist   | `startCreatePlaylist` (`:928`)                                | `#/mix`                                                        | no                                                                                                                                                                    |
-| Check on Spotify  | `startSpotifyCheck`, `stopSpotifyCheck` (spec 003 T117)       | `#/mix`, the open mix's header                                 | no (Spotify reads only, one track at a time; refused while a sync runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
-| Like all songs    | `startLikePlaylist` (`:1389`)                                 | Playlist screen                                                | no                                                                                                                                                                    |
-| Server pull       | `startServerPull` (`:284`)                                    | the open (after the first paint), Settings · Server · Sync now | yes                                                                                                                                                                   |
-| Server push       | `queueServerPush` (`:246`)                                    | the tail of the five library jobs, every mix save or delete    | no                                                                                                                                                                    |
-| Identify request  | `startIdentifyRequest` (worker round)                         | `#/mix`, the Identify on my computer button                    | no (one insert, under a second; no `confirm()`; Disconnect keeps it)                                                                                                  |
+| Sync              | `startSync` (`src/model/state.ts:920`)                        | Settings, a playlist's button                                  | yes                                                                                                                                                                   |
+| History import    | `startImport` (`:993`)                                        | `#/import`                                                     | yes                                                                                                                                                                   |
+| ReccoBeats lookup | `startLookup` (`:1051`)                                        | Settings · Audio data                                          | yes                                                                                                                                                                   |
+| Rekordbox import  | `startRekordboxImport` (`:1093`)                               | Settings · Audio data                                          | yes                                                                                                                                                                   |
+| Artist reach      | `startReach` (`:1122`)                                         | Settings · Artist reach                                        | yes                                                                                                                                                                   |
+| Mix lookup        | `startMixLookup` (`:1184`), `startTracklistifyImport` (`:1273`) | `#/mix`                                                        | no                                                                                                                                                                    |
+| Create playlist   | `startCreatePlaylist` (`:1562`)                                | `#/mix`                                                        | no                                                                                                                                                                    |
+| Check on Spotify  | `startSpotifyCheck` (`:1767`), `stopSpotifyCheck` (`:1751`)       | `#/mix`, the open mix's header                                 | no (Spotify reads only, one track at a time; refused while a sync runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
+| Like all songs    | `startLikePlaylist` (`:1902`)                                 | Playlist screen                                                | no                                                                                                                                                                    |
+| Server pull       | `startServerPull` (`:354`)                                    | the open (after the first paint), Settings · Server · Sync now | yes                                                                                                                                                                   |
+| Server push       | `queueServerPush` (`:310`)                                    | the tail of the five library jobs, every mix save or delete    | no                                                                                                                                                                    |
+| Identify request  | `startIdentifyRequest` (`:1471`)                         | `#/mix`, the Identify on my computer button                    | no (one insert, under a second; no `confirm()`; Disconnect keeps it)                                                                                                  |
 
-The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:314`). The mix and like
+The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:851`). The mix and like
 jobs write no library store and rebuild no `Model`, so they need no exclusion; each guards its own re-entry on its state's `status`, shows
-every failure inline (never a banner) and is reset by `disconnect` (`:1115`). Every Spotify reader shares one quota lock-out
+every failure inline (never a banner) and is reset by `disconnect` (`:1963`). Every Spotify reader shares one quota lock-out
 (`spotifyQuotaLock`, §4): a quota answer to any of them is remembered for all, across reloads, and `disconnect` keeps it.
 
 Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
 (`ACCOUNT_SWITCH_CONFIRM`, `:952`), an import that covers less than the stored history (`replaceQuestion`, `:1004`), Remove server data
-(`REMOVE_SERVER_DATA_CONFIRM`, `:437`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:2059`) and Stop a running scan
-(`STOP_REQUEST_CONFIRM`, `:2076`, round 004; the scan keeps its tracks); Disconnect, asked by its button in
+(`REMOVE_SERVER_DATA_CONFIRM`, `:437`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:2059`, asked from the request's row in the Mixes list,
+`ui/mix/MixListPane.tsx`) and Stop a running scan (`STOP_REQUEST_CONFIRM`, `:2076`, round 004, asked from the Mixes list row or
+the open mix's header, `ui/mix/RunLine.tsx`; the scan keeps its tracks); Disconnect, asked by its button in
 `ui/settings/DangerZone.tsx` (`:26`); and Remove a saved mix ("Remove this saved mix?"), asked by its row menu in
 `ui/mix/MixListPane.tsx` (`:173`). Non-destructive, in
 `state.ts`: Like all songs' count (`:1925`) and the four "replace the working list" questions of the Mix screen (`:1257`, `:1287`,
