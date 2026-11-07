@@ -72,7 +72,13 @@ describe('quotaRefusal: every Spotify reader refuses inside the lock', () => {
     );
   });
   it('lets every reader through once the lock lapsed, or without one', () => {
-    for (const reader of ['sync', 'check', 'create', 'like'] as const) {
+    for (const reader of [
+      'sync',
+      'check',
+      'create',
+      'like',
+      'account',
+    ] as const) {
       expect(quotaRefusal(reader, 1_000, 1_000, fmt)).toBeNull();
       expect(quotaRefusal(reader, null, 1_000, fmt)).toBeNull();
     }

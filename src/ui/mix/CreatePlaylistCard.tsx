@@ -102,8 +102,9 @@ export function CreatePlaylistCard(p: { view: MixView }) {
               { value: 'all', label: `All tracks (${allCount})` },
             ]}
             value={choice}
+            disabled={running}
             onChange={(c) => {
-              if (!running) createChoice.value = { url: view.url, choice: c };
+              createChoice.value = { url: view.url, choice: c };
             }}
           />
           <p class="mix-caption">

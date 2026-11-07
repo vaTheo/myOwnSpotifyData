@@ -39,13 +39,16 @@ export function lapseDelay(until: number, now: number): number {
   return Math.min(Math.max(0, until - now), MAX_TIMER_MS);
 }
 
-export type SpotifyReader = 'sync' | 'check' | 'create' | 'like';
+/** Who reads Spotify; 'account' is the `/me` call on the Connect tap,
+ *  whose check the next sync makes again. */
+export type SpotifyReader = 'sync' | 'check' | 'create' | 'like' | 'account';
 
 const AGAIN: Record<SpotifyReader, string> = {
   sync: 'Sync again',
   check: 'Check again',
   create: 'Try again',
   like: 'Try again',
+  account: 'Sync again',
 };
 
 /** The reader's refusal while the lock holds, else null (it may read). */

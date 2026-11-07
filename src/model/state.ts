@@ -65,6 +65,7 @@ import {
   laterLock,
   parseStoredLock,
   quotaRefusal,
+  type SpotifyReader,
 } from '../spotify/quotaLock';
 import { demoVariant } from '../dev/flag';
 import {
@@ -409,6 +410,13 @@ export async function removeServerData(): Promise<void> {
  * when none is stored, keeps a differing one and says so. Never on load.
  */
 export async function recordConnectedAccount(): Promise<void> {
+  // Not inside the quota lock-out (S08d round 1): the account is checked
+  // again by the next sync, which asks before any switch.
+  const refused = heldQuotaMessage('account');
+  if (refused !== null) {
+    banner.value = warnBanner(refused);
+    return;
+  }
   try {
     const me = await api.get<ApiProfile>('/me');
     const cached = await getMeta<string>(ACCOUNT_META);
@@ -417,6 +425,11 @@ export async function recordConnectedAccount(): Promise<void> {
     if (outcome === 'mismatch')
       banner.value = warnBanner(ACCOUNT_MISMATCH_NOTICE);
   } catch (err) {
+    if (err instanceof QuotaError) {
+      noteQuotaLock(err.retryAt);
+      banner.value = warnBanner(heldQuotaMessage('account') ?? '');
+      return;
+    }
     banner.value = errorBanner(
       `Could not read the Spotify account: ${describeError(err)}`
     );
@@ -674,6 +687,11 @@ export function spotifyLockedUntil(now = Date.now()): number | null {
   return activeLock(spotifyQuotaLock.value, now);
 }
 
+/** The reader's refusal naming the held lock's end, or null when none. */
+export function heldQuotaMessage(reader: SpotifyReader): string | null {
+  return quotaRefusal(reader, spotifyLockedUntil(), Date.now(), formatDateTime);
+}
+
 effect(() => {
   const until = spotifyQuotaLock.value;
   try {
@@ -834,7 +852,7 @@ async function acquireWakeLock(): Promise<() => Promise<void>> {
 }
 
 function lockMessage(retryAt: number): string {
-  return `Spotify quota reached. Sync again after ${formatDateTime(retryAt)}.`;
+  return quotaRefusal('sync', retryAt, 0, formatDateTime) ?? '';
 }
 
 /** True while a sync is running or the quota lock-out has not lapsed. */
@@ -1535,12 +1553,7 @@ export async function startCreatePlaylist(): Promise<void> {
 
   // Its searches read Spotify: not inside the quota lock-out, whichever
   // reader met it (S08d).
-  const refused = quotaRefusal(
-    'create',
-    spotifyLockedUntil(),
-    Date.now(),
-    formatDateTime
-  );
+  const refused = heldQuotaMessage('create');
   if (refused !== null) {
     createPlaylistState.value = { status: 'error', message: refused };
     return;
@@ -1584,11 +1597,10 @@ export async function startCreatePlaylist(): Promise<void> {
     noteQuotaLock(outcome.quotaUntil);
     const s = createPlaylistState.value;
     if (s.status === 'error') {
+      // The held lock's end, so every line names the same time.
       createPlaylistState.value = {
         ...s,
-        message:
-          quotaRefusal('create', outcome.quotaUntil, 0, formatDateTime) ??
-          s.message,
+        message: heldQuotaMessage('create') ?? s.message,
       };
     }
   }
@@ -1791,7 +1803,7 @@ export async function startSpotifyCheck(): Promise<void> {
   if (out.status === 'error') {
     if (out.error instanceof QuotaError) {
       noteQuotaLock(out.error.retryAt);
-      fail(checkLockMessage(out.error.retryAt));
+      fail(heldQuotaMessage('check') ?? checkLockMessage(out.error.retryAt));
     } else {
       fail(`Could not check on Spotify: ${describeError(out.error)}`);
     }
@@ -1807,7 +1819,7 @@ export async function startSpotifyCheck(): Promise<void> {
 }
 
 export function checkLockMessage(retryAt: number): string {
-  return `Spotify quota reached. Check again after ${formatDateTime(retryAt)}.`;
+  return quotaRefusal('check', retryAt, 0, formatDateTime) ?? '';
 }
 
 /**
@@ -1870,12 +1882,7 @@ export async function startLikePlaylist(playlistId: string): Promise<void> {
     likeState.value = { status: 'needScope', playlistId };
     return;
   }
-  const refused = quotaRefusal(
-    'like',
-    spotifyLockedUntil(),
-    Date.now(),
-    formatDateTime
-  );
+  const refused = heldQuotaMessage('like');
   if (refused !== null) {
     likeState.value = { status: 'error', playlistId, message: refused };
     return;
@@ -1887,7 +1894,7 @@ export async function startLikePlaylist(playlistId: string): Promise<void> {
     done: 0,
     total: 0,
   } as LikeState;
-  await runLikePlaylist(
+  const outcome = await runLikePlaylist(
     {
       client: api,
       confirm: (toLike, total) => confirm(likeQuestion(toLike, total)),
@@ -1897,6 +1904,18 @@ export async function startLikePlaylist(playlistId: string): Promise<void> {
     },
     { playlistId, ...likeCandidates(m, playlistId) }
   );
+  // Spotify's quota, met by a check or a write: remembered app-wide (S08d
+  // round 1) and said inline with the held lock's end.
+  if (outcome.quotaUntil !== undefined) {
+    noteQuotaLock(outcome.quotaUntil);
+    const s = likeState.value;
+    if (s.status === 'error') {
+      likeState.value = {
+        ...s,
+        message: heldQuotaMessage('like') ?? s.message,
+      };
+    }
+  }
 }
 
 /**
