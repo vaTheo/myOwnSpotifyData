@@ -5,6 +5,7 @@
  */
 import type { ReachRunCounts, ReachStep } from '../../features/reachRun';
 import type { RekordboxSummary } from '../../features/rekordboxImport';
+import type { ServerPending } from '../../db/schema';
 // Type-only: this file never evaluates state.ts under Vitest.
 import type { Coverage, ReachCoverage } from '../../model/state';
 import { plural } from '../format';
@@ -79,4 +80,30 @@ export function pausedLine(step: ReachStep): string {
     `${SOURCE_LABEL[step]} stopped answering after three tries; ` +
     'the rest of this run skipped it.'
   );
+}
+
+/** The server datasets in the words of the Settings sections. */
+const PENDING_NAMES: Record<keyof ServerPending, string> = {
+  library: 'Library',
+  history: 'Listening history',
+  features: 'Audio data',
+  reach: 'Artist reach',
+  mixes: 'Mixes',
+};
+
+/**
+ * The changes waiting to send to the server (FR-050): `0` when nothing
+ * waits (a real zero), else the count and the datasets in page order:
+ * `2 · Listening history, Mixes`.
+ */
+export function pendingValue(pending: ServerPending): string {
+  const names = (Object.keys(PENDING_NAMES) as (keyof ServerPending)[])
+    .filter((name) => pending[name] === true)
+    .map((name) => PENDING_NAMES[name]);
+  return names.length === 0 ? '0' : `${names.length} · ${names.join(', ')}`;
+}
+
+/** The Settings server section's line for the same figure. */
+export function pendingLine(pending: ServerPending): string {
+  return `Changes waiting to send: ${pendingValue(pending)}`;
 }

@@ -18,6 +18,9 @@ function hasValue(v: { bpm: number | null; key: number | null }): boolean {
   return v.bpm !== null || v.key !== null;
 }
 
+let memoModel: Model | null = null;
+let memoValue: Coverage | null = null;
+
 /**
  * Spec §5's coverage line. `total` is every candidate id — §3's universe,
  * not the ids a lookup would still fetch, which would shrink to zero as the
@@ -27,6 +30,15 @@ function hasValue(v: { bpm: number | null; key: number | null }): boolean {
  * can add up to more than `covered`.
  */
 export function coverage(m: Model): Coverage {
+  // Memoised on the model identity, as `reachCoverage` is: Settings and the
+  // Overview read it on every render, progress ticks included.
+  if (memoModel === m && memoValue) return memoValue;
+  memoValue = count(m);
+  memoModel = m;
+  return memoValue;
+}
+
+function count(m: Model): Coverage {
   const candidates = candidateIds(m);
   let covered = 0;
   let reccobeats = 0;

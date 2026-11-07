@@ -22,6 +22,7 @@ import {
   reachState,
   rekordboxState,
   serverLinkSent,
+  serverPending,
   serverSession,
   serverState,
   spotifyQuotaLock,
@@ -59,6 +60,8 @@ const CONTROLLED: Record<string, Signal<unknown>> = {
   reachState,
   rekordboxState,
   serverLinkSent,
+  /** The changes waiting to send to the server (S10 round 1). */
+  serverPending,
   serverSession,
   serverState,
   /** Check on Spotify mid-run or finished (S08c, T117). */

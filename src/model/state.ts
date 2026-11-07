@@ -182,6 +182,27 @@ const serverPulling = signal(false);
 /** The last successful push or pull, for the card in every state. */
 export const serverLastSyncAt = signal<number | null>(null);
 
+/**
+ * The datasets changed here and not yet sent to the server (FR-050), as
+ * `SERVER_PENDING_META` holds them: null until read. The Overview and the
+ * Settings server section read them after their first paint, a local read
+ * that never calls the server or Spotify; a push refreshes them.
+ */
+export const serverPending = signal<ServerPending | null>(null);
+/** Why the pending flags could not be read, or null. */
+export const serverPendingError = signal<string | null>(null);
+
+/** Reads the pending flags into `serverPending`; never throws. */
+export async function loadServerPending(): Promise<void> {
+  try {
+    serverPending.value =
+      (await getMeta<ServerPending>(SERVER_PENDING_META)) ?? {};
+    serverPendingError.value = null;
+  } catch (err) {
+    serverPendingError.value = `Could not read the changes waiting to send: ${describeError(err)}`;
+  }
+}
+
 /** The Free plan's database allowance, for the used share (SC-004). */
 export const SERVER_FREE_BYTES = 500 * 1024 * 1024;
 
@@ -284,6 +305,7 @@ export async function queueServerPush(
     const pending = (await getMeta<ServerPending>(SERVER_PENDING_META)) ?? {};
     for (const name of names) pending[name] = true;
     await putMeta(SERVER_PENDING_META, pending);
+    serverPending.value = pending;
   }
   if (!serverAuth.session.value) return;
   if (pushRunning) {
@@ -306,6 +328,8 @@ export async function queueServerPush(
     } while (pushQueued);
   } finally {
     pushRunning = false;
+    // A push clears the flags it sent; the cards show what is left.
+    await loadServerPending();
   }
 }
 
@@ -402,6 +426,7 @@ export async function removeServerData(): Promise<void> {
   const res = await runRemoveAll(serverDeps());
   if (res.ok) mixJobs.value = {};
   serverState.value = res.ok ? await connectedView() : serverFailure(res);
+  await loadServerPending();
 }
 
 /**

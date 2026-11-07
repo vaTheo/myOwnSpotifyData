@@ -30,8 +30,11 @@ import {
   historyLine,
 } from '../format';
 import { coverageLine, reachCoverageLine } from '../settings/lines';
+import { pendingValue } from '../settings/lines';
 import {
+  listeningMs,
   overviewBlocks,
+  rotationOf,
   type OverviewBlock,
   type OverviewInput,
 } from './blocks';
@@ -59,6 +62,8 @@ function input(over: Partial<OverviewInput> = {}): OverviewInput {
     artistReachSummary: reachSummary,
     serverState: { status: 'unset' },
     serverLastSyncAt: null,
+    serverPending: null,
+    serverPendingError: null,
     mixes,
     mixJobs: {},
     mixError: null,
@@ -114,7 +119,9 @@ describe('overviewBlocks (spec 003, US8, SC-009)', () => {
     it('repeats the Settings history line and its figures', () => {
       const b = block(overviewBlocks(input()), 'listening');
       expect(b.state).toBe('ready');
-      expect(b.caption).toBe(historyLine(summary));
+      // Word for word: a version 2 import names its zone, as Settings does.
+      expect(b.caption).toBe(historyLine(summary, summary.zone));
+      expect(b.caption).toMatch(/Months bucketed in Europe\/Paris\.$/);
       expect(figure(b, 'Plays')).toBe(summary.plays.toLocaleString());
       expect(figure(b, 'Imported')).toBe(formatDate(summary.importedAt));
     });
@@ -290,6 +297,22 @@ describe('overviewBlocks (spec 003, US8, SC-009)', () => {
       );
     });
 
+    it('shows a failed sync even with no playlist pending', () => {
+      const b = block(
+        overviewBlocks(
+          input({
+            syncState: {
+              status: 'error',
+              message: 'Network down.',
+              pending: [],
+            },
+          })
+        ),
+        'library'
+      );
+      expect(b.warning).toBe('Last error: Network down.');
+    });
+
     it('is empty with no playlists', () => {
       const b = block(overviewBlocks(input({ model: null })), 'library');
       expect(b.state).toBe('empty');
@@ -386,6 +409,49 @@ describe('overviewBlocks (spec 003, US8, SC-009)', () => {
       expect(b.state).toBe('hidden');
     });
 
+    const connected = {
+      status: 'connected' as const,
+      lastSyncAt: DEMO_NOW - 60_000,
+      usedBytes: null,
+      stamps: [],
+      rejected: 0,
+    };
+
+    it('shows the changes waiting to send, a real 0 as 0', () => {
+      const none = block(
+        overviewBlocks(input({ serverState: connected, serverPending: {} })),
+        'server'
+      );
+      expect(figure(none, 'Waiting to send')).toBe('0');
+      const two = block(
+        overviewBlocks(
+          input({
+            serverState: connected,
+            serverPending: { history: true, mixes: true },
+          })
+        ),
+        'server'
+      );
+      expect(figure(two, 'Waiting to send')).toBe(
+        pendingValue({ history: true, mixes: true })
+      );
+    });
+
+    it('prints no number before the pending flags are read, and shows a failed read', () => {
+      const unread = block(
+        overviewBlocks(input({ serverState: connected })),
+        'server'
+      );
+      expect(figure(unread, 'Waiting to send')).toBeNull();
+      const failed = block(
+        overviewBlocks(
+          input({ serverState: connected, serverPendingError: 'Disk gone.' })
+        ),
+        'server'
+      );
+      expect(failed.error).toBe('Disk gone.');
+    });
+
     it('shows the last sync when connected', () => {
       const at = DEMO_NOW - 60_000;
       const b = block(
@@ -431,5 +497,20 @@ describe('overviewBlocks (spec 003, US8, SC-009)', () => {
       );
       expect(b.error).toBe('Refused.');
     });
+  });
+});
+
+describe('the Overview memos (progress ticks do not recount)', () => {
+  it('rotationOf returns the same list for the same plays, month and window', () => {
+    const a = rotationOf(fullModel.plays, now, 3);
+    expect(rotationOf(fullModel.plays, new Date(DEMO_NOW + 60_000), 3)).toBe(a);
+    expect(a).toEqual(heavyRotation(fullModel.plays, now, 3));
+    expect(rotationOf(fullModel.plays, now, 6)).not.toBe(a);
+  });
+
+  it('listeningMs sums once per play list', () => {
+    const ms = listeningMs(fullModel.plays);
+    expect(ms).toBe(fullModel.plays.reduce((s, p) => s + p.msPlayed, 0));
+    expect(listeningMs(fullModel.plays)).toBe(ms);
   });
 });

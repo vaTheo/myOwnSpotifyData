@@ -85,6 +85,17 @@ const ARTIST_COLUMNS: Column<AnnotatedTopArtist>[] = [
   spotifyLinkColumn((r) => r.item.spotifyUrl),
 ];
 
+/**
+ * Top on its 4-week tracks list, for the Overview's "Top this month" card
+ * (US8): its links then open the list they show, and a `?d=` names a row
+ * of it, whatever period the owner last left Top on.
+ */
+export function showTopTracksThisMonth(): void {
+  period.value = 'short_term';
+  kind.value = 'tracks';
+  compare.value = false;
+}
+
 /** `detail` is the track whose details sheet is open (`?d=`). */
 export function Top({ detail }: { detail?: string }) {
   const m = model.value;

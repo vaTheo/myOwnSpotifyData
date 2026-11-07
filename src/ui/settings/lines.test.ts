@@ -4,6 +4,8 @@ import { formatDate, historyLine } from '../format';
 import {
   coverageLine,
   pausedLine,
+  pendingLine,
+  pendingValue,
   reachCoverageLine,
   reachRunLine,
   rekordboxLine,
@@ -90,6 +92,17 @@ describe('Settings lines (word for word, FR-049)', () => {
   it('pausedLine', () => {
     expect(pausedLine('deezer')).toBe(
       'Deezer stopped answering after three tries; the rest of this run skipped it.'
+    );
+  });
+
+  it('pendingValue and pendingLine (FR-050): a real 0, else the count and the names', () => {
+    expect(pendingValue({})).toBe('0');
+    expect(pendingLine({})).toBe('Changes waiting to send: 0');
+    expect(pendingValue({ mixes: true, history: true })).toBe(
+      '2 · Listening history, Mixes'
+    );
+    expect(pendingLine({ library: true })).toBe(
+      'Changes waiting to send: 1 · Library'
     );
   });
 
