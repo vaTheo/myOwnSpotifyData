@@ -5,7 +5,7 @@
  * The browser edges (the Spotify session, the API client, the server, the
  * database) are replaced, so state.ts runs under Vitest without a browser.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '../auth/session';
 import type { TracklistRow } from '../db/schema';
 import { QuotaError } from '../spotify/errors';
@@ -46,7 +46,7 @@ vi.mock('../server/browser', async () => {
       linkSent: s(false),
       lastError: s(null),
       getAccessToken: vi.fn(),
-      signOut: vi.fn(),
+      signOut: vi.fn(async () => undefined),
     },
   };
 });
@@ -63,6 +63,9 @@ vi.mock('../db/repo', async (importOriginal) => ({
 
 const { auth } = await import('../auth/browser');
 const state = await import('./state');
+const { serverAuth } = await import('../server/browser');
+const { setScopeForTests } = await import('../server/scopeBrowser');
+const scope = await import('../server/userScope');
 
 const HOUR = 3_600_000;
 const URL = 'https://soundcloud.com/demo/set';
@@ -826,5 +829,66 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
     await state.startCreatePlaylist();
     expect(state.mixError.value).toBe('Could not save the mix: B');
     expect(state.savedMixes.value.map((m) => m.url)).toEqual([URL]);
+  });
+});
+
+/* ---------- ADR-13: the stored server session is the active user ---------- */
+
+describe('activateServerUser', () => {
+  const OWNER = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
+  const map = new Map<string, string>();
+  const storage = {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, v),
+    removeItem: (k: string) => void map.delete(k),
+  };
+  const session = serverAuth.session as unknown as {
+    value: { userId: string | null; email: string } | null;
+  };
+
+  beforeEach(() => {
+    map.clear();
+    mocks.serverConfigured = true;
+    setScopeForTests({ storage, enabled: true });
+    vi.mocked(serverAuth.signOut).mockClear();
+  });
+
+  afterEach(() => {
+    mocks.serverConfigured = false;
+    setScopeForTests(null);
+    session.value = null;
+    state.serverState.value = { status: 'unset' };
+  });
+
+  it("claims the owner's pre-update session on first load: no reload, today's names", () => {
+    session.value = { userId: OWNER, email: 'me@x.y' };
+    expect(state.activateServerUser()).toBe('ok');
+    expect(scope.readActive(storage)).toEqual({
+      userId: OWNER,
+      email: 'me@x.y',
+    });
+    expect(scope.dbNameFor('spotify-dj', storage, true)).toBe('spotify-dj');
+    expect(scope.keyFor('session', storage, true)).toBe('session');
+    expect(serverAuth.signOut).not.toHaveBeenCalled();
+  });
+
+  it('a session whose token names no account is signed out with a message, never activated', async () => {
+    session.value = { userId: null, email: 'me@x.y' };
+    expect(state.activateServerUser()).toBe('invalid');
+    expect(scope.readActive(storage)).toBeNull();
+    expect(map.size).toBe(0);
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    expect(state.serverState.value).toEqual({
+      status: 'error',
+      message: state.SERVER_NO_USER_MESSAGE,
+    });
+  });
+
+  it('is none without a server', () => {
+    mocks.serverConfigured = false;
+    session.value = { userId: OWNER, email: 'me@x.y' };
+    expect(state.activateServerUser()).toBe('none');
+    expect(map.size).toBe(0);
   });
 });

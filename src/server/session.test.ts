@@ -123,6 +123,8 @@ describe('completeLink', () => {
       refreshToken: 'r1',
       expiresAt: 10_000_000,
       email: 'me@example.com',
+      // 'a1' is not a JWT: no `sub`, so no id (ADR-13).
+      userId: null,
     });
     expect(storage.getItem(PKCE_KEY)).toBeNull();
     expect(s.session.value?.email).toBe('me@example.com');
@@ -174,6 +176,7 @@ describe('getAccessToken', () => {
     refreshToken: 'r1',
     expiresAt: 1_000_000 + 120_000,
     email: 'me@example.com',
+    userId: null,
   };
 
   it('returns the stored token while more than the margin remains', async () => {
@@ -327,5 +330,42 @@ describe('signOut', () => {
     expect(storage.getItem(SESSION_KEY)).toBeNull();
     expect(storage.getItem(PKCE_KEY)).toBeNull();
     expect(s.session.value).toBeNull();
+  });
+});
+
+describe('userId (ADR-13)', () => {
+  const ID = 'aaaaaaaa-1111-4111-8111-bbbbbbbbbbbb';
+  const token = `x.${btoa(JSON.stringify({ sub: ID }))}.y`;
+
+  it('a session stored before this round gets its id from the token, with no call', () => {
+    const client = fakeClient();
+    const storage = new MemoryStorage();
+    storage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        accessToken: token,
+        refreshToken: 'r',
+        expiresAt: 9_999_999,
+        email: 'me@example.com',
+      })
+    );
+    const { s } = store(client, storage);
+    expect(s.session.value?.userId).toBe(ID);
+    expect(client.refresh).not.toHaveBeenCalled();
+  });
+
+  it('a token without a valid sub leaves the id null', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        accessToken: 'plain',
+        refreshToken: 'r',
+        expiresAt: 9_999_999,
+        email: 'me@example.com',
+      })
+    );
+    const { s } = store(fakeClient(), storage);
+    expect(s.session.value?.userId).toBeNull();
   });
 });

@@ -3,6 +3,7 @@ import { App, bootPhase, installRouter } from './app';
 import { auth } from './auth/browser';
 import { demoVariant } from './dev/flag';
 import {
+  activateServerUser,
   completeServerLink,
   hasActiveRequest,
   loadFromDb,
@@ -29,6 +30,13 @@ async function boot(): Promise<void> {
   // `?code=`; the `link=server` marker is what tells them apart (S2).
   const serverLink = params.get('link') === LINK_MARKER;
   const returning = !serverLink && (params.has('code') || params.has('error'));
+  // A server session stored on this device is the active user (ADR-13); the
+  // owner's session from before this round claims today's names here, with
+  // no reload. A magic link activates its own account below instead.
+  if (!serverLink && activateServerUser() === 'reload') {
+    location.reload();
+    return;
+  }
   if (returning) bootPhase.value = 'signin';
   else bootPhase.value = auth.session.value ? 'loading' : 'ready';
   installRouter();
@@ -49,10 +57,15 @@ async function boot(): Promise<void> {
     history.replaceState(history.state, '', location.pathname + location.hash);
   }
   if (serverLink) {
-    await completeServerLink(params);
+    const linked = await completeServerLink(params);
     // Drop the code from the URL and land on Settings, where the card says
-    // whether the link worked; a same-document replace, no reload.
+    // whether the link worked.
     location.replace(location.pathname + '#/settings');
+    // Another user's account: this page holds the previous user's names
+    // (`auth`, the database, the model), so nothing more runs here; the
+    // navigation above loads the page again under the new names (ADR-13).
+    // Not `location.reload()`, which would replay the spent code.
+    if (linked === 'reload') return;
   }
   if (auth.session.value) {
     bootPhase.value = 'loading';

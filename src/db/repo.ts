@@ -1,5 +1,6 @@
 import { deleteDB, openDB, type IDBPDatabase } from 'idb';
 import { DEMO_DB_NAME, demoVariant } from '../dev/flag';
+import { scopedDbName } from '../server/scopeBrowser';
 import {
   DB_NAME,
   DB_VERSION,
@@ -53,7 +54,10 @@ export function setDbEvents(next: DbEvents): void {
  * Same stores, same version: nothing about the schema differs.
  */
 function dbName(): string {
-  return import.meta.env.DEV && demoVariant() !== null ? DEMO_DB_NAME : DB_NAME;
+  if (import.meta.env.DEV && demoVariant() !== null) return DEMO_DB_NAME;
+  // One database per server user (ADR-13): the device's claimer, nobody, or
+  // no server keeps `spotify-dj`; any other user `spotify-dj-u-<id>`.
+  return scopedDbName(DB_NAME);
 }
 
 export function openDb(): Promise<IDBPDatabase<DjDb>> {

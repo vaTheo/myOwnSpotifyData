@@ -1,6 +1,7 @@
 import { signal, type Signal } from '@preact/signals';
 import { challengeFor, randomString } from '../auth/pkce';
 import type { StorageLike } from '../auth/session';
+import { userIdFromToken } from './userScope';
 import {
   LINK_BROWSER_MESSAGE,
   type ServerClient,
@@ -26,6 +27,8 @@ export interface ServerSession {
   /** epoch ms */
   expiresAt: number;
   email: string;
+  /** The account's id (the token's `sub`); null when the token carries none. ADR-13. */
+  userId: string | null;
 }
 
 export interface ServerSessionStore {
@@ -51,6 +54,14 @@ interface PkceRecord {
   verifier: string;
 }
 
+/** Adds the user id: a session stored before ADR-13 has none, the token says it. */
+function stamped(
+  s: (Omit<ServerSession, 'userId'> & { userId?: string | null }) | null
+): ServerSession | null {
+  if (!s) return null;
+  return { ...s, userId: s.userId ?? userIdFromToken(s.accessToken) };
+}
+
 function readJson<T>(storage: StorageLike, key: string): T | null {
   const raw = storage.getItem(key);
   if (!raw) return null;
@@ -65,16 +76,19 @@ export function createServerSessionStore(
   deps: ServerSessionDeps
 ): ServerSessionStore {
   const session = signal<ServerSession | null>(
-    readJson<ServerSession>(deps.storage, SESSION_KEY)
+    stamped(readJson<ServerSession>(deps.storage, SESSION_KEY))
   );
   const linkSent = signal<string | null>(null);
   const lastError = signal<string | null>(null);
   let refreshing: Promise<ServerResult<string>> | null = null;
 
-  function save(next: ServerSession | null): void {
-    if (next) deps.storage.setItem(SESSION_KEY, JSON.stringify(next));
+  function save(
+    next: (Omit<ServerSession, 'userId'> & { userId?: string | null }) | null
+  ): void {
+    const withId = stamped(next);
+    if (withId) deps.storage.setItem(SESSION_KEY, JSON.stringify(withId));
     else deps.storage.removeItem(SESSION_KEY);
-    session.value = next;
+    session.value = withId;
   }
 
   function fresh(s: ServerSession): boolean {
@@ -127,7 +141,9 @@ export function createServerSessionStore(
     // Re-read storage first: another tab may have rotated the pair already,
     // and reusing the old refresh token would revoke the whole family (S7).
     for (let attempt = 0; attempt < 2; attempt++) {
-      const current = readJson<ServerSession>(deps.storage, SESSION_KEY);
+      const current = stamped(
+        readJson<ServerSession>(deps.storage, SESSION_KEY)
+      );
       if (!current) {
         save(null);
         return {

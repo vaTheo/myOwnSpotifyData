@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ACTIVE_KEY,
   DEVICE_OWNER_KEY,
+  activate,
   claim,
   dbNameFor,
   isUserId,
@@ -33,14 +34,26 @@ const B = '22222222-2222-4222-8222-222222222222';
 
 function jwt(payload: unknown): string {
   const b64 = (o: unknown) =>
-    btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    btoa(JSON.stringify(o))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
   return `${b64({ alg: 'none' })}.${b64(payload)}.sig`;
 }
 
 describe('isUserId', () => {
   it('accepts a lowercase uuid', () => expect(isUserId(A)).toBe(true));
   it('rejects anything else', () => {
-    for (const bad of ['', 'x', A.toUpperCase(), `${A}-x`, '../../etc', 'a b', null, 5])
+    for (const bad of [
+      '',
+      'x',
+      A.toUpperCase(),
+      `${A}-x`,
+      '../../etc',
+      'a b',
+      null,
+      5,
+    ])
       expect(isUserId(bad)).toBe(false);
   });
 });
@@ -71,7 +84,7 @@ describe('claim', () => {
 });
 
 describe('names', () => {
-  it('the claimer keeps today\'s names', () => {
+  it("the claimer keeps today's names", () => {
     const s = new Mem();
     claim(s, A);
     writeActive(s, { userId: A, email: 'a@x.fr' });
@@ -86,14 +99,14 @@ describe('names', () => {
     expect(keyFor('session', s, true)).toBe(`session:${B}`);
     expect(keyFor('pkce', s, true)).toBe(`pkce:${B}`);
   });
-  it('without a server every name is today\'s, whatever is stored', () => {
+  it("without a server every name is today's, whatever is stored", () => {
     const s = new Mem();
     claim(s, A);
     writeActive(s, { userId: B, email: 'b@x.fr' });
     expect(dbNameFor('spotify-dj', s, false)).toBe('spotify-dj');
     expect(keyFor('session', s, false)).toBe('session');
   });
-  it('nobody active gives today\'s names', () => {
+  it("nobody active gives today's names", () => {
     expect(dbNameFor('spotify-dj', new Mem(), true)).toBe('spotify-dj');
   });
 });
@@ -155,5 +168,59 @@ describe('scopedStorage', () => {
     expect(view.getItem('session')).toBe('tok');
     view.removeItem('session');
     expect(s.getItem(`session:${B}`)).toBeNull();
+  });
+});
+
+describe('activate', () => {
+  it('the owner with a pre-update session is claimed on first load, no reload, names unchanged', () => {
+    const s = new Mem();
+    expect(activate(s, { userId: A, email: 'a@x.y' }, true)).toEqual({
+      ok: true,
+      reload: false,
+    });
+    expect(readActive(s)).toEqual({ userId: A, email: 'a@x.y' });
+    expect(readDeviceUsers(s)).toEqual([{ userId: A, email: 'a@x.y' }]);
+    expect(dbNameFor('spotify-dj', s, true)).toBe('spotify-dj');
+    expect(keyFor('session', s, true)).toBe('session');
+  });
+
+  it('the same user again needs no reload', () => {
+    const s = new Mem();
+    activate(s, { userId: A, email: 'a@x.y' }, true);
+    expect(activate(s, { userId: A, email: 'a@x.y' }, true)).toEqual({
+      ok: true,
+      reload: false,
+    });
+  });
+
+  it('another user after the claimer reloads, and the claim stays', () => {
+    const s = new Mem();
+    activate(s, { userId: A, email: 'a@x.y' }, true);
+    expect(activate(s, { userId: B, email: 'b@x.y' }, true)).toEqual({
+      ok: true,
+      reload: true,
+    });
+    expect(dbNameFor('spotify-dj', s, true)).toBe(`spotify-dj-u-${B}`);
+    expect(readDeviceUsers(s)).toHaveLength(2);
+  });
+
+  it("another user signing in with nobody active still reloads: the page holds the claimer's names", () => {
+    const s = new Mem();
+    claim(s, A);
+    expect(activate(s, { userId: B, email: 'b@x.y' }, true)).toEqual({
+      ok: true,
+      reload: true,
+    });
+  });
+
+  it('a session without a valid id is refused and writes nothing', () => {
+    const s = new Mem();
+    expect(activate(s, { userId: null, email: 'a@x.y' }, true)).toEqual({
+      ok: false,
+    });
+    expect(activate(s, { userId: 'nope', email: 'a@x.y' }, true)).toEqual({
+      ok: false,
+    });
+    expect(s.map.size).toBe(0);
   });
 });

@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   closeDb,
   deleteMeta,
@@ -25,6 +25,8 @@ import {
   setDbEvents,
   wipeDb,
 } from './repo';
+import { setScopeForTests } from '../server/scopeBrowser';
+import { ACTIVE_KEY, DEVICE_OWNER_KEY } from '../server/userScope';
 import { DB_NAME, DB_VERSION, MIX_JOBS_META, reachKey } from './schema';
 import type {
   ArtistIdentityRow,
@@ -710,5 +712,81 @@ describe('worker round additions (no DB_VERSION bump)', () => {
     expect(await getMeta(MIX_JOBS_META)).toEqual(jobs);
     await deleteMeta(MIX_JOBS_META);
     expect(await getMeta(MIX_JOBS_META)).toBeUndefined();
+  });
+});
+
+describe('per-user names (ADR-13)', () => {
+  const OWNER = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
+
+  /** A device the owner claimed, with `active` signed in (or nobody). */
+  function scope(active: string | null, enabled: boolean): void {
+    const map = new Map<string, string>();
+    map.set(DEVICE_OWNER_KEY, JSON.stringify({ userId: OWNER }));
+    if (active) {
+      map.set(ACTIVE_KEY, JSON.stringify({ userId: active, email: 'o@x.y' }));
+    }
+    setScopeForTests({
+      storage: {
+        getItem: (k) => map.get(k) ?? null,
+        setItem: (k, v) => void map.set(k, v),
+        removeItem: (k) => void map.delete(k),
+      },
+      enabled,
+    });
+  }
+
+  afterEach(async () => {
+    await closeDb();
+    setScopeForTests(null);
+  });
+
+  it.each([
+    ['the claimer is active', OWNER, true],
+    ['nobody is signed in', null, true],
+    ['no server is set up', OWNER, false],
+  ])('opens spotify-dj when %s', async (_label, active, enabled) => {
+    scope(active, enabled);
+    const db = await openDb();
+    expect(db.name).toBe(DB_NAME);
+    expect(DB_NAME).toBe('spotify-dj');
+  });
+
+  it('resolves the name through the scope at open and at wipe', async () => {
+    const OTHER = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
+    scope(OTHER, true);
+    const db = await openDb();
+    expect(db.name).toBe(`spotify-dj-u-${OTHER}`);
+    await putMeta('accountId', 'other');
+    await wipeDb();
+    const names = (await indexedDB.databases()).map((d) => d.name);
+    expect(names).not.toContain(`spotify-dj-u-${OTHER}`);
+  });
+
+  it('the claimer keeps every row of an existing version 4 database', async () => {
+    await closeDb();
+    await wipeDb();
+    const v4 = await openAt(4, [...V3_STORES, ['mixes', 'url']]);
+    await putLegacyRow(v4, 'playlists', playlist('p1'));
+    await putLegacyRow(v4, 'tracks', track('t1'));
+    await putLegacyRow(v4, 'features', feature('t1'));
+    await putLegacyRow(v4, 'artistIdentity', identity('a1'));
+    await putLegacyRow(v4, 'artistReach', reachRow('a1', 'listenbrainz'));
+    await putLegacyRow(v4, 'mixes', mix('https://soundcloud.com/u/m'));
+    await putLegacyRow(v4, 'meta', { name: 'accountId', value: 'me' });
+    v4.close();
+    scope(OWNER, true);
+    const rows = await getAllRows();
+    expect(rows.playlists).toEqual([playlist('p1')]);
+    expect(rows.tracks).toEqual([track('t1')]);
+    expect(rows.features).toEqual([feature('t1')]);
+    expect(rows.artistIdentity).toEqual([identity('a1')]);
+    expect(rows.artistReach).toEqual([reachRow('a1', 'listenbrainz')]);
+    await expect(getMixes()).resolves.toEqual([
+      mix('https://soundcloud.com/u/m'),
+    ]);
+    await expect(getMeta('accountId')).resolves.toBe('me');
+    const db = await openDb();
+    expect(db.name).toBe('spotify-dj');
+    expect(db.version).toBe(DB_VERSION);
   });
 });

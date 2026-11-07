@@ -109,6 +109,8 @@ import {
 import { LINK_BROWSER_MESSAGE, type ServerResult } from '../server/client';
 import { serverAuth, serverClient, serverConfigured } from '../server/browser';
 import { DATASETS } from '../server/datasets';
+import { scopeEnabled, scopeStorage } from '../server/scopeBrowser';
+import { activate } from '../server/userScope';
 import {
   JOB_HISTORY_MAX,
   UPDATE_APP_MESSAGE,
@@ -496,23 +498,77 @@ export async function startServerLink(email: string): Promise<void> {
       : { status: 'offline', message: res.message };
 }
 
+/** Shown when a sign-in's token does not name its account (no `sub`). */
+export const SERVER_NO_USER_MESSAGE =
+  'This sign-in did not say which account it is. Send yourself a new link.';
+
+type Activated = 'none' | 'ok' | 'reload' | 'invalid';
+
+/** The activation, and for an unnamed session the sign-out it started. */
+function activateStored(): { status: Activated; signedOut: Promise<void> } {
+  const current = serverAuth.session.value;
+  const storage = scopeStorage();
+  const done = Promise.resolve();
+  if (!serverConfigured || !current || !storage) {
+    return { status: 'none', signedOut: done };
+  }
+  const result = activate(
+    storage,
+    { userId: current.userId, email: current.email },
+    scopeEnabled()
+  );
+  if (result.ok) {
+    return { status: result.reload ? 'reload' : 'ok', signedOut: done };
+  }
+  const refused: ServerStatus = {
+    status: 'error',
+    message: SERVER_NO_USER_MESSAGE,
+  };
+  serverState.value = refused;
+  // signOut clears the session's own error; the card keeps this one.
+  const signedOut = serverAuth.signOut().then(() => {
+    serverState.value = refused;
+  });
+  return { status: 'invalid', signedOut };
+}
+
+/**
+ * Makes the stored server session the device's active user (ADR-13): the
+ * first sign-in claims today's names, so the owner with a session from before
+ * this round is activated on the first load, with no new link and no reload.
+ * `'reload'` means the page holds another user's names and must load again;
+ * `'invalid'` means the session names no account: it is signed out with a
+ * message on the Settings card and never activated.
+ */
+export function activateServerUser(): Activated {
+  return activateStored().status;
+}
+
 /**
  * Finishes the magic link when the app opens on `?link=server&code=…`
  * (main.tsx). An invalid link leaves the owner signed out with the one
- * message they can act on.
+ * message they can act on. `'reload'`: the account differs from the one the
+ * page opened with; main.tsx loads the page again, without the code.
  */
 export async function completeServerLink(
   params: URLSearchParams
-): Promise<'none' | 'ok' | 'invalid'> {
+): Promise<'none' | 'ok' | 'reload' | 'invalid'> {
   const result = await serverAuth.completeLink(params);
-  if (result === 'ok') serverState.value = serverBaseState();
   if (result === 'invalid') {
     serverState.value = {
       status: 'error',
       message: serverAuth.lastError.value ?? LINK_BROWSER_MESSAGE,
     };
+    return result;
   }
-  return result;
+  if (result === 'none') return result;
+  const activated = activateStored();
+  if (activated.status === 'invalid') {
+    await activated.signedOut;
+    return 'invalid';
+  }
+  serverState.value = serverBaseState();
+  return activated.status === 'reload' ? 'reload' : 'ok';
 }
 
 export interface MixView {

@@ -149,3 +149,32 @@ export function scopedStorage(
     removeItem: (key) => storage.removeItem(map(key)),
   };
 }
+
+export type Activation = { ok: true; reload: boolean } | { ok: false };
+
+/**
+ * Makes a signed-in server account the device's active user: the first one
+ * claims today's names, the pointer is written, the user is remembered. A
+ * reload is needed when the user changed, or when the names the page opened
+ * with are not the new user's (someone else signing in while nobody was
+ * active): no in-memory singleton may keep another user's data (ADR-13).
+ * An id that is not a uuid is refused and nothing is written.
+ */
+export function activate(
+  storage: StorageLike,
+  user: { userId: string | null; email: string },
+  enabled: boolean
+): Activation {
+  const { userId, email } = user;
+  if (!isUserId(userId)) return { ok: false };
+  const previous = readActive(storage)?.userId ?? null;
+  const before = keyFor('', storage, enabled);
+  claim(storage, userId);
+  writeActive(storage, { userId, email });
+  recordDeviceUser(storage, { userId, email });
+  const after = keyFor('', storage, enabled);
+  return {
+    ok: true,
+    reload: reloadNeeded(previous, userId) || before !== after,
+  };
+}

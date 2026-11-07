@@ -13,7 +13,7 @@ export const SCOPES =
   'user-top-read playlist-read-private playlist-modify-private user-library-read user-library-modify';
 
 export const SESSION_KEY = 'session';
-const PKCE_KEY = 'pkce';
+export const PKCE_KEY = 'pkce';
 const REFRESH_MARGIN_MS = 60_000;
 
 export interface Session {
