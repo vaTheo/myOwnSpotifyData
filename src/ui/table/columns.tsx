@@ -87,7 +87,10 @@ export function titleColumn<Row>(
     id: 'title',
     header: opts.header ?? 'Title',
     priority: 1,
-    width: 'minmax(0, 2fr)',
+    // At least 160 px of text (SC-001): the other flexible columns give way
+    // first, and a table too narrow even for that draws two-line items
+    // (`titleRoom`, S13c review I1).
+    width: 'minmax(176px, 2fr)',
     sortValue: textOf,
     firstDirection: 'asc',
     cell: (row) => {

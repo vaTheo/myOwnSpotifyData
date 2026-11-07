@@ -197,5 +197,43 @@ export function layoutChecks(): Finding[] {
     }
   }
 
+  // 7. SC-001 on every table at 1440 (S13c review I1): a title cut to
+  // fewer than 160 px (about 20 characters) is unreadable. A table drawing
+  // two-line items has no visible headers and is skipped; a long title cut
+  // in a wide column is FR-023's tooltip, not a finding.
+  const MIN_TITLE = 160;
+  if (innerWidth === 1440) {
+    for (const grid of document.querySelectorAll('[role=grid]')) {
+      const headers = [
+        ...grid.querySelectorAll<HTMLElement>('[role=columnheader]'),
+      ];
+      const at = headers.findIndex((h) =>
+        ['Title', 'Name', 'Artist – Title'].includes(
+          (h.textContent ?? '').trim()
+        )
+      );
+      if (at < 0 || headers[at].getBoundingClientRect().width < 2) continue;
+      for (const row of grid.querySelectorAll('[role=row][data-row-id]')) {
+        const r = row.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > innerHeight) continue;
+        const cells = row.querySelectorAll<HTMLElement>('[role=gridcell]');
+        if (cells.length !== headers.length) continue;
+        const cell = cells[at];
+        const text = cell.querySelector<HTMLElement>('.dt-text') ?? cell;
+        if (
+          text.scrollWidth > text.clientWidth + 1 &&
+          text.clientWidth < MIN_TITLE
+        ) {
+          findings.push({
+            check: 'title-cut',
+            selector: describe(text),
+            detail: `title cut to ${text.clientWidth}px: "${(text.textContent ?? '').trim().slice(0, 40)}"`,
+          });
+          break;
+        }
+      }
+    }
+  }
+
   return findings;
 }

@@ -15,6 +15,21 @@ export function sheetMode(size: WindowClass): SheetMode {
   return size === 'compact' ? 'fullscreen' : 'modal';
 }
 
+/**
+ * Below this table width, a table beside the docked sheet draws two-line
+ * items: at 1440 the sheet leaves about 770 px, where a track table's
+ * fixed columns would cut its titles to a few letters (S13c review I1).
+ */
+export const SHEET_COMPACT_BELOW = 960;
+
+/** `DataTable`'s `compactBelow` for a table whose rows open the sheet. */
+export function besideSheet(
+  open: boolean,
+  size: WindowClass
+): number | undefined {
+  return open && sheetMode(size) === 'docked' ? SHEET_COMPACT_BELOW : undefined;
+}
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
