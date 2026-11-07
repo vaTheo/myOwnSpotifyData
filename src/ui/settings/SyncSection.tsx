@@ -4,9 +4,11 @@ import {
   reachState,
   spotifyBusyMessage,
   spotifyLockedUntil,
-  startSync,
+  chainView,
+  requestJob,
   syncState,
 } from '../../model/state';
+import { isWaiting, otherStepRuns } from './chain';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
@@ -77,11 +79,16 @@ export function SyncSection() {
             isSyncBusy(state) ||
             shared !== null ||
             busyLine !== null ||
-            reachState.value.status === 'running'
+            (reachState.value.status === 'running' &&
+              !otherStepRuns(chainView.value, 'spotify'))
           }
-          onClick={() => void startSync()}
+          onClick={() => requestJob('spotify')}
         >
-          {running ? 'Syncing…' : 'Sync now'}
+          {running
+            ? 'Syncing…'
+            : isWaiting(chainView.value, 'spotify')
+              ? 'Waiting…'
+              : 'Sync now'}
         </Button>
       </div>
     </Card>

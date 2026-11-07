@@ -883,10 +883,8 @@ const autoChain = createChain({
   waitIdle,
   now: () => Date.now(),
   lastSyncAt: () => lastSyncAt.value,
-  lockedUntil: () => {
-    const s = syncState.value;
-    return s.status === 'locked' ? s.retryAt : null;
-  },
+  // The one quota lock-out, whichever Spotify reader met it (S08d).
+  lockedUntil: () => spotifyLockedUntil(),
   run: runStep,
   onView: (view) => {
     chainView.value = view;
@@ -1069,14 +1067,14 @@ export async function startSync(
   // The one quota lock-out, whichever reader met it (S08d).
   const locked = spotifyLockedUntil();
   if (locked !== null) {
-    banner.value = warnBanner(lockMessage(locked));
+    if (!auto) banner.value = warnBanner(lockMessage(locked));
     return;
   }
   // One Spotify reader at a time (S13); its buttons are disabled meanwhile,
   // so this is said only to a sync started another way.
   const busy = spotifyBusyMessage('sync');
   if (busy !== null) {
-    banner.value = warnBanner(busy);
+    if (!auto) banner.value = warnBanner(busy);
     return;
   }
   if (!auto) clearBanner();

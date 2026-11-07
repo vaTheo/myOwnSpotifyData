@@ -2978,6 +2978,14 @@ a.ov-item:hover {
   margin: 12px 0 0;
 }
 
+/* Round 006: a job's line and its Retry on one row. */
+.update-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .settings-sign-in {
   display: flex;
   flex-wrap: wrap;

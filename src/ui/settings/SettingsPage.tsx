@@ -14,6 +14,7 @@ import {
 } from './sections';
 import { ServerSection } from './ServerSection';
 import { SyncSection } from './SyncSection';
+import { UpdatesSection } from './UpdatesSection';
 
 const ORDER: SectionId[] = SETTINGS_SECTIONS.map((s) => s.id);
 
@@ -99,7 +100,8 @@ function SectionIndex() {
 /**
  * Settings as "Data and sync" (spec 003, US5, FR-038): one card per data
  * source, then the danger zone and the app version. Every long job starts
- * only from here (ADR-02, ADR-04); nothing starts on load.
+ * from here or from the automatic chain (ADR-12), whose state the Updates
+ * section shows first.
  */
 export function SettingsPage() {
   const large = windowClass.value === 'large';
@@ -107,6 +109,7 @@ export function SettingsPage() {
     <div class={large ? 'settings with-index' : 'settings'}>
       {large && <SectionIndex />}
       <div class="settings-sections">
+        <UpdatesSection />
         <AccountSection />
         <SyncSection />
         <HistorySection />

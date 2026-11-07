@@ -11,7 +11,8 @@ import {
   rekordboxState,
   rekordboxSummary,
   setKeyNotation,
-  startLookup,
+  chainView,
+  requestJob,
   startRekordboxImport,
   type KeyNotation,
 } from '../../model/state';
@@ -28,6 +29,7 @@ import {
   rekordboxLine,
   yearsLine,
 } from './lines';
+import { isWaiting, otherStepRuns } from './chain';
 import { sectionDomId } from './sections';
 
 const NOTATIONS: { value: KeyNotation; label: string }[] = [
@@ -59,6 +61,12 @@ export function AudioSection() {
   // per progress tick.
   const dated = useMemo(() => (m ? datedCount(m) : 0), [m]);
   const blocked = busy || !cov || cov.total === 0;
+  // A tap while the chain runs another step is queued (round 006).
+  const lookupBlocked =
+    lookup.status === 'running' ||
+    (busy && !otherStepRuns(chainView.value, 'features')) ||
+    !cov ||
+    cov.total === 0;
   return (
     <Card
       id={sectionDomId('audio')}
@@ -94,10 +102,14 @@ export function AudioSection() {
       <div class="actions">
         <Button
           variant="filled"
-          disabled={blocked}
-          onClick={() => void startLookup()}
+          disabled={lookupBlocked}
+          onClick={() => requestJob('features')}
         >
-          {lookup.status === 'running' ? 'Looking up…' : 'Look up BPM and key'}
+          {lookup.status === 'running'
+            ? 'Looking up…'
+            : isWaiting(chainView.value, 'features')
+              ? 'Waiting…'
+              : 'Look up BPM and key'}
         </Button>
       </div>
       <FileDrop

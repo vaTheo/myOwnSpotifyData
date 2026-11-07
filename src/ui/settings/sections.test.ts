@@ -10,8 +10,9 @@ import {
 const ORDER = SETTINGS_SECTIONS.map((s) => s.id);
 
 describe('SETTINGS_SECTIONS', () => {
-  it('lists the seven sections of US5 in page order', () => {
+  it('lists the Updates section (round 006) and the seven sections of US5 in page order', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.label)).toEqual([
+      'Updates',
       'Spotify account',
       'Spotify sync',
       'Listening history',

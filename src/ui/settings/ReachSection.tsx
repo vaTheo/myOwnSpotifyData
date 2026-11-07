@@ -4,7 +4,8 @@ import {
   model,
   reachCoverage,
   reachState,
-  startReach,
+  chainView,
+  requestJob,
 } from '../../model/state';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -17,6 +18,7 @@ import {
   reachCoverageLine,
   reachRunLine,
 } from './lines';
+import { isWaiting, otherStepRuns } from './chain';
 import { sectionDomId } from './sections';
 
 /** Artist reach (US5): the long lookup Under the radar reads (ADR-04). */
@@ -65,10 +67,19 @@ export function ReachSection() {
       <div class="actions">
         <Button
           variant="filled"
-          disabled={busy || !cov || cov.artists === 0}
-          onClick={() => void startReach()}
+          disabled={
+            state.status === 'running' ||
+            (busy && !otherStepRuns(chainView.value, 'reach')) ||
+            !cov ||
+            cov.artists === 0
+          }
+          onClick={() => requestJob('reach')}
         >
-          {state.status === 'running' ? 'Looking up…' : 'Look up artists'}
+          {state.status === 'running'
+            ? 'Looking up…'
+            : isWaiting(chainView.value, 'reach')
+              ? 'Waiting…'
+              : 'Look up artists'}
         </Button>
       </div>
       <p class="muted settings-credit">

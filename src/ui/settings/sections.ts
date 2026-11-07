@@ -3,6 +3,7 @@
  * §13), shared by the page and its section index.
  */
 export const SETTINGS_SECTIONS = [
+  { id: 'updates', label: 'Updates' },
   { id: 'account', label: 'Spotify account' },
   { id: 'sync', label: 'Spotify sync' },
   { id: 'history', label: 'Listening history' },
