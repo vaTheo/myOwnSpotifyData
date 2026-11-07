@@ -55,22 +55,29 @@ export interface CheckAnswer {
   title: string;
   spotify: SpotifyCheck;
   checkedAt: number;
+  /** Round 005 (S13b I1): the found track's album year, from the same
+   *  search answer; absent when not found or undated. */
+  year?: number;
 }
 
-/** The answer for the row at `index`, from Search's URI (or null). */
+/** The answer for the row at `index`, from Search's URI (or null) and the
+ *  matched album's year (kept only with a found track). */
 export function answerFor(
   index: number,
   row: TracklistRow,
   uri: string | null,
-  now: number
+  now: number,
+  year: number | null = null
 ): CheckAnswer {
   const checked = checkedRow(row, uri, now);
+  const spotify = checked.spotify as SpotifyCheck;
   return {
     index,
     artist: row.artist,
     title: row.title,
-    spotify: checked.spotify as SpotifyCheck,
+    spotify,
     checkedAt: now,
+    ...(spotify !== 'not-found' && year !== null ? { year } : {}),
   };
 }
 
@@ -110,7 +117,15 @@ export function applyAnswers(
     }
     if (at < 0) continue;
     taken.add(at);
-    out[at] = { ...out[at], spotify: a.spotify, checkedAt: a.checkedAt };
+    out[at] = {
+      ...out[at],
+      spotify: a.spotify,
+      checkedAt: a.checkedAt,
+      // Round 005: a dated row keeps its year (Shazam's or a catalogue's).
+      ...(a.year !== undefined && typeof out[at].year !== 'number'
+        ? { year: a.year, yearFrom: 'spotify' as const }
+        : {}),
+    };
   }
   return out;
 }
@@ -134,6 +149,9 @@ export function keepStoredAnswers(
       title: r.title,
       spotify: r.spotify,
       checkedAt: r.checkedAt ?? 0,
+      ...(r.yearFrom === 'spotify' && typeof r.year === 'number'
+        ? { year: r.year }
+        : {}),
     });
   });
   return answers.length === 0 ? rows.slice() : applyAnswers(rows, answers);
@@ -172,14 +190,18 @@ export async function runSpotifyCheck(
   let done = 0;
   for (const { row, index } of targets) {
     if (deps.shouldStop()) return { status: 'stopped', done, total };
-    let uri: string | null;
+    let match: { uri: string | null; year: number | null };
     try {
-      uri = (await searchTrack(deps.client, row)).uri;
+      match = await searchTrack(deps.client, row);
     } catch (error) {
       return { status: 'error', error, done, total };
     }
     done += 1;
-    deps.onChecked(answerFor(index, row, uri, deps.now()), done, total);
+    deps.onChecked(
+      answerFor(index, row, match.uri, deps.now(), match.year),
+      done,
+      total
+    );
   }
   return { status: 'done', done, total };
 }
