@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { MixRow } from '../../db/schema';
 import { model, readMixesForSearch } from '../../model/state';
 import { parseRoute } from '../../router';
@@ -110,7 +110,9 @@ export function SearchView() {
   const phone = windowClass.value === 'compact';
 
   const [left, setLeft] = useState<number | null>(null);
-  useEffect(() => {
+  // A layout effect: the field has the focus and the Escape layer is there
+  // as soon as the view is drawn, so a key pressed at once is not lost.
+  useLayoutEffect(() => {
     // The docked panel opens where the top bar's field is.
     const field = document.querySelector('.top-bar-search');
     if (field) {
