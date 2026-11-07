@@ -11,6 +11,7 @@ const IDLE: JobStates = {
   like: { status: 'idle' },
   createPlaylist: { status: 'idle' },
   mix: { status: 'idle' },
+  spotifyCheck: { status: 'idle' },
 };
 
 describe('activeJobs (data-model §7)', () => {
@@ -51,8 +52,20 @@ describe('activeJobs (data-model §7)', () => {
       } as JobStates['reach'],
       server: { status: 'pushing', dataset: 'library', done: 1, total: 4 },
       like: { status: 'liking', playlistId: 'p1', done: 2, total: 9 },
-      createPlaylist: { status: 'resolving', done: 4, total: 20 },
+      createPlaylist: {
+        status: 'resolving',
+        done: 4,
+        total: 20,
+        mixUrl: 'https://soundcloud.com/a/c',
+      },
       mix: { status: 'looking', url: 'https://soundcloud.com/a/b' },
+      spotifyCheck: {
+        status: 'running',
+        url: 'https://soundcloud.com/a/d',
+        done: 12,
+        total: 40,
+        stopping: false,
+      },
     });
     expect(jobs).toEqual([
       {
@@ -109,7 +122,14 @@ describe('activeJobs (data-model §7)', () => {
         label: 'Creating playlist',
         done: 4,
         total: 20,
-        href: '#/mix',
+        href: '#/mix/https%3A%2F%2Fsoundcloud.com%2Fa%2Fc',
+      },
+      {
+        id: 'spotifyCheck',
+        label: 'Checking on Spotify',
+        done: 12,
+        total: 40,
+        href: '#/mix/https%3A%2F%2Fsoundcloud.com%2Fa%2Fd',
       },
       {
         id: 'mixLookup',
@@ -127,6 +147,13 @@ describe('activeJobs (data-model §7)', () => {
       server: { status: 'pulling', dataset: 'mixes', done: 0, total: 0 },
       like: { status: 'checking', playlistId: 'p 2', done: 0, total: 9 },
       createPlaylist: { status: 'adding' },
+      spotifyCheck: {
+        status: 'finished',
+        url: 'x',
+        done: 1,
+        total: 1,
+        stopped: false,
+      },
     });
     expect(jobs.map((j) => [j.id, j.label, j.href, j.total])).toEqual([
       ['server', 'Loading from server', '#/settings', 0],

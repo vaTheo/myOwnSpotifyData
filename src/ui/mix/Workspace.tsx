@@ -198,6 +198,8 @@ export function Workspace(p: { mixKey?: string }) {
   const detail =
     state.status === 'ready' ? (
       <MixDetail
+        // One mix's edit, filter and sort never carry to another (S13 B1).
+        key={state.view.url}
         view={state.view}
         onClose={close}
         stacked={stacked}
