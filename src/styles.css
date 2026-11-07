@@ -961,6 +961,14 @@ a.btn:where(:not(.btn-filled, .btn-outlined, .btn-text, .btn-danger)) {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* A control reached with Tab is never hidden under a bar (WCAG 2.4.11,
+   T100): the page scrolls it clear of the sticky top bar and, on compact
+   windows, of the bottom navigation. */
+html {
+  scroll-padding-top: var(--app-top-bar);
+  scroll-padding-bottom: calc(var(--app-nav-bar) + env(safe-area-inset-bottom));
+}
+
 .frame-body {
   min-width: 0;
   display: flex;
@@ -1135,6 +1143,10 @@ a {
 
   .screen {
     padding-bottom: 32px;
+  }
+
+  html {
+    scroll-padding-bottom: 0;
   }
 
   .nav {
@@ -2924,7 +2936,8 @@ a.ov-item:hover {
 }
 
 .settings-section {
-  scroll-margin-top: calc(var(--app-top-bar) + 8px);
+  /* Clear of the top bar by `html`'s scroll-padding-top. */
+  scroll-margin-top: 8px;
 }
 
 .settings-section > .actions {
