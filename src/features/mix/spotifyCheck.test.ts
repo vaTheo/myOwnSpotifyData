@@ -3,7 +3,8 @@ import type { TracklistRow } from '../../db/schema';
 import type { Query, SpotifyClient } from '../../spotify/client';
 import { QuotaError } from '../../spotify/errors';
 import {
-  applyChecks,
+  answerFor,
+  applyAnswers,
   checkLine,
   checkedRow,
   rowsToCheck,
@@ -92,17 +93,59 @@ describe('storedUri', () => {
   });
 });
 
-describe('applyChecks', () => {
-  it('replaces each checked row where it still stands, by identity', () => {
-    const a = row('One');
-    const b = row('Two');
-    const edited = row('Edited');
-    const done = new Map([
-      [a, { ...a, spotify: 'not-found' as const, checkedAt: 1 }],
-      [b, { ...b, spotify: 'not-found' as const, checkedAt: 1 }],
+describe('applyAnswers (fix round 1)', () => {
+  const found = (index: number, title: string) =>
+    answerFor(index, row(title), 'spotify:track:X' + index, 9);
+  const missed = (index: number, title: string) =>
+    answerFor(index, row(title), null, 9);
+
+  it('puts each answer on the row at its place', () => {
+    const out = applyAnswers([row('One'), row('Two')], [missed(1, 'Two')]);
+    expect(out[0].spotify).toBeUndefined();
+    expect(out[1]).toMatchObject({ spotify: 'not-found', checkedAt: 9 });
+  });
+
+  it('keeps the answer of a row validated during the check (a new object)', () => {
+    const rows = [row('One'), row('Two')];
+    const validated = [rows[0], { ...rows[1], validated: true }];
+    const out = applyAnswers(validated, [found(1, 'Two')]);
+    expect(out[1]).toMatchObject({
+      validated: true,
+      spotify: { id: 'X1', url: 'https://open.spotify.com/track/X1' },
+    });
+  });
+
+  it('keeps the answers on a list reloaded during the check (copies of every row)', () => {
+    const rows = [row('One'), row('Two')];
+    const reloaded = rows.map((r) => ({ ...r }));
+    const out = applyAnswers(reloaded, [found(0, 'One'), missed(1, 'Two')]);
+    expect(out.map((r) => r.spotify)).toEqual([
+      { id: 'X0', url: 'https://open.spotify.com/track/X0' },
+      'not-found',
     ]);
-    // `b` was edited meanwhile: its answer no longer applies.
-    expect(applyChecks([a, edited], done)).toEqual([done.get(a), edited]);
+  });
+
+  it('follows a row moved up by a deletion above it', () => {
+    const out = applyAnswers([row('Two')], [missed(1, 'Two')]);
+    expect(out[0].spotify).toBe('not-found');
+  });
+
+  it('drops the answer of a row edited or deleted during the check', () => {
+    const edited = [row('One'), row('Two (my edit)')];
+    expect(applyAnswers(edited, [missed(1, 'Two')])).toEqual(edited);
+    const deleted = [row('One')];
+    expect(applyAnswers(deleted, [missed(1, 'Two')])).toEqual(deleted);
+  });
+
+  it('gives one row one answer, never guessing between two same tracks', () => {
+    const twice = [row('Same'), row('Other'), row('Same')];
+    // Both answers find their own place.
+    const out = applyAnswers(twice, [missed(0, 'Same'), found(2, 'Same')]);
+    expect(out[0].spotify).toBe('not-found');
+    expect(typeof out[2].spotify).toBe('object');
+    // Places gone and two candidates left: dropped, not guessed.
+    const moved = [row('Same'), row('Same')];
+    expect(applyAnswers(moved, [missed(5, 'Same')])).toEqual(moved);
   });
 });
 
@@ -122,12 +165,12 @@ describe('runSpotifyCheck', () => {
         client: c,
         now: () => 7,
         shouldStop: () => false,
-        onChecked: (before, after, done, total) => {
+        onChecked: (answer, done, total) => {
           seen.push([
-            before.title,
-            typeof after.spotify === 'string'
-              ? after.spotify
-              : after.spotify?.id,
+            answer.title,
+            typeof answer.spotify === 'string'
+              ? answer.spotify
+              : answer.spotify.id,
             done,
             total,
           ]);

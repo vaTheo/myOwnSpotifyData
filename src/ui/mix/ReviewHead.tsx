@@ -1,8 +1,10 @@
 import { reviewLine } from '../../features/mix/review';
 import { checkLine, rowsToCheck } from '../../features/mix/spotifyCheck';
 import {
+  checkLockMessage,
   mixRows,
   spotifyCheckState,
+  spotifyLockedUntil,
   startSpotifyCheck,
   stopSpotifyCheck,
 } from '../../model/state';
@@ -15,7 +17,8 @@ import { StatusLine } from '../components/StatusLine';
  * T118): "N tracks · K validated · M on Spotify · L not found"; the button
  * reads Spotify on a tap only (never on load or open, ADR-02), one track at
  * a time, with "Checked 12 of 40", a bar and Stop; a failure inline, never
- * a banner. The button rests disabled when every named track is checked.
+ * a banner. The button rests disabled when every named track is checked,
+ * and during a quota lock-out, with its message.
  */
 export function ReviewHead(p: { url: string }) {
   const rows = mixRows.value;
@@ -23,6 +26,8 @@ export function ReviewHead(p: { url: string }) {
   const mine = s.status !== 'idle' && s.url === p.url;
   const running = mine && s.status === 'running';
   const left = rowsToCheck(rows).length;
+  // A quota lock-out (the check's or the sync's): no read until it lapses.
+  const locked = spotifyLockedUntil();
   return (
     <div class="mix-review-head">
       <div class="mix-review-line">
@@ -38,7 +43,7 @@ export function ReviewHead(p: { url: string }) {
         ) : (
           <Button
             icon="search"
-            disabled={left === 0}
+            disabled={left === 0 || locked !== null}
             onClick={() => void startSpotifyCheck()}
           >
             Check on Spotify
@@ -65,8 +70,13 @@ export function ReviewHead(p: { url: string }) {
             : checkLine(s.done, s.total)}
         </p>
       )}
-      {mine && s.status === 'error' && (
+      {mine && s.status === 'error' ? (
         <StatusLine kind="error">{s.message}</StatusLine>
+      ) : (
+        locked !== null &&
+        !running && (
+          <StatusLine kind="warning">{checkLockMessage(locked)}</StatusLine>
+        )
       )}
     </div>
   );

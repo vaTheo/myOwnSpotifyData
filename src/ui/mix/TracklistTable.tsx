@@ -21,6 +21,7 @@ import {
   addMixRow,
   deleteMixRow,
   editMixRow,
+  mixCheckSaved,
   mixError,
   mixRows,
   model,
@@ -101,14 +102,14 @@ function referencesLine(l: Line): string | null {
  * then Shazam's page while the row still reads as the scan heard it. No
  * request is made until one is opened.
  */
-function listenItems(row: TracklistRow, prefix: string): RowMenuItem[] {
+function listenItems(row: TracklistRow): RowMenuItem[] {
   if (!isIdentified(row)) return [];
   const items: RowMenuItem[] = digLinks(row.artist, row.title).map((l) => ({
-    label: `${prefix}${l.label}`,
+    label: l.label,
     href: l.href,
   }));
   if (row.shazamUrl && row.source === 'tracklistify') {
-    items.push({ label: `${prefix}Shazam`, href: row.shazamUrl });
+    items.push({ label: 'Shazam', href: row.shazamUrl });
   }
   return items;
 }
@@ -323,7 +324,7 @@ function columns(on: {
       priority: 2,
       width: '48px',
       cell: (l) => {
-        const items = listenItems(l.row, '');
+        const items = listenItems(l.row);
         return items.length === 0 ? null : (
           <RowMenu
             icon="headphones"
@@ -368,8 +369,10 @@ function columns(on: {
         } else if (isIdentified(row)) {
           items.push({ label: 'Search on Spotify', href: searchUrl(row) });
         }
-        // On a phone the Listen menu joins this one.
-        if (compact) items.push(...listenItems(row, 'Listen on '));
+        // On a phone one "Listen…" item opens the Listen links in the same
+        // list, so More stays short (fix round 1, R3).
+        const listen = compact ? listenItems(row) : [];
+        if (listen.length > 0) items.push({ label: 'Listen…', items: listen });
         return <RowMenu label={`More for ${nameOf(row)}`} items={items} />;
       },
       compact: 'trail',
@@ -532,6 +535,16 @@ export function TracklistTable() {
   const compact = windowClass.value === 'compact';
   const [editing, setEditing] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
+  // Check on Spotify saves the mix when it ends (ruling R1): the same
+  // "Saved ✓" as Save mix says so.
+  const checkSaves = mixCheckSaved.value;
+  const firstSaves = useRef(checkSaves);
+  useEffect(() => {
+    if (checkSaves === firstSaves.current) return;
+    setSaved(true);
+    const t = setTimeout(() => setSaved(false), 2000);
+    return () => clearTimeout(t);
+  }, [checkSaves]);
   // The save's own failure, kept apart from `mixError` (which other
   // actions also set) and cleared by the next action on the table.
   const [saveError, setSaveError] = useState<string | null>(null);
