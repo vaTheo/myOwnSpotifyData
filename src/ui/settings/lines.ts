@@ -5,32 +5,14 @@
  */
 import type { ReachRunCounts, ReachStep } from '../../features/reachRun';
 import type { RekordboxSummary } from '../../features/rekordboxImport';
-import type { ImportSummary } from '../../history/importer';
 // Type-only: this file never evaluates state.ts under Vitest.
 import type { Coverage, ReachCoverage } from '../../model/state';
-import { formatDate, plural } from '../format';
+import { plural } from '../format';
 
 /** The Free plan's database allowance, mirrored from `SERVER_FREE_BYTES`. */
 export function usedShare(bytes: number, freeBytes: number): string {
   const mb = (n: number) => (n / (1024 * 1024)).toFixed(1);
   return `${mb(bytes)} MB of ${mb(freeBytes)} MB used on the server`;
-}
-
-export function historyLine(
-  summary: ImportSummary,
-  zoneAtImport?: string
-): string {
-  const parts = [
-    `Imported ${formatDate(summary.importedAt)}:`,
-    `${plural(summary.plays, 'play')} across`,
-    `${plural(summary.tracks, 'track')}.`,
-  ];
-  if (summary.range) {
-    parts.push(`${formatDate(summary.range.first)} –`);
-    parts.push(`${formatDate(summary.range.last)}.`);
-  }
-  if (zoneAtImport) parts.push(`Months bucketed in ${zoneAtImport}.`);
-  return parts.join(' ');
 }
 
 /** Spec §5: "BPM and key for 3,120 of 4,980 tracks · ReccoBeats 2,900 · …". */

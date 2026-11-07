@@ -10,7 +10,7 @@ import { MonthBars } from '../charts/MonthBars';
 import { seriesLabel, yearSpan, type MonthPoint } from '../charts/series';
 import { openDetail } from '../details/navigate';
 import { TrackSheet } from '../details/TrackDetails';
-import { artistNames } from '../format';
+import { playLabel } from './labels';
 import {
   bpmColumn,
   keyColumn,
@@ -56,20 +56,12 @@ export function spanYears(rows: PlayRow[]): number[] {
   return yearSpan(rows, historyRange(), new Date().getFullYear());
 }
 
-/**
- * The synced track wins: the export holds whatever names Spotify wrote at
- * play time, and either of them can be null.
- */
+/** `playLabel` on the current model. */
 export function trackLabel(row: PlayRow): {
   title: string;
   subtitle: string;
 } {
-  const track = model.value?.tracksByKey.get(row.trackId);
-  if (track) return { title: track.name, subtitle: artistNames(track.artists) };
-  return {
-    title: row.trackName ?? 'Unknown title',
-    subtitle: row.artistName ?? 'Unknown artist',
-  };
+  return playLabel(model.value, row);
 }
 
 /** By id first, then by artist and title, so a relinked id still matches. */

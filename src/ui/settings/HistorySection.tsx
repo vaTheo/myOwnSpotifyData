@@ -2,7 +2,7 @@ import { historySummary } from '../../model/state';
 import { routeHref } from '../../router';
 import { Card } from '../components/Card';
 import { StatusLine } from '../components/StatusLine';
-import { historyLine } from './lines';
+import { historyLine } from '../format';
 import { sectionDomId } from './sections';
 
 /** Listening history (US5): the import itself lives on `#/import`. */

@@ -1,19 +1,15 @@
-import { MONTH_NAMES } from '../../model/crate';
 import { model } from '../../model/state';
 import { routeHref } from '../../router';
-import { plural } from '../format';
+import { monthLabel, plural } from '../format';
+
+// Kept here too: the Crate views import it with the details' pieces.
+export { monthLabel };
 
 /**
  * Pieces the details sheet shares with the Crate views. They live here, not
  * in `crate/shared`, which opens the sheet: the details depend on nothing
  * of the Crate's, so the two never import each other.
  */
-
-/** '2026-08' -> 'Aug 2026'. */
-export function monthLabel(key: string): string {
-  const [year, month] = key.split('-');
-  return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
-}
 
 /**
  * The one sentence the details sheet shows when the track sits in none of
