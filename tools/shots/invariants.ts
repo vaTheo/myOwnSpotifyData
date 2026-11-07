@@ -7,21 +7,28 @@
  * - `DB_VERSION` is the same.
  * - Every `confirm()` text is the same (literals, the constants they name,
  *   and the two question builders), whatever file asks it.
- * - The external hosts named in `src/` (tests excluded) are the same.
- * - The dependencies are the same, apart from the approved dev additions.
- * - Every unit test name on `main` still exists (a moved one is listed with
- *   its new file).
- * - The ranking, Crate, Match and Under the radar functions of `src/model/`
- *   give byte-equal JSON on the demo dataset in both trees.
+ * - The external hosts are the same: those written in the app's code (a URL
+ *   or a bare host name in any string), in `index.html` (its CSP) and in
+ *   `vite.config.ts`.
+ * - The dependencies are the same, apart from the approved dev additions,
+ *   and every `yarn.lock` entry of `main` resolves to the same version.
+ * - Every unit test of `main` still runs: each name, as many times as on
+ *   `main`, neither skipped nor todo nor expected to fail (a moved one is
+ *   listed with its new file).
+ * - The ranking, Crate, Match, Under the radar and release-year functions of
+ *   `src/model/` give byte-equal JSON on the demo dataset in both trees.
  *
- * `main` is the merge base of HEAD with `origin/main` (override with
- * `INVARIANTS_BASE=<commit>`); its tree is a temporary `git worktree` in the
- * system temp directory, removed at the end. HEAD is the working tree, so
- * uncommitted edits are judged too. The demo dataset is built from HEAD's
- * `src/dev/demo.ts` (main has no demo) and handed to both trees unchanged.
+ * Sources are read with TypeScript's own parser (JSX, regex literals and
+ * comments as the compiler sees them). `main` is the merge base of HEAD with
+ * `origin/main` (override with `INVARIANTS_BASE=<commit>`); its tree is a
+ * temporary `git worktree` in the system temp directory, removed at the end
+ * (`git worktree prune` after a killed run). HEAD is the working tree, so
+ * uncommitted edits are judged too: run it on a clean tree before a merge.
+ * The demo dataset is built from HEAD's `src/dev/demo.ts` (main has no demo)
+ * and handed to both trees unchanged.
  *
- * Node runs this file directly (type stripping): it imports only `node:` and
- * Vite, whose module runner loads each tree's TypeScript.
+ * Node runs this file directly (type stripping): it imports only `node:`,
+ * TypeScript and Vite, whose module runner loads each tree's TypeScript.
  */
 import { execFileSync } from 'node:child_process';
 import {
@@ -36,6 +43,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { createServer, createServerModuleRunner } from 'vite';
 
 // Crate buckets months in the local time zone: pin it for both trees.
@@ -61,6 +69,10 @@ const RENAMED_TESTS: Record<string, string> = {
 
 /** Functions that build a `confirm()` question passed in by a caller. */
 const QUESTION_BUILDERS = ['likeQuestion', 'replaceQuestion'];
+
+/** A host written without a scheme: a dotted name ending in a known TLD. */
+const BARE_HOST =
+  /\b((?:[a-z0-9-]+\.)+(?:com|org|net|io|co|fm|app|dev|me|be|fr|de|uk|info))\b/gi;
 
 interface Result {
   name: string;
@@ -94,68 +106,58 @@ function walk(tree: string, dir: string): string[] {
 }
 
 const isTest = (f: string) => /\.test\.tsx?$/.test(f);
-const isSource = (f: string) => /\.(ts|tsx|css|html)$/.test(f) && !isTest(f);
+const isCode = (f: string) => /\.tsx?$/.test(f);
 
-/** The source without comments (strings kept), for call scanning. */
-function stripComments(src: string): string {
-  let out = '';
-  let i = 0;
-  while (i < src.length) {
-    const c = src[i];
-    const n = src[i + 1];
-    if (c === '/' && n === '/') {
-      while (i < src.length && src[i] !== '\n') i += 1;
-    } else if (c === '/' && n === '*') {
-      const end = src.indexOf('*/', i + 2);
-      i = end < 0 ? src.length : end + 2;
-    } else if (c === "'" || c === '"' || c === '`') {
-      const end = skipString(src, i);
-      out += src.slice(i, end);
-      i = end;
-    } else {
-      out += c;
-      i += 1;
-    }
-  }
-  return out;
+function parse(tree: string, file: string): ts.SourceFile {
+  return ts.createSourceFile(
+    file,
+    readFileSync(join(tree, file), 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+  );
 }
 
-/** The index just past the string literal starting at `i`. */
-function skipString(src: string, i: number): number {
-  const q = src[i];
-  let j = i + 1;
-  while (j < src.length && src[j] !== q) j += src[j] === '\\' ? 2 : 1;
-  return j + 1;
-}
-
-/** The text between the parenthesis at `open` and its match. */
-function argsAt(src: string, open: number): string {
-  let depth = 0;
-  for (let i = open; i < src.length; i += 1) {
-    const c = src[i];
-    if (c === "'" || c === '"' || c === '`') {
-      i = skipString(src, i) - 1;
-    } else if (c === '(') {
-      depth += 1;
-    } else if (c === ')') {
-      depth -= 1;
-      if (depth === 0) return src.slice(open + 1, i);
-    }
-  }
-  return src.slice(open + 1);
+function visit(node: ts.Node, f: (n: ts.Node) => void): void {
+  f(node);
+  node.forEachChild((c) => visit(c, f));
 }
 
 const squash = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 /** A string built of literals joined by `+`, or null. */
-function literalValue(expr: string): string | null {
-  const parts = expr.split(/\s*\+\s*/);
-  let out = '';
-  for (const p of parts) {
-    const m = /^(['"`])([\s\S]*)\1$/.exec(p.trim());
-    if (!m || (m[1] === '`' && m[2].includes('${'))) return null;
-    out += m[2].replace(/\\(.)/g, '$1');
+function literalValue(expr: ts.Expression): string | null {
+  if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) {
+    return expr.text;
   }
+  if (ts.isParenthesizedExpression(expr)) return literalValue(expr.expression);
+  if (
+    ts.isBinaryExpression(expr) &&
+    expr.operatorToken.kind === ts.SyntaxKind.PlusToken
+  ) {
+    const l = literalValue(expr.left);
+    const r = literalValue(expr.right);
+    return l === null || r === null ? null : l + r;
+  }
+  return null;
+}
+
+/** Every piece of text a file holds as data: strings, templates, JSX text. */
+function texts(sf: ts.SourceFile): string[] {
+  const out: string[] = [];
+  visit(sf, (n) => {
+    if (
+      ts.isStringLiteral(n) ||
+      ts.isNoSubstitutionTemplateLiteral(n) ||
+      ts.isTemplateHead(n) ||
+      ts.isTemplateMiddle(n) ||
+      ts.isTemplateTail(n) ||
+      ts.isJsxText(n) ||
+      ts.isRegularExpressionLiteral(n)
+    ) {
+      out.push(n.text);
+    }
+  });
   return out;
 }
 
@@ -166,105 +168,223 @@ function dbVersion(tree: string): string {
   return /export const DB_VERSION\s*=\s*(\d+)/.exec(src)?.[1] ?? 'absent';
 }
 
+/** `confirm(…)`, `window.confirm(…)` or `globalThis.confirm(…)`. */
+function isConfirmCall(n: ts.Node): n is ts.CallExpression {
+  if (!ts.isCallExpression(n)) return false;
+  const e = n.expression;
+  if (ts.isIdentifier(e)) return e.text === 'confirm';
+  return (
+    ts.isPropertyAccessExpression(e) &&
+    e.name.text === 'confirm' &&
+    ts.isIdentifier(e.expression) &&
+    ['window', 'globalThis', 'self'].includes(e.expression.text)
+  );
+}
+
 /** Every confirm() text in the tree, sorted (a multiset). */
 function confirmTexts(tree: string): string[] {
-  const files = walk(tree, 'src').filter((f) => /\.tsx?$/.test(f));
-  const sources = new Map(
-    files
-      .filter((f) => !isTest(f))
-      .map((f) => [f, stripComments(readFileSync(join(tree, f), 'utf8'))])
-  );
-  const constant = (name: string): string | null => {
-    for (const src of sources.values()) {
-      const at = new RegExp(`\\b${name}\\s*=\\s*`).exec(src);
-      if (!at) continue;
-      const start = at.index + at[0].length;
-      const end = src.indexOf(';', start);
-      return literalValue(src.slice(start, end));
-    }
-    return null;
-  };
-  const body = (fn: string): string | null => {
-    for (const src of sources.values()) {
-      const at = new RegExp(`function ${fn}\\s*\\(`).exec(src);
-      if (!at) continue;
-      const open = src.indexOf('{', at.index + at[0].length);
-      let depth = 0;
-      for (let i = open; i < src.length; i += 1) {
-        const c = src[i];
-        if (c === "'" || c === '"' || c === '`') i = skipString(src, i) - 1;
-        else if (c === '{') depth += 1;
-        else if (c === '}' && --depth === 0) {
-          return squash(src.slice(open, i + 1));
-        }
+  const files = walk(tree, 'src')
+    .filter((f) => isCode(f) && !isTest(f))
+    .map((f) => parse(tree, f));
+  const constants = new Map<string, string | null>();
+  const bodies = new Map<string, string>();
+  for (const sf of files) {
+    visit(sf, (n) => {
+      if (
+        ts.isVariableDeclaration(n) &&
+        ts.isIdentifier(n.name) &&
+        n.initializer
+      ) {
+        constants.set(n.name.text, literalValue(n.initializer));
       }
-    }
-    return null;
-  };
-  const texts: string[] = [];
-  for (const src of sources.values()) {
-    for (const m of src.matchAll(/(?<![\w.])confirm\s*\(/g)) {
-      const arg = squash(argsAt(src, m.index + m[0].length - 1));
-      if (arg === '') continue;
+      if (ts.isFunctionDeclaration(n) && n.name && n.body) {
+        bodies.set(n.name.text, squash(n.body.getText()));
+      }
+    });
+  }
+  const out: string[] = [];
+  for (const sf of files) {
+    visit(sf, (n) => {
+      if (!isConfirmCall(n) || n.arguments.length === 0) return;
+      const arg = n.arguments[0];
       const lit = literalValue(arg);
-      const call = /^(\w+)\(/.exec(arg)?.[1];
-      if (lit !== null) texts.push(`"${lit}"`);
-      else if (/^[A-Z][A-Z0-9_]*$/.test(arg)) {
-        texts.push(`${arg} = "${constant(arg) ?? '?'}"`);
-      } else if (call) texts.push(`${call}(…) ${body(call) ?? '?'}`);
-      else texts.push(`(${arg})`);
-    }
+      if (lit !== null) out.push(`"${lit}"`);
+      else if (ts.isIdentifier(arg) && /^[A-Z][A-Z0-9_]*$/.test(arg.text)) {
+        out.push(`${arg.text} = "${constants.get(arg.text) ?? '?'}"`);
+      } else if (ts.isCallExpression(arg) && ts.isIdentifier(arg.expression)) {
+        const fn = arg.expression.text;
+        out.push(`${fn}(…) ${bodies.get(fn) ?? '?'}`);
+      } else {
+        out.push(`(${squash(n.arguments.map((a) => a.getText()).join(', '))})`);
+      }
+    });
   }
   for (const fn of QUESTION_BUILDERS) {
-    texts.push(`builder ${fn} ${body(fn) ?? 'absent'}`);
+    out.push(`builder ${fn} ${bodies.get(fn) ?? 'absent'}`);
   }
-  return texts.sort();
+  return out.sort();
+}
+
+function hostsIn(text: string, into: Set<string>): void {
+  for (const m of text.matchAll(/https?:\/\/([A-Za-z0-9.-]+)/g)) {
+    into.add(m[1].toLowerCase());
+  }
+  for (const m of text.matchAll(BARE_HOST)) into.add(m[1].toLowerCase());
 }
 
 /**
- * Hosts of every http(s) URL written in the app's code: tests, comments and
- * the dev-only demo (`src/dev/`, absent from a production build, its URLs
- * never fetched) are left out.
+ * The hosts the app names: every URL or bare host name in the strings of
+ * its code (tests, comments and the dev-only demo `src/dev/`, never fetched,
+ * left out), in `index.html` (the CSP) and in `vite.config.ts`.
  */
 function hosts(tree: string): string[] {
   const set = new Set<string>();
   const files = walk(tree, 'src').filter(
-    (f) => isSource(f) && !f.startsWith('src/dev/')
+    (f) => isCode(f) && !isTest(f) && !f.startsWith('src/dev/')
   );
-  for (const f of files) {
-    const raw = readFileSync(join(tree, f), 'utf8');
-    const src = f.endsWith('.html') ? raw : stripComments(raw);
-    for (const m of src.matchAll(/https?:\/\/([A-Za-z0-9.-]+)/g)) {
-      set.add(m[1].toLowerCase());
-    }
+  for (const f of [...files, 'vite.config.ts']) {
+    if (!existsSync(join(tree, f))) continue;
+    for (const t of texts(parse(tree, f))) hostsIn(t, set);
+  }
+  const html = join(tree, 'index.html');
+  if (existsSync(html)) {
+    hostsIn(readFileSync(html, 'utf8').replace(/<!--[\s\S]*?-->/g, ''), set);
   }
   return [...set].sort();
 }
 
-/** Every `it`/`test` name per test file. */
-function testNames(tree: string): Map<string, Set<string>> {
-  const out = new Map<string, Set<string>>();
+interface TestCase {
+  name: string;
+  /** False when skipped, todo or expected to fail, itself or a describe. */
+  runs: boolean;
+}
+
+const SKIPPING = new Set(['skip', 'todo', 'fails', 'skipIf', 'runIf']);
+const SKIPPED_ROOT = new Set(['xit', 'xtest', 'xdescribe']);
+
+/**
+ * The callee chain of a test call: `it`, `it.skip`, `describe.only`,
+ * `it.each(table)`; null when the call is no test API.
+ */
+function testCallee(
+  e: ts.Expression
+): { kind: 'test' | 'describe'; runs: boolean } | null {
+  let runs = true;
+  let cur: ts.Expression = e;
+  for (;;) {
+    if (ts.isCallExpression(cur)) {
+      // it.each(table)(…), it.skipIf(cond)(…)
+      cur = cur.expression;
+    } else if (ts.isPropertyAccessExpression(cur)) {
+      if (SKIPPING.has(cur.name.text)) runs = false;
+      cur = cur.expression;
+    } else break;
+  }
+  if (!ts.isIdentifier(cur)) return null;
+  const root = cur.text;
+  if (SKIPPED_ROOT.has(root)) runs = false;
+  if (['it', 'test', 'xit', 'xtest'].includes(root))
+    return { kind: 'test', runs };
+  if (['describe', 'xdescribe', 'suite'].includes(root)) {
+    return { kind: 'describe', runs };
+  }
+  return null;
+}
+
+/** Every `it`/`test` per test file, with multiplicity and whether it runs. */
+function testCases(tree: string): Map<string, TestCase[]> {
+  const out = new Map<string, TestCase[]>();
   for (const f of walk(tree, 'src').filter(isTest)) {
-    const src = stripComments(readFileSync(join(tree, f), 'utf8'));
-    const names = new Set<string>();
-    const re =
-      /(?<![\w.])(?:it|test)(?:\.(?:only|skip|todo|concurrent|fails))?(\.each)?\s*\(/g;
-    for (const m of src.matchAll(re)) {
-      let at = m.index + m[0].length - 1;
-      if (m[1]) {
-        // it.each(table)('name', …): skip the table to the second call.
-        at += argsAt(src, at).length + 2;
-        while (/\s/.test(src[at] ?? '')) at += 1;
-        if (src[at] !== '(') continue;
+    const cases: TestCase[] = [];
+    const walkNode = (n: ts.Node, running: boolean): void => {
+      if (ts.isCallExpression(n) && n.arguments.length > 0) {
+        const callee = testCallee(n.expression);
+        const first = n.arguments[0];
+        const name =
+          ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first)
+            ? first.text
+            : ts.isTemplateExpression(first)
+              ? first.getText().slice(1, -1)
+              : null;
+        if (callee && name !== null) {
+          const runs = running && callee.runs;
+          if (callee.kind === 'test') cases.push({ name, runs });
+          n.arguments.forEach((a) => walkNode(a, runs));
+          return;
+        }
       }
-      let s = at + 1;
-      while (/\s/.test(src[s] ?? '')) s += 1;
-      if (!["'", '"', '`'].includes(src[s])) continue;
-      names.add(src.slice(s + 1, skipString(src, s) - 1));
-    }
-    out.set(f, names);
+      n.forEachChild((c) => walkNode(c, running));
+    };
+    walkNode(parse(tree, f), true);
+    out.set(f, cases);
   }
   return out;
+}
+
+function testCheck(tree0: string, tree1: string): Result {
+  const t0 = testCases(tree0);
+  const t1 = testCases(tree1);
+  /** Running copies of each name, per file and over every file. */
+  const tally = (m: Map<string, TestCase[]>) => {
+    const perFile = new Map<string, Map<string, number>>();
+    const total = new Map<string, number>();
+    const idle = new Map<string, string>();
+    for (const [file, cases] of m) {
+      const counts = new Map<string, number>();
+      for (const c of cases) {
+        if (!c.runs) {
+          idle.set(c.name, file);
+          continue;
+        }
+        counts.set(c.name, (counts.get(c.name) ?? 0) + 1);
+        total.set(c.name, (total.get(c.name) ?? 0) + 1);
+      }
+      perFile.set(file, counts);
+    }
+    return { perFile, total, idle };
+  };
+  const a = tally(t0);
+  const b = tally(t1);
+  const lines: string[] = [];
+  let missing = 0;
+  let moved = 0;
+  let cases = 0;
+  for (const [name, want] of a.total) {
+    cases += want;
+    const renamed = RENAMED_TESTS[name];
+    const have =
+      (b.total.get(name) ?? 0) + (renamed ? (b.total.get(renamed) ?? 0) : 0);
+    if (renamed && (b.total.get(renamed) ?? 0) > 0) {
+      lines.push(`renamed on purpose: "${name}" → "${renamed}"`);
+    }
+    if (have < want) {
+      missing += want - have;
+      const idle = b.idle.get(name);
+      lines.push(
+        idle
+          ? `not run: "${name}" is skipped, todo or failing on purpose in ${idle}`
+          : `missing: "${name}" (${want - have} of ${want})`
+      );
+      continue;
+    }
+    // Enough copies overall: report a file that lost some as a move.
+    for (const [file, counts] of a.perFile) {
+      const lost =
+        (counts.get(name) ?? 0) - (b.perFile.get(file)?.get(name) ?? 0);
+      if (lost <= 0 || renamed) continue;
+      moved += lost;
+      const to = [...b.perFile]
+        .filter(
+          ([f, c]) => (c.get(name) ?? 0) > (a.perFile.get(f)?.get(name) ?? 0)
+        )
+        .map(([f]) => f);
+      lines.push(`moved: "${name}" ${file} → ${to.join(', ')}`);
+    }
+  }
+  lines.unshift(
+    `${cases} test cases on main (${a.total.size} names), ${moved} moved, ${missing} missing or not run`
+  );
+  return { name: 'unit tests of main still run', ok: missing === 0, lines };
 }
 
 function deps(tree: string): Record<string, string> {
@@ -277,6 +397,55 @@ function deps(tree: string): Record<string, string> {
     out[`devDependencies ${k}`] = v as string;
   }
   return out;
+}
+
+/** `yarn.lock` entries: each requested range → its resolved version. */
+function lockEntries(tree: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const file = join(tree, 'yarn.lock');
+  if (!existsSync(file)) return out;
+  for (const block of readFileSync(file, 'utf8').split(/\n\n+/)) {
+    const lines = block.split('\n').filter((l) => !l.startsWith('#'));
+    const head = lines[0];
+    const version = /^\s+version "([^"]+)"/m.exec(block)?.[1];
+    if (!head || !head.endsWith(':') || !version) continue;
+    for (const spec of head.slice(0, -1).split(', ')) {
+      out.set(spec.replace(/^"|"$/g, ''), version);
+    }
+  }
+  return out;
+}
+
+function depsCheck(tree0: string, tree1: string): Result {
+  const d0 = deps(tree0);
+  const d1 = deps(tree1);
+  const lines: string[] = [];
+  let ok = true;
+  for (const k of new Set([...Object.keys(d0), ...Object.keys(d1)])) {
+    if (d0[k] === d1[k]) continue;
+    const approved =
+      d0[k] === undefined &&
+      APPROVED_DEV_ADDITIONS.some((n) => k === `devDependencies ${n}`);
+    ok &&= approved;
+    lines.push(
+      `${approved ? 'approved' : 'changed'}: ${k} ${d0[k] ?? '(none)'} → ${d1[k] ?? '(none)'}`
+    );
+  }
+  // The lockfile: every entry of main resolves the same; new entries can
+  // only come from the approved additions, which the line above pins.
+  const l0 = lockEntries(tree0);
+  const l1 = lockEntries(tree1);
+  let added = 0;
+  for (const [spec, v] of l0) {
+    if (l1.get(spec) === v) continue;
+    ok = false;
+    lines.push(`yarn.lock: ${spec} ${v} → ${l1.get(spec) ?? '(gone)'}`);
+  }
+  for (const spec of l1.keys()) if (!l0.has(spec)) added += 1;
+  lines.push(
+    `yarn.lock: ${l0.size} entries of main resolve the same; ${added} added`
+  );
+  return { name: 'dependencies and yarn.lock', ok, lines };
 }
 
 function sameList(name: string, base: string[], head: string[]): Result {
@@ -330,11 +499,50 @@ interface ModelMods {
   match: Mod;
   reach: Mod;
   features: Mod;
+  year: Mod;
 }
 
-/** Every output the four model areas give on one dataset. */
+/**
+ * The release-year functions both trees export (main's round 005 is in
+ * both): `yearOf` over every track, `parseYear` over awkward inputs,
+ * `decadeOf` and `decadeLabel` over the years met. HEAD's own additions are
+ * reported by `newYearChecks`, not compared.
+ */
+const YEAR_INPUTS: unknown[] = [
+  1993,
+  '1993',
+  '1993-05',
+  '1993-05-17',
+  ' 2001/02',
+  '0000',
+  '1899',
+  '2028',
+  '2027',
+  'abc',
+  null,
+  1993.5,
+  '19930',
+  '1993 remaster',
+];
+
+function yearOutputs(year: Mod, model: any, now: number): unknown {
+  const ids = [...model.tracksByKey.values()]
+    .map((t: any) => t.id)
+    .filter((id: unknown) => typeof id === 'string');
+  const years = ids.map((id: string) => year.yearOf(model, id));
+  const decades = [...new Set(years.filter((y: unknown) => y !== null))]
+    .map((y) => year.decadeOf(y))
+    .sort();
+  return {
+    yearOf: years,
+    parseYear: YEAR_INPUTS.map((v) => year.parseYear(v, now)),
+    decades: [...new Set(decades)].map((d) => [d, year.decadeLabel(d)]),
+  };
+}
+
+/** Every output the model areas give on one dataset. */
 function modelOutputs(m: ModelMods, rows: unknown, now: number): unknown {
-  const { aggregate, crate, match, reach, features } = m;
+  const { aggregate, crate, match, reach, features, year } = m;
   const model = aggregate.buildModel(rows);
   const date = new Date(now);
   const periods = ['short_term', 'medium_term', 'long_term'];
@@ -403,7 +611,39 @@ function modelOutputs(m: ModelMods, rows: unknown, now: number): unknown {
     reach.rankUnderTheRadar(model, s)
   );
   out.reachCoverage = reach.reachCoverage(model);
+
+  // Release year (round 005, in both trees).
+  out.year = yearOutputs(year, model, now);
   return stable(out);
+}
+
+/**
+ * HEAD's year functions main does not have (`datedYear`, `trackYear`): not
+ * comparable, so checked against HEAD's own `yearOf`, which is compared.
+ */
+function newYearChecks(m: ModelMods, rows: unknown, main: Mod): string[] {
+  const added = Object.keys(m.year).filter(
+    (k) => typeof m.year[k] === 'function' && !(k in main)
+  );
+  const model = m.aggregate.buildModel(rows);
+  const bad: string[] = [];
+  for (const t of model.tracksByKey.values() as Iterable<any>) {
+    if (typeof t.id !== 'string') continue;
+    const want = m.year.yearOf(model, t.id);
+    if (m.year.trackYear && m.year.trackYear(model, t.id) !== want) {
+      bad.push(`trackYear(${t.id}) ≠ yearOf`);
+    }
+    if (
+      m.year.datedYear &&
+      (m.year.datedYear(model, t.id)?.year ?? null) !== want
+    ) {
+      bad.push(`datedYear(${t.id}) ≠ yearOf`);
+    }
+  }
+  return [
+    `new on HEAD, not on main: ${added.join(', ') || 'none'}; agree with yearOf on every track${bad.length ? `: NO (${bad.slice(0, 3).join('; ')})` : ''}`,
+    ...(bad.length ? ['FAIL'] : []),
+  ];
 }
 
 async function withRunner<T>(
@@ -438,6 +678,7 @@ async function loadModel(
     match: await load('src/model/match.ts'),
     reach: await load('src/model/reach.ts'),
     features: await load('src/model/features.ts'),
+    year: await load('src/model/year.ts'),
   };
 }
 
@@ -445,6 +686,11 @@ const VARIANTS = ['full', 'old-import', 'no-reach'];
 
 async function modelCheck(mainTree: string, out: string): Promise<Result> {
   const datasets: { variant: string; rows: unknown; now: number }[] = [];
+  let mainYear: Mod = {};
+  await withRunner(mainTree, async (load) => {
+    mainYear = { ...(await load('src/model/year.ts')) };
+  });
+  let extra: string[] = [];
   const head = await withRunner(ROOT, async (load) => {
     const demo = await load('src/dev/demo.ts');
     for (const v of VARIANTS) {
@@ -455,33 +701,35 @@ async function modelCheck(mainTree: string, out: string): Promise<Result> {
       });
     }
     const mods = await loadModel(load);
+    extra = newYearChecks(mods, structuredClone(datasets[0].rows), mainYear);
     return datasets.map((d) =>
       JSON.stringify(modelOutputs(mods, structuredClone(d.rows), d.now))
     );
   });
-  const base = await withRunner(mainTree, async (load) => {
+  const main = await withRunner(mainTree, async (load) => {
     const mods = await loadModel(load);
     return datasets.map((d) =>
       JSON.stringify(modelOutputs(mods, structuredClone(d.rows), d.now))
     );
   });
   const lines: string[] = [];
-  let ok = true;
+  let ok = !extra.includes('FAIL');
   datasets.forEach((d, i) => {
-    writeFileSync(join(out, `model-main-${d.variant}.json`), base[i]);
+    writeFileSync(join(out, `model-main-${d.variant}.json`), main[i]);
     writeFileSync(join(out, `model-head-${d.variant}.json`), head[i]);
-    const same = base[i] === head[i];
+    const same = main[i] === head[i];
     ok &&= same;
     let at = 0;
-    while (!same && base[i][at] === head[i][at]) at += 1;
+    while (!same && main[i][at] === head[i][at]) at += 1;
     lines.push(
       same
         ? `demo '${d.variant}': ${head[i].length.toLocaleString('en')} bytes, equal`
-        : `demo '${d.variant}': differ at byte ${at}: main …${base[i].slice(at, at + 80)}… HEAD …${head[i].slice(at, at + 80)}…`
+        : `demo '${d.variant}': differ at byte ${at}: main …${main[i].slice(at, at + 80)}… HEAD …${head[i].slice(at, at + 80)}…`
     );
   });
+  lines.push(...extra.filter((l) => l !== 'FAIL'));
   return {
-    name: 'model outputs (ranking, Crate, Match, Under the radar)',
+    name: 'model outputs (ranking, Crate, Match, Under the radar, release year)',
     ok,
     lines,
   };
@@ -511,69 +759,22 @@ async function main(): Promise<number> {
       lines: [`main ${v[0]}, HEAD ${v[1]}`],
     });
 
-    const c = sameList(
-      'confirm() texts',
-      confirmTexts(mainTree),
-      confirmTexts(ROOT)
-    );
-    c.lines.unshift(`${confirmTexts(ROOT).length} texts`);
+    const headConfirms = confirmTexts(ROOT);
+    const c = sameList('confirm() texts', confirmTexts(mainTree), headConfirms);
+    c.lines.unshift(`${headConfirms.length} texts`);
     results.push(c);
 
+    const headHosts = hosts(ROOT);
     const h = sameList(
-      'external hosts named in src/',
+      'external hosts (src/ strings, index.html, vite.config.ts)',
       hosts(mainTree),
-      hosts(ROOT)
+      headHosts
     );
-    h.lines.unshift(`${hosts(ROOT).length} hosts`);
+    h.lines.unshift(`${headHosts.length} hosts`);
     results.push(h);
 
-    const d0 = deps(mainTree);
-    const d1 = deps(ROOT);
-    const depLines: string[] = [];
-    let depOk = true;
-    for (const k of new Set([...Object.keys(d0), ...Object.keys(d1)])) {
-      if (d0[k] === d1[k]) continue;
-      const approved =
-        d0[k] === undefined &&
-        APPROVED_DEV_ADDITIONS.some((n) => k === `devDependencies ${n}`);
-      depOk &&= approved;
-      depLines.push(
-        `${approved ? 'approved' : 'changed'}: ${k} ${d0[k] ?? '(none)'} → ${d1[k] ?? '(none)'}`
-      );
-    }
-    results.push({ name: 'dependencies', ok: depOk, lines: depLines });
-
-    const t0 = testNames(mainTree);
-    const t1 = testNames(ROOT);
-    const testLines: string[] = [];
-    let moved = 0;
-    let total = 0;
-    for (const [file, names] of t0) {
-      for (const n of names) {
-        total += 1;
-        if (t1.get(file)?.has(n)) continue;
-        const renamed = RENAMED_TESTS[n];
-        if (renamed && t1.get(file)?.has(renamed)) {
-          testLines.push(`renamed on purpose: "${n}" → "${renamed}" (${file})`);
-          continue;
-        }
-        const now = [...t1].find(([, s]) => s.has(n))?.[0];
-        if (now) {
-          moved += 1;
-          testLines.push(`moved: "${n}" ${file} → ${now}`);
-        } else testLines.push(`missing: "${n}" (${file})`);
-      }
-    }
-    const missing = testLines.filter((l) => l.startsWith('missing')).length;
-    testLines.unshift(
-      `${total} names on main, ${moved} moved, ${missing} missing`
-    );
-    results.push({
-      name: 'unit test names',
-      ok: missing === 0,
-      lines: testLines,
-    });
-
+    results.push(depsCheck(mainTree, ROOT));
+    results.push(testCheck(mainTree, ROOT));
     results.push(await modelCheck(mainTree, scratch));
   } finally {
     git('worktree', 'remove', '--force', mainTree);
