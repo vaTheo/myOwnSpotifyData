@@ -31,8 +31,8 @@ CHARTREUSE COLOR in you design": chartreuse is the app's colour.
 
 ### Amendments during the build (2026-11-06 to 2026-11-07)
 
-Approved by the owner at the contact-sheet Stops, or ruled by the controller under the owner's delegation of 2026-11-07 (the
-ledger `.superpowers/sdd/execution/progress.md` holds every ruling with its cost):
+Approved by the owner at the contact-sheet Stops, or ruled by the controller under the owner's delegation of 2026-11-07. This
+list is the record; the steps that made them are in [execution.md](execution.md):
 
 - **FR-015 / FR-016, amended (owner, S04 Stop, 2026-11-06)**: beside a list pane on expanded windows (840–1199 px), the Playlist
   and Artist tracks show as two-line items without sort headers, as on compact; the table and its sort come back on large windows.
@@ -52,9 +52,17 @@ ledger `.superpowers/sdd/execution/progress.md` holds every ruling with its cost
   windows (owner, S02); row charts hide with the sheet open and on medium windows (owner, S06); the Mixes pane folds while a mix
   is open from 840 to 1599 px; the Overview has two columns from 840 px and three from 1200 px; Escape in search clears the text
   first, then closes.
+- **Other rulings a reader needs**: the Listening and Library tab roots are titled after their destination; the Spotify link
+  column comes first in priority and the "not in a playlist" flag stays in the phone item; Match drops Album and Added at
+  1440; moving between rows with the details sheet open replaces the history entry, so Back returns to the list; Playlists
+  split from expanded windows and the list pane folds while Match is on below large; on Mix, Edit and Delete sit in a row
+  "More" menu, the Spotify column is 64 px, phones get one "Listen…" item; the mix error shows under the open mix's header
+  when the Mixes pane is folded or the window has one column (one copy), and the "Mixes" button carries an error indicator
+  (S08b, constitution VII); the "Found tracks" chip carries no count; the CC BY-SA credit sits in the "Well known" heading
+  row; Connect's `/me` refused inside the lock-out is a warning banner (Connect is not Mix or Like).
 - **Numbering**: the round's ADR is ADR-11 (ADR-10 was taken on `main` by round 003), its inventory row F21 (F20 was taken on
   `main` by round 005), and the constitution PATCH is 2.1.1 (`main` reached 2.1.0). The folder keeps the number 003 beside
-  `specs/003-fill-scan-gaps/`: the round's controller, briefs and ledger point at this path.
+  `specs/003-fill-scan-gaps/`: the round's execution plan ([execution.md](execution.md)) and its steps point at this path.
 
 ## Constitution notice
 

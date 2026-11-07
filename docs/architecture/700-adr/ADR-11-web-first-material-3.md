@@ -26,8 +26,8 @@ screen; how the app looks, where things sit and how a change to a screen is chec
 - **Material Design 3, dark only, chartreuse.** Material's dark colour scheme generated once from the seed `#7FFF00` (computed
   outside the repo, kept as tokens in `src/ui/theme/tokens.css`), with chartreuse kept as itself for the accent: the current
   destination, primary buttons, selection, sort direction, focus ring, progress, links and every chart's main series; never large
-  areas. No light theme and no switch (the owner: "I want you to keep the darkmode"). Roboto is served by the app; about 35
-  Material Symbols are inline paths. Components read tokens only, never raw colours. The twelve Camelot colours stay as data
+  areas. No light theme and no switch (the owner: "I want you to keep the darkmode"). Roboto is served by the app; 46
+  Material Symbols are inline paths (`src/ui/icons.tsx`). Components read tokens only, never raw colours. The twelve Camelot colours stay as data
   colours.
 - **Five destinations**: Overview (the home, `#/`), Listening (Top, Crate), Library (Playlists, Artists), Mix and Settings: a
   side rail from 600 px, Settings at its foot; a five-item bottom bar on phones. Every address that existed keeps working, inside
@@ -48,8 +48,11 @@ a screen change is checked on four widths before anyone looks at it.
 
 **Negative / watch for:** every component is hand-built and must keep Material's rules (48 px targets, focus ring, contrast);
 the shots need Chromium on the owner's computer, and WebKit needs system libraries Debian lacks; a light theme would be its own
-round ([Limits and roadmap](../800-limits-roadmap.md)). No stored data, Spotify call, rule or `confirm()` changes with this
-decision (spec FR-046 to FR-049).
+round ([Limits and roadmap](../800-limits-roadmap.md)). The decision adds no Spotify endpoint, scope, write or host, changes
+no ranking, Crate rule, Match or gate, and no `confirm()` text (spec FR-046 to FR-049). The round did change behaviour in the
+Mix review: Check on Spotify reads `GET /search` on its own tap, Create playlist adds what Validated only or All tracks picks
+(D6, amending [ADR-10](ADR-10-name-lookup-for-clues.md)), and one quota lock-out holds for every Spotify read; Mix rows gain
+optional fields, with no `DB_VERSION` bump.
 
 ## Links
 

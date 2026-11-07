@@ -292,7 +292,7 @@ screen, grouped by role under `src/ui/`.
   on compact), `TopBar.tsx` (the title from `titles.ts`, back on a detail, the screen's actions, the search field, the Activity
   button) and `ScreenTabs.tsx` (Top · Crate, Playlists · Artists). The frame paints before anything is awaited: `main.tsx` calls
   `render` before `completeLogin` and `loadFromDb`, and drives `bootPhase` (`'signin' | 'loading' | 'ready'`, in `app.tsx`).
-  `ActivityButton.tsx` reads `activeJobs` (`ui/jobs.ts`, over the job signals of §14, read only) and links to the place that owns
+  `src/ui/ActivityButton.tsx` reads `activeJobs` (`ui/jobs.ts`, over the job signals of §14, read only) and links to the place that owns
   each job; it never starts, stops or retries one. Banners sit under the top bar.
 - **Destinations and addresses** (`src/router.ts`): Overview (`#/`, also an empty or unknown address), Listening (`#/top`,
   `#/crate`, `#/crate/<view>`, `#/crate/year/<YYYY-MM>`), Library (`#/playlists`, `#/playlist/<id>`, `#/artists`,
@@ -328,7 +328,9 @@ screen, grouped by role under `src/ui/`.
 - **Mix** (`ui/mix/`, §10): `Workspace.tsx` lays out `MixListPane.tsx` (the link field, Identify on my computer, the JSON import,
   the Mixes list with the queue) beside `MixDetail.tsx` (the header with `RunLine.tsx`, the review line, `TracklistTable.tsx` on
   `DataTable`, `CreatePlaylistCard.tsx`, `Clues.tsx`); from 840 to 1599 px the Mixes pane folds while a mix is open, behind a
-  "Mixes" button. No banner: every failure inline.
+  "Mixes" button. No banner: every failure inline. `mixError` shows under the Mixes list's header, or under the open mix's
+  header when the Mixes pane is folded or the window has one column (one copy), and the "Mixes" button then carries an error
+  indicator (ruling S08b, constitution VII).
 - **Search and filters**: `search/searchIndex.ts` (pure `buildSearchIndex` over the model and the saved mixes, which are read
   again on each opening; `searchAll` with the existing `normalize`), `SearchView.tsx` (`/`, Ctrl+K or ⌘K, or the top bar field;
   results grouped, five a group with Show all), `choose.ts` (what a result opens; Escape clears the text, then closes).
@@ -417,7 +419,7 @@ payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history 
   result is counted and flagged `rejected` locally.
 - Round 004 (`specs/004-worker-progress-control/`, migration 0003): `pullJobs` also reads `progress`, `priority`,
   `stop_requested_at` (and falls back to the old fields when the server answers "column does not exist"); `validateJobRow`
-  keeps a well-formed progress or drops it; `progressLine` words it on the Requests card ("First pass · 47 % · about 25 min
+  keeps a well-formed progress or drops it; `progressLine` words it on the request's row of the Mixes list (§10) ("First pass · 47 % · about 25 min
   left", "Paused by Shazam until 20:35", the VPN warning, "the computer stopped sending news" after 10 minutes).
   `cancelRequest` (deletes a queued row), `moveRequestToTop` (priority above the highest queued), `stopRequest`
   (`stop_requested_at` on a claimed row), behind `startCancelRequest`, `startMoveToTop`, `startStopRequest`. Heard rows carry
