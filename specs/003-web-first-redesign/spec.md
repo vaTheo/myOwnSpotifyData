@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-06
 
-**Status**: Draft
+**Status**: Implemented (2026-11-07, on `worktree-task-design`; merge pending)
 
 **Input**: User description: "I'm not happu with the mobile first design, it uglly and not good for web. I think I will use this app manly on web so I need you to do a complete rework of the design. You will need to go trhough esch part a create a plan to make it UX and UI friendly. You must analyses type of data are used and how you could make them available to the user. Use goodle best practicies to make a good design". Clarified on 2026-11-06: the visual direction is Material Design 3 as Google ships it (tonal surfaces,
 rounded containers, a colour scheme generated from one seed colour), in a dark theme only (the owner: "I want you to keep the
@@ -29,6 +29,33 @@ CHARTREUSE COLOR in you design": chartreuse is the app's colour.
 - Q: How should the navigation be organised? → A: Regroup: Listening (Top, Crate), Library (Playlists, Artists), Mix, Settings. With
   the Overview this makes five destinations, the most a phone's bottom bar takes.
 
+### Amendments during the build (2026-11-06 to 2026-11-07)
+
+Approved by the owner at the contact-sheet Stops, or ruled by the controller under the owner's delegation of 2026-11-07 (the
+ledger `.superpowers/sdd/execution/progress.md` holds every ruling with its cost):
+
+- **FR-015 / FR-016, amended (owner, S04 Stop, 2026-11-06)**: beside a list pane on expanded windows (840–1199 px), the Playlist
+  and Artist tracks show as two-line items without sort headers, as on compact; the table and its sort come back on large windows.
+  At 1440 px with the pane, Album, Length and Added hide by priority.
+- **FR-016 on phones (ruling)**: compact windows have no header sort; the screens whose order is a control (Playlist order, Under
+  the radar sorts, Mix's Sort) keep that control.
+- **FR-026 (ruling, S06)**: All-time classics draws a year with no plays inside the imported range as a zero tick, not a gap;
+  only months or years outside the history are gaps.
+- **US6, the Mix review (owner, 2026-11-06)**: Check on Spotify (a button per mix, read on tap, answers kept on the rows),
+  Validate per track, Create playlist with **Validated only** or **All tracks**; from `main`'s rounds 003–004: a later worker
+  result keeps the review (D1), a run line with Ask again (D3), a comment candidate starts To review and joins Validated only once
+  validated, All tracks includes it (D6, amends ADR-10); Heard once is a filter chip (D2); a request already gone says so inline
+  (D4); a server without migration 0003 is named (D5). Check on Spotify saves the working list when it ends (R1).
+- **One Spotify quota lock-out (ruling, S08d)**: a quota answer to sync, Check on Spotify, Create playlist or Like all songs locks
+  all of them until it lapses, across reloads; Disconnect keeps it.
+- **Layout rulings**: the Playlist header is one strip above the table (no side column) and Playlist rows are 48 px on large
+  windows (owner, S02); row charts hide with the sheet open and on medium windows (owner, S06); the Mixes pane folds while a mix
+  is open from 840 to 1599 px; the Overview has two columns from 840 px and three from 1200 px; Escape in search clears the text
+  first, then closes.
+- **Numbering**: the round's ADR is ADR-11 (ADR-10 was taken on `main` by round 003), its inventory row F21 (F20 was taken on
+  `main` by round 005), and the constitution PATCH is 2.1.1 (`main` reached 2.1.0). The folder keeps the number 003 beside
+  `specs/003-fill-scan-gaps/`: the round's controller, briefs and ledger point at this path.
+
 ## Constitution notice
 
 The constitution's preamble and the root `CLAUDE.md` describe an app "the owner (a DJ) uses on an Android phone". The owner now
@@ -46,7 +73,7 @@ uses it mainly in a web browser on a computer. This changes the design premise, 
   saved mixes on their own, when those are shown, never as part of loading the library.
 - **Wording to change in the round's documents**: the constitution preamble (PATCH bump), the first line of `CLAUDE.md`, the
   README (owner's manual) and How the app works §13. The feature inventory's F4 stops being "the default route", because the
-  Overview takes that place. A new ADR (ADR-10) records the move from phone-first to web-first adaptive design, Material Design 3
+  Overview takes that place. A new ADR (ADR-11) records the move from phone-first to web-first adaptive design, Material Design 3
   as the visual system and the five-destination navigation, because that decision outlives the round.
 
 ## Design references
@@ -528,5 +555,5 @@ reach, Mix (with its tracklist rows and requests), Job state, Server state.
   app is never half old and half broken on `main`.
 - **Out of scope**: new data sources, changes to rankings or rules, new Spotify features, offline changes, a native app, translations.
 - **Theme**: dark only, at the owner's request. A light theme is not built. Adding one later would be its own small round.
-- **Round documents**: the spec under `docs/specs/`, an inventory row (F20), How the app works §13, README (owner's manual),
-  CHANGELOG, ADR-10, and the constitution and `CLAUDE.md` wording of the Constitution notice.
+- **Round documents**: the spec under `docs/specs/`, an inventory row (F21), How the app works §13, README (owner's manual),
+  CHANGELOG, ADR-11, and the constitution and `CLAUDE.md` wording of the Constitution notice.

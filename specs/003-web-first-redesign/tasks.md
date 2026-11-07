@@ -302,7 +302,7 @@ first/last play, finished/skipped, playlists, link; the list keeps its scroll; E
   - opening pushes `?d=`; Escape or ✕ replaces the history entry without `?d=`, and back pops it;
   - focus returns to the row through a `data-row-id`.
 - [x] T057 [US3] Create `src/ui/details/TrackDetails.tsx` with sections 1–5 of `contracts/screens.md` §11.
-  - The History section shows today's text `Strip` until T075 swaps in the chart.
+  - The History section first showed the text `Strip`; T075 replaced it with the chart (the `Strip` is gone).
   - "Match from this track" shows when the sheet was opened from a playlist. It sets the seed and switches the order to Match.
 - [x] T058 [US3] Make opening a row set `?d=` and render `TrackDetails` in `SideSheet`, in `src/ui/Top.tsx`, `src/ui/Playlist.tsx` (position), `src/ui/Artist.tsx` and the Crate rows in `src/ui/crate/shared.tsx` (`CrateRow` opens details). Then remove the in-place expansions: Top's `expanded`, Artist's `opened`/`OPEN_BY_DEFAULT`, and `CrateRow`'s `expanded` children. Their content (playlist links, strips, "N of M plays", "Open <month> ›") now lives in the details.
 - [x] T059 [US3] Create `src/ui/layout/ListDetail.tsx`:
@@ -356,7 +356,7 @@ for screen readers; with `old-import`, the hub shows the re-import card.
   - `CrateEmpty` when `crateStatus` is not `ready`.
 - [x] T070 [P] [US4] Rewrite `src/ui/crate/Rotation.tsx` as a table per §6: Plays in window, Lifetime, a Flag with today's precedence (New, then not in a playlist), and `MonthBars` over the window. Keep the caption, the day-of-month note, "Try 6 months" and the stale empty text word for word.
 - [x] T071 [P] [US4] Rewrite `src/ui/crate/Gems.tsx` as a table per §6: Plays, Last played (month), Flag, and `MonthBars` over the last 24 months. Keep the caption and the empty texts.
-- [x] T072 [P] [US4] Rewrite `src/ui/crate/Classics.tsx` as a table per §6: Years played ("6 of 9"), Plays, Flag, and plays per year across the span (a year with no plays shown as a gap). Keep the sort `SegmentedButtons` (Most years · Most plays) and the caption.
+- [x] T072 [P] [US4] Rewrite `src/ui/crate/Classics.tsx` as a table per §6: Years played ("6 of 9"), Plays, Flag, and plays per year across the span (a year with no plays inside the import drawn as a zero tick, FR-026; ruling S06). Keep the sort `SegmentedButtons` (Most years · Most plays) and the caption.
 - [x] T073 [P] [US4] Rewrite `src/ui/crate/ByYear.tsx` per §6:
   - on medium and wider, `YearMonthGrid` above the table replaces the two chip rows; on compact, the chip rows stay;
   - keep `applyPeriod` once per mount and `selectionLabel`;
@@ -524,12 +524,12 @@ outside `127.0.0.1`; with the `empty` demo each card shows its explanation and o
   - the Network panel shows no host that is not already in the content security policy;
   - rankings, the Match order and the Crate counts equal the deployed `main` on the same data.
 - [ ] T103 [P] Write `docs/specs/2026-11-06-web-first-redesign-design.md` from the spec and the plan, in the style of the other files in `docs/specs/`.
-- [ ] T104 [P] Write `docs/architecture/700-adr/ADR-10-web-first-material-3.md`: web-first adaptive layout, Material 3 dark with chartreuse, five destinations, and the Playwright visual loop as a dev-only check. Link it both ways with `docs/architecture/700-adr/README.md`.
-- [ ] T105 [P] Amend `.specify/memory/constitution.md` to 2.0.3 (PATCH): the preamble becomes "uses mainly in a web browser on a computer, and on an Android phone", with a new Sync Impact Report and Last Amended date. Make the same change to the first line of the root `CLAUDE.md`, and add `yarn shots` and `?demo` to its Commands. Keep the root `CLAUDE.md` at 150 lines or fewer.
+- [ ] T104 [P] Write `docs/architecture/700-adr/ADR-11-web-first-material-3.md` (ADR-10 is taken on `main`): web-first adaptive layout, Material 3 dark with chartreuse, five destinations, and the Playwright visual loop as a dev-only check. Link it both ways with `docs/architecture/700-adr/README.md`.
+- [ ] T105 [P] Amend `.specify/memory/constitution.md` to 2.1.1 (PATCH; `main` reached 2.1.0): the preamble becomes "uses mainly in a web browser on a computer, and on an Android phone", with a new Sync Impact Report and Last Amended date. Make the same change to the first line of the root `CLAUDE.md`, and add `yarn shots` and `?demo` to its Commands. Keep the root `CLAUDE.md` at 150 lines or fewer.
 - [ ] T106 [P] Update `docs/dev-guide/000-contributing.md`: the visual loop ends every UI change, with `yarn shots`, `yarn shots:sheet`, the baselines and the demo variants.
 - [ ] T107 [P] Update `docs/architecture/000-how-it-works.md` §13: the frame, the destinations, `?d=` and `#/mix/<key>`, the size classes, tables and sheets, the demo mode and `tools/shots/`.
 - [ ] T108 [P] Update the feature docs:
-  - `docs/architecture/100-features.md`: add row F20, the redesign, linked to the spec; change F4 so it is no longer "Top (default route)";
+  - `docs/architecture/100-features.md`: add row F21, the redesign (F20 is round 005 on `main`), linked to the spec; change F4 so it is no longer "Top (default route)";
   - `docs/architecture/800-limits-roadmap.md`: add "Light theme: not built, the owner's choice".
 - [ ] T109 [P] Update `README.md` (the owner's manual: navigation, Overview, tables and sorting, details, search, filters, Compare periods), `CHANGELOG.md`, and `docs/README.md` (list the new pages).
 - [ ] T110 Final gate: run `yarn typecheck && yarn lint && yarn test && yarn build && yarn shots` and check every exit code is 0. The OK to merge is asked after Phase 12.
