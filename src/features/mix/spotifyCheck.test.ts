@@ -28,8 +28,13 @@ function row(title: string, over: Partial<TracklistRow> = {}): TracklistRow {
   };
 }
 
-/** Answers a search whose query names one of `found` with that track. */
-function client(found: string[], fail?: unknown) {
+/** Answers a search whose query names one of `found` with that track;
+ *  `dates` gives a found track's album release date (round 005). */
+function client(
+  found: string[],
+  fail?: unknown,
+  dates: Record<string, string> = {}
+) {
   const get = vi.fn(async (_path: string, query?: Query) => {
     if (fail) throw fail;
     const q = String(query?.q ?? '');
@@ -43,6 +48,7 @@ function client(found: string[], fail?: unknown) {
             id: `${hit}id`,
             name: hit,
             artists: [{ id: null, name: 'Artist' }],
+            ...(dates[hit] ? { album: { release_date: dates[hit] } } : {}),
           },
         ],
       },
@@ -147,6 +153,63 @@ describe('applyAnswers (fix round 1)', () => {
     // Places gone and two candidates left: dropped, not guessed.
     const moved = [row('Same'), row('Same')];
     expect(applyAnswers(moved, [missed(5, 'Same')])).toEqual(moved);
+  });
+});
+
+describe('the Spotify album year (S13b fix I1, round 005)', () => {
+  it('accepted: a found answer dates an undated row, yearFrom spotify', () => {
+    const a = answerFor(0, row('One'), 'spotify:track:A', 9, 1993);
+    expect(a.year).toBe(1993);
+    const out = applyAnswers([row('One')], [a]);
+    expect(out[0]).toMatchObject({
+      spotify: { id: 'A' },
+      year: 1993,
+      yearFrom: 'spotify',
+    });
+  });
+
+  it('refused: a dated row keeps its year and its source', () => {
+    const shazam = row('One', { year: 1991, yearFrom: 'shazam' });
+    const a = answerFor(0, row('One'), 'spotify:track:A', 9, 1993);
+    expect(applyAnswers([shazam], [a])[0]).toMatchObject({
+      year: 1991,
+      yearFrom: 'shazam',
+    });
+  });
+
+  it('refused: a not-found answer carries no year', () => {
+    const a = answerFor(0, row('One'), null, 9, 1993);
+    expect(a.year).toBeUndefined();
+    expect(applyAnswers([row('One')], [a])[0].year).toBeUndefined();
+  });
+
+  it('keepStoredAnswers carries a stored Spotify year with its answer', () => {
+    const stored = applyAnswers(
+      [row('One')],
+      [answerFor(0, row('One'), 'spotify:track:A', 5, 1987)]
+    );
+    expect(keepStoredAnswers([row('One')], stored)[0]).toMatchObject({
+      spotify: { id: 'A' },
+      year: 1987,
+      yearFrom: 'spotify',
+    });
+  });
+
+  it('runSpotifyCheck hands the matched album year with the answer', async () => {
+    const { client: c } = client(['One'], undefined, { One: '1999-04-01' });
+    const years: (number | undefined)[] = [];
+    await runSpotifyCheck(
+      {
+        client: c,
+        now: () => 7,
+        shouldStop: () => false,
+        onChecked: (answer) => {
+          years.push(answer.year);
+        },
+      },
+      [row('One'), row('Two')]
+    );
+    expect(years).toEqual([1999, undefined]);
   });
 });
 
