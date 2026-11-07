@@ -289,6 +289,29 @@ describe('runCreatePlaylist', () => {
     expect(outcome).toEqual({ playlistId: null, url: null });
   });
 
+  it('reuses a track Check on Spotify found instead of searching again (T117)', async () => {
+    const checked: TracklistRow = {
+      ...id(t(0)),
+      spotify: { id: 'X1', url: 'https://open.spotify.com/track/X1' },
+      checkedAt: 1,
+    };
+    const notFound: TracklistRow = {
+      ...id(t(1)),
+      spotify: 'not-found',
+      checkedAt: 1,
+    };
+    const { client, get, post } = makeClient({ matchable: [t(1)] });
+    const { onState } = record();
+
+    await runCreatePlaylist({ client, onState }, input([checked, notFound]));
+
+    expect(get).toHaveBeenCalledTimes(1); // only the row without an id
+    expect(itemsBatches(post)[0]).toEqual([
+      'spotify:track:X1',
+      'spotify:track:T001',
+    ]);
+  });
+
   it('drives the state sequence resolving*->creating->adding->done', async () => {
     const rows = ids(2);
     const { client } = makeClient({ matchable: rows.map((r) => r.title) });

@@ -140,8 +140,16 @@ export function editTracklistRow(
     (edit.artist !== row.detected.artist ||
       edit.title !== row.detected.title ||
       (edit.startSec !== undefined && edit.startSec !== row.startSec));
+  // A new artist or title names another track: Check on Spotify's answer
+  // (T117) no longer applies; the label or the time change nothing.
+  const renamed = edit.artist !== row.artist || edit.title !== row.title;
+  const kept: TracklistRow = { ...row };
+  if (renamed) {
+    delete kept.spotify;
+    delete kept.checkedAt;
+  }
   return {
-    ...row,
+    ...kept,
     artist: edit.artist,
     title: edit.title,
     label: label.length > 0 ? label : null,

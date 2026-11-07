@@ -258,6 +258,31 @@ describe('editTracklistRow', () => {
     expect(out.label).toBeNull();
   });
 
+  it('drops the Spotify check when the artist or title changes, keeps it otherwise (T117)', () => {
+    const checked: TracklistRow = {
+      ...base,
+      spotify: { id: 'abc', url: 'https://open.spotify.com/track/abc' },
+      checkedAt: 5,
+      validated: true,
+    };
+    const relabelled = editTracklistRow(checked, {
+      artist: 'Apollonia',
+      title: 'Chez Michel',
+      label: 'Ovum',
+    });
+    expect(relabelled.spotify).toEqual(checked.spotify);
+    expect(relabelled.checkedAt).toBe(5);
+    const renamed = editTracklistRow(checked, {
+      artist: 'Apollonia',
+      title: 'Chez Michelle',
+      label: '',
+    });
+    expect(renamed.spotify).toBeUndefined();
+    expect(renamed.checkedAt).toBeUndefined();
+    expect('spotify' in renamed).toBe(false);
+    expect(renamed.validated).toBe(true);
+  });
+
   it('leaves an added row (detected null) manual', () => {
     const added: TracklistRow = { ...base, source: 'manual', detected: null };
     const out = editTracklistRow(added, { artist: 'X', title: 'Y', label: '' });

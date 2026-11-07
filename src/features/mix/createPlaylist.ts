@@ -6,6 +6,7 @@ import type { CreatePlaylistState, UnmatchedRow } from '../../model/state';
 import type { SpotifyClient } from '../../spotify/client';
 import type { ApiPlaylist } from '../../spotify/types';
 import { describeError } from '../../util/errors';
+import { storedUri } from './spotifyCheck';
 import { isIdentified, searchTrack, type RowMatch } from './spotifySearch';
 
 export interface CreatePlaylistDeps {
@@ -51,6 +52,13 @@ export async function runCreatePlaylist(
   onState({ status: 'resolving', done: 0, total });
   let done = 0;
   for (const row of identified) {
+    // Check on Spotify already found it (T117): no search again.
+    const stored = storedUri(row);
+    if (stored !== null) {
+      uris.push(stored);
+      onState({ status: 'resolving', done: ++done, total });
+      continue;
+    }
     let match: RowMatch;
     try {
       match = await searchTrack(client, row);
