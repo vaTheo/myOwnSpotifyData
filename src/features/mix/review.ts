@@ -1,0 +1,81 @@
+import type { TracklistRow } from '../../db/schema';
+
+/**
+ * The per-track review of the open mix (spec 003 §12, T118, T127): the
+ * filter chips, their counts and the header line. Pure. A filter hides
+ * rows, never deletes them; gap rows show under All only and never count.
+ */
+
+export type ReviewFilter =
+  'all' | 'toReview' | 'validated' | 'notOnSpotify' | 'heardOnce';
+
+export type SpotifyStatus = 'unchecked' | 'found' | 'notFound';
+
+/** The caption under any chip but All (ruling D2). */
+export const FILTER_CAPTION =
+  'Hidden, not deleted. Create playlist follows Validated only or All tracks, not this filter.';
+
+/** What Check on Spotify said about the row (T117). */
+export function spotifyStatus(row: TracklistRow): SpotifyStatus {
+  if (row.spotify === undefined) return 'unchecked';
+  return row.spotify === 'not-found' ? 'notFound' : 'found';
+}
+
+/** Whether the row shows under the chip. */
+export function inFilter(row: TracklistRow, filter: ReviewFilter): boolean {
+  if (filter === 'all') return true;
+  if (row.gap) return false;
+  switch (filter) {
+    case 'toReview':
+      return row.validated !== true;
+    case 'validated':
+      return row.validated === true;
+    case 'notOnSpotify':
+      return spotifyStatus(row) === 'notFound';
+    case 'heardOnce':
+      return row.hits === 1;
+  }
+}
+
+export interface ReviewChip {
+  filter: ReviewFilter;
+  label: string;
+  count: number;
+}
+
+const LABELS: Record<ReviewFilter, string> = {
+  all: 'All',
+  toReview: 'To review',
+  validated: 'Validated',
+  notOnSpotify: 'Not on Spotify',
+  heardOnce: 'Heard once',
+};
+
+/**
+ * The chips with their counts: All, To review, Validated, Not on Spotify,
+ * and Heard once only when a row has clip counts (round 004).
+ */
+export function reviewChips(rows: readonly TracklistRow[]): ReviewChip[] {
+  const tracks = rows.filter((r) => !r.gap);
+  const filters: ReviewFilter[] = [
+    'all',
+    'toReview',
+    'validated',
+    'notOnSpotify',
+  ];
+  if (rows.some((r) => r.hits !== undefined)) filters.push('heardOnce');
+  return filters.map((filter) => {
+    const count = tracks.filter((r) => inFilter(r, filter)).length;
+    return { filter, label: `${LABELS[filter]} (${count})`, count };
+  });
+}
+
+/** "N tracks · K validated · M on Spotify · L not found"; gaps never count. */
+export function reviewLine(rows: readonly TracklistRow[]): string {
+  const tracks = rows.filter((r) => !r.gap);
+  const n = tracks.length;
+  const validated = tracks.filter((r) => r.validated === true).length;
+  const found = tracks.filter((r) => spotifyStatus(r) === 'found').length;
+  const notFound = tracks.filter((r) => spotifyStatus(r) === 'notFound').length;
+  return `${n} ${n === 1 ? 'track' : 'tracks'} · ${validated} validated · ${found} on Spotify · ${notFound} not found`;
+}
