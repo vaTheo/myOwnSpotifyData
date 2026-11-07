@@ -1,18 +1,21 @@
 <!--
 Sync Impact Report
-- Version change: 2.0.2 → 2.1.0 (MINOR: Principle IV gains one bounded exception, a name lookup in the worker, per ADR-10)
-- Modified principles: IV (one sentence added; title unchanged)
+- Version change: 2.1.0 → 2.1.1 (PATCH: preamble wording; the owner now uses the app mainly in a web browser on a
+  computer, and on an Android phone; ADR-11, web-first redesign)
+- Modified principles: none (preamble only)
 - Added sections: none
 - Removed sections: none
 - Templates: plan/spec/tasks templates read this file at runtime; no template edited here
 - Follow-up TODOs: none
+- Previous: 2.0.2 → 2.1.0 (MINOR: Principle IV gains one bounded exception, a name lookup in the worker, per ADR-10)
 -->
 
 # myOwnSpotifyData Constitution
 
-Browser-first Preact app the owner (a DJ) uses on an Android phone to read their Spotify
-listening data and prepare sets. One owner, one `main` branch, deployed to GitHub Pages,
-with one optional server of the owner's holding the data.
+Browser-first Preact app the owner (a DJ) uses mainly in a web browser on a computer, and
+on an Android phone, to read their Spotify listening data and prepare sets. One owner, one
+`main` branch, deployed to GitHub Pages, with one optional server of the owner's holding
+the data.
 This constitution restates the decisions that outlive any feature round; the reasoning
 behind each lives in its ADR under `docs/architecture/700-adr/`.
 
@@ -142,4 +145,4 @@ When the two disagree, the ADR index is corrected first and this file follows.
 - Runtime guidance for agents stays in `CLAUDE.md` and the local `CLAUDE.md` files;
   this file does not duplicate their routing.
 
-**Version**: 2.1.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-06
+**Version**: 2.1.1 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-07
