@@ -85,6 +85,15 @@ export function Workspace(p: { mixKey?: string }) {
   const [readFailed, setReadFailed] = useState(false);
   const [missing, setMissing] = useState<string | null>(null);
   const [paneShown, setPaneShown] = useState(false);
+  /**
+   * An unknown key met while a mix was open (Back after a removal, a stale
+   * link): the address goes back to the open mix, which stays (it may be an
+   * unsaved lookup), and a line above it says what happened (S14 review
+   * M9). Dropped on the next address that is not the open mix's.
+   */
+  const [stray, setStray] = useState<{ key: string; open: string } | null>(
+    null
+  );
   const state = mixState.value;
   const open = state.status === 'ready' ? state.view.url : null;
   const saved = open !== null && savedMixes.value.some((m) => m.url === open);
@@ -118,6 +127,14 @@ export function Workspace(p: { mixKey?: string }) {
       });
       const nowMissing = action === 'missing' && !readFailed;
       setMissing(nowMissing ? (key ?? null) : null);
+      const openNow = currentOpenUrl();
+      setStray((s) =>
+        nowMissing && key !== undefined && openNow !== null
+          ? { key, open: openNow }
+          : s !== null && key === s.open
+            ? s
+            : null
+      );
       holding = nowMissing || (action === 'missing' && readFailed);
       if (action === 'open' && key !== undefined) openMix(key);
       if (action === 'close') {
@@ -195,22 +212,33 @@ export function Workspace(p: { mixKey?: string }) {
       )}
     </Button>
   );
+  const unknownKey = missing !== null && missing === key && !readFailed;
   const detail =
     state.status === 'ready' ? (
-      <MixDetail
-        // One mix's edit, filter and sort never carry to another (S13 B1).
-        key={state.view.url}
-        view={state.view}
-        onClose={close}
-        stacked={stacked}
-        paneButton={paneButton}
-        error={
-          errorInDetail && error !== null ? (
-            <StatusLine kind="error">{error}</StatusLine>
-          ) : undefined
-        }
-      />
-    ) : missing !== null && missing === key && !readFailed ? (
+      <>
+        {/* An unknown key over an open mix (Back after a removal, a stale
+            link): said above it; the mix stays, it may be an unsaved
+            lookup (S14 review M9). */}
+        {stray !== null && stray.open === state.view.url && (
+          <StatusLine kind="warning">
+            This saved mix is not in this browser.
+          </StatusLine>
+        )}
+        <MixDetail
+          // One mix's edit, filter and sort never carry to another (S13 B1).
+          key={state.view.url}
+          view={state.view}
+          onClose={close}
+          stacked={stacked}
+          paneButton={paneButton}
+          error={
+            errorInDetail && error !== null ? (
+              <StatusLine kind="error">{error}</StatusLine>
+            ) : undefined
+          }
+        />
+      </>
+    ) : unknownKey ? (
       <EmptyState
         icon="warning"
         action={{
