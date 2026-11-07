@@ -11,6 +11,7 @@ import { PAGE_SIZE } from '../../model/crate';
 import { Icon } from '../icons';
 import { windowClass } from '../layout/windowClass';
 import { moveIndex, rovingTarget } from './keyboard';
+import { widestPriority, type TableLayout } from './layout';
 import { shownToReveal } from './paging';
 import {
   nextSort,
@@ -44,6 +45,11 @@ export interface Column<Row> {
   /** The rank column: sorting by it restores the screen's own ranking. */
   rank?: boolean;
   cell: (row: Row, rank: number) => ComponentChildren;
+  /**
+   * The cell in the two-line item, when it differs from `cell`; null
+   * leaves the part out (an undated song adds nothing to the meta line).
+   */
+  compactCell?: (row: Row, rank: number) => ComponentChildren;
   /** Full text for a truncated cell's tooltip (FR-023). */
   title?: (row: Row) => string | undefined;
   compact?: 'lead' | 'title' | 'subtitle' | 'meta' | 'trail' | 'hidden';
@@ -171,13 +177,25 @@ export function DataTable<Row>(p: {
    * window's class (S04 parked fix 1). Overrides `compact` once measured.
    */
   compactBelow?: number;
+  /**
+   * What the table draws at its width (round 005, screens.md "From main…"
+   * §2): two-line items or not, and the highest column priority shown.
+   * Called when either changes, so a screen can offer "Sort by year"
+   * where the Released header is not drawn.
+   */
+  onLayout?: (layout: TableLayout) => void;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
-  const width = useWidth(wrap, p.compactBelow !== undefined);
+  const width = useWidth(wrap, true);
   const compact =
     p.compactBelow !== undefined && width !== null
       ? width < p.compactBelow
       : (p.compact ?? windowClass.value === 'compact');
+  const widest = widestPriority(width);
+  const onLayout = p.onLayout;
+  useLayoutEffect(() => {
+    onLayout?.({ twoLine: compact, widestPriority: widest });
+  }, [compact, widest]);
   const [shown, setShown] = useState(PAGE_SIZE);
   const [active, setActive] = useState<number | null>(null);
   const [announce, setAnnounce] = useState('');
@@ -489,7 +507,13 @@ function CompactItem<Row>(p: {
   const part = (place: Column<Row>['compact']) =>
     p.columns.filter((c) => c.compact === place);
   const sub = part('subtitle');
-  const meta = part('meta');
+  // A part whose two-line cell is null adds nothing to the meta line.
+  const meta = part('meta')
+    .map((c) => ({
+      c,
+      content: (c.compactCell ?? c.cell)(p.row, p.rank),
+    }))
+    .filter(({ content }) => content !== null && content !== undefined);
   return (
     <>
       <div role="gridcell" class="dt-item-lead">
@@ -514,9 +538,9 @@ function CompactItem<Row>(p: {
         )}
         {meta.length > 0 && (
           <div class="dt-item-meta">
-            {meta.map((c) => (
+            {meta.map(({ c, content }) => (
               <span key={c.id} class="dt-item-part">
-                {c.cell(p.row, p.rank)}
+                {content}
               </span>
             ))}
           </div>

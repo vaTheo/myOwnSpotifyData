@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import { useState } from 'preact/hooks';
 import { auth } from '../auth/browser';
 import {
   isLiking,
@@ -15,6 +16,7 @@ import {
 } from '../model/aggregate';
 import { featureFor, type ResolvedFeature } from '../model/features';
 import { formatKey } from '../model/keys';
+import { trackYear } from '../model/year';
 import { rankMatches, type MatchResult } from '../model/match';
 import {
   historySummary,
@@ -53,18 +55,16 @@ import {
   spotifyLinkColumn,
   titleColumn,
   topFlagsColumn,
+  yearColumn,
 } from './table/columns';
+import { yearSortOffered, type TableLayout } from './table/layout';
 import { closeDetail, openDetail } from './details/navigate';
 import { TrackSheet } from './details/TrackDetails';
 import { DataTable, type Column } from './table/DataTable';
 import { lastCall } from './table/lastCall';
 import type { SortState } from './table/sort';
 import { trackFilterView } from './filters/FilterBar';
-import {
-  EMPTY_FILTER,
-  isFiltering,
-  type TrackFilter,
-} from './filters/trackFilter';
+import { EMPTY_FILTER, type TrackFilter } from './filters/trackFilter';
 
 type Order = 'plays' | 'order' | 'match';
 
@@ -164,11 +164,11 @@ const deltaColumn: Column<ListedRow> = {
 
 /**
  * Spec 003 §8: # · title · artists · album · length · added · plays ·
- * (relation · ΔBPM in Match) · top · BPM · key · link. Match's two columns
- * take the place of Album and Added, priority-4 columns, so the title stays
- * readable at 1440 (review of S02).
+ * (relation · ΔBPM in Match) · top · BPM · key · released · link. Match's
+ * two columns take the place of Album and Added, priority-4 columns, so the
+ * title stays readable at 1440 (review of S02).
  */
-function playlistColumns(matching: boolean): Column<ListedRow>[] {
+function playlistColumns(m: Model, matching: boolean): Column<ListedRow>[] {
   const featureOf = (r: ListedRow) => r.feature;
   return [
     rankColumn(),
@@ -194,6 +194,7 @@ function playlistColumns(matching: boolean): Column<ListedRow>[] {
     topFlagsColumn((r) => r.row.inTop, { sortValue: undefined }),
     bpmColumn(featureOf),
     keyColumn(featureOf),
+    yearColumn((r) => yearOfListed(m, r)),
     spotifyLinkColumn((r) => r.row.track.spotifyUrl),
   ];
 }
@@ -320,6 +321,8 @@ export function PlaylistActions({ id }: { id: string }) {
 }
 
 const playlistColumnsOf = lastCall(playlistColumns);
+const yearOfListed = (m: Model, r: ListedRow): number | null =>
+  r.row.track.id ? trackYear(m, r.row.track.id) : null;
 const positionOf = (r: ListedRow): string => String(r.row.entry.position);
 
 /**
@@ -381,6 +384,9 @@ const playlistView = lastCall(
 
 /** `detail` is the entry position whose details sheet is open (`?d=`). */
 export function Playlist({ id, detail }: { id: string; detail?: string }) {
+  // What the table draws at its width: "Sort by year" shows in the
+  // filters where its Released header cannot sort (round 005).
+  const [layout, setLayout] = useState<TableLayout | null>(null);
   const m = model.value;
   const playlist = m?.playlistsById.get(id);
   if (!m || !playlist) {
@@ -398,16 +404,25 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
     order.value,
     seeds.value[id]
   );
+  const headerSort = sortOf.value === id ? sort.value : DEFAULT_SORT;
   const filtered = trackFilterView({
     filter,
     rows: listed,
     featureOf: (r) => r.feature,
     textOf: (r) =>
       `${r.row.track.name} ${r.row.track.album} ${artistNames(r.row.track.artists)}`,
+    yearOf: (r) => yearOfListed(m, r),
+    yearSort: {
+      sort: headerSort,
+      onSort: (s) => {
+        sort.value = s;
+        sortOf.value = id;
+      },
+      offered: yearSortOffered(layout),
+    },
   });
   const phone = windowClass.value === 'compact';
-  const filtersOpen = phone || filtersShown.value || isFiltering(filter.value);
-  const headerSort = sortOf.value === id ? sort.value : DEFAULT_SORT;
+  const filtersOpen = phone || filtersShown.value || filtered.filtering;
 
   const meta = (
     <p class="detail-meta">
@@ -473,7 +488,7 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
           variant={filtersOpen ? 'tonal' : 'text'}
           icon="filter_list"
           aria-expanded={filtersOpen}
-          disabled={isFiltering(filter.value)}
+          disabled={filtered.filtering}
           onClick={() => {
             filtersShown.value = !filtersShown.value;
           }}
@@ -537,7 +552,7 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
             : 'by plays'
       }`}
       noun="track"
-      columns={playlistColumnsOf(matching && seedFeature !== null)}
+      columns={playlistColumnsOf(m, matching && seedFeature !== null)}
       rows={listed}
       only={filtered.only}
       rowKey={positionOf}
@@ -547,6 +562,7 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
         sortOf.value = id;
       }}
       resetKey={`${id} ${order.value} ${seedPosition ?? ''}`}
+      onLayout={setLayout}
       selectedKey={detail ?? null}
       follow={!matching && detail !== undefined}
       // In Match mode a row is a seed, as before; otherwise it opens its

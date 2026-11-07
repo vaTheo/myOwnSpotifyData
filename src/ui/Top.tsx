@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import { useState } from 'preact/hooks';
 import type { Period } from '../db/schema';
 import {
   topArtists,
@@ -8,6 +9,7 @@ import {
   type Model,
 } from '../model/aggregate';
 import { featureFor } from '../model/features';
+import { trackYear } from '../model/year';
 import { model } from '../model/state';
 import { routeHref } from '../router';
 import { Button } from './components/Button';
@@ -28,7 +30,9 @@ import {
   rankColumn,
   spotifyLinkColumn,
   titleColumn,
+  yearColumn,
 } from './table/columns';
+import { yearSortOffered, type TableLayout } from './table/layout';
 import { DataTable, type Column } from './table/DataTable';
 import { lastCall } from './table/lastCall';
 import type { SortState } from './table/sort';
@@ -48,10 +52,14 @@ const PERIOD_OPTIONS = (
   ['short_term', 'medium_term', 'long_term'] as const
 ).map((value) => ({ value, label: TOP_PERIOD_LABEL[value] }));
 
-/** Tracks: # · cover · title · artists · plays · playlists · BPM · key · link. */
+/**
+ * Tracks: # · cover · title · artists · plays · playlists · BPM · key ·
+ * released · link.
+ */
 function trackColumns(
   hasPlaylists: boolean,
-  featureOf: (row: AnnotatedTopTrack) => ReturnType<typeof featureFor>
+  featureOf: (row: AnnotatedTopTrack) => ReturnType<typeof featureFor>,
+  yearOfRow: (row: AnnotatedTopTrack) => number | null
 ): Column<AnnotatedTopTrack>[] {
   return [
     rankColumn(),
@@ -62,6 +70,7 @@ function trackColumns(
     playlistsColumn((r) => r.playlistIds.length, hasPlaylists),
     bpmColumn(featureOf),
     keyColumn(featureOf),
+    yearColumn(yearOfRow),
     spotifyLinkColumn((r) => r.item.spotifyUrl),
   ];
 }
@@ -70,7 +79,11 @@ function trackColumns(
 const topTracksOf = lastCall(topTracks);
 const topArtistsOf = lastCall(topArtists);
 const trackColumnsOf = lastCall((m: Model, hasPlaylists: boolean) =>
-  trackColumns(hasPlaylists, (r) => featureFor(m, r.item.id))
+  trackColumns(
+    hasPlaylists,
+    (r) => featureFor(m, r.item.id),
+    (r) => trackYear(m, r.item.id)
+  )
 );
 const rankOfItem = (r: { item: { rank: number } }): number => r.item.rank;
 const keyOfItem = (r: { item: { id: string } }): string => r.item.id;
@@ -109,6 +122,9 @@ export function showTopTracksThisMonth(): void {
 
 /** `detail` is the track whose details sheet is open (`?d=`). */
 export function Top({ detail }: { detail?: string }) {
+  // What the tracks table draws at its width: "Sort by year" shows in the
+  // filters where its Released header cannot sort (round 005).
+  const [layout, setLayout] = useState<TableLayout | null>(null);
   const m = model.value;
   if (!m || m.topItems.size === 0) {
     return (
@@ -127,6 +143,14 @@ export function Top({ detail }: { detail?: string }) {
     rows: tracks,
     featureOf,
     textOf: (r) => `${r.item.name} ${artistNames(r.item.artists)}`,
+    yearOf: (r) => trackYear(m, r.item.id),
+    yearSort: {
+      sort: tracksSort.value,
+      onSort: (s) => {
+        tracksSort.value = s;
+      },
+      offered: yearSortOffered(layout),
+    },
   });
   return (
     <section>
@@ -182,6 +206,7 @@ export function Top({ detail }: { detail?: string }) {
                 tracksSort.value = s;
               }}
               resetKey={period.value}
+              onLayout={setLayout}
               selectedKey={detail ?? null}
               follow={detail !== undefined}
               onOpen={(r) => openDetail(r.item.id)}

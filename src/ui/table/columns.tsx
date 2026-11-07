@@ -399,6 +399,50 @@ export function keyColumn<Row>(
 }
 
 /**
+ * The release year (round 005, screens.md "From main…" §1): header
+ * **Released** (the Crate also counts listening years), oldest first,
+ * undated last in both directions (`sortRows`). A table cell without a year
+ * shows `NoData`; the two-line item leaves it out. Priority 2 on every
+ * table. `describe` gives the cell's tooltip and accessible name (Mix: the
+ * year's source).
+ */
+export function yearColumn<Row>(
+  yearOf: (row: Row) => number | null,
+  opts: { describe?: (row: Row, year: number) => string } = {},
+  over: Over<Row> = {}
+): Column<Row> {
+  return {
+    id: 'released',
+    header: 'Released',
+    align: 'end',
+    priority: 2,
+    width: '88px',
+    sortValue: yearOf,
+    firstDirection: 'asc',
+    cell: (row) => {
+      const year = yearOf(row);
+      if (year === null) return <NoData />;
+      const text = opts.describe?.(row, year);
+      return (
+        <span class="dt-year" aria-label={text}>
+          {year}
+        </span>
+      );
+    },
+    compactCell: (row) => {
+      const year = yearOf(row);
+      return year === null ? null : <span class="dt-year">{year}</span>;
+    },
+    title: (row) => {
+      const year = yearOf(row);
+      return year === null ? undefined : opts.describe?.(row, year);
+    },
+    compact: 'meta',
+    ...over,
+  };
+}
+
+/**
  * The "Open in Spotify" icon button, 48 px; the trail of a phone's item.
  * Priority 1, so the link stays reachable on medium windows until the
  * details sheet (US3) carries it.

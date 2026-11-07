@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import { useState } from 'preact/hooks';
 import type { ArtistIdentityRow } from '../db/schema';
 import {
   artistTracks,
@@ -8,6 +9,7 @@ import {
 } from '../model/aggregate';
 import { featureFor } from '../model/features';
 import { reachFor } from '../model/reach';
+import { trackYear } from '../model/year';
 import { artistReachSummary, model } from '../model/state';
 import { routeHref } from '../router';
 import { Card } from './components/Card';
@@ -31,7 +33,9 @@ import {
   playsColumn,
   spotifyLinkColumn,
   titleColumn,
+  yearColumn,
 } from './table/columns';
+import { yearSortOffered, type TableLayout } from './table/layout';
 import { openDetail } from './details/navigate';
 import { TrackSheet } from './details/TrackDetails';
 import { DataTable, type Column } from './table/DataTable';
@@ -157,7 +161,10 @@ function ArtistReach(p: { m: Model; id: string | null }) {
   );
 }
 
-/** Title · album · plays · playlists · BPM · key · link (spec 003 §10). */
+/**
+ * Title · album · plays · playlists · BPM · key · released · link (spec 003
+ * §10, round 005).
+ */
 function trackColumns(m: Model): Column<ArtistTrack>[] {
   const featureOf = (r: ArtistTrack) =>
     r.track.id ? featureFor(m, r.track.id) : null;
@@ -177,6 +184,7 @@ function trackColumns(m: Model): Column<ArtistTrack>[] {
     ),
     bpmColumn(featureOf),
     keyColumn(featureOf),
+    yearColumn((r) => (r.track.id ? trackYear(m, r.track.id) : null)),
     spotifyLinkColumn((r) => r.track.spotifyUrl),
   ];
 }
@@ -193,6 +201,9 @@ export function Artist({
   artistKey: string;
   detail?: string;
 }) {
+  // What the table draws at its width: "Sort by year" shows in the
+  // filters where its Released header cannot sort (round 005).
+  const [layout, setLayout] = useState<TableLayout | null>(null);
   const m = model.value;
   const agg = m?.artistsByKey.get(artistKey);
   // A top-list artist you have saved nothing from is in no playlist, so it has
@@ -216,6 +227,14 @@ export function Artist({
     featureOf: (r) => (r.track.id ? featureFor(m, r.track.id) : null),
     textOf: (r) =>
       `${r.track.name} ${r.track.album} ${artistNames(r.track.artists)}`,
+    yearOf: (r) => (r.track.id ? trackYear(m, r.track.id) : null),
+    yearSort: {
+      sort: sort.value,
+      onSort: (s) => {
+        sort.value = s;
+      },
+      offered: yearSortOffered(layout),
+    },
   });
   return (
     <section>
@@ -259,6 +278,7 @@ export function Artist({
                 sort.value = s;
               }}
               resetKey={artistKey}
+              onLayout={setLayout}
               selectedKey={detail ?? null}
               follow={detail !== undefined}
               onOpen={(t) => openDetail(t.track.key)}
