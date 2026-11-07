@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { activeJobs, type JobStates } from './jobs';
+import { PASS_BY_ID, PASS_BY_ISRC, PASS_YEARS } from '../features/lookup';
 
 const IDLE: JobStates = {
   sync: { status: 'idle' },
@@ -139,6 +140,17 @@ describe('activeJobs (data-model §7)', () => {
         href: '#/mix',
       },
     ]);
+  });
+
+  it('names the look-up after its pass: release years on the third (round 005)', () => {
+    const label = (pass: string) =>
+      activeJobs({
+        ...IDLE,
+        lookup: { status: 'running', pass, done: 1, total: 9 },
+      })[0].label;
+    expect(label(PASS_BY_ID)).toBe('Looking up BPM and key');
+    expect(label(PASS_BY_ISRC)).toBe('Looking up BPM and key');
+    expect(label(PASS_YEARS)).toBe('Looking up release years');
   });
 
   it('names a server pull and the steps without a count', () => {
