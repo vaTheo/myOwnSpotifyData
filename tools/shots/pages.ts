@@ -1351,6 +1351,40 @@ export const PAGES: ShotPage[] = [
         : ['no "Nothing matches" line'],
   },
   {
+    // Escape clears the text first; the view stays open (round 1 ruling).
+    id: 'search-escape-clears',
+    hash: '#/top',
+    setup: async (page) => {
+      await search(page, 'ha');
+      await page.keyboard.press('Escape');
+    },
+    expect: async (page) => {
+      const box = page.getByRole('combobox');
+      return (await box.count()) && (await box.inputValue()) === ''
+        ? []
+        : ['Escape did not clear the search field first'];
+    },
+  },
+  {
+    // A phone's Back closes the full-screen search, the screen stays.
+    id: 'search-back-closes',
+    hash: '#/top',
+    setup: async (page) => {
+      await search(page, 'ha');
+      if (page.viewportSize()?.width === 390) {
+        await page.goBack();
+        await page.waitForTimeout(150);
+      }
+    },
+    expect: async (page) => {
+      if (page.viewportSize()?.width !== 390) return [];
+      const open = await page.getByRole('combobox').count();
+      return !open && page.url().endsWith('#/top')
+        ? []
+        : [`Back left ${open ? 'the search open' : page.url()}`];
+    },
+  },
+  {
     id: 'search-show-all',
     hash: '#/top',
     setup: async (page) => {

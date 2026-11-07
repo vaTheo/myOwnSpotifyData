@@ -237,3 +237,32 @@ describe('a quota answer to any reader is remembered for all', () => {
     expect(state.spotifyQuotaLock.value).toBe(end);
   });
 });
+
+describe('readMixesForSearch (S09 round 1)', () => {
+  it('leaves the Mix screen state alone when the read fails', async () => {
+    const repo = await import('../db/repo');
+    vi.mocked(repo.getMixes).mockRejectedValueOnce(new Error('disk gone'));
+    state.mixError.value = 'Could not reach the server';
+    const before = state.savedMixes.value;
+    const got = await state.readMixesForSearch();
+    expect(got).toEqual({
+      error: 'Could not read your saved mixes: disk gone',
+    });
+    expect(state.mixError.value).toBe('Could not reach the server');
+    expect(state.savedMixes.value).toBe(before);
+    state.mixError.value = null;
+  });
+
+  it('returns the mixes newest first and leaves mixError alone', async () => {
+    const repo = await import('../db/repo');
+    const older = { url: 'a', savedAt: 1 } as never;
+    const newer = { url: 'b', savedAt: 2 } as never;
+    vi.mocked(repo.getMixes).mockResolvedValueOnce([older, newer]);
+    state.mixError.value = 'Already requested';
+    expect(await state.readMixesForSearch()).toEqual({
+      mixes: [newer, older],
+    });
+    expect(state.mixError.value).toBe('Already requested');
+    state.mixError.value = null;
+  });
+});

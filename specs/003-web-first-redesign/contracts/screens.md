@@ -215,7 +215,9 @@ The whole card is one link.
 - **Header**: cover (64 px), name, "128 tracks · Open in Spotify". The top bar's actions are **Sync this playlist** (`sync`) and
   **Like all songs** (`favorite`), with their labels and disabled states as today. The Like status (checking or liking progress,
   done summary, error, "Connect again to allow likes") shows inline under the header, never as a banner.
-- **Toolbar**: the order segmented buttons (By plays · Playlist order · Match) and the filter bar (text, BPM, key).
+- **Toolbar**: the order segmented buttons (By plays · Playlist order · Match) and the filter bar (text, BPM, key). On larger
+  windows (medium and up) the filter bar folds behind a **Filters** button in the strip, so a 900 px tall window still holds 15
+  rows (SC-001); it shows while a filter is in force (the button is then disabled). On a phone it is always shown (S09).
 - **No play counts yet**: the "No play counts yet — import your history" line stays under the toolbar.
 
 | Column                                                      | Priority | Sort first     |

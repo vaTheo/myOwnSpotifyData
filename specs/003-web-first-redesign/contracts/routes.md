@@ -60,5 +60,5 @@ it. Closing it with Escape or ✕ replaces the entry rather than adding a new on
 
 - `#/` and an unknown address give `overview`;
 - `#/mix/<key>` round-trips through `routeHref` with encoding;
-- `?d=` parses on every list route and is dropped on non-list routes;
+- `?d=` parses on every route (S09: a search result over a screen without a list) and round-trips through `routeHref`;
 - `destinationOf` returns the right destination and tab for every route.
