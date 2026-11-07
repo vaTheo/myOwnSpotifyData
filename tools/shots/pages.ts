@@ -655,6 +655,20 @@ export const PAGES: ShotPage[] = [
     hash: `#/mix/${enc('https://soundcloud.com/someone/not-saved-here')}`,
   },
   {
+    // The same address met while a mix is open (S14 review M9): the line
+    // above the open mix, which stays.
+    id: 'mix-missing-over-open',
+    hash: `#/mix/${enc(HARBOUR)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await page.evaluate(
+        (h) => (location.hash = h),
+        `#/mix/${enc('https://soundcloud.com/someone/not-saved-here')}`
+      );
+      await page.getByText('This saved mix is not in this browser.').waitFor();
+    },
+  },
+  {
     // Rounds 003–004 rows, seeded (T120, T128): clip counts, second listen
     // at +4 % and −4 %, a candidate "not heard" with its clue, a gap with
     // clues, set-wide clues; the Sort select shows.
