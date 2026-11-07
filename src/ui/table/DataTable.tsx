@@ -442,6 +442,9 @@ export function DataTable<Row>(p: {
       )}
       <div
         class={compact ? 'dt compact' : 'dt'}
+        // The level drawn, which may hide more than the container queries
+        // would so a title stays readable (`fitLevel`); unset until measured.
+        data-level={level.narrow === null ? undefined : level.widest}
         role="grid"
         aria-label={p.label}
         aria-rowcount={ordered.length + 1}

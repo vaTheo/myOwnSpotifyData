@@ -197,12 +197,12 @@ export function layoutChecks(): Finding[] {
     }
   }
 
-  // 7. SC-001 on every table at 1440 (S13c review I1): a title cut to
+  // 7. SC-001 on every table at 1440, 1024 and 768 (S13c review I1, N1): a title cut to
   // fewer than 160 px (about 20 characters) is unreadable. A table drawing
   // two-line items has no visible headers and is skipped; a long title cut
   // in a wide column is FR-023's tooltip, not a finding.
   const MIN_TITLE = 160;
-  if (innerWidth === 1440) {
+  if ([1440, 1024, 768].includes(innerWidth)) {
     for (const grid of document.querySelectorAll('[role=grid]')) {
       const headers = [
         ...grid.querySelectorAll<HTMLElement>('[role=columnheader]'),
