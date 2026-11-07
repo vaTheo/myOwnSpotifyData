@@ -14,6 +14,8 @@ export function TrackRow(p: {
   rowId?: string;
   /** The row whose details sheet is open. */
   selected?: boolean;
+  /** -1 leaves the row out of the Tab order (a roving list, T100). */
+  tabIndex?: number;
   children?: ComponentChildren;
 }) {
   const main = (
@@ -39,6 +41,7 @@ export function TrackRow(p: {
             href={p.href}
             data-row-id={p.rowId}
             aria-current={p.selected ? 'page' : undefined}
+            tabIndex={p.tabIndex}
           >
             {main}
           </a>
@@ -49,6 +52,7 @@ export function TrackRow(p: {
             onClick={p.onClick}
             data-row-id={p.rowId}
             aria-current={p.selected ? 'true' : undefined}
+            tabIndex={p.tabIndex}
           >
             {main}
           </button>
