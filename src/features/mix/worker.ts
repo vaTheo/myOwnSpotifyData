@@ -622,6 +622,14 @@ export function requestList(
 export type RowSort = 'time' | 'clips' | 'score' | 'year';
 
 /**
+ * A tracklist row's own year, the one the Released column shows and the
+ * year sort and decade use: null for a gap or an undated row (round 005).
+ */
+export function rowYear(row: TracklistRow): number | null {
+  return !row.gap && typeof row.year === 'number' ? row.year : null;
+}
+
+/**
  * Round 004: the order and subset of the tracklist the owner chose to look
  * at, as indexes into `rows` (so Edit and Delete still act on the real row).
  * "Heard once" keeps rows matched by a single clip; it hides, never deletes.
@@ -641,14 +649,14 @@ export function viewRows(
     .filter((i) => !heardOnce || rows[i].hits === 1)
     .filter((i) => {
       if (decade === null) return true;
-      const y = rows[i].year;
-      return typeof y === 'number' && decadeOf(y) === decade;
+      const y = rowYear(rows[i]);
+      return y !== null && decadeOf(y) === decade;
     });
   if (sort === 'time') return idx;
   if (sort === 'year') {
     return idx.sort((a, b) => {
-      const x = rows[a].year ?? null;
-      const y = rows[b].year ?? null;
+      const x = rowYear(rows[a]);
+      const y = rowYear(rows[b]);
       if (x === null && y === null) return a - b;
       if (x === null) return 1;
       if (y === null) return -1;
