@@ -9,7 +9,8 @@ import type {
 } from '../../db/schema';
 import { buildModel } from '../../model/aggregate';
 import { featureFor } from '../../model/features';
-import { factsCache, trackFacts } from './trackFacts';
+import { trackYear } from '../../model/year';
+import { factsCache, trackFacts, yearFact } from './trackFacts';
 
 const daft = { id: 'daft', name: 'Daft Punk' };
 const guest = { id: 'guest', name: 'Guest' };
@@ -311,6 +312,30 @@ describe('trackFacts', () => {
     expect(trackFacts(m, { playRowId: 'old-id' })?.playlists).toEqual([
       { id: 'p2', name: 'Peak' },
     ]);
+  });
+
+  it('gives the release year with its source, as the Released column reads it (round 005)', () => {
+    const dated = track('t1', [daft], { albumYear: 1997 });
+    const recco: FeatureRow = {
+      trackId: 't1',
+      isrc: null,
+      releaseYear: { year: 1993, checkedAt: 1 },
+      updatedAt: 1,
+    };
+    const albumOnly = buildModel(rows({ tracks: [dated] }));
+    expect(trackFacts(albumOnly, { trackId: 't1' })?.released).toEqual({
+      year: 1997,
+      from: 'album',
+    });
+    const both = buildModel(rows({ tracks: [dated], features: [recco] }));
+    expect(trackFacts(both, { trackId: 't1' })?.released).toEqual({
+      year: 1993,
+      from: 'reccobeats',
+    });
+    expect(yearFact(both, 't1')?.year).toBe(trackYear(both, 't1'));
+    expect(trackFacts(buildModel(rows()), { trackId: 't1' })?.released).toBe(
+      null
+    );
   });
 });
 
