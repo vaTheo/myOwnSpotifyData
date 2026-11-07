@@ -677,11 +677,15 @@ Filters fold (open), any track table
 │ [ Filter by title or artist           ]                        │
 │ BPM [ min ] – [ max ]   Key [ 8A ▾ ]   [■] Include compatible   │
 │ Decade  (70s) (80s) [90s] (2000s) (2010s) (2020s)              │
-│ [■] Sort by year, oldest first   ← only where Released has no  │
-│                                    sortable header             │
+│ ( ✓ Sort by year, oldest first )  ← a toggle chip, only where  │
+│                                     Released has no sortable   │
+│                                     header                     │
 │ Showing 12 of 128 · Clear filters                              │
 └────────────────────────────────────────────────────────────────┘
 ```
+
+As built (S13c): the switch is a toggle chip (`button role="switch" aria-checked`, 48 px, filled with a check while on),
+not a checkbox; see [main-sync.md](../main-sync.md) §4 ruling 13.
 
 #### 3. Track details (sheet, §11)
 

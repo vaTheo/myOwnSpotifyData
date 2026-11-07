@@ -153,3 +153,11 @@ Narrowed shots after the merge: `yarn shots -g settings` (52 runs) and `yarn sho
     1440 (SC-001, `playlist-big`).
 16. (S13c) ReccoBeats' earliest year is added to a third of the demo's ReccoBeats rows (no `rand` draw), so the sheet shows
     both sources; the demo's other data is unchanged.
+17. (S13c fix round 1, I1) A title is never drawn under 160 px of text: `titleColumn` is `minmax(176px, 2fr)`, and a table
+    whose fixed columns leave less draws two-line items (`titleRoom`). Top and the Crate views beside the docked sheet draw
+    two-line items below 960 px (`besideSheet`). The visual loop's new "title-cut" check covers every table at 1440.
+18. (S13c fix round 1, I1) Crate: the Artist column keeps 64 px (its header no longer overlaps the next one), the flag column
+    is 148 px (was 168), so Finish keeps its columns at 1440. Match folds the playlist pane below 1600 px (was below 1200,
+    ruling R1), so its Relation, ΔBPM and Released columns fit at 1440 beside whole titles.
+19. (S13c fix round 1, M4) The rename rule compares names through `nameKey` (case, accents, spacing), as the library match.
+20. (S13c fix round 1, M6) The Mix decade and year sort read `rowYear`, the Released column's year (never a gap's).
