@@ -19,47 +19,21 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { DEMO_NOW, type DemoIds, type DemoVariant } from '../../src/dev/flag';
 import type { Finding } from './checks';
+import { openDemo } from './open';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const enc = encodeURIComponent;
 const SUNRISE = 'https://www.youtube.com/watch?v=demoSet0001';
 
-/** Opens the demo on a route, as the page runner does. */
+/** Opens the demo on a route with the page runner's helper (console
+ *  errors, page errors and outside requests are findings), then settles. */
 async function open(
   page: Page,
   findings: Finding[],
   hash: string | ((ids: DemoIds) => string),
   variant: DemoVariant = 'full'
 ): Promise<void> {
-  await page.route('**/*', (route) => {
-    const url = new URL(route.request().url());
-    if (url.hostname === '127.0.0.1') return route.continue();
-    findings.push({
-      check: 'network',
-      selector: route.request().resourceType(),
-      detail: `blocked ${url.origin}${url.pathname}`,
-    });
-    return route.abort('blockedbyclient');
-  });
-  page.on('pageerror', (err) =>
-    findings.push({
-      check: 'console',
-      selector: 'pageerror',
-      detail: err.message,
-    })
-  );
-  await page.clock.setFixedTime(new Date(DEMO_NOW));
-  await page.goto(`?demo=${variant}#/`);
-  await page.waitForSelector('html[data-demo-ready]', { timeout: 30_000 });
-  const h =
-    typeof hash === 'string'
-      ? hash
-      : hash(await page.evaluate(() => window.__demo!.ids));
-  await page.evaluate((x) => {
-    location.hash = x;
-  }, h);
-  await page.waitForLoadState('networkidle');
-  await page.evaluate(() => document.fonts.ready);
+  await openDemo(page, findings, hash, variant);
   await page.waitForTimeout(150);
 }
 

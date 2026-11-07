@@ -53,6 +53,8 @@ const extraBrowsers = (Object.keys(ENGINES) as (keyof typeof ENGINES)[])
 export default defineConfig({
   testDir: '.',
   testMatch: '*.shots.ts',
+  // A full run starts from empty findings/ and pages/ (S13 C5).
+  globalSetup: './global-setup.ts',
   outputDir: `${ROOT}shots-output/results`,
   snapshotPathTemplate: `${ROOT}shots-output/baselines/{projectName}/{arg}{ext}`,
   fullyParallel: true,
@@ -82,7 +84,10 @@ export default defineConfig({
     command: 'yarn dev --host 127.0.0.1 --port 5173 --strictPort',
     url: BASE,
     cwd: ROOT,
-    reuseExistingServer: true,
+    // Always this worktree's own server (S13 C1): several worktrees serve
+    // on 5173, and reusing one would judge another's code. A busy port
+    // fails the run loudly (--strictPort); stop the other server first.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

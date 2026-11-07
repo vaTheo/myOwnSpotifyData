@@ -1,19 +1,12 @@
 /**
  * Every page and state the visual loop opens (spec 003, research D19),
- * following contracts/screens.md. A page marked `since` belongs to a story
- * not built yet; the runner skips it until that story is in `READY`.
+ * following contracts/screens.md.
  *
  * Selectors are by role and visible text, never by class, so the list
  * survives the redesign of the markup.
  */
 import type { Page } from '@playwright/test';
 import { DEMO_NOW, type DemoIds, type DemoVariant } from '../../src/dev/flag';
-
-export type Story =
-  'US1' | 'US2' | 'US3' | 'US4' | 'US5' | 'US6' | 'US7' | 'US8';
-
-/** The stories whose screens exist; extended as each phase lands. */
-export const READY: readonly Story[] = ['US3'];
 
 export interface ShotPage {
   id: string;
@@ -25,7 +18,6 @@ export interface ShotPage {
   setup?: (page: Page) => Promise<void>;
   /** Extra checks of this page; each returned string is a finding. */
   expect?: (page: Page) => Promise<string[]>;
-  since?: Story;
 }
 
 const enc = encodeURIComponent;
@@ -548,6 +540,43 @@ export const PAGES: ShotPage[] = [
         .click();
       await page.getByRole('menuitem', { name: 'Edit' }).click();
     },
+  },
+  {
+    // A row in edit on one mix, then another mix opened (S13 B1): the
+    // second opens with no edit form and its own filter and sort.
+    id: 'mix-switch-edit',
+    hash: `#/mix/${enc(HARBOUR)}`,
+    setup: async (page) => {
+      await page
+        .getByRole('grid', { name: 'Tracklist' })
+        .getByRole('button', { name: /^More for / })
+        .first()
+        .click();
+      await page.getByRole('menuitem', { name: 'Edit' }).click();
+      await page
+        .getByRole('grid', { name: 'Tracklist' })
+        .getByRole('textbox')
+        .first()
+        .waitFor();
+      await page.evaluate(
+        (h) => {
+          location.hash = h;
+        },
+        `#/mix/${enc(SUNRISE)}`
+      );
+      await page.waitForFunction(
+        (h) => location.hash === h,
+        `#/mix/${enc(SUNRISE)}`
+      );
+      await settleRows(page);
+    },
+    expect: async (page) =>
+      (await page
+        .getByRole('grid', { name: 'Tracklist' })
+        .getByRole('textbox')
+        .count()) === 0
+        ? []
+        : ['the edit form carried over to another mix'],
   },
   {
     // An address naming a mix this browser has not saved.
@@ -1161,32 +1190,27 @@ export const PAGES: ShotPage[] = [
     id: 'top-details',
     hash: '#/top',
     setup: firstRow,
-    since: 'US3',
   },
   {
     // SC-001 with the sheet docked beside the 500-track playlist.
     id: 'playlist-big-details',
     hash: (ids) => `#/playlist/${enc(ids.bigPlaylist ?? '')}?d=0`,
     expect: fifteenRows,
-    since: 'US3',
   },
   {
     id: 'playlist-details',
     hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
     setup: firstRow,
-    since: 'US3',
   },
   {
     id: 'artist-details',
     hash: (ids) => `#/artist/${enc(ids.artist ?? '')}`,
     setup: firstRow,
-    since: 'US3',
   },
   {
     id: 'crate-rotation-details',
     hash: '#/crate/rotation',
     setup: firstRow,
-    since: 'US3',
   },
   {
     // The details History (T075): plays per month over the whole history,
@@ -1200,7 +1224,6 @@ export const PAGES: ShotPage[] = [
         if (body) body.scrollTop = body.scrollHeight;
       });
     },
-    since: 'US3',
   },
   {
     // A history imported before month buckets (summary version 1): the
@@ -1209,7 +1232,6 @@ export const PAGES: ShotPage[] = [
     variant: 'old-import',
     hash: '#/top',
     setup: firstRow,
-    since: 'US3',
   },
   {
     // US3 scenario 4: opened at 1440, the window shrinks to a phone, and
@@ -1224,7 +1246,6 @@ export const PAGES: ShotPage[] = [
       (await page.getByRole('dialog').count()) === 1
         ? []
         : ['the details sheet closed on the resize'],
-    since: 'US3',
   },
 
   // List–detail (US3, FR-020): Playlists and Artists with one item open.
@@ -1238,7 +1259,6 @@ export const PAGES: ShotPage[] = [
         ? []
         : ['no playlist list beside the playlist'];
     },
-    since: 'US3',
   },
   {
     id: 'artists-split',
@@ -1252,7 +1272,6 @@ export const PAGES: ShotPage[] = [
         ? []
         : ['no artist list beside the artist'];
     },
-    since: 'US3',
   },
   {
     id: 'artists-radar-split',
@@ -1266,7 +1285,6 @@ export const PAGES: ShotPage[] = [
         .nth(2)
         .click({ position: { x: 200, y: 20 } });
     },
-    since: 'US3',
   },
   // An expanded window near its narrow end (SC-003): the 1024 project
   // shrinks to 900 px; the other widths repeat their own split pages.
@@ -1274,7 +1292,6 @@ export const PAGES: ShotPage[] = [
     id: 'playlists-split-900',
     hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
     setup: at900,
-    since: 'US3',
   },
   {
     // Match folds the pane below large (ruling R1).
@@ -1285,13 +1302,11 @@ export const PAGES: ShotPage[] = [
       await tab(page, 'Match');
       await firstRow(page);
     },
-    since: 'US3',
   },
   {
     id: 'artists-split-900',
     hash: (ids) => `#/artist/${enc(ids.artist ?? '')}`,
     setup: at900,
-    since: 'US3',
   },
 
   // The chart blocks (S05) on a dev-only page, until S06 places them
