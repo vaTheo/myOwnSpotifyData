@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { parseRoute, sameScreen } from '../../router';
 import { IconButton } from '../components/IconButton';
 import { ESCAPE_RANK, pushEscapeLayer } from './escape';
@@ -48,8 +48,10 @@ export function SideSheet(p: {
   // Escape closes from anywhere (on a docked sheet focus stays in the list),
   // one layer at a time. Focus goes back to the row only while the screen
   // is the one the sheet opened over: a link in the sheet that went to
-  // another screen leaves focus to that screen.
-  useEffect(() => {
+  // another screen leaves focus to that screen. A layout effect: the layer
+  // is there as soon as the sheet is drawn, so an Escape pressed at once is
+  // not lost (S13; the shots' search-recent missed it one run in five).
+  useLayoutEffect(() => {
     const opened = parseRoute(location.hash);
     const pop = pushEscapeLayer(() => onClose.current(), ESCAPE_RANK.sheet);
     return () => {
