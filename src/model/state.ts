@@ -47,6 +47,12 @@ import { requestStatusText } from '../features/mix/worker';
 import { runCreatePlaylist } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
+  applyChecks,
+  rowsToCheck,
+  runSpotifyCheck,
+} from '../features/mix/spotifyCheck';
+import { QuotaError } from '../spotify/errors';
+import {
   canLikeTracks,
   isLiking,
   likeCandidates,
@@ -1540,6 +1546,157 @@ export function openMix(url: string): void {
 }
 
 /**
+ * Check on Spotify's state (spec 003 §12, T117): a read on tap, one track at
+ * a time. Not in `jobsBusy()` (it rebuilds no model, writes one mix row);
+ * every failure inline on the Mix screen, never a banner. Each arm names
+ * the mix it belongs to.
+ */
+export type SpotifyCheckState =
+  | { status: 'idle' }
+  | {
+      status: 'running';
+      url: string;
+      done: number;
+      total: number;
+      stopping: boolean;
+    }
+  | {
+      status: 'finished';
+      url: string;
+      done: number;
+      total: number;
+      stopped: boolean;
+    }
+  | { status: 'error'; url: string; message: string };
+
+export const spotifyCheckState = signal<SpotifyCheckState>({ status: 'idle' });
+let spotifyCheckStop = false;
+
+/** Stop asked: the check ends after the track it is reading. */
+export function stopSpotifyCheck(): void {
+  const s = spotifyCheckState.value;
+  if (s.status !== 'running') return;
+  spotifyCheckStop = true;
+  spotifyCheckState.value = { ...s, stopping: true };
+}
+
+/**
+ * Check on Spotify for the open mix (T117). Never on load or open: only
+ * from the button (ADR-02). Gated like Create playlist: a Spotify session,
+ * no sync running, no quota lock-out. Runs `searchTrack`/`pickMatch`
+ * unchanged on each named track not checked yet, puts each answer on its
+ * row as it comes, and saves the mix at the end (or the saved copy when
+ * the mix was closed meanwhile), so the quota spent is never lost.
+ */
+export async function startSpotifyCheck(): Promise<void> {
+  if (spotifyCheckState.value.status === 'running') return;
+  const state = mixState.value;
+  if (state.status !== 'ready') return;
+  const url = state.view.url;
+  const fail = (message: string): void => {
+    spotifyCheckState.value = { status: 'error', url, message };
+  };
+  if (!auth.session.value) {
+    fail('Connect to Spotify first (Settings), then check.');
+    return;
+  }
+  const sync = syncState.value;
+  if (sync.status === 'locked' && sync.retryAt > Date.now()) {
+    fail(checkLockMessage(sync.retryAt));
+    return;
+  }
+  if (sync.status === 'running') {
+    fail('A sync is reading Spotify: check once it ends.');
+    return;
+  }
+  const rows = rowsToCheck(mixRows.value);
+  spotifyCheckStop = false;
+  spotifyCheckState.value = {
+    status: 'running',
+    url,
+    done: 0,
+    total: rows.length,
+    stopping: false,
+  } as SpotifyCheckState;
+  const stillOpen = (): boolean => {
+    const now = mixState.peek();
+    return now.status === 'ready' && now.view.url === url;
+  };
+  const checked = new Map<TracklistRow, TracklistRow>();
+  const out = await runSpotifyCheck(
+    {
+      client: api,
+      now: () => Date.now(),
+      shouldStop: () => spotifyCheckStop || !stillOpen(),
+      onChecked: (before, after, done, total) => {
+        checked.set(before, after);
+        if (stillOpen()) {
+          mixRows.value = applyChecks(
+            mixRows.value,
+            new Map([[before, after]])
+          );
+        }
+        const s = spotifyCheckState.peek();
+        spotifyCheckState.value = {
+          status: 'running',
+          url,
+          done,
+          total,
+          stopping: s.status === 'running' && s.stopping,
+        };
+      },
+    },
+    rows
+  );
+  if (checked.size > 0) await keepChecks(url, checked, stillOpen());
+  if (out.status === 'error') {
+    fail(
+      out.error instanceof QuotaError
+        ? checkLockMessage(out.error.retryAt)
+        : `Could not check on Spotify: ${describeError(out.error)}`
+    );
+    return;
+  }
+  spotifyCheckState.value = {
+    status: 'finished',
+    url,
+    done: out.done,
+    total: out.total,
+    stopped: out.status === 'stopped',
+  };
+}
+
+function checkLockMessage(retryAt: number): string {
+  return `Spotify quota reached. Check again after ${formatDateTime(retryAt)}.`;
+}
+
+/** Saves the answers: the open mix as Save mix does, else its saved copy. */
+async function keepChecks(
+  url: string,
+  checked: ReadonlyMap<TracklistRow, TracklistRow>,
+  open: boolean
+): Promise<void> {
+  if (open) {
+    await saveMix();
+    return;
+  }
+  const saved = savedMixes.value.find((m) => m.url === url);
+  if (!saved) return;
+  try {
+    await putMix({
+      ...saved,
+      rows: applyChecks(saved.rows, checked),
+      savedAt: Date.now(),
+    });
+  } catch (err) {
+    mixError.value = `Could not save the mix: ${storageMessage(err)}`;
+    return;
+  }
+  await loadSavedMixes();
+  void queueServerPush(['mixes']);
+}
+
+/**
  * Returns to the idle saved-mixes screen (M9) — no network call, and no data
  * lost: a saved mix is already in `savedMixes`/IndexedDB, so only the
  * in-memory working list (never persisted unless `saveMix` ran) is cleared,
@@ -1633,6 +1790,8 @@ export async function disconnect(): Promise<void> {
   mixError.value = null;
   mixQueueNote.value = null;
   createPlaylistState.value = { status: 'idle' };
+  spotifyCheckStop = true;
+  spotifyCheckState.value = { status: 'idle' };
   likeState.value = { status: 'idle' };
   lastSyncAt.value = null;
   historySummary.value = null;
