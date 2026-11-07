@@ -353,6 +353,30 @@ export const PAGES: ShotPage[] = [
     },
   },
 
+  {
+    // Check on Spotify running, seen from another screen (S13 A1): the
+    // panel names it, with its count and a link back to its mix.
+    id: 'activity-check',
+    hash: '#/top',
+    setup: async (page) => {
+      await setState(page, 'spotifyCheckState', {
+        status: 'running',
+        url: SUNRISE,
+        done: 12,
+        total: 40,
+        stopping: false,
+      });
+      await page.getByRole('button', { name: /^Running/ }).click();
+    },
+    expect: async (page) => {
+      const link = page.getByRole('link', { name: /Checking on Spotify/ });
+      if ((await link.count()) === 0) return ['no Check on Spotify job'];
+      return (await link.getAttribute('href')) === `#/mix/${enc(SUNRISE)}`
+        ? []
+        : ['the job does not link to its mix'];
+    },
+  },
+
   // Listening: Top
   { id: 'top-tracks', hash: '#/top' },
   { id: 'top-artists', hash: '#/top', setup: (page) => tab(page, 'Artists') },
@@ -620,6 +644,42 @@ export const PAGES: ShotPage[] = [
         total: 40,
         stopping: false,
       });
+    },
+  },
+  {
+    // A sync reading Spotify (S13 B3/B6): Check on Spotify and Create
+    // playlist rest, each saying which reader runs.
+    id: 'mix-busy',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: (page) =>
+      createCard(page, [
+        'syncState',
+        { status: 'running', done: 3, total: 40, current: null, pending: [] },
+      ]),
+    expect: async (page) => {
+      const out: string[] = [];
+      if (
+        await page
+          .getByRole('button', { name: 'Check on Spotify', exact: true })
+          .isEnabled()
+      ) {
+        out.push('Check on Spotify is not resting');
+      }
+      if (
+        await page
+          .getByRole('button', { name: 'Create playlist from mix' })
+          .isEnabled()
+      ) {
+        out.push('Create playlist is not resting');
+      }
+      if (
+        (await page
+          .getByText('A sync is reading Spotify: check once it ends.')
+          .count()) !== 1
+      ) {
+        out.push('no line on Check on Spotify');
+      }
+      return out;
     },
   },
   {
