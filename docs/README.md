@@ -30,6 +30,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
   - [ADR-10 — Name lookup for clues without identifier](architecture/700-adr/ADR-10-name-lookup-for-clues.md) (amended by the
     redesign's Mix review)
   - [ADR-11 — Web-first adaptive layout on Material Design 3](architecture/700-adr/ADR-11-web-first-material-3.md)
+  - [ADR-12 — Automatic updates](architecture/700-adr/ADR-12-automatic-updates.md)
 - [800 — Limits and roadmap](architecture/800-limits-roadmap.md)
 
 ## Dev guide
@@ -43,6 +44,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 One design document per feature round, dated. The first one is the base model; later ones build on it.
 
+- 2026-11-07 — Automatic updates (round 006): [`specs/006-automatic-updates/`](../specs/006-automatic-updates/spec.md), decision [ADR-12](architecture/700-adr/ADR-12-automatic-updates.md)
 - [2026-11-06 — A web-first redesign of every screen](specs/2026-11-06-web-first-redesign-design.md) (full round under [`specs/003-web-first-redesign/`](../specs/003-web-first-redesign/spec.md); not to be confused with `specs/003-fill-scan-gaps/`, round 003 of the worker, recorded in the CHANGELOG)
 - [2026-11-06 — Identify a mix on my computer (the worker)](specs/2026-11-06-mix-analysis-worker-design.md) (full round under [`specs/002-mix-analysis-worker/`](../specs/002-mix-analysis-worker/spec.md); the worker's manual: [`worker/README.md`](../worker/README.md))
 - [2026-11-05 — A server and database holding the app's data](specs/2026-11-05-backend-data-sync-design.md) (full round under [`specs/001-backend-data-sync/`](../specs/001-backend-data-sync/spec.md))

@@ -1,8 +1,8 @@
 <!--
 Sync Impact Report
-- Version change: 2.1.0 → 2.1.1 (PATCH: preamble wording; the owner now uses the app mainly in a web browser on a
-  computer, and on an Android phone; ADR-11, web-first redesign)
-- Modified principles: none (preamble only)
+- Version change: 2.1.1 → 2.2.0 (MINOR: Principle II allows one gated automatic sync; Principle IV's long jobs also start from
+  the automatic chain, per ADR-12)
+- Modified principles: II (title and body), IV (one clause)
 - Added sections: none
 - Removed sections: none
 - Templates: plan/spec/tasks templates read this file at runtime; no template edited here
@@ -36,13 +36,16 @@ rejects it.
 Rationale: a secret in a public repo is a leak; a server of the owner's own is upkeep they
 declined; a free hosted database gives every device the same data at no cost.
 
-### II. No Spotify reads on load (ADR-02)
+### II. No Spotify reads on load outside the automatic chain (ADR-02, ADR-12)
 
-The app MUST NOT read Spotify playlists, tracks or profile data when a page loads. Every
-Spotify read starts from an explicit button (a sync) and MUST be visible as a job.
+The app MUST NOT read Spotify playlists, tracks or profile data when a page loads, except
+the automatic chain's sync: only when the library is older than 12 hours, never while
+Spotify's lock-out lasts, at most once per page session, and only with the per-device
+Automatic updates switch on. Every other Spotify read starts from an explicit button, and
+every read MUST be visible as a job.
 
 Rationale: the daily quota locks the account out for hours; an automatic read on every
-open burns it.
+open burns it, while one gated sync a few times a day does not.
 
 ### III. Library writes only on a tap, behind a scope gate (ADR-03)
 
@@ -58,8 +61,8 @@ surprise the owner never approved.
 
 External data (ReccoBeats, rekordbox, artist reach) comes from free keyless sources,
 looked up by Spotify ids or ISRCs, never by name search. Clients MUST NOT throw: a
-failure is a value the caller renders. Long jobs start only from Settings and MUST
-resume after a reload. The reach pacing split is pinned by a test that MUST stay green.
+failure is a value the caller renders. Long jobs start from Settings or the
+automatic chain (ADR-12) and MUST resume after a reload. The reach pacing split is pinned by a test that MUST stay green.
 Recognition by audio happens only in the worker on the owner's computer, keyless and one
 probe at a time; the app and the server never fetch or analyse audio (ADR-09). The one name
 search allowed is the worker's, for a clue (a description line, chapter or comment) that carries
@@ -145,4 +148,4 @@ When the two disagree, the ADR index is corrected first and this file follows.
 - Runtime guidance for agents stays in `CLAUDE.md` and the local `CLAUDE.md` files;
   this file does not duplicate their routing.
 
-**Version**: 2.1.1 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-07
+**Version**: 2.2.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-07

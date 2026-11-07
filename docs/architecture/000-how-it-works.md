@@ -118,8 +118,9 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 
 Planner (a pure diff on `snapshot_id`), item mapper, and runner (`runSync`, `src/sync/runner.ts:181`). The runner commits one playlist
 per transaction, persists `locked`/`error` state in meta (`syncState`, `lastSyncAt`, `accountId`), and on a different Spotify account asks
-before wiping (`ACCOUNT_SWITCH_CONFIRM`). Sync never runs on load ([ADR-02](700-adr/ADR-02-no-spotify-reads-on-load.md)): only from the
-Settings button or a playlist's own button. A sync is refused inside the app's one quota lock-out (§4 `quotaLock.ts`), including one
+before wiping (`ACCOUNT_SWITCH_CONFIRM`). Sync never runs on load ([ADR-02](700-adr/ADR-02-no-spotify-reads-on-load.md)) except from the automatic chain (§14,
+[ADR-12](700-adr/ADR-12-automatic-updates.md)), when `lastSyncAt` is older than 12 hours; otherwise only from the Settings button or a
+playlist's own button. A sync is refused inside the app's one quota lock-out (§4 `quotaLock.ts`), including one
 Check on Spotify or Create playlist met; a lock the sync meets (its `locked` state, read back on load) joins that lock. The
 playlist item field filter asks `album(name,release_date)` and the Top tracks answer full tracks, so both keep the album's year
 (`albumYearField`, `src/sync/items.ts`, round 005); a playlist synced before that round gets it when it changes or is synced again.
@@ -408,11 +409,11 @@ screen, grouped by role under `src/ui/`.
 
 | Job               | Wrapper                                                       | Started from                                                   | In `jobsBusy()`                                                                                                                                                       |
 | ----------------- | ------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sync              | `startSync` (`src/model/state.ts:957`)                        | Settings, a playlist's button                                  | yes                                                                                                                                                                   |
+| Sync              | `startSync` (`src/model/state.ts:957`)                        | Settings, a playlist's button, the automatic chain | yes                                                                                                                                                                   |
 | History import    | `startImport` (`:1037`)                                        | `#/import`                                                     | yes                                                                                                                                                                   |
-| ReccoBeats lookup | `startLookup` (`:1095`)                                        | Settings · Audio data                                          | yes                                                                                                                                                                   |
+| ReccoBeats lookup | `startLookup` (`:1095`)                                        | Settings · Audio data, the automatic chain | yes                                                                                                                                                                   |
 | Rekordbox import  | `startRekordboxImport` (`:1137`)                               | Settings · Audio data                                          | yes                                                                                                                                                                   |
-| Artist reach      | `startReach` (`:1166`)                                         | Settings · Artist reach                                        | yes                                                                                                                                                                   |
+| Artist reach      | `startReach` (`:1166`)                                         | Settings · Artist reach, the automatic chain | yes                                                                                                                                                                   |
 | Mix lookup        | `startMixLookup` (`:1228`), `startTracklistifyImport` (`:1317`) | `#/mix`                                                        | no                                                                                                                                                                    |
 | Create playlist   | `startCreatePlaylist` (`:1606`)                                | `#/mix`                                                        | no                                                                                                                                                                    |
 | Check on Spotify  | `startSpotifyCheck` (`:1877`), `stopSpotifyCheck` (`:1861`)       | `#/mix`, the open mix's header                                 | no (Spotify reads only, one track at a time; refused while another Spotify reader runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
@@ -420,6 +421,16 @@ screen, grouped by role under `src/ui/`.
 | Server pull       | `startServerPull` (`:359`)                                    | the open (after the first paint), Settings · Server · Sync now | yes                                                                                                                                                                   |
 | Server push       | `queueServerPush` (`:315`)                                    | the tail of the five library jobs, every mix save or delete    | no                                                                                                                                                                    |
 | Identify request  | `startIdentifyRequest` (`:1515`)                         | `#/mix`, the Identify on my computer button                    | no (one insert, under a second; no `confirm()`; Disconnect keeps it)                                                                                                  |
+
+**The automatic chain** (round 006, [ADR-12](700-adr/ADR-12-automatic-updates.md)). `createChain` (`src/model/autoChain.ts`, pure)
+is wired in `state.ts` (`runAutoChain`, `requestJob`, `autoUpdates`, `setAutoUpdates`, `chainView`) and run by `main.tsx` after the
+open's server sync and by `autoSync.ts`'s return and `online` triggers (a second install covers a device without the server). Steps,
+one at a time after `waitIdle()` (no `jobsBusy()` job running): `spotify` when `isSpotifyDue` (`lastSyncAt` null or older than
+`AUTO_SYNC_AGE_MS` = 12 h, the shared quota lock `spotifyLockedUntil()` lapsed) and not yet run this page session; `features`; `reach`. A step that ends `error` is kept
+in `failed` and skipped by later triggers of the session. The three wrappers take `{ auto: true }`: no wake lock, no `clearBanner()`,
+no banner but the lock-out and the expired-login logout. The Settings buttons (Sync now, Look up BPM and key, Look up artists) and the Updates section's Retry call `requestJob`, which
+puts the job first (even with the switch off). `disconnect` calls `autoChain.stop()` first. The Settings Updates section's six lines (`src/ui/settings/UpdatesSection.tsx`) come from
+`updateLines` (`src/model/updateLines.ts`, pure). The switch is `localStorage` `autoUpdates` (`'off'` = off).
 
 The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:888`). The mix and like
 jobs write no library store and rebuild no `Model`, so they need no exclusion; each guards its own re-entry on its state's `status`, shows
@@ -516,7 +527,7 @@ payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history 
   `deleteMix`, cleared after the tombstones are pushed).
 - `index.html` carries a Content Security Policy listing every host the app calls; `vite.config.ts` fills the server URL into it at
   build time and the HMR websocket on the dev server.
-- `autoSync.ts` (`installAutoSync`, installed by `main.tsx` after the open's sync): `startServerSync` on return to the app (tab
+- `autoSync.ts` (`installAutoSync`, installed by `main.tsx` after the open's sync; its `sync` also runs the automatic chain, §14): `startServerSync` on return to the app (tab
   visible, `RESUME_GAP_MS` = 60 s since the last), on `online`, and `startServerPull` every `ACTIVE_POLL_MS` (60 s) while visible
   and a request waits or runs (`hasActiveRequest`); only when signed in to both (`serverAutoSyncEnabled`). Never reads Spotify.
 

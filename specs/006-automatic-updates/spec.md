@@ -19,7 +19,7 @@ resume where they stopped.
 ## Constitution notice
 
 - **Principle II / ADR-02** is amended: the Spotify sync may start without a tap, at most once per 12 hours of library age, never
-  while Spotify's lock-out lasts, and never twice in one open. A new ADR-11 supersedes ADR-02's "only from a button" decision and
+  while Spotify's lock-out lasts, and never twice in one open. A new ADR-12 supersedes ADR-02's "only from a button" decision and
   keeps its reasoning; the constitution gets a MINOR bump (2.2.0).
 - **Principle IV / ADR-04**: "long jobs start only from Settings" becomes "long jobs start from Settings or the automatic chain";
   ids not names, pacing, resume and the pinned pacing test are unchanged.
@@ -154,4 +154,4 @@ tap the Sync now button: the Spotify sync runs as soon as the BPM step ends, the
 - The resume gap is the server's `RESUME_GAP_MS` (60 s); the chain runs after the server sync of that trigger.
 - The chain's state lives in memory; a reload starts a new session (a failed step is tried again on the next open).
 - History and Rekordbox stay manual: they need a file. Mix lookup, Create playlist and Like all songs stay on their screens.
-- The owner accepts the quota risk of one automatic Spotify sync per 12 hours (ADR-11).
+- The owner accepts the quota risk of one automatic Spotify sync per 12 hours (ADR-12).

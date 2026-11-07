@@ -8,7 +8,8 @@ ListenBrainz, Deezer, Wikidata, Wikipedia), and the `mix/` and `like/` folders (
 | Type | File | Why |
 |---|---|---|
 | Decision | `../../docs/architecture/700-adr/ADR-04-keyless-sources-by-id.md` | free keyless sources, ids not names, clients never throw, resumable jobs |
-| Decision | `../../docs/architecture/700-adr/ADR-02-no-spotify-reads-on-load.md` | jobs start from Settings only, never on load |
+| Decision | `../../docs/architecture/700-adr/ADR-02-no-spotify-reads-on-load.md` | no Spotify read on load outside the chain |
+| Decision | `../../docs/architecture/700-adr/ADR-12-automatic-updates.md` | the BPM and reach runs start from Settings or the automatic chain: no wake lock, no banner when automatic |
 | Reference | `../../docs/architecture/000-how-it-works.md` §9, §14 | each client, the reach phases, `jobsBusy()` |
 | Research | `../../docs/research/` | the verified endpoints, limits and shapes of each source |
 | Spec | `../../docs/specs/2026-09-05-bpm-key-design.md`, `../../docs/specs/2026-09-05-artist-reach-design.md` | the rulings |

@@ -199,15 +199,15 @@ from the job signals; `ui/Settings.tsx` renders them. `main.tsx` and `autoSync.t
 ### Task 5: Docs and decision
 
 **Files:**
-- Create: `docs/architecture/700-adr/ADR-11-automatic-updates.md` (supersedes ADR-02's "only from a button"; amends ADR-04's "start only
+- Create: `docs/architecture/700-adr/ADR-12-automatic-updates.md` (supersedes ADR-02's "only from a button"; amends ADR-04's "start only
   from Settings"; context, options from the spec's question, decision, consequences)
-- Modify: ADR-02 and ADR-04 (status line `Amended by ADR-11`), `docs/architecture/700-adr/README.md`, `.specify/memory/constitution.md`
+- Modify: ADR-02 and ADR-04 (status line `Amended by ADR-12`), `docs/architecture/700-adr/README.md`, `.specify/memory/constitution.md`
   (II and IV reworded, 2.1.0 → 2.2.0, Sync Impact Report, Last Amended 2026-11-07), root `CLAUDE.md` (the two non-negotiable lines),
   `src/features/CLAUDE.md` (ADR-02 row), `docs/architecture/000-how-it-works.md` §7, §14 (jobs table: "Started from" gains the chain;
   `autoChain.ts`, `updateLines.ts`), §16 (`autoSync.ts` calls the chain), `docs/architecture/100-features.md` (F21 row, last round line),
   `docs/architecture/800-limits-roadmap.md` (two devices running reach at once; 12 h fixed), `README.md` (owner's manual: Updates card
-  and switch), `CHANGELOG.md`, `docs/README.md` (lists ADR-11)
+  and switch), `CHANGELOG.md`, `docs/README.md` (lists ADR-12)
 - Create: `specs/006-automatic-updates/tasks.md` marking T1–T5 done
 - [ ] **Step 1:** Write the pages; every new link answered both ways.
 - [ ] **Step 2:** `yarn typecheck && yarn lint && yarn test` exit 0; `wc -l CLAUDE.md` ≤ 150.
-- [ ] **Step 3: Commit** `docs(round 006): ADR-11, constitution 2.2.0, how-it-works, inventory F21, README, CHANGELOG`.
+- [ ] **Step 3: Commit** `docs(round 006): ADR-12, constitution 2.2.0, how-it-works, inventory F22, README, CHANGELOG`.

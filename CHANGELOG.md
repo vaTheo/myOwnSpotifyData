@@ -3,6 +3,15 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-07 — Automatic updates
+
+Settings opens on a new **Updates** section: one line per job (Server, Spotify, BPM and key, Artist reach, History, Rekordbox) with
+its state, progress and time, and a Retry on a failed one. With **Automatic updates** on (default, per device), opening the app or
+coming back after a minute runs, after the server sync: the Spotify sync if the library is older than 12 hours (counting a sync made
+on the other device; never while Spotify's lock-out lasts, at most once a session), then the BPM and key lookup, then Artist reach,
+one at a time and only for what is missing. Automatic runs keep no wake lock and raise no banner except the Spotify lock-out and an
+expired login. A button tapped while another job runs now waits and runs next. Decision: ADR-12 (amends ADR-02 and ADR-04;
+constitution 2.2.0). Spec: `specs/006-automatic-updates/`. No `DB_VERSION` bump, no new host.
 ## 2026-11-07 — A web-first redesign of every screen
 
 The app is rebuilt for a computer's browser first, on Material Design 3: dark only, chartreuse as its colour, Roboto served by

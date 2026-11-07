@@ -56,11 +56,12 @@ Details: [Contributing](docs/dev-guide/000-contributing.md).
   declared by a public URL and key beside `VITE_SPOTIFY_CLIENT_ID`; it stores, never computes, never calls Spotify; the app works without it;
   workers run on the owner's computer (ADR-08).
 - Never open `localhost`: Spotify rejects it as a redirect URI; use `http://127.0.0.1:5173/myOwnSpotifyData/` (ADR-01).
-- Never sync or read Spotify playlists on load: the daily quota locks the account out for hours (ADR-02).
+- Never read Spotify on load outside the automatic chain: it syncs only when the library is older than 12 hours, not while locked, at
+  most once a session; a new Spotify read joins that gate (ADR-02, ADR-11).
 - Spotify writes exist in exactly two places (Create playlist from mix, Like all songs), on a tap, gated by `hasScope`; `post` is never
   retried; a refresh never widens a scope, so a new scope means **Connect again** (ADR-03).
-- External sources: keyless, keyed on Spotify ids or ISRCs, never name search; clients never throw; long jobs start only from Settings and
-  resume; the reach pacing split is pinned by a test (ADR-04). The one exception: the worker may look up by name a clue that carries no
+- External sources: keyless, keyed on Spotify ids or ISRCs, never name search; clients never throw; long jobs start from Settings or the
+  automatic chain (ADR-12) and resume; the reach pacing split is pinned by a test (ADR-04). The one exception: the worker may look up by name a clue that carries no
   identifier, exact equality only, the row marked "not heard" (ADR-10); the app's external sources never search by name.
 - IndexedDB upgrades only add stores; optional fields need no bump; `mixes` stays out of `buildModel` (ADR-05).
 - Play counts come only from the history export; the Crate gates on `historySummary.version === 2`, Under the radar on
