@@ -339,10 +339,11 @@ screen, grouped by role under `src/ui/`.
   `paging.ts` ("Showing 100 of 2,431", page by page) and `keyboard.ts` (arrows, Home and End, Enter opens). Columns hide by
   priority as the table narrows. Compact windows, and a table beside a list pane on expanded windows, show two-line items
   without sort headers (spec FR-015/016 as amended). A title is never drawn under 160 px (SC-001, S13c): `titleColumn` is
-  `minmax(176px, 2fr)`, so the other flexible columns give way first, and a table too narrow even for that draws two-line items
-  (`titleRoom`/`widthLevel` in `table/layout.ts`); Top and the Crate views do so beside the docked sheet too (`besideSheet`,
+  `minmax(176px, 2fr)`, so the other flexible columns give way first; a table too narrow for that hides columns by priority
+  (`fitLevel`, `data-level` on the grid over the container queries) and draws two-line items only when its priority-1 columns
+  alone leave too little (`titleRoom`/`widthLevel` in `table/layout.ts`); Top and the Crate views do so beside the docked sheet too (`besideSheet`,
   below 960 px). `DataTable` keeps only that level, not the pixel width, so a resize re-renders a table only when it changes.
-  The visual loop checks every table at 1440 for a title cut under 160 px (`checks.ts` "title-cut"). Sort state is a signal per screen, for the session.
+  The visual loop checks every table at 1440, 1024 and 768 for a title cut under 160 px (`checks.ts` "title-cut"). Sort state is a signal per screen, for the session.
 - **Details and list–detail**: `layout/SideSheet.tsx` docks the sheet at 400 px on large windows, a modal on medium and
   expanded, full screen on compact; `details/TrackDetails.tsx` with the pure `trackFacts.ts` shows everything the app holds for a
   track. `layout/ListDetail.tsx` puts Playlists, Artists and the Mixes list beside the open item from 840 px; on compact the item

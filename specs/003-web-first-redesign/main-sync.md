@@ -161,3 +161,8 @@ Narrowed shots after the merge: `yarn shots -g settings` (52 runs) and `yarn sho
     ruling R1), so its Relation, ΔBPM and Released columns fit at 1440 beside whole titles.
 19. (S13c fix round 1, M4) The rename rule compares names through `nameKey` (case, accents, spacing), as the library match.
 20. (S13c fix round 1, M6) The Mix decade and year sort read `rowYear`, the Released column's year (never a gap's).
+21. (S13c fix round 2, N1) Before two-line items, a table hides columns by priority until its title gets 160 px
+    (`fitLevel`); two-line items only when its priority-1 columns alone leave less. A full-width Finish rate at 1024 is a
+    table. The "title-cut" check runs at 1440, 1024 and 768.
+22. (S13c fix round 2, N2) The Crate's flag column is dropped on a view none of whose rows has a flag, and is 132 px (the
+    widest chip) otherwise; Finish's figure columns are narrower (136, 96, 88, 88 px) so the artists read at 1440.
