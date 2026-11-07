@@ -66,16 +66,16 @@ Expected:
 
 Open each address below in a fresh tab. Expected:
 
-| Address | Expected |
-|---|---|
-| `#/` | Overview |
-| `#/top` | Listening, Top tab |
-| `#/crate/year/2026-08` | Listening, Crate, By year with 2026 and August selected |
-| `#/playlist/<id>` | Library, Playlists. At 1440 px: list + detail. At 390 px: the playlist full screen |
-| `#/artist/<key>` | the same pattern under Library, Artists |
-| `#/mix/<key>` | Mix with that saved mix open |
-| `#/mix/unknown` | the workspace with "This saved mix is not in this browser" |
-| `#/top?d=<trackId>` | Top with that track's details open |
+| Address                | Expected                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `#/`                   | Overview                                                                           |
+| `#/top`                | Listening, Top tab                                                                 |
+| `#/crate/year/2026-08` | Listening, Crate, By year with 2026 and August selected                            |
+| `#/playlist/<id>`      | Library, Playlists. At 1440 px: list + detail. At 390 px: the playlist full screen |
+| `#/artist/<key>`       | the same pattern under Library, Artists                                            |
+| `#/mix/<key>`          | Mix with that saved mix open                                                       |
+| `#/mix/unknown`        | the workspace with "This saved mix is not in this browser"                         |
+| `#/top?d=<trackId>`    | Top with that track's details open                                                 |
 
 Then press back. The sheet closes, the previous screen returns, and its scroll position is restored.
 
@@ -160,6 +160,23 @@ At 390 px, check the stacking order from the screen contract.
 - **INP**: in DevTools' Performance panel, record sorting the largest table and opening a details sheet. Each interaction takes
   under 200 ms.
 - **Keyboard only**: complete the inventory walkthrough (F1–F19) without the mouse. Focus is always visible as a chartreuse ring.
+  The scripted part runs with `yarn shots` (`tools/shots/keyboard.shots.ts`, pages `kbd-*` at 1440 and 390 px).
+
+### The owner's speed run (T101)
+
+On the real profile, in Chrome, with the app built as deployed but served on the dev origin, so the browser finds the same
+database and Spotify the same redirect address (the dev server itself is slower and would mislead):
+`yarn build && yarn preview --host 127.0.0.1 --port 5173 --strictPort`, then `http://127.0.0.1:5173/myOwnSpotifyData/`. Stop
+`yarn dev` first, and keep no other tab open in that window.
+
+1. DevTools > Lighthouse: mode **Navigation**, device **Desktop**, categories **Performance** and **Accessibility**. Run it on
+   `#/` (Overview), `#/playlist/<id>` of a playlist of about 500 tracks, `#/artists` (more than 1,000 rows) and `#/mix/<url>` of a
+   saved mix. Note LCP, CLS, the Performance score and any Accessibility failure (contrast, names) of each.
+2. DevTools > Performance, **Record**, then on the largest table click a column header (Plays) and stop: note the longest
+   "Interaction" (INP) in the Interactions track. Record again while opening a track's details (click a row): note it.
+3. Report the ten numbers back (LCP and CLS for four pages, two interactions) and any Accessibility failure. Targets: LCP ≤ 2.5 s, CLS < 0.1,
+   each interaction < 200 ms, no Accessibility failure. A miss is fixed in its own round.
+
 - **Reduced motion**: with "Emulate prefers-reduced-motion" on, sheets and panes appear with no animation.
 
 ## 13. Nothing lost (SC-006, FR-046–FR-049)
