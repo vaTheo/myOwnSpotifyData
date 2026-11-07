@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact';
+import { useState } from 'preact/hooks';
 import { normalize } from '../model/normalize';
 import {
   hasHistory,
@@ -25,6 +26,7 @@ import {
   titleColumn,
 } from './table/columns';
 import { DataTable, type Column } from './table/DataTable';
+import type { TableLayout } from './table/layout';
 import { lastCall } from './table/lastCall';
 import type { SortState } from './table/sort';
 
@@ -189,6 +191,8 @@ function NoRun() {
 }
 
 export function UnderRadar(p: { switcher: ComponentChildren }) {
+  // Two-line items draw no sort headers: the sort control shows then.
+  const [layout, setLayout] = useState<TableLayout | null>(null);
   const m = model.value;
   if (!m || m.artists.length === 0) {
     return (
@@ -228,8 +232,9 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
     <>
       <div class="toolbar">
         {p.switcher}
-        {/* Headers sort on larger windows; a phone keeps the control. */}
-        {windowClass.value === 'compact' && (
+        {/* Headers sort where they are drawn; a phone, or a table too
+            narrow for its names (two-line items), keeps the control. */}
+        {(windowClass.value === 'compact' || layout?.twoLine) && (
           <SegmentedButtons
             scroll
             options={[
@@ -289,6 +294,7 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
             groupOf={groupOfRow}
             groupHeading={groupHeading}
             resetKey={`${radarSort.value} ${query}`}
+            onLayout={setLayout}
             onOpen={(r) => {
               location.hash = routeHref({ name: 'artist', key: r.agg.key });
             }}
