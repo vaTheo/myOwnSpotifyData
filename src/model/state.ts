@@ -47,13 +47,13 @@ import { requestStatusText } from '../features/mix/worker';
 import {
   defaultChoice,
   runCreatePlaylist,
+  rowAfterCreate,
   tracksToAdd,
   type CreateChoice,
 } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
   applyAnswers,
-  keepStoredAnswers,
   rowsToCheck,
   runSpotifyCheck,
   type CheckAnswer,
@@ -1608,6 +1608,7 @@ export async function startCreatePlaylist(): Promise<void> {
   const mixUrl = view.url;
   const rows = mixRows.value;
   const extras = savedExtras(view.url);
+  const tapAt = Date.now();
 
   if (!canCreatePlaylists(auth.session.value)) {
     if (!(await saveMix())) return;
@@ -1678,22 +1679,34 @@ export async function startCreatePlaylist(): Promise<void> {
   // rather than through `saveMix` (which reads live state), then reflect the
   // link on the open view only if this same mix is still open.
   if (outcome.playlistId !== null) {
-    // A check's answers stored meanwhile are kept (S13 B3): the captured
-    // rows predate them.
-    const stored = savedMixes.value.find((m) => m.url === view.url);
-    const row: MixRow = {
+    // The stored copy read again (S13 N1): a review the owner saved during
+    // the run wins, Create adding only its playlist; else the rows of the
+    // tap, with the check answers already stored (B3).
+    const read = await readMixesForSearch();
+    const stored = ('mixes' in read ? read.mixes : savedMixes.value).find(
+      (m) => m.url === view.url
+    );
+    const tapped: MixRow = {
       url: view.url,
       title: view.title,
       author: view.author,
       playerSrc: view.playerSrc,
       slug: view.trackid?.slug ?? null,
       sources: view.sources,
-      rows: keepStoredAnswers(rows, stored?.rows ?? []),
+      rows,
       ...extras,
-      savedAt: Date.now(),
-      playlistUrl: outcome.url ?? undefined,
-      playlistId: outcome.playlistId,
+      savedAt: tapAt,
     };
+    const row = rowAfterCreate(
+      tapped,
+      stored,
+      tapAt,
+      {
+        playlistUrl: outcome.url ?? undefined,
+        playlistId: outcome.playlistId,
+      },
+      Date.now()
+    );
     let saved = true;
     try {
       await putMix(row);
@@ -1712,10 +1725,10 @@ export async function startCreatePlaylist(): Promise<void> {
         },
       };
     }
-    // Only on success: loadSavedMixes clears mixError first, so calling it
-    // after a rejected putMix would wipe the error we just set (nothing shown).
+    // Only on success, and without clearing `mixError`: another mix may be
+    // open with its own failure showing (S13 N3).
     if (saved) {
-      await loadSavedMixes();
+      await refreshSavedMixes();
       void queueServerPush(['mixes']);
     }
   }
@@ -1918,12 +1931,21 @@ async function keepChecks(
     mixError.value = `Could not save the mix: ${storageMessage(err)}`;
     return;
   }
-  // The list refreshed without `loadSavedMixes`, which clears `mixError`:
-  // the mix open now may be showing its own failure (S13 B4).
+  // The list refreshed without clearing `mixError`: the mix open now may
+  // be showing its own failure (S13 B4).
+  await refreshSavedMixes();
+  void queueServerPush(['mixes']);
+}
+
+/**
+ * Refreshes `savedMixes` after a background save (a check or a create that
+ * ended), leaving `mixError` as it is unless the read itself fails, unlike
+ * `loadSavedMixes`, which starts the Mix screen afresh.
+ */
+async function refreshSavedMixes(): Promise<void> {
   const read = await readMixesForSearch();
   if ('mixes' in read) savedMixes.value = read.mixes;
   else mixError.value = read.error;
-  void queueServerPush(['mixes']);
 }
 
 /**

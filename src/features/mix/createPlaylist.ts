@@ -1,4 +1,4 @@
-import type { TracklistRow } from '../../db/schema';
+import type { MixRow, TracklistRow } from '../../db/schema';
 // Type-only import: erased under verbatimModuleSyntax, so this file never
 // evaluates state.ts (and its auth/browser localStorage) under Vitest. It
 // MUST stay `import type`.
@@ -7,7 +7,7 @@ import type { SpotifyClient } from '../../spotify/client';
 import type { ApiPlaylist } from '../../spotify/types';
 import { QuotaError } from '../../spotify/errors';
 import { describeError } from '../../util/errors';
-import { storedUri } from './spotifyCheck';
+import { keepStoredAnswers, storedUri } from './spotifyCheck';
 import { isIdentified, searchTrack, type RowMatch } from './spotifySearch';
 
 export interface CreatePlaylistDeps {
@@ -156,4 +156,28 @@ export async function runCreatePlaylist(
   // 4. Done.
   onState({ status: 'done', name, url, added: uris.length, total, unmatched });
   return { playlistId, url };
+}
+
+/**
+ * The mix Create playlist saves when it ends (S13 N1). A copy the owner
+ * saved after the tap wins whole (validates, edits, removed tracks): Create
+ * adds only its playlist. Otherwise the rows of the tap, with the check
+ * answers already stored put back (`keepStoredAnswers`).
+ */
+export function rowAfterCreate(
+  tapped: MixRow,
+  stored: MixRow | undefined,
+  tapAt: number,
+  playlist: { playlistUrl?: string; playlistId: string },
+  now: number
+): MixRow {
+  if (stored !== undefined && stored.savedAt >= tapAt) {
+    return { ...stored, ...playlist, savedAt: now };
+  }
+  return {
+    ...tapped,
+    rows: keepStoredAnswers(tapped.rows, stored?.rows ?? []),
+    ...playlist,
+    savedAt: now,
+  };
 }

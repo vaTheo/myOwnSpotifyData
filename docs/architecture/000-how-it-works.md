@@ -366,28 +366,30 @@ screen, grouped by role under `src/ui/`.
 | Artist reach      | `startReach` (`:1163`)                                         | Settings · Artist reach                                        | yes                                                                                                                                                                   |
 | Mix lookup        | `startMixLookup` (`:1225`), `startTracklistifyImport` (`:1314`) | `#/mix`                                                        | no                                                                                                                                                                    |
 | Create playlist   | `startCreatePlaylist` (`:1603`)                                | `#/mix`                                                        | no                                                                                                                                                                    |
-| Check on Spotify  | `startSpotifyCheck` (`:1810`), `stopSpotifyCheck` (`:1794`)       | `#/mix`, the open mix's header                                 | no (Spotify reads only, one track at a time; refused while another Spotify reader runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
-| Like all songs    | `startLikePlaylist` (`:1954`)                                 | Playlist screen                                                | no                                                                                                                                                                    |
+| Check on Spotify  | `startSpotifyCheck` (`:1823`), `stopSpotifyCheck` (`:1807`)       | `#/mix`, the open mix's header                                 | no (Spotify reads only, one track at a time; refused while another Spotify reader runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
+| Like all songs    | `startLikePlaylist` (`:1976`)                                 | Playlist screen                                                | no                                                                                                                                                                    |
 | Server pull       | `startServerPull` (`:356`)                                    | the open (after the first paint), Settings · Server · Sync now | yes                                                                                                                                                                   |
 | Server push       | `queueServerPush` (`:312`)                                    | the tail of the five library jobs, every mix save or delete    | no                                                                                                                                                                    |
 | Identify request  | `startIdentifyRequest` (`:1512`)                         | `#/mix`, the Identify on my computer button                    | no (one insert, under a second; no `confirm()`; Disconnect keeps it)                                                                                                  |
 
 The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:885`). The mix and like
 jobs write no library store and rebuild no `Model`, so they need no exclusion; each guards its own re-entry on its state's `status`, shows
-every failure inline (never a banner) and is reset by `disconnect` (`:2015`). Every Spotify reader shares one quota lock-out
+every failure inline (never a banner) and is reset by `disconnect` (`:2037`). Every Spotify reader shares one quota lock-out
 (`spotifyQuotaLock`, §4): a quota answer to any of them is remembered for all, across reloads, and `disconnect` keeps it. The four
 readers (sync, Check on Spotify, Create playlist, Like all songs) also run one at a time (§4). Create playlist's state names its mix
-(`mixUrl`), shows only on that mix and survives Close while it runs; before it saves, it keeps the check answers already stored for the
-mix (`keepStoredAnswers`).
+(`mixUrl`), shows only on that mix and survives Close while it runs. When it ends it reads the stored mix again (`rowAfterCreate`):
+a copy the owner saved during the run wins (validates, edits, removed tracks) and Create adds only its playlist; otherwise it saves the
+rows of the tap with the check answers already stored (`keepStoredAnswers`). Like a check that ends in the background, it refreshes the
+saved mixes without clearing the open mix's error.
 
 Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
 (`ACCOUNT_SWITCH_CONFIRM`, `:993`), an import that covers less than the stored history (`replaceQuestion`, `:1045`), Remove server data
-(`REMOVE_SERVER_DATA_CONFIRM`, `:439`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:2111`, asked from the request's row in the Mixes list,
-`ui/mix/MixListPane.tsx`) and Stop a running scan (`STOP_REQUEST_CONFIRM`, `:2128`, round 004, asked from the Mixes list row or
+(`REMOVE_SERVER_DATA_CONFIRM`, `:439`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:2133`, asked from the request's row in the Mixes list,
+`ui/mix/MixListPane.tsx`) and Stop a running scan (`STOP_REQUEST_CONFIRM`, `:2150`, round 004, asked from the Mixes list row or
 the open mix's header, `ui/mix/RunLine.tsx`; the scan keeps its tracks); Disconnect, asked by its button in
 `ui/settings/DangerZone.tsx` (`:26`); and Remove a saved mix ("Remove this saved mix?"), asked by its row menu in
 `ui/mix/MixListPane.tsx` (`:173`). Non-destructive, in
-`state.ts`: Like all songs' count (`:1977`) and the four "replace the working list" questions of the Mix screen (`:1298`, `:1328`,
+`state.ts`: Like all songs' count (`:1999`) and the four "replace the working list" questions of the Mix screen (`:1298`, `:1328`,
 `:1360`, `:1382`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
 old behaviour.
 
