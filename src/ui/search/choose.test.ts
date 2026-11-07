@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { AllRows } from '../../db/schema';
 import { buildModel } from '../../model/aggregate';
-import { detailOver, frameDetail, rememberRecent, resultHref } from './choose';
+import {
+  detailOver,
+  escapeAction,
+  frameDetail,
+  rememberRecent,
+  resultHref,
+} from './choose';
 import type { SearchEntry } from './searchIndex';
 
 function rows(): AllRows {
@@ -105,5 +111,13 @@ describe('rememberRecent', () => {
       recent = rememberRecent(recent, entry(id));
     }
     expect(recent.map((e) => e.id)).toEqual(['c', 'f', 'e', 'd', 'b']);
+  });
+});
+
+describe('escapeAction (controller ruling, S09 round 1)', () => {
+  it('clears a field with text first, then closes', () => {
+    expect(escapeAction('kia')).toBe('clear');
+    expect(escapeAction('')).toBe('close');
+    expect(escapeAction('   ')).toBe('clear');
   });
 });

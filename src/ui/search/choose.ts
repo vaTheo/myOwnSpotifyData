@@ -67,3 +67,11 @@ export function rememberRecent(
     ...recent.filter((e) => e.kind !== entry.kind || e.id !== entry.id),
   ].slice(0, max);
 }
+
+/**
+ * What Escape in the search field does: a field with text clears first,
+ * an empty one closes the view (escape.ts: a search field clears itself).
+ */
+export function escapeAction(query: string): 'clear' | 'close' {
+  return query === '' ? 'close' : 'clear';
+}

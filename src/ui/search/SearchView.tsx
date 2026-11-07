@@ -1,13 +1,14 @@
 import { signal } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { loadSavedMixes, mixError, model, savedMixes } from '../../model/state';
+import type { MixRow } from '../../db/schema';
+import { model, readMixesForSearch } from '../../model/state';
 import { parseRoute } from '../../router';
 import { StatusLine } from '../components/StatusLine';
 import { Icon, type IconName } from '../icons';
 import { IconButton } from '../components/IconButton';
 import { ESCAPE_RANK, isEditable, pushEscapeLayer } from '../layout/escape';
 import { windowClass } from '../layout/windowClass';
-import { rememberRecent, resultHref } from './choose';
+import { escapeAction, rememberRecent, resultHref } from './choose';
 import {
   buildSearchIndex,
   highlight,
@@ -22,8 +23,19 @@ export const searchOpen = signal(false);
 const query = signal('');
 /** The last five items opened from search this session, newest first. */
 const recent = signal<SearchEntry[]>([]);
-/** Saved mixes are read once, when the view first opens (research D11). */
-let mixesRead = false;
+/**
+ * The saved mixes as search last read them, on each opening (research D11),
+ * apart from the Mix screen's own state; and that read's failure, shown in
+ * the panel only.
+ */
+const mixes = signal<MixRow[]>([]);
+const mixesError = signal<string | null>(null);
+
+/** The history entry a phone's full-screen search pushes, so Back closes it. */
+const SEARCH_STATE = 'djSearch';
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const GROUP: Record<SearchKind, { title: string; icon: IconName }> = {
   track: { title: 'Tracks', icon: 'music_note' },
@@ -89,6 +101,7 @@ type Item =
  */
 export function SearchView() {
   const input = useRef<HTMLInputElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const [active, setActive] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<SearchKind>>(new Set());
@@ -108,17 +121,34 @@ export function SearchView() {
     opener.current = document.activeElement as HTMLElement | null;
     input.current?.focus();
     input.current?.select();
-    if (!mixesRead) {
-      mixesRead = true;
-      void loadSavedMixes();
-    }
+    void readMixesForSearch().then((got) => {
+      if ('mixes' in got) {
+        mixes.value = got.mixes;
+        mixesError.value = null;
+      } else {
+        mixesError.value = got.error;
+      }
+    });
     const pop = pushEscapeLayer(closeSearch, ESCAPE_RANK.search);
     const root = document.documentElement;
     const before = root.style.overflow;
     root.style.overflow = 'hidden';
+    // A phone's Back closes the full-screen view and leaves the screen
+    // behind where it is: the view has its own history entry.
+    const pushed = windowClass.value === 'compact';
+    if (pushed) history.pushState({ [SEARCH_STATE]: true }, '');
+    const onPop = () => closeSearch();
+    if (pushed) addEventListener('popstate', onPop);
     return () => {
       pop();
       root.style.overflow = before;
+      if (pushed) {
+        removeEventListener('popstate', onPop);
+        const state = history.state as Record<string, unknown> | null;
+        // Closed from inside (Escape, ✕): drop the view's entry. A result
+        // chosen has already replaced it with its own address.
+        if (state?.[SEARCH_STATE] === true) history.back();
+      }
       // Back where the search was opened from, unless a result moved on.
       const back = opener.current;
       if (back && document.contains(back)) back.focus({ preventScroll: true });
@@ -130,7 +160,7 @@ export function SearchView() {
     setExpanded(new Set());
   }, [q]);
 
-  const index = m ? buildSearchIndex(m, savedMixes.value) : [];
+  const index = m ? buildSearchIndex(m, mixes.value) : [];
   const groups = searchAll(index, q, PER_GROUP);
   const all = expanded.size > 0 ? searchAll(index, q, ALL) : [];
   const items: Item[] = [];
@@ -173,16 +203,25 @@ export function SearchView() {
     // The next search starts empty, on the recent items.
     query.value = '';
     opener.current = null;
+    const href = resultHref(parseRoute(location.hash), m, entry);
+    const state = history.state as Record<string, unknown> | null;
     closeSearch();
-    location.hash = resultHref(parseRoute(location.hash), m, entry);
+    // On a phone the view's own history entry becomes the result's, so
+    // Back from the result returns to the screen search was opened over.
+    if (state?.[SEARCH_STATE] === true) {
+      location.replace(`${location.href.split('#')[0]}${href}`);
+    } else {
+      location.hash = href;
+    }
   }
 
   function onKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
-      // The field's own Escape closes the view (the layer code leaves a
-      // text field's keys alone).
+      // The field's own Escape: it clears the text first, then closes the
+      // view (the layer code leaves a text field's keys alone).
       e.preventDefault();
-      closeSearch();
+      if (escapeAction(q) === 'clear') query.value = '';
+      else closeSearch();
       return;
     }
     if (items.length === 0) return;
@@ -195,6 +234,25 @@ export function SearchView() {
     if (e.key === 'Enter') {
       e.preventDefault();
       choose(items[current]);
+    }
+  }
+
+  /** Tab stays inside the modal view (aria-modal). */
+  function trap(e: KeyboardEvent): void {
+    if (e.key !== 'Tab' || !dialog.current) return;
+    const items = [
+      ...dialog.current.querySelectorAll<HTMLElement>(FOCUSABLE),
+    ].filter((el) => el.offsetParent !== null);
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const at = document.activeElement;
+    if (e.shiftKey && (at === first || !dialog.current.contains(at))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (at === last || !dialog.current.contains(at))) {
+      e.preventDefault();
+      first.focus();
     }
   }
 
@@ -259,6 +317,8 @@ export function SearchView() {
         role="dialog"
         aria-modal="true"
         aria-label="Search"
+        ref={dialog}
+        onKeyDown={trap}
       >
         <div class="search-field">
           {phone ? (
@@ -303,8 +363,8 @@ export function SearchView() {
         </div>
         {/* A long list scrolls from the keyboard too (axe). */}
         <div class="search-body" tabIndex={0}>
-          {mixError.value && (
-            <StatusLine kind="error">{mixError.value}</StatusLine>
+          {mixesError.value && (
+            <StatusLine kind="error">{mixesError.value}</StatusLine>
           )}
           {!m ? (
             <p class="search-note">Your library is still loading.</p>

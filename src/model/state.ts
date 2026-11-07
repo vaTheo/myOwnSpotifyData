@@ -1420,6 +1420,22 @@ export async function loadSavedMixes(): Promise<void> {
   }
 }
 
+/**
+ * The saved mixes for the global search (S09 round 1): read on their own,
+ * newest first, leaving the Mix screen's `savedMixes`, `mixError` and
+ * `mixJobs` alone. A failure comes back as text for the search panel.
+ */
+export async function readMixesForSearch(): Promise<
+  { mixes: MixRow[] } | { error: string }
+> {
+  try {
+    const rows = await getMixes();
+    return { mixes: rows.sort((a, b) => b.savedAt - a.savedAt) };
+  } catch (err) {
+    return { error: `Could not read your saved mixes: ${describeError(err)}` };
+  }
+}
+
 /* ---------- identify on my computer (worker round) ---------- */
 
 async function reloadMixJobs(): Promise<void> {
