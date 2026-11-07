@@ -1,0 +1,159 @@
+import { describe, expect, it } from 'vitest';
+import {
+  ACTIVE_KEY,
+  DEVICE_OWNER_KEY,
+  claim,
+  dbNameFor,
+  isUserId,
+  keyFor,
+  readActive,
+  readDeviceUsers,
+  recordDeviceUser,
+  reloadNeeded,
+  scopedStorage,
+  userIdFromToken,
+  writeActive,
+} from './userScope';
+
+class Mem {
+  map = new Map<string, string>();
+  getItem(k: string): string | null {
+    return this.map.get(k) ?? null;
+  }
+  setItem(k: string, v: string): void {
+    this.map.set(k, v);
+  }
+  removeItem(k: string): void {
+    this.map.delete(k);
+  }
+}
+
+const A = 'aaaaaaaa-1111-4111-8111-bbbbbbbbbbbb';
+const B = '22222222-2222-4222-8222-222222222222';
+
+function jwt(payload: unknown): string {
+  const b64 = (o: unknown) =>
+    btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${b64({ alg: 'none' })}.${b64(payload)}.sig`;
+}
+
+describe('isUserId', () => {
+  it('accepts a lowercase uuid', () => expect(isUserId(A)).toBe(true));
+  it('rejects anything else', () => {
+    for (const bad of ['', 'x', A.toUpperCase(), `${A}-x`, '../../etc', 'a b', null, 5])
+      expect(isUserId(bad)).toBe(false);
+  });
+});
+
+describe('userIdFromToken', () => {
+  it('reads sub', () => expect(userIdFromToken(jwt({ sub: A }))).toBe(A));
+  it('is null without sub, with a bad sub or a malformed token', () => {
+    expect(userIdFromToken(jwt({}))).toBeNull();
+    expect(userIdFromToken(jwt({ sub: 'nope' }))).toBeNull();
+    expect(userIdFromToken('a1')).toBeNull();
+    expect(userIdFromToken('a.%%%.c')).toBeNull();
+    expect(userIdFromToken('')).toBeNull();
+  });
+});
+
+describe('claim', () => {
+  it('the first sign-in claims, a second never changes it', () => {
+    const s = new Mem();
+    expect(claim(s, A)).toBe(A);
+    expect(claim(s, B)).toBe(A);
+    expect(s.getItem(DEVICE_OWNER_KEY)).not.toBeNull();
+  });
+  it('ignores a malformed stored owner and claims again', () => {
+    const s = new Mem();
+    s.setItem(DEVICE_OWNER_KEY, '{"userId":"../x"}');
+    expect(claim(s, B)).toBe(B);
+  });
+});
+
+describe('names', () => {
+  it('the claimer keeps today\'s names', () => {
+    const s = new Mem();
+    claim(s, A);
+    writeActive(s, { userId: A, email: 'a@x.fr' });
+    expect(dbNameFor('spotify-dj', s, true)).toBe('spotify-dj');
+    expect(keyFor('session', s, true)).toBe('session');
+  });
+  it('another user gets suffixed names', () => {
+    const s = new Mem();
+    claim(s, A);
+    writeActive(s, { userId: B, email: 'b@x.fr' });
+    expect(dbNameFor('spotify-dj', s, true)).toBe(`spotify-dj-u-${B}`);
+    expect(keyFor('session', s, true)).toBe(`session:${B}`);
+    expect(keyFor('pkce', s, true)).toBe(`pkce:${B}`);
+  });
+  it('without a server every name is today\'s, whatever is stored', () => {
+    const s = new Mem();
+    claim(s, A);
+    writeActive(s, { userId: B, email: 'b@x.fr' });
+    expect(dbNameFor('spotify-dj', s, false)).toBe('spotify-dj');
+    expect(keyFor('session', s, false)).toBe('session');
+  });
+  it('nobody active gives today\'s names', () => {
+    expect(dbNameFor('spotify-dj', new Mem(), true)).toBe('spotify-dj');
+  });
+});
+
+describe('active pointer', () => {
+  it('round-trips and clears', () => {
+    const s = new Mem();
+    writeActive(s, { userId: A, email: 'a@x.fr' });
+    expect(readActive(s)).toEqual({ userId: A, email: 'a@x.fr' });
+    writeActive(s, null);
+    expect(readActive(s)).toBeNull();
+    expect(s.getItem(ACTIVE_KEY)).toBeNull();
+  });
+  it('drops a pointer with a malformed id', () => {
+    const s = new Mem();
+    s.setItem(ACTIVE_KEY, '{"userId":"../..","email":"x"}');
+    expect(readActive(s)).toBeNull();
+  });
+  it('drops unparsable JSON', () => {
+    const s = new Mem();
+    s.setItem(ACTIVE_KEY, '{');
+    expect(readActive(s)).toBeNull();
+  });
+});
+
+describe('device users', () => {
+  it('records each person once and updates the email', () => {
+    const s = new Mem();
+    recordDeviceUser(s, { userId: A, email: 'a@x.fr' });
+    recordDeviceUser(s, { userId: B, email: 'b@x.fr' });
+    recordDeviceUser(s, { userId: A, email: 'new@x.fr' });
+    expect(readDeviceUsers(s)).toEqual([
+      { userId: A, email: 'new@x.fr' },
+      { userId: B, email: 'b@x.fr' },
+    ]);
+  });
+});
+
+describe('reloadNeeded', () => {
+  it('only when the user changes', () => {
+    expect(reloadNeeded(A, A)).toBe(false);
+    expect(reloadNeeded(null, A)).toBe(false);
+    expect(reloadNeeded(A, B)).toBe(true);
+    expect(reloadNeeded(A, null)).toBe(true);
+  });
+});
+
+describe('scopedStorage', () => {
+  it('maps only the named keys through keyFor and leaves others alone', () => {
+    const s = new Mem();
+    claim(s, A);
+    writeActive(s, { userId: B, email: 'b@x.fr' });
+    const view = scopedStorage(s, s, ['session', 'pkce'], true);
+    view.setItem('session', 'tok');
+    view.setItem('other', 'o');
+    expect(s.getItem(`session:${B}`)).toBe('tok');
+    expect(s.getItem('session')).toBeNull();
+    expect(s.getItem('other')).toBe('o');
+    expect(view.getItem('session')).toBe('tok');
+    view.removeItem('session');
+    expect(s.getItem(`session:${B}`)).toBeNull();
+  });
+});
