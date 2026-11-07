@@ -68,6 +68,10 @@ when something needs attention.
 
 **Phone**: one column, in the same order.
 
+**Columns (controller ruling, S10 round 1)**: one column on compact windows, two from 600 px through 1,199 px (medium and
+expanded), three from 1,200 px. Three columns at 840–1,199 px would leave cards about 230–330 px wide: the Heavy rotation
+and Top rows would cut their titles to a few letters and drop their bars, so expanded keeps two.
+
 **Rules**:
 
 - Every figure comes from `overviewBlocks()` and equals its screen's figure (SC-009).
