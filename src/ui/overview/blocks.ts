@@ -55,6 +55,8 @@ export interface OverviewItem {
   trackId?: string;
   /** The item's own figure ("12 plays"), or null when unknown. */
   value?: string | null;
+  /** The item's details over its screen (`?d=`). */
+  href?: string;
   /** Plays per month over the window (Heavy rotation). */
   series?: MonthPoint[];
 }
@@ -68,9 +70,8 @@ export interface OverviewBlock {
   id: OverviewBlockId;
   state: OverviewState;
   title: string;
-  /** The card's link to its screen, and the link's words. */
+  /** The card's link to its screen. */
   link: string;
-  linkLabel: string;
   figures: OverviewFigure[];
   items?: OverviewItem[];
   /** A line under the figures, word for word the screen's. */
@@ -129,7 +130,6 @@ function listening(p: OverviewInput): OverviewBlock {
     id: 'listening' as const,
     title: 'Listening',
     link: routeHref({ name: 'crate' }),
-    linkLabel: 'Open the Crate',
   };
   const summary = p.historySummary;
   if (!summary) {
@@ -170,7 +170,6 @@ function rotation(p: OverviewInput): OverviewBlock {
     id: 'rotation' as const,
     title: 'Heavy rotation',
     link: routeHref({ name: 'crateView', view: 'rotation' }),
-    linkLabel: 'Open Heavy rotation',
   };
   if (p.crateStatus === 'empty' || !p.model) {
     return {
@@ -207,6 +206,11 @@ function rotation(p: OverviewInput): OverviewBlock {
         title: label.title,
         subtitle: label.subtitle,
         trackId: item.row.trackId,
+        href: routeHref({
+          name: 'crateView',
+          view: 'rotation',
+          detail: item.row.trackId,
+        }),
         value: plural(item.windowPlays, 'play'),
         series: monthSeries(item.row.months, keys, range),
       };
@@ -222,7 +226,6 @@ function top(p: OverviewInput): OverviewBlock {
     id: 'top' as const,
     title: 'Top this month',
     link: routeHref({ name: 'top' }),
-    linkLabel: 'Open Top',
   };
   const tracks = p.model ? topTracks(p.model, 'short_term') : [];
   if (tracks.length === 0) {
@@ -242,23 +245,28 @@ function top(p: OverviewInput): OverviewBlock {
       title: r.item.name,
       subtitle: artistNames(r.item.artists),
       trackId: r.item.id,
+      href: routeHref({ name: 'top', detail: r.item.id }),
       value: r.plays ? plural(r.plays.plays, 'play') : null,
     })),
   };
 }
 
-/** The quota lock first, worded as the Sync card words it, then pending. */
+/** The quota lock, worded as the Sync card words it, then pending. */
 function syncWarning(p: OverviewInput): string | undefined {
   const at = p.now.getTime();
-  const shared = quotaRefusal('sync', p.quotaLockUntil, at, formatDateTime);
-  if (shared) return shared;
   const s = p.syncState;
-  if (s.status === 'locked') {
+  const shared = activeLock(p.quotaLockUntil, at);
+  // As the Sync card: its own line when the lock it met is the one holding
+  // (it names the pending playlists), else the shared lock's line.
+  if (s.status === 'locked' && (shared === null || s.retryAt >= shared)) {
     const retry =
       activeLock(s.retryAt, at) !== null
         ? `Retry after ${formatDateTime(s.retryAt)}.`
         : 'You can retry now.';
     return `Spotify quota reached with ${plural(s.pending.length, 'playlist')} pending. ${retry}`;
+  }
+  if (shared !== null) {
+    return quotaRefusal('sync', shared, at, formatDateTime) ?? undefined;
   }
   if (s.status === 'error' && s.pending.length > 0) {
     return `${plural(s.pending.length, 'playlist')} pending. Last error: ${s.message}`;
@@ -272,7 +280,6 @@ function library(p: OverviewInput): OverviewBlock {
     id: 'library' as const,
     title: 'Library',
     link: routeHref({ name: 'playlists' }),
-    linkLabel: 'Open Playlists',
     ...(warning ? { warning } : {}),
   };
   const m = p.model;
@@ -304,7 +311,6 @@ function coverageBlock(p: OverviewInput): OverviewBlock {
     id: 'coverage' as const,
     title: 'Coverage',
     link: routeHref({ name: 'settings' }),
-    linkLabel: 'Open Settings',
   };
   const m = p.model;
   const audio = m ? coverage(m) : null;
@@ -356,7 +362,6 @@ function mix(p: OverviewInput): OverviewBlock {
     id: 'mix' as const,
     title: 'Last saved mix',
     link: routeHref({ name: 'mix' }),
-    linkLabel: 'Open Mix',
     ...(p.mixError ? { error: p.mixError } : {}),
   };
   if (p.mixes === null) {
@@ -368,6 +373,8 @@ function mix(p: OverviewInput): OverviewBlock {
     };
   }
   const newest = p.mixes[0];
+  // A failed read says so, not "no saved mixes".
+  if (!newest && p.mixError) return { ...base, state: 'empty', figures: [] };
   if (!newest) {
     return {
       ...base,
@@ -387,9 +394,14 @@ function mix(p: OverviewInput): OverviewBlock {
     ...base,
     state: 'ready',
     link: routeHref({ name: 'mix', key: newest.url }),
-    linkLabel: 'Open this mix',
     figures: [{ label: 'Saved', value: formatDate(newest.savedAt) }],
-    items: [{ title: item?.title ?? newest.url, subtitle: '' }],
+    items: [
+      {
+        title: item?.title ?? newest.url,
+        subtitle: '',
+        href: routeHref({ name: 'mix', key: newest.url }),
+      },
+    ],
     ...(item ? { chip: item.chip } : {}),
   };
 }
@@ -399,7 +411,6 @@ function server(p: OverviewInput): OverviewBlock {
     id: 'server' as const,
     title: 'Server',
     link: routeHref({ name: 'settings' }),
-    linkLabel: 'Open Settings',
   };
   const s = p.serverState;
   if (s.status === 'unset') return { ...base, state: 'hidden', figures: [] };
