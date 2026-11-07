@@ -11,7 +11,7 @@ import { PAGE_SIZE } from '../../model/crate';
 import { Icon } from '../icons';
 import { windowClass } from '../layout/windowClass';
 import { moveIndex, rovingTarget } from './keyboard';
-import { widestPriority, type TableLayout } from './layout';
+import { levelOf, widthLevel, type TableLayout } from './layout';
 import { shownToReveal } from './paging';
 import {
   nextSort,
@@ -66,39 +66,48 @@ function templates<Row>(columns: Column<Row>[]): Record<string, string> {
   return vars;
 }
 
-/** The element's width while `on`, kept up to date; null until measured. */
-function useWidth(
+/**
+ * What the table's width decides, kept as one small code (`widthLevel`):
+ * the column-priority level and, with `compactBelow`, whether the table is
+ * narrower than it. A resize re-renders the table only when the level
+ * changes, not on every pixel (S13c review M3). Null until measured.
+ */
+function useWidthLevel(
   ref: { current: HTMLElement | null },
-  on: boolean
+  compactBelow: number | undefined
 ): number | null {
-  const [width, setWidth] = useState<number | null>(null);
+  const [level, setLevel] = useState<number | null>(null);
   // The first width is read before the browser paints, so a table that
   // fits never shows its two-line items for a frame (S09 round 1).
   useLayoutEffect(() => {
     const el = ref.current;
-    if (on && el) setWidth(Math.round(el.getBoundingClientRect().width));
-  }, [on]);
+    if (el) {
+      setLevel(
+        widthLevel(Math.round(el.getBoundingClientRect().width), compactBelow)
+      );
+    }
+  }, [compactBelow]);
   useEffect(() => {
     const el = ref.current;
-    if (!on || !el || typeof ResizeObserver === 'undefined') {
-      setWidth(null);
-      return;
-    }
+    if (!el || typeof ResizeObserver === 'undefined') return;
     let frame = 0;
     // Read in the next frame: the layout the new width brings (items or
     // rows) must not land inside the observer's own notification.
     const observer = new ResizeObserver((entries) => {
-      const next = Math.round(entries[0].contentRect.width);
+      const next = widthLevel(
+        Math.round(entries[0].contentRect.width),
+        compactBelow
+      );
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => setWidth(next));
+      frame = requestAnimationFrame(() => setLevel(next));
     });
     observer.observe(el);
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [on]);
-  return width;
+  }, [compactBelow]);
+  return level;
 }
 
 /** How long the focus rests on a row before an open sheet follows it. */
@@ -186,12 +195,12 @@ export function DataTable<Row>(p: {
   onLayout?: (layout: TableLayout) => void;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
-  const width = useWidth(wrap, true);
+  const level = levelOf(useWidthLevel(wrap, p.compactBelow));
   const compact =
-    p.compactBelow !== undefined && width !== null
-      ? width < p.compactBelow
+    p.compactBelow !== undefined && level.narrow !== null
+      ? level.narrow
       : (p.compact ?? windowClass.value === 'compact');
-  const widest = widestPriority(width);
+  const widest = level.widest;
   const onLayout = p.onLayout;
   useLayoutEffect(() => {
     onLayout?.({ twoLine: compact, widestPriority: widest });

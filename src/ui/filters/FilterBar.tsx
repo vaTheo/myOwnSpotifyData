@@ -4,6 +4,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { decadesPresent } from '../../model/yearView';
 import { decadeLabel } from '../../model/year';
 import { EmptyState } from '../components/EmptyState';
+import { yearSortFor, yearSortOn } from '../table/layout';
 import type { SortState } from '../table/sort';
 import { Icon } from '../icons';
 import { KeyPicker } from './KeyPicker';
@@ -243,14 +244,8 @@ export function trackFilterView<Row>(p: {
       yearSort={
         ys?.offered && decades.length > 0
           ? {
-              on:
-                ys.sort.columnId === 'released' && ys.sort.direction === 'asc',
-              onChange: (on) =>
-                ys.onSort(
-                  on
-                    ? { columnId: 'released', direction: 'asc' }
-                    : { columnId: null, direction: 'asc' }
-                ),
+              on: yearSortOn(ys.sort),
+              onChange: (on) => ys.onSort(yearSortFor(on)),
             }
           : null
       }
