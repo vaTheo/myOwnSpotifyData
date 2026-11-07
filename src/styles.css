@@ -3054,6 +3054,7 @@ details.mix-clues > summary:focus-visible {
   border-radius: var(--md-sys-shape-corner-extra-small);
   background: var(--md-sys-color-surface-container);
   box-shadow: var(--md-sys-elevation-2);
+  overflow-y: auto;
 }
 
 .row-menu-list button,
@@ -3282,6 +3283,13 @@ details.mix-clues > summary:focus-visible {
 .mix-review {
   display: inline-flex;
   align-items: center;
+}
+
+/* The 48 px Listen column and the 96 px Review column hold their 48 px
+   targets edge to edge: no cell padding (Spotify has 64 px for its
+   header's word). */
+.dt-cell:has(> .row-menu, > .mix-review) {
+  padding-inline: 0;
 }
 
 .icon-btn.mix-validate.on {

@@ -9,6 +9,46 @@ export interface RowMenuItem {
   onSelect?: () => void;
 }
 
+/** Where the open list sits: under the button, or above it. */
+interface Place {
+  /** The button's bottom when it opened: a scroll that moves it closes. */
+  anchor: number;
+  top?: number;
+  bottom?: number;
+  right: number;
+  maxHeight: number;
+}
+
+/** A menu item's height and the list's padding (styles.css). */
+const ITEM_PX = 48;
+const LIST_PAD_PX = 8;
+
+/**
+ * Under the button when the list fits above the bottom bar (the phone's
+ * navigation) or the window's edge; else above it when there is more room
+ * there; it scrolls when neither side holds it whole. The list never
+ * covers the top bar or the navigation.
+ */
+function place(r: DOMRect, items: number): Place {
+  const right = Math.max(8, innerWidth - r.right);
+  const nav = document.querySelector('.nav')?.getBoundingClientRect();
+  const floor = nav && nav.top > r.bottom ? nav.top : innerHeight;
+  const bar = document.querySelector('.top-bar')?.getBoundingClientRect();
+  const ceiling = bar && bar.bottom < r.top ? bar.bottom : 0;
+  const need = items * ITEM_PX + LIST_PAD_PX;
+  const below = floor - r.bottom - 8;
+  const above = r.top - ceiling - 8;
+  if (need <= below || below >= above) {
+    return { anchor: r.bottom, top: r.bottom, right, maxHeight: below };
+  }
+  return {
+    anchor: r.bottom,
+    bottom: innerHeight - r.top,
+    right,
+    maxHeight: above,
+  };
+}
+
 /**
  * A row's "More" menu: one 48 px `more_vert` button, its items in a list
  * fixed to the viewport, so a table cell's clipping never hides it. Closes
@@ -22,14 +62,14 @@ export function RowMenu(p: {
   /** The button's icon: `more_vert` unless given (Listen: `headphones`). */
   icon?: IconName;
 }) {
-  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
+  const [at, setAt] = useState<Place | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const open = at !== null;
 
   useEffect(() => {
     if (!open) return;
     const close = () => setAt(null);
-    const top = at.top;
+    const top = at.anchor;
     // A scroll that moves the row away closes the menu; one that leaves it
     // in place (a focus, a test runner's scroll-into-view) does not.
     const onScroll = () => {
@@ -57,7 +97,7 @@ export function RowMenu(p: {
     }
     const r = box.current?.getBoundingClientRect();
     if (!r) return;
-    setAt({ top: r.bottom, right: Math.max(8, innerWidth - r.right) });
+    setAt(place(r, p.items.length));
   }
 
   return (
@@ -114,7 +154,12 @@ export function RowMenu(p: {
         <div
           class="row-menu-list"
           role="menu"
-          style={{ top: `${at.top}px`, right: `${at.right}px` }}
+          style={{
+            ...(at.top !== undefined ? { top: `${at.top}px` } : {}),
+            ...(at.bottom !== undefined ? { bottom: `${at.bottom}px` } : {}),
+            right: `${at.right}px`,
+            maxHeight: `${at.maxHeight}px`,
+          }}
         >
           {p.items.map((item) =>
             item.href ? (
