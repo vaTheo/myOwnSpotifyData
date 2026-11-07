@@ -65,10 +65,10 @@ The API client (`createClient`, `client.ts`): bearer token, 401 refresh-once, 42
   `res.json()` did, so a caller reading `.id` off it fails inside its own try/catch.
 - `types.ts` holds the API types; `errors.ts` the `QuotaError` and friends.
 - `quotaLock.ts` (spec 003 S08d, pure): **one quota lock-out for the whole app**. A `QuotaError` met by any reader (sync, Check on
-  Spotify, Create playlist) is kept as `spotifyQuotaLock` in `model/state.ts` (`noteQuotaLock`: the later end wins) and in localStorage
+  Spotify, Create playlist, Like all songs, the account read on the Connect tap) is kept as `spotifyQuotaLock` in `model/state.ts` (`noteQuotaLock`: the later end wins) and in localStorage
   (`spotifyQuotaLock`), so it survives a reload and **Disconnect** (the quota belongs to the app's client id, not to the session).
-  While it holds, Sync now, Sync this playlist, Check on Spotify, Create playlist and Like all songs refuse to read Spotify, each
-  with its line (`quotaRefusal`: "Spotify quota reached. Sync again / Check again / Try again after …"), and their buttons rest
+  While it holds, Sync now, Sync this playlist, Check on Spotify, Create playlist, Like all songs and the Connect tap's `/me`
+  refuse to read Spotify, each with its line naming the held end (`quotaRefusal`: "Spotify quota reached. Sync again / Check again / Try again after …"), and their buttons rest
   disabled. A timer to the lock's end clears it (`lapseDelay`, cleaned up by the signal's `effect`), so the buttons and the warnings
   come back on time without another render.
 
