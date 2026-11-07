@@ -35,7 +35,9 @@ After the first visit, each destination's link opens the last route used inside 
 
 ## The detail parameter
 
-Any list route may end with `?d=<id>`. The track details sheet opens over that screen.
+Any route may end with `?d=<id>`. The track details sheet opens over that screen. A list route names one of its rows; any
+other screen (Settings, Mix, the Playlists and Artists lists, the Crate hub, Import) carries a track opened from search, whose
+sheet the frame draws (S09). On a playlist that holds the searched track, `<id>` is that entry's position, so its row is selected.
 
 | Screen | `<id>` is | Why |
 |---|---|---|

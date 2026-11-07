@@ -107,6 +107,21 @@ async function settleRows(page: Page, keep?: string): Promise<void> {
         'button, a[href], select, input, [role=tab]'
       ),
     ].filter((el) => !el.closest('header'));
+    // The top bar's own controls (the search field, S09): a target under
+    // the bar must not share any of their pixels either.
+    const barTargets = [
+      ...document.querySelectorAll<HTMLElement>(
+        'header button, header a[href]'
+      ),
+    ].map((el) => el.getBoundingClientRect());
+    const underBarTarget = (r: DOMRect): boolean =>
+      barTargets.some(
+        (b) =>
+          r.left < b.right &&
+          r.right > b.left &&
+          r.top < b.bottom &&
+          r.bottom > b.top
+      );
     // The heading the page is about stays below the bar.
     const kept = [...document.querySelectorAll<HTMLElement>('h2')].find(
       (h) => h.textContent === keepText
@@ -121,7 +136,7 @@ async function settleRows(page: Page, keep?: string): Promise<void> {
           r.height === 0 ||
           r.bottom <= 0 ||
           r.top >= bar ||
-          (r.top >= 0 && r.bottom <= bar)
+          (r.top >= 0 && r.bottom <= bar && !underBarTarget(r))
         );
       });
     const start = window.scrollY;
@@ -208,6 +223,62 @@ async function winterJanuary(page: Page): Promise<void> {
   await page.keyboard.press('Tab');
   await page.getByRole('button', { name: /^Jan 2026,/ }).focus();
   await page.mouse.move(1, 1);
+}
+
+/** The search opened with `/` and `text` typed in it (US7). */
+async function search(page: Page, text: string): Promise<void> {
+  await page.locator('main').waitFor();
+  await page.keyboard.press('/');
+  const box = page.getByRole('combobox');
+  await box.waitFor();
+  await box.fill(text);
+}
+
+/** The result groups on screen are these, in this order. */
+function searchGroups(want: string[]) {
+  return async (page: Page): Promise<string[]> => {
+    const got = await page
+      .getByRole('listbox')
+      .getByRole('group')
+      .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')));
+    return got.join(',') === want.join(',')
+      ? []
+      : [`search groups ${got.join(', ') || 'none'}, want ${want.join(', ')}`];
+  };
+}
+
+/** A playlist on a larger window folds its filters behind a button. */
+async function showFilters(page: Page): Promise<void> {
+  const fold = page.getByRole('button', { name: 'Filters', expanded: false });
+  if (await fold.count()) await fold.click();
+}
+
+/** The first FilterBar's BPM range. */
+async function bpmRange(page: Page, min: string, max: string): Promise<void> {
+  await showFilters(page);
+  await page.getByRole('textbox', { name: 'Minimum BPM' }).first().fill(min);
+  await page.getByRole('textbox', { name: 'Maximum BPM' }).first().fill(max);
+}
+
+/** The first FilterBar's key, with or without the compatible keys. */
+async function pickKey(
+  page: Page,
+  code: string,
+  compatible: boolean
+): Promise<void> {
+  await showFilters(page);
+  await page.getByRole('button', { name: /^Key:/ }).first().click();
+  if (compatible) {
+    await page.getByRole('switch', { name: 'Include compatible keys' }).check();
+  }
+  await page.getByRole('radio', { name: code, exact: true }).click();
+}
+
+/** A filter is in force: "Showing N of M" says so. */
+async function showing(page: Page): Promise<string[]> {
+  return (await page.getByText(/^Showing [\d,]+ of [\d,]+$/).count())
+    ? []
+    : ['no "Showing N of M" line'];
 }
 
 /**
@@ -688,6 +759,7 @@ export const PAGES: ShotPage[] = [
       const gap = page.getByText(/clues? around here$/).first();
       await gap.scrollIntoViewIfNeeded();
       await gap.click();
+      await settleRows(page);
     },
   },
   {
@@ -1258,6 +1330,195 @@ export const PAGES: ShotPage[] = [
         if (box) box.scrollLeft = box.scrollWidth;
       });
     },
+  },
+
+  // Find and filter (US7): the search view and the track filters
+  {
+    // Every group: tracks (Shadow…), artists (… Harbor), playlists and the
+    // Harbour mix; the demo holds no "kia", which is the no-match page.
+    id: 'search-open',
+    hash: '#/top',
+    setup: (page) => search(page, 'ha'),
+    expect: searchGroups(['Tracks', 'Artists', 'Playlists', 'Mixes']),
+  },
+  {
+    id: 'search-kia',
+    hash: '#/top',
+    setup: (page) => search(page, 'kia'),
+    expect: async (page) =>
+      (await page.getByText("Nothing matches 'kia'").count())
+        ? []
+        : ['no "Nothing matches" line'],
+  },
+  {
+    id: 'search-show-all',
+    hash: '#/top',
+    setup: async (page) => {
+      await search(page, 'ha');
+      await page
+        .getByRole('option', { name: /^Show all/ })
+        .first()
+        .click();
+    },
+  },
+  {
+    // Opened by Ctrl+K over Settings: the empty query lists what was opened.
+    id: 'search-recent',
+    hash: '#/settings',
+    setup: async (page) => {
+      await search(page, 'ha');
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Control+k');
+      await page.getByRole('combobox').waitFor();
+    },
+    expect: searchGroups(['Recent']),
+  },
+  {
+    // A track chosen over a screen without a list: its sheet over Settings.
+    id: 'search-track-over-settings',
+    hash: '#/settings',
+    setup: async (page) => {
+      await search(page, 'shadow');
+      await page.keyboard.press('Enter');
+      await page
+        .getByRole('heading', { level: 2, name: /Shadow/ })
+        .first()
+        .waitFor();
+    },
+  },
+  {
+    id: 'search-artist-chosen',
+    hash: '#/top',
+    setup: async (page) => {
+      await search(page, 'harbor');
+      await page
+        .getByRole('group', { name: 'Artists' })
+        .getByRole('option')
+        .first()
+        .click();
+      await page.waitForTimeout(150);
+    },
+    expect: async (page) =>
+      page.url().includes('#/artist/') ? [] : [`went to ${page.url()}`],
+  },
+  {
+    // US7's independent test: 124–128 BPM, compatible with 8A.
+    id: 'playlist-filter',
+    hash: (ids) => `#/playlist/${enc(ids.bigPlaylist ?? '')}`,
+    setup: async (page) => {
+      await bpmRange(page, '124', '128');
+      await pickKey(page, '8A', true);
+    },
+    expect: showing,
+  },
+  {
+    id: 'key-picker',
+    hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
+    setup: async (page) => {
+      await pickKey(page, '8A', true);
+      await page.getByRole('button', { name: /^Key:/ }).click();
+    },
+  },
+  {
+    id: 'filter-error',
+    hash: '#/top',
+    setup: (page) => bpmRange(page, '130', '120'),
+    expect: async (page) =>
+      (await page
+        .getByRole('alert')
+        .getByText(/Min is above max/)
+        .count())
+        ? []
+        : ['no BPM error'],
+  },
+  {
+    id: 'filter-none',
+    hash: '#/top',
+    setup: async (page) => {
+      await page
+        .getByRole('searchbox', { name: 'Filter by title or artist' })
+        .fill('zzzz');
+    },
+    expect: async (page) =>
+      (await page.getByText('No tracks match these filters.').count())
+        ? []
+        : ['no empty state for a filter that hides every row'],
+  },
+  {
+    id: 'top-filter',
+    hash: '#/top',
+    setup: (page) => bpmRange(page, '120', '126'),
+    expect: showing,
+  },
+  {
+    id: 'artist-filter',
+    hash: (ids) => `#/artist/${enc(ids.artist ?? '')}`,
+    setup: (page) =>
+      page
+        .getByRole('searchbox', { name: 'Filter by title or artist' })
+        .fill('a'),
+    expect: showing,
+  },
+  {
+    id: 'crate-rotation-filter',
+    hash: '#/crate/rotation',
+    setup: (page) => pickKey(page, '8A', true),
+    expect: showing,
+  },
+  {
+    id: 'crate-gems-filter',
+    hash: '#/crate/gems',
+    setup: (page) => bpmRange(page, '120', '130'),
+    expect: showing,
+  },
+  {
+    id: 'crate-classics-filter',
+    hash: '#/crate/classics',
+    setup: (page) => bpmRange(page, '120', '130'),
+    expect: showing,
+  },
+  {
+    id: 'crate-year-filter',
+    hash: '#/crate/year',
+    setup: (page) => bpmRange(page, '120', '130'),
+    expect: showing,
+  },
+  {
+    id: 'crate-finish-filter',
+    hash: '#/crate/finish',
+    setup: (page) => bpmRange(page, '120', '130'),
+    expect: showing,
+  },
+  {
+    // S04 parked fix 2: a sort chosen on a large window, then a phone.
+    id: 'sort-kept-compact',
+    hash: '#/top',
+    setup: async (page) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.getByRole('button', { name: 'BPM', exact: true }).click();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(150);
+    },
+    expect: async (page) =>
+      (await page.getByText(/^Sorted by BPM/).count())
+        ? []
+        : ['the sort in force is not shown on the phone'],
+  },
+  {
+    // S04 parked fix 1: at 1,100 px the table beside the pane keeps headers.
+    id: 'playlist-split-1100',
+    hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
+    setup: async (page) => {
+      if (page.viewportSize()?.width !== 1440) return;
+      await page.setViewportSize({ width: 1100, height: 900 });
+      await page.waitForTimeout(250);
+    },
+    expect: async (page) =>
+      page.viewportSize()?.width !== 1100 ||
+      (await page.getByRole('columnheader', { name: 'BPM' }).isVisible())
+        ? []
+        : ['no column headers beside the pane at 1,100 px'],
   },
 
   // Screens of later stories

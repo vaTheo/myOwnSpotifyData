@@ -459,22 +459,22 @@ outcomes inline (never a banner), pick an earlier request; at 390 the panes stac
 **Independent Test**: `/` opens search; part of an artist name lists grouped results; on a playlist, 124–128 BPM and 8A + compatible
 leaves only matching rows with "Showing N of M".
 
-- [ ] T086 [P] [US7] Write the failing test `src/ui/filters/trackFilter.test.ts` for `filterTracks` (data-model §4):
+- [X] T086 [P] [US7] Write the failing test `src/ui/filters/trackFilter.test.ts` for `filterTracks` (data-model §4):
   - a row is kept only if every set criterion holds;
   - "A row without BPM fails a BPM criterion. A row without a key (or without a mode) fails a key criterion";
   - "`bpmMin > bpmMax` is shown as an error on the fields and filters nothing";
   - compatible means `keyRelation(seed, key) !== 'none'`;
   - text goes through `normalize`.
-- [ ] T087 [P] [US7] Implement `filterTracks` and `filterError` in `src/ui/filters/trackFilter.ts`. Make T086 pass.
-- [ ] T088 [P] [US7] Write the failing test `src/ui/search/searchIndex.test.ts`:
+- [X] T087 [P] [US7] Implement `filterTracks` and `filterError` in `src/ui/filters/trackFilter.ts`. Make T086 pass.
+- [X] T088 [P] [US7] Write the failing test `src/ui/search/searchIndex.test.ts`:
   - `buildSearchIndex` lists library tracks, history-only tracks, saved and top-list artists, playlists and mixes, "de-duplicated by id";
   - `searchAll` matches `normalize(query)` as a substring, ranks prefix and word-start matches first and then by `weight`, returns the groups in the order "Tracks, Artists, Playlists, Mixes", and gives `perGroup` entries plus the `total`.
-- [ ] T089 [P] [US7] Implement `buildSearchIndex` (memoised on the model's identity and the mixes array) and `searchAll` in `src/ui/search/searchIndex.ts`. Make T088 pass.
-- [ ] T090 [US7] Create `src/ui/filters/KeyPicker.tsx` and `src/ui/filters/FilterBar.tsx`.
+- [X] T089 [P] [US7] Implement `buildSearchIndex` (memoised on the model's identity and the mixes array) and `searchAll` in `src/ui/search/searchIndex.ts`. Make T088 pass.
+- [X] T090 [US7] Create `src/ui/filters/KeyPicker.tsx` and `src/ui/filters/FilterBar.tsx`.
   - **KeyPicker**: a menu of the 24 keys laid out by Camelot number, in the owner's notation, with an "Include compatible keys" switch.
   - **FilterBar**: the text filter; BPM min and max fields with the error from `filterError`; the KeyPicker; a "Clear filters" chip that resets everything but the text; and "Showing N of M" when a filter is active.
-- [ ] T091 [US7] Add the `FilterBar`, with one `TrackFilter` session signal per table, to every track table: `src/ui/Top.tsx` (tracks), `src/ui/Playlist.tsx`, `src/ui/Artist.tsx`, `src/ui/crate/Rotation.tsx`, `Gems.tsx`, `Classics.tsx`, `ByYear.tsx` and `Finish.tsx`.
-- [ ] T092 [US7] Create `src/ui/search/SearchView.tsx` and wire it into `TopBar` and `AppFrame`.
+- [X] T091 [US7] Add the `FilterBar`, with one `TrackFilter` session signal per table, to every track table: `src/ui/Top.tsx` (tracks), `src/ui/Playlist.tsx`, `src/ui/Artist.tsx`, `src/ui/crate/Rotation.tsx`, `Gems.tsx`, `Classics.tsx`, `ByYear.tsx` and `Finish.tsx`.
+- [X] T092 [US7] Create `src/ui/search/SearchView.tsx` and wire it into `TopBar` and `AppFrame`.
   - **Opening**: `/`, Ctrl+K or ⌘K when focus is not in a text field, or the top-bar field.
   - **Layout**: a docked 720 px panel, full screen on compact.
   - **Results**: grouped, five per group with "Show all N". Each shows an icon, its name, a context line and the match in bold.
@@ -482,7 +482,7 @@ leaves only matching rows with "Showing N of M".
   - **Empty and no-match**: an empty query shows the last five items opened this session; no match reads "Nothing matches '…'".
   - **Mixes**: read from this browser when the view first opens.
   - **Choosing**: a track opens its details over the current screen (`?d=`); an artist, playlist or mix opens its route.
-- [ ] T093 [US7] Add pages to `tools/shots/pages.ts`: search open with "kia", and a playlist with BPM 124–128 and 8A compatible set. Run the visual loop, and time the search by hand (SC-008: under 5 s). The owner approves, and these become baselines. Commit.
+- [X] T093 [US7] Add pages to `tools/shots/pages.ts`: search open with "kia", and a playlist with BPM 124–128 and 8A compatible set. Run the visual loop, and time the search by hand (SC-008: under 5 s). The owner approves, and these become baselines. Commit.
 
 ---
 
