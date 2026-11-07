@@ -70,11 +70,12 @@ export function KeyPicker(p: {
     };
     addEventListener('resize', close);
     addEventListener('scroll', close, true);
-    box.current
-      ?.querySelector<HTMLElement>(
-        '.key-menu [aria-checked="true"], .key-menu button'
-      )
-      ?.focus();
+    // The chosen key takes the focus, else the first key.
+    const keys = box.current?.querySelector('.key-menu');
+    (
+      keys?.querySelector<HTMLElement>('[aria-checked="true"]') ??
+      keys?.querySelector<HTMLElement>('[role="radio"]')
+    )?.focus();
     return () => {
       document.removeEventListener('pointerdown', onDown);
       removeEventListener('resize', close);
@@ -131,7 +132,7 @@ export function KeyPicker(p: {
       <button
         type="button"
         class={p.value ? 'key-picker-button set' : 'key-picker-button'}
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
@@ -140,7 +141,7 @@ export function KeyPicker(p: {
         <Icon name="expand_more" size={18} />
       </button>
       {open && (
-        <div class="key-menu">
+        <div class="key-menu" role="dialog" aria-label="Key filter">
           <div class="key-menu-grid" role="radiogroup" aria-label="Key">
             {BANDS.flat().map((k) => {
               const n = camelotNumber(k.key, k.major);

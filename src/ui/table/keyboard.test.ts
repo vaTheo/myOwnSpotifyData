@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { moveIndex } from './keyboard';
+import { moveIndex, rovingTarget } from './keyboard';
 
 describe('moveIndex', () => {
   it('moves by one with the arrows', () => {
@@ -32,5 +32,23 @@ describe('moveIndex', () => {
   it('returns null for other keys or an empty table', () => {
     expect(moveIndex(3, 'Enter', 10, 5)).toBeNull();
     expect(moveIndex(null, 'ArrowDown', 0, 5)).toBeNull();
+  });
+});
+
+describe('rovingTarget (FR-043)', () => {
+  it('is the first row until one has been focused', () => {
+    expect(rovingTarget(null, 10)).toBe(0);
+  });
+
+  it('keeps a row that is still on screen', () => {
+    expect(rovingTarget(4, 10)).toBe(4);
+  });
+
+  it('falls back to the last row when a filter leaves fewer', () => {
+    expect(rovingTarget(19, 13)).toBe(12);
+  });
+
+  it('is 0 for an empty table, so nothing points past it', () => {
+    expect(rovingTarget(5, 0)).toBe(0);
   });
 });
