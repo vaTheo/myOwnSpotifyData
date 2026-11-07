@@ -201,6 +201,9 @@ describe('overviewBlocks (spec 003, US8, SC-009)', () => {
         want.map((r) => r.item.id)
       );
       expect(b.items?.[0]?.subtitle).toBe(artistNames(want[0].item.artists));
+      expect(b.items?.[0]?.href).toBe(
+        routeHref({ name: 'top', detail: want[0].item.id })
+      );
     });
 
     it('is empty with no top lists, and points to Sync', () => {
@@ -234,6 +237,28 @@ describe('overviewBlocks (spec 003, US8, SC-009)', () => {
       );
       expect(b.warning).toBe(
         quotaRefusal('sync', until, DEMO_NOW, formatDateTime)
+      );
+    });
+
+    it("says the sync's own line once when it names the same end", () => {
+      const until = DEMO_NOW + 3_600_000;
+      const b = block(
+        overviewBlocks(
+          input({
+            quotaLockUntil: until,
+            syncState: {
+              status: 'locked',
+              retryAt: until,
+              pending: ['a', 'b', 'c'],
+              done: 37,
+              total: 40,
+            },
+          })
+        ),
+        'library'
+      );
+      expect(b.warning).toBe(
+        `Spotify quota reached with 3 playlists pending. Retry after ${formatDateTime(until)}.`
       );
     });
 
@@ -351,6 +376,7 @@ describe('overviewBlocks (spec 003, US8, SC-009)', () => {
         'mix'
       );
       expect(b.error).toBe('Could not read');
+      expect(b.reason).toBeUndefined();
     });
   });
 
