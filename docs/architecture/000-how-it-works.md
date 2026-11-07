@@ -28,19 +28,19 @@ in thin edges around it. Every fetch-based client takes an injected `fetchFn` an
 `model/state.ts` holds the signals and the thin `start*` wrappers that wire the cores to the browser singletons; those wrappers are not
 unit-tested. Tests sit next to the source as `src/**/*.test.ts`; there are no DOM or component tests.
 
-| Folder | Role |
-|---|---|
-| `auth/` | PKCE, the session store, scopes (§3) |
-| `spotify/` | the API client and types (§4) |
-| `util/` | shared retry helpers and the reach timeout (§5) |
-| `db/` | IndexedDB schema and repository (§6) |
-| `sync/` | playlist sync planner and runner (§7) |
-| `history/` | streaming-history export import (§8) |
-| `features/` | Audio data (BPM and key) and Artist reach acquisition (§9) |
-| `features/mix/` | Mix tracklist and Create playlist from mix (§10) |
-| `features/like/` | Like all songs (§11) |
-| `model/` | aggregation, Crate, keys, match, reach, banner, signals (§12) |
-| `ui/` | one component per screen, routes (§13) |
+| Folder           | Role                                                          |
+| ---------------- | ------------------------------------------------------------- |
+| `auth/`          | PKCE, the session store, scopes (§3)                          |
+| `spotify/`       | the API client and types (§4)                                 |
+| `util/`          | shared retry helpers and the reach timeout (§5)               |
+| `db/`            | IndexedDB schema and repository (§6)                          |
+| `sync/`          | playlist sync planner and runner (§7)                         |
+| `history/`       | streaming-history export import (§8)                          |
+| `features/`      | Audio data (BPM and key) and Artist reach acquisition (§9)    |
+| `features/mix/`  | Mix tracklist and Create playlist from mix (§10)              |
+| `features/like/` | Like all songs (§11)                                          |
+| `model/`         | aggregation, Crate, keys, match, reach, banner, signals (§12) |
+| `ui/`            | one component per screen, routes (§13)                        |
 
 ## 3. `auth/`
 
@@ -84,18 +84,18 @@ cycle whose `const` can read `undefined` at init.
 Row types and `DB_VERSION` in `schema.ts`; the `upgrade` callback and every read and write in `repo.ts`. The rules for changing them
 are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 
-| Store | keyPath | Holds |
-|---|---|---|
-| `playlists` | `id` | the owner's playlists, with `snapshot_id` |
-| `tracks` | `key` (Spotify track id, or the `spotify:local:` URI) | track metadata |
-| `entries` | `['playlistId', 'position']` | playlist membership, in order |
-| `topItems` | `key` | Spotify top tracks and artists per period |
-| `plays` | `trackId` | play counts and month buckets from the history import (`PlayRow`) |
-| `features` | `trackId` | BPM and key per source |
-| `artistIdentity` | `artistId` | MBID, QID, sitelinks, article titles, step state |
-| `artistReach` | `key` = `${artistId}\|${source}` (build it with `reachKey`) | one reach number per source, with its URL |
-| `mixes` | `url` (normalised SoundCloud URL) | saved Mix working lists (`MixRow`) |
-| `meta` | `name` | summaries and job state (`historySummary`, `syncState`, `artistReachSummary`, …) |
+| Store            | keyPath                                                     | Holds                                                                            |
+| ---------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `playlists`      | `id`                                                        | the owner's playlists, with `snapshot_id`                                        |
+| `tracks`         | `key` (Spotify track id, or the `spotify:local:` URI)       | track metadata                                                                   |
+| `entries`        | `['playlistId', 'position']`                                | playlist membership, in order                                                    |
+| `topItems`       | `key`                                                       | Spotify top tracks and artists per period                                        |
+| `plays`          | `trackId`                                                   | play counts and month buckets from the history import (`PlayRow`)                |
+| `features`       | `trackId`                                                   | BPM and key per source                                                           |
+| `artistIdentity` | `artistId`                                                  | MBID, QID, sitelinks, article titles, step state                                 |
+| `artistReach`    | `key` = `${artistId}\|${source}` (build it with `reachKey`) | one reach number per source, with its URL                                        |
+| `mixes`          | `url` (normalised SoundCloud URL)                           | saved Mix working lists (`MixRow`)                                               |
+| `meta`           | `name`                                                      | summaries and job state (`historySummary`, `syncState`, `artistReachSummary`, …) |
 
 - `DB_VERSION` is 4 (`src/db/schema.ts:4`). The `upgrade` callback (`src/db/repo.ts:75-95`) creates only the stores that are missing (the same guarded
   `db.objectStoreNames.contains` shape throughout), so a version 1 database keeps everything and gains `features`, version 2 gains the
@@ -134,12 +134,14 @@ The acquisition layer behind two Settings cards. Both run only from Settings, wr
 that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local rules: `src/features/CLAUDE.md`.
 
 **Audio data** (BPM and key):
+
 - ReccoBeats lookup: `reccobeats.ts` maps the API, `lookup.ts` drives it (`runLookup`, `src/features/lookup.ts:121`): batches of 40 ids,
   one request per second, an ISRC second pass, `notFound` markers with a 90-day TTL.
 - Rekordbox Collection XML import: `rekordbox.ts` scanner, `rekordbox-match.ts` title/artist/duration matching, `rekordbox.worker.ts`,
   `rekordboxImport.ts` (`runRekordboxImport`). A rekordbox value wins wherever it has one.
 
 **Artist reach** — one client per source, each returning a discriminated result and never throwing:
+
 - `musicbrainz.ts`: Spotify artist id → MBID by reverse URL lookup.
 - `wikidata.ts`: a SPARQL POST over batches of 150 ids, P1902 then P434, giving the QID, the sitelink count and the article titles.
 - `jsonp.ts`: a dependency-free `<script>` transport, because Deezer sends no CORS header at all.
@@ -159,6 +161,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 `src/features/mix/CLAUDE.md`.
 
 **Lookup** (runs only from the screen's `Look up` button):
+
 - `url.ts` (`normalizeMixUrl`): the one canonical string sent to both providers, compared by the guard and used as the `mixes` key;
   `on.soundcloud.com` short links are resolved by trying several safe slug spellings.
 - `oembed.ts` (`fetchOembed`): SoundCloud oEmbed → title, author, description and the validated player iframe src.
@@ -171,6 +174,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 - `lookup.ts` (`lookupMix`): runs both fetches in parallel so one layer's failure never hides the other's rows.
 
 **Create playlist from mix** (only on a deliberate tap):
+
 - `spotifySearch.ts`: `canCreatePlaylists` (the pure scope check), `isIdentified`, `searchTrack` (per-row `GET /search`: an ISRC-exact
   query first, then a field query, then a plain fallback) and `pickMatch`, the strict accept rule that never returns a wrong track:
   - a credited artist must equal a leading run of the row's credit (`artistRuns`: "Chase" or "Chase & Status", since an act's own name
@@ -204,6 +208,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   Spec 003 (T118): every track's **Listen** menu holds the same links (plain search pages, no request until opened).
 
 **The review** (spec 003 §12, S08c):
+
 - `spotifyCheck.ts` (**Check on Spotify**, T117): a read on the open mix header's tap only, never on load or open (ADR-02). Gated like
   Create playlist in `startSpotifyCheck` (`model/state.ts`): a Spotify session, no sync running, no quota lock-out. `runSpotifyCheck`
   runs `searchTrack`/`pickMatch` unchanged on each named track not checked yet (`rowsToCheck`: candidates and second-listen rows
@@ -274,20 +279,20 @@ One Preact component per screen plus small shared components (`ui/components/`).
 
 ## 14. Jobs and state (`model/state.ts`)
 
-| Job | Wrapper | Started from | In `jobsBusy()` |
-|---|---|---|---|
-| Sync | `startSync` (`src/model/state.ts:379`) | Settings, a playlist's button | yes |
-| History import | `startImport` (`:445`) | `#/import` | yes |
-| ReccoBeats lookup | `startLookup` (`:535`) | Settings · Audio data | yes |
-| Rekordbox import | `startRekordboxImport` (`:576`) | Settings · Audio data | yes |
-| Artist reach | `startReach` (`:604`) | Settings · Artist reach | yes |
-| Mix lookup | `startMixLookup` (`:665`), `startTracklistifyImport` (`:753`) | `#/mix` | no |
-| Create playlist | `startCreatePlaylist` (`:928`) | `#/mix` | no |
-| Check on Spotify | `startSpotifyCheck`, `stopSpotifyCheck` (spec 003 T117) | `#/mix`, the open mix's header | no (Spotify reads only, one track at a time; refused while a sync runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
-| Like all songs | `startLikePlaylist` (`:1389`) | Playlist screen | no |
-| Server pull | `startServerPull` (`:284`) | the open (after the first paint), Settings · Server · Sync now | yes |
-| Server push | `queueServerPush` (`:246`) | the tail of the five library jobs, every mix save or delete | no |
-| Identify request | `startIdentifyRequest` (worker round) | `#/mix`, the Identify on my computer button | no (one insert, under a second; no `confirm()`; Disconnect keeps it) |
+| Job               | Wrapper                                                       | Started from                                                   | In `jobsBusy()`                                                                                                                                                       |
+| ----------------- | ------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sync              | `startSync` (`src/model/state.ts:379`)                        | Settings, a playlist's button                                  | yes                                                                                                                                                                   |
+| History import    | `startImport` (`:445`)                                        | `#/import`                                                     | yes                                                                                                                                                                   |
+| ReccoBeats lookup | `startLookup` (`:535`)                                        | Settings · Audio data                                          | yes                                                                                                                                                                   |
+| Rekordbox import  | `startRekordboxImport` (`:576`)                               | Settings · Audio data                                          | yes                                                                                                                                                                   |
+| Artist reach      | `startReach` (`:604`)                                         | Settings · Artist reach                                        | yes                                                                                                                                                                   |
+| Mix lookup        | `startMixLookup` (`:665`), `startTracklistifyImport` (`:753`) | `#/mix`                                                        | no                                                                                                                                                                    |
+| Create playlist   | `startCreatePlaylist` (`:928`)                                | `#/mix`                                                        | no                                                                                                                                                                    |
+| Check on Spotify  | `startSpotifyCheck`, `stopSpotifyCheck` (spec 003 T117)       | `#/mix`, the open mix's header                                 | no (Spotify reads only, one track at a time; refused while a sync runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
+| Like all songs    | `startLikePlaylist` (`:1389`)                                 | Playlist screen                                                | no                                                                                                                                                                    |
+| Server pull       | `startServerPull` (`:284`)                                    | the open (after the first paint), Settings · Server · Sync now | yes                                                                                                                                                                   |
+| Server push       | `queueServerPush` (`:246`)                                    | the tail of the five library jobs, every mix save or delete    | no                                                                                                                                                                    |
+| Identify request  | `startIdentifyRequest` (worker round)                         | `#/mix`, the Identify on my computer button                    | no (one insert, under a second; no `confirm()`; Disconnect keeps it)                                                                                                  |
 
 The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:314`). The mix and like
 jobs write no library store and rebuild no `Model`, so they need no exclusion; each guards its own re-entry on its state's `status`, shows
@@ -295,13 +300,13 @@ every failure inline (never a banner) and is reset by `disconnect` (`:1115`). Ev
 (`spotifyQuotaLock`, §4): a quota answer to any of them is remembered for all, across reloads, and `disconnect` keeps it.
 
 Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
-(`ACCOUNT_SWITCH_CONFIRM`, `:714`), an import that covers less than the stored history (`replaceQuestion`, `:765`), Remove server data
-(`REMOVE_SERVER_DATA_CONFIRM`, `:337`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:1616`) and Stop a running scan
-(`STOP_REQUEST_CONFIRM`, `:1631`, round 004; the scan keeps its tracks); Disconnect, asked by its button in
+(`ACCOUNT_SWITCH_CONFIRM`, `:952`), an import that covers less than the stored history (`replaceQuestion`, `:1004`), Remove server data
+(`REMOVE_SERVER_DATA_CONFIRM`, `:437`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:2059`) and Stop a running scan
+(`STOP_REQUEST_CONFIRM`, `:2076`, round 004; the scan keeps its tracks); Disconnect, asked by its button in
 `ui/settings/DangerZone.tsx` (`:26`); and Remove a saved mix ("Remove this saved mix?"), asked by its row menu in
-`ui/mix/MixListPane.tsx` (`:232`). Non-destructive, in
-`state.ts`: Like all songs' count (`:1407`) and the four "replace the working list" questions of the Mix screen (`:1051`, `:1080`,
-`:1111`, `:1133`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
+`ui/mix/MixListPane.tsx` (`:173`). Non-destructive, in
+`state.ts`: Like all songs' count (`:1925`) and the four "replace the working list" questions of the Mix screen (`:1257`, `:1287`,
+`:1319`, `:1341`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
 old behaviour.
 
 ## 15. Build, CI and deploy
@@ -338,7 +343,7 @@ One Supabase Free project, for the owner alone, that stores every dataset the ap
   running past the stale limit, marked claimed under `for update skip locked`); `0003_job_control.sql` (round 004) adds
   `progress`, `priority`, `stop_requested_at` and makes `claim_job` take the highest priority first, then the oldest.
 - Identify requests (worker round, §17): `requestIdentify` (one open request per link, else one insert of `{kind: 'identify-mix',
-  payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history per link validated (`validateJobRow`) into the
+payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history per link validated (`validateJobRow`) into the
   `mixJobs` meta (newest first, 20 per link), then every done, unapplied result applied oldest first: `resultToRows`, the saved mix
   merged or created, `serverPending.mixes` set, `applied_at` marked with an `is.null` guard so another device skips it; a refused
   result is counted and flagged `rejected` locally.
