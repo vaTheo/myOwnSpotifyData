@@ -95,8 +95,8 @@ const HARBOUR = 'https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour';
  * a covered touch target: the page moves by the fewest pixels (up first)
  * until the band under the bar holds none.
  */
-async function settleRows(page: Page): Promise<void> {
-  await page.evaluate(() => {
+async function settleRows(page: Page, keep?: string): Promise<void> {
+  await page.evaluate((keepText) => {
     const bar = parseFloat(
       getComputedStyle(document.documentElement).getPropertyValue(
         '--app-top-bar'
@@ -107,20 +107,35 @@ async function settleRows(page: Page): Promise<void> {
         'button, a[href], select, input, [role=tab]'
       ),
     ].filter((el) => !el.closest('header'));
-    const clear = (): boolean =>
+    // The heading the page is about stays below the bar.
+    const kept = [...document.querySelectorAll<HTMLElement>('h2')].find(
+      (h) => h.textContent === keepText
+    );
+    const clear = (withKept: boolean): boolean =>
+      (!withKept ||
+        kept === undefined ||
+        kept.getBoundingClientRect().top >= bar) &&
       targets.every((el) => {
         const r = el.getBoundingClientRect();
-        return r.height === 0 || r.bottom <= 0 || r.top >= bar;
+        return (
+          r.height === 0 ||
+          r.bottom <= 0 ||
+          r.top >= bar ||
+          (r.top >= 0 && r.bottom <= bar)
+        );
       });
     const start = window.scrollY;
-    for (let d = 0; d <= 400; d += 1) {
-      for (const y of [start - d, start + d]) {
-        window.scrollTo(0, y);
-        if (clear()) return;
+    // With the heading in view if a place allows it, else without.
+    for (const withKept of [true, false]) {
+      for (let d = 0; d <= 400; d += 1) {
+        for (const y of [start - d, start + d]) {
+          window.scrollTo(0, y);
+          if (clear(withKept)) return;
+        }
       }
     }
     window.scrollTo(0, start);
-  });
+  }, keep);
 }
 
 /**
@@ -140,7 +155,7 @@ async function createCard(
       (el as HTMLElement).style.scrollMarginTop = 'var(--app-top-bar)';
       el.scrollIntoView({ block: 'start' });
     });
-  await settleRows(page);
+  await settleRows(page, 'Create playlist');
 }
 
 /** Two tracks Create playlist did not find, with their dig links. */
@@ -310,6 +325,14 @@ export const PAGES: ShotPage[] = [
     id: 'playlist-big',
     hash: (ids) => `#/playlist/${enc(ids.bigPlaylist ?? '')}`,
     expect: fifteenRows,
+  },
+  {
+    // Inside the one quota lock-out (S08d round 1): Sync this playlist rests
+    // and says why; Like all songs refuses inline on a tap.
+    id: 'playlist-quota',
+    hash: (ids) => `#/playlist/${enc(ids.playlist ?? '')}`,
+    setup: (page) =>
+      setState(page, 'spotifyQuotaLock', DEMO_NOW + 3 * 3_600_000),
   },
   {
     id: 'playlist-order',
@@ -690,6 +713,7 @@ export const PAGES: ShotPage[] = [
     setup: async (page) => {
       await createCard(page);
       await page.getByRole('tab', { name: /^All tracks/ }).click();
+      await settleRows(page, 'Create playlist');
     },
   },
   {
@@ -699,6 +723,7 @@ export const PAGES: ShotPage[] = [
     setup: async (page) => {
       await createCard(page);
       await page.getByRole('tab', { name: /^Validated only/ }).click();
+      await settleRows(page, 'Create playlist');
     },
   },
   {
@@ -781,6 +806,15 @@ export const PAGES: ShotPage[] = [
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: async (page) => {
       await createCard(page, ['createPlaylistState', { status: 'needScope' }]);
+    },
+  },
+  {
+    // The create card with the Mixes pane beside it, at 1,600 px.
+    id: 'mix-create-1600',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await at1600(page);
+      await createCard(page);
     },
   },
   {
