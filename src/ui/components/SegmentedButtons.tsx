@@ -11,6 +11,8 @@ export function SegmentedButtons<T extends string>(p: {
   value: T;
   onChange: (value: T) => void;
   scroll?: boolean;
+  /** Every segment rests disabled (the pick cannot change meanwhile). */
+  disabled?: boolean;
 }) {
   const row = useRef<HTMLDivElement>(null);
   const [fadedLeft, setFadedLeft] = useState(false);
@@ -69,6 +71,7 @@ export function SegmentedButtons<T extends string>(p: {
             role="tab"
             aria-selected={selected}
             class={selected ? 'active' : ''}
+            disabled={p.disabled}
             onClick={() => p.onChange(o.value)}
           >
             {selected && !p.scroll && <Icon name="check" size={18} />}

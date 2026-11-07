@@ -3,7 +3,7 @@ import type { Session } from '../../auth/session';
 import type { EntryRow, TrackRow } from '../../db/schema';
 import type { LikeState } from '../../model/state';
 import type { Query, SpotifyClient } from '../../spotify/client';
-import { ApiError } from '../../spotify/errors';
+import { ApiError, QuotaError } from '../../spotify/errors';
 import {
   canLikeTracks,
   likeButtonLabel,
@@ -256,6 +256,52 @@ describe('runLikePlaylist', () => {
       message:
         'Could not check your Liked Songs: Spotify returned an unexpected answer',
     });
+  });
+
+  it('returns the quota end a check met; nothing is written', async () => {
+    const t = setup({ getReject: new QuotaError(7_000) });
+    const out = await runLikePlaylist(t.deps, {
+      playlistId: 'P',
+      uris: uris(2),
+      skipped: 0,
+    });
+    expect(t.put).not.toHaveBeenCalled();
+    expect(t.last()?.status).toBe('error');
+    expect(out).toEqual({ quotaUntil: 7_000 });
+  });
+
+  it('returns the quota end a write met, after the songs liked so far', async () => {
+    const t = setup({});
+    t.put.mockImplementationOnce(async () => undefined);
+    t.put.mockImplementationOnce(async () => {
+      throw new QuotaError(8_000);
+    });
+    const out = await runLikePlaylist(t.deps, {
+      playlistId: 'P',
+      uris: uris(88),
+      skipped: 0,
+    });
+    expect(t.last()).toMatchObject({ status: 'error', liked: 40, toLike: 88 });
+    expect(out).toEqual({ quotaUntil: 8_000 });
+  });
+
+  it('returns no quota end on another failure or a finished run', async () => {
+    const failed = setup({ getReject: new ApiError(0, 'offline') });
+    expect(
+      await runLikePlaylist(failed.deps, {
+        playlistId: 'P',
+        uris: uris(1),
+        skipped: 0,
+      })
+    ).toEqual({});
+    const done = setup({});
+    expect(
+      await runLikePlaylist(done.deps, {
+        playlistId: 'P',
+        uris: uris(1),
+        skipped: 0,
+      })
+    ).toEqual({});
   });
 
   it('write failure reports how many were liked before it', async () => {

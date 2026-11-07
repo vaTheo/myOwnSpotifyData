@@ -18,7 +18,7 @@ import { rankMatches, type MatchResult } from '../model/match';
 import {
   historySummary,
   isSyncBusy,
-  spotifyLockedUntil,
+  heldQuotaMessage,
   keyNotation,
   likeState,
   model,
@@ -246,11 +246,16 @@ function LikeStatus({ playlistId }: { playlistId: string }) {
 export function PlaylistActions({ id }: { id: string }) {
   const m = model.value;
   if (!m?.playlistsById.has(id)) return null;
-  // Inside the one quota lock-out, whichever reader met it (S08d).
-  const busy = isSyncBusy(syncState.value) || spotifyLockedUntil() !== null;
+  // Inside the one quota lock-out, whichever reader met it (S08d): the
+  // button says so instead of "Syncing…" (round 1).
+  const locked = heldQuotaMessage('sync');
+  const running = syncState.value.status === 'running';
+  const busy = isSyncBusy(syncState.value) || locked !== null;
   const like = likeState.value;
   const liking = isLiking(like);
-  const syncLabel = busy ? 'Syncing…' : 'Sync this playlist';
+  const syncLabel = running
+    ? 'Syncing…'
+    : (locked ?? (busy ? 'Syncing…' : 'Sync this playlist'));
   const likeLabel = likeButtonLabel(like, id);
   if (windowClass.value === 'compact') {
     return (
