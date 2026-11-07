@@ -15,6 +15,7 @@ import { StatusLine } from '../components/StatusLine';
 import { formatDate, plural } from '../format';
 import { SetWideClues } from './Clues';
 import { CreatePlaylistCard } from './CreatePlaylistCard';
+import { ReviewHead } from './ReviewHead';
 import { OpenMixRequest, RunLine } from './RunLine';
 import { TracklistTable } from './TracklistTable';
 import { Disclosure } from './Disclosure';
@@ -259,10 +260,10 @@ export function MixDetail(p: {
       {p.aside}
       <OpenMixRequest url={view.url} />
       <RunLine url={view.url} run={saved?.run} />
+      <ReviewHead url={view.url} />
       <SetWideClues clues={clues} />
       {view.playerSrc !== null && <Player src={view.playerSrc} />}
-      {/* The header's line already says why a save failed. */}
-      <TracklistTable showSaveError={p.error === undefined} />
+      <TracklistTable />
       <CreatePlaylistCard view={view} />
       <PasteBox />
     </article>

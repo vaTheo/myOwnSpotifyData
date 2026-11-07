@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { IconButton } from '../components/IconButton';
+import type { IconName } from '../icons';
 
 export interface RowMenuItem {
   label: string;
@@ -15,7 +16,12 @@ export interface RowMenuItem {
  * the row, and when the focus leaves it. Up and Down move between the
  * items (wrapping), Home and End to the first and the last.
  */
-export function RowMenu(p: { label: string; items: RowMenuItem[] }) {
+export function RowMenu(p: {
+  label: string;
+  items: RowMenuItem[];
+  /** The button's icon: `more_vert` unless given (Listen: `headphones`). */
+  icon?: IconName;
+}) {
   const [at, setAt] = useState<{ top: number; right: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const open = at !== null;
@@ -99,7 +105,11 @@ export function RowMenu(p: { label: string; items: RowMenuItem[] }) {
         }
       }}
     >
-      <IconButton icon="more_vert" label={p.label} onClick={toggle} />
+      <IconButton
+        icon={p.icon ?? 'more_vert'}
+        label={p.label}
+        onClick={toggle}
+      />
       {at !== null && (
         <div
           class="row-menu-list"
