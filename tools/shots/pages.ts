@@ -1410,7 +1410,12 @@ export const PAGES: ShotPage[] = [
     setup: async (page) => {
       await search(page, 'ha');
       await page.keyboard.press('Enter');
+      // The sheet opens, then Escape closes it: pressed before it mounts,
+      // the key was lost in one engine and not the other (S11).
+      const sheet = page.locator('.side-sheet');
+      await sheet.waitFor();
       await page.keyboard.press('Escape');
+      await sheet.waitFor({ state: 'detached' });
       await page.keyboard.press('Control+k');
       await page.getByRole('combobox').waitFor();
     },
