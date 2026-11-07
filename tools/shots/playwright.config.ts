@@ -30,6 +30,14 @@ const ENGINES = {
   webkit: { device: 'Desktop Safari', browserName: 'webkit' },
 } as const;
 const wanted = process.env.SHOTS_BROWSERS ?? '';
+const unknown = wanted
+  .split(',')
+  .filter((e) => e !== '' && e !== 'all' && !(e in ENGINES));
+if (unknown.length > 0) {
+  throw new Error(
+    `SHOTS_BROWSERS: unknown ${unknown.join(', ')}; use all, firefox or webkit (comma-separated)`
+  );
+}
 const extraBrowsers = (Object.keys(ENGINES) as (keyof typeof ENGINES)[])
   .filter((e) => wanted === 'all' || wanted.split(',').includes(e))
   .map((e) => ({
