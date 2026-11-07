@@ -1063,6 +1063,7 @@ export const PAGES: ShotPage[] = [
         found: 1012,
         notFound: 168,
         total: 1180,
+        years: 640,
       });
       await setState(page, 'reachState', {
         status: 'done',
