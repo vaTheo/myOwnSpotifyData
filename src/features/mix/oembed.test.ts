@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { OEMBED_URL, extractPlayerSrc, fetchOembed, oembedUrl } from './oembed';
+import {
+  OEMBED_URL,
+  SC_PLAYER_PREFIX,
+  extractPlayerSrc,
+  fetchOembed,
+  oembedUrl,
+  soundcloudPlayerSrc,
+} from './oembed';
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -146,5 +153,23 @@ describe('fetchOembed', () => {
     );
     const result = await fetchOembed(fetchArg, URL);
     expect(result.status).toBe('error');
+  });
+});
+
+describe('soundcloudPlayerSrc', () => {
+  it('builds the player from the permalink, on the literal prefix', () => {
+    const src = soundcloudPlayerSrc(
+      'https://soundcloud.com/monument-podcast/mnmt-496'
+    );
+    expect(src).toBe(
+      `${SC_PLAYER_PREFIX}?url=${encodeURIComponent('https://soundcloud.com/monument-podcast/mnmt-496')}&visual=true`
+    );
+    expect(extractPlayerSrc(`<iframe src="${src}"></iframe>`)).toBe(src);
+  });
+
+  it('is null for what is not a SoundCloud permalink', () => {
+    expect(soundcloudPlayerSrc('https://on.soundcloud.com/abc')).toBeNull();
+    expect(soundcloudPlayerSrc('https://example.com/a/b')).toBeNull();
+    expect(soundcloudPlayerSrc('not a url')).toBeNull();
   });
 });

@@ -10,6 +10,10 @@ Opening a saved mix now runs **Check on Spotify** by itself for its named tracks
 the mix, so it is searched once. A refusal shows nothing; a failure shows inline as before. Decision: ADR-13 (amends ADR-02 and ADR-12;
 constitution 2.3.0). No `DB_VERSION` bump.
 
+Fix: a mix made by **Identify on my computer** or a Tracklistify import now shows its SoundCloud player when opened. Only a lookup stored
+the player, so those mixes had none; it is now rebuilt from the mix's permalink on open (`soundcloudPlayerSrc`), with no request, and
+nothing is added to the saved mix.
+
 ## 2026-11-07 — Sortable Mix tracklist
 
 Every column of the open mix's tracklist with a comparable value now sorts from its header: **Confidence** (found most often first, then by %; click

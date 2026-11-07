@@ -62,6 +62,7 @@ import {
   runSpotifyCheck,
   type CheckAnswer,
 } from '../features/mix/spotifyCheck';
+import { soundcloudPlayerSrc } from '../features/mix/oembed';
 import { QuotaError } from '../spotify/errors';
 import {
   QUOTA_LOCK_KEY,
@@ -1929,7 +1930,14 @@ export function openMix(url: string): void {
     url: row.url,
     title: row.title,
     author: row.author,
-    playerSrc: row.playerSrc,
+    // A mix made by the worker or an import stored no player: rebuilt from
+    // its permalink, no request (only the saved row stays as it was).
+    // The demo blocks the host, so it keeps no player.
+    playerSrc:
+      row.playerSrc ??
+      (import.meta.env.DEV && demoVariant() !== null
+        ? null
+        : soundcloudPlayerSrc(row.url)),
     sources: row.sources,
     descriptionRows: [],
     trackid:
