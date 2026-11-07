@@ -458,13 +458,21 @@ function mix(p: OverviewInput): OverviewBlock {
 }
 
 function server(p: OverviewInput): OverviewBlock {
+  const s = p.serverState;
+  // One error line: the server's own failure first, then the read error.
+  const readError = p.serverPendingError;
+  const error =
+    s.status === 'error'
+      ? readError
+        ? `${s.message} ${readError}`
+        : s.message
+      : readError;
   const base = {
     id: 'server' as const,
     title: 'Server',
     link: routeHref({ name: 'settings' }),
-    ...(p.serverPendingError ? { error: p.serverPendingError } : {}),
+    ...(error ? { error } : {}),
   };
-  const s = p.serverState;
   if (s.status === 'unset') return { ...base, state: 'hidden', figures: [] };
   if (s.status === 'signedOut') {
     return {
@@ -483,7 +491,6 @@ function server(p: OverviewInput): OverviewBlock {
       value: p.serverPending ? pendingValue(p.serverPending) : null,
     },
   ];
-  const readError = p.serverPendingError;
   switch (s.status) {
     case 'pushing':
     case 'pulling':
@@ -509,12 +516,7 @@ function server(p: OverviewInput): OverviewBlock {
           'Server paused. Resume it from the Supabase dashboard, then open the app again.',
       };
     case 'error':
-      return {
-        ...base,
-        state: 'ready',
-        figures,
-        error: readError ? `${s.message} ${readError}` : s.message,
-      };
+      return { ...base, state: 'ready', figures };
     case 'connected':
       return {
         ...base,

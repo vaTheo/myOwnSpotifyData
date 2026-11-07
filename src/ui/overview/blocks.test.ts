@@ -450,6 +450,16 @@ describe('overviewBlocks (spec 003, US8, SC-009)', () => {
         'server'
       );
       expect(failed.error).toBe('Disk gone.');
+      const both = block(
+        overviewBlocks(
+          input({
+            serverState: { status: 'error', message: 'Server said no.' },
+            serverPendingError: 'Disk gone.',
+          })
+        ),
+        'server'
+      );
+      expect(both.error).toBe('Server said no. Disk gone.');
     });
 
     it('shows the last sync when connected', () => {
