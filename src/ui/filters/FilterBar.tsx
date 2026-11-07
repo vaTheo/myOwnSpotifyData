@@ -1,13 +1,17 @@
 import type { Signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
+import { decadesPresent } from '../../model/yearView';
+import { decadeLabel } from '../../model/year';
 import { EmptyState } from '../components/EmptyState';
+import type { SortState } from '../table/sort';
 import { Icon } from '../icons';
 import { KeyPicker } from './KeyPicker';
 import {
   clearCriteria,
   filterError,
   filterTracks,
+  forDecades,
   hasCriteria,
   isFiltering,
   type FilterFeature,
@@ -74,8 +78,16 @@ export function FilterBar(p: {
   total: number;
   /** The text field's placeholder, which also names it. */
   placeholder?: string;
+  /** The decades the table's rows are dated in; none hides the chips. */
+  decades?: readonly number[];
+  /**
+   * The "Sort by year, oldest first" switch, drawn only where the
+   * Released header cannot sort (round 005); null or absent draws nothing.
+   */
+  yearSort?: { on: boolean; onChange: (on: boolean) => void } | null;
 }) {
-  const f = p.filter.value;
+  const decades = p.decades ?? [];
+  const f = forDecades(p.filter.value, decades);
   const set = (patch: Partial<TrackFilter>) => {
     p.filter.value = { ...p.filter.value, ...patch };
   };
@@ -130,6 +142,48 @@ export function FilterBar(p: {
           </button>
         )}
       </div>
+      {(decades.length > 0 || p.yearSort) && (
+        <div class="filter-bar-year">
+          {decades.length > 0 && (
+            <div class="filter-decades" role="group" aria-label="Decade">
+              <span class="filter-decades-label" aria-hidden="true">
+                Decade
+              </span>
+              <div class="segmented scroll">
+                {decades.map((d) => {
+                  const on = f.decade === d;
+                  return (
+                    <button
+                      type="button"
+                      key={d}
+                      class={on ? 'active' : ''}
+                      aria-pressed={on}
+                      onClick={() => set({ decade: on ? null : d })}
+                    >
+                      <span>{decadeLabel(d)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {p.yearSort && (
+            <label class="key-menu-switch filter-year-sort">
+              <input
+                type="checkbox"
+                role="switch"
+                checked={p.yearSort.on}
+                onChange={(e) =>
+                  p.yearSort?.onChange(
+                    (e.currentTarget as HTMLInputElement).checked
+                  )
+                }
+              />
+              <span>Sort by year, oldest first</span>
+            </label>
+          )}
+        </div>
+      )}
       {error && (
         <p id="filter-bpm-error" class="filter-error" role="alert">
           <Icon name="error" size={18} />
@@ -156,22 +210,53 @@ export function trackFilterView<Row>(p: {
   featureOf: (row: Row) => FilterFeature | null;
   textOf: (row: Row) => string;
   placeholder?: string;
+  /** The row's release year (round 005): the decade chips filter by it. */
+  yearOf?: (row: Row) => number | null;
+  /**
+   * The table's sort, and whether the Released header cannot sort it
+   * (`yearSortOffered`): then the bar draws "Sort by year, oldest first",
+   * on while the table sorts by Released ascending.
+   */
+  yearSort?: {
+    sort: SortState;
+    onSort: (sort: SortState) => void;
+    offered: boolean;
+  };
 }): {
   bar: ComponentChildren;
   only: ReadonlySet<Row> | null;
   empty: ComponentChildren;
+  /** Anything narrows the table (a decade it holds no row of does not). */
+  filtering: boolean;
 } {
-  const f = p.filter.value;
+  const decades = p.yearOf ? decadesPresent(p.rows, p.yearOf) : [];
+  const f = forDecades(p.filter.value, decades);
   const active = isFiltering(f);
   const kept = active
-    ? filterTracks(p.rows, p.featureOf, f, p.textOf)
+    ? filterTracks(p.rows, p.featureOf, f, p.textOf, p.yearOf)
     : (p.rows as Row[]);
+  const ys = p.yearSort;
   const bar = (
     <FilterBar
       filter={p.filter}
       shown={kept.length}
       total={p.rows.length}
       placeholder={p.placeholder}
+      decades={decades}
+      yearSort={
+        ys?.offered && decades.length > 0
+          ? {
+              on:
+                ys.sort.columnId === 'released' && ys.sort.direction === 'asc',
+              onChange: (on) =>
+                ys.onSort(
+                  on
+                    ? { columnId: 'released', direction: 'asc' }
+                    : { columnId: null, direction: 'asc' }
+                ),
+            }
+          : null
+      }
     />
   );
   const empty =
@@ -197,5 +282,5 @@ export function trackFilterView<Row>(p: {
         <p>No tracks match these filters.</p>
       </EmptyState>
     ) : null;
-  return { bar, only: active ? new Set(kept) : null, empty };
+  return { bar, only: active ? new Set(kept) : null, empty, filtering: active };
 }

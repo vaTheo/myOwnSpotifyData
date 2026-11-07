@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { FeatureRow, TopItemsRow, TrackRow } from '../db/schema';
 import type { Model } from './aggregate';
-import { MIN_YEAR, parseYear, yearOf } from './year';
+import { datedYear, MIN_YEAR, parseYear, trackYear, yearOf } from './year';
 
 const NOW = Date.UTC(2026, 10, 7);
 
@@ -116,5 +116,19 @@ describe('yearOf', () => {
       )
     ).toBeNull();
     expect(yearOf(model({ topItems: [top(2010)] }), 'other')).toBeNull();
+  });
+
+  it('names its source and is cached per model (S13c)', () => {
+    const all = model({
+      features: [feature(1971)],
+      tracks: [{ key: 't1', albumYear: 2007 }],
+    });
+    expect(datedYear(all, 't1')).toEqual({ year: 1971, from: 'reccobeats' });
+    const album = model({ topItems: [top(2010)] });
+    expect(datedYear(album, 't1')).toEqual({ year: 2010, from: 'album' });
+    expect(trackYear(album, 't1')).toBe(2010);
+    expect(trackYear(album, 'other')).toBeNull();
+    // The cache is per model: another model reads its own sources.
+    expect(trackYear(all, 't1')).toBe(1971);
   });
 });

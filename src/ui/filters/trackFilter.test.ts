@@ -5,6 +5,7 @@ import {
   clearCriteria,
   filterError,
   filterTracks,
+  forDecades,
   hasCriteria,
   isFiltering,
   type FilterFeature,
@@ -164,7 +165,60 @@ describe('the filter state', () => {
         bpmMax: 2,
         key: A8,
         compatible: true,
+        decade: 1990,
       })
     ).toEqual({ ...EMPTY_FILTER, text: 'kia' });
+  });
+});
+
+describe('the decade criterion (round 005)', () => {
+  const years: Record<string, number | null> = {
+    a: 1993,
+    b: 1999,
+    c: 2004,
+    d: null,
+  };
+  const yearOf = (r: Row) => years[r.id] ?? null;
+  const featureOf = (r: Row) => r.feature;
+  const rows = ['a', 'b', 'c', 'd'].map((id) => row(id, 124, '8A'));
+  const ids = (out: Row[]) => out.map((r) => r.id);
+
+  it('keeps the rows dated in the decade; an undated row fails it', () => {
+    const f = { ...EMPTY_FILTER, decade: 1990 };
+    expect(ids(filterTracks(rows, featureOf, f, undefined, yearOf))).toEqual([
+      'a',
+      'b',
+    ]);
+    const f2 = { ...f, decade: 2000 };
+    expect(ids(filterTracks(rows, featureOf, f2, undefined, yearOf))).toEqual([
+      'c',
+    ]);
+  });
+
+  it('combines with BPM, and filters nothing without a year reader', () => {
+    const f = { ...EMPTY_FILTER, decade: 1990, bpmMin: 125 };
+    expect(filterTracks(rows, featureOf, f, undefined, yearOf)).toEqual([]);
+    const only = { ...EMPTY_FILTER, decade: 1990 };
+    expect(ids(filterTracks(rows, featureOf, only))).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+    ]);
+  });
+
+  it('counts in Clear filters and the count line', () => {
+    const f = { ...EMPTY_FILTER, decade: 1990 };
+    expect(hasCriteria(f)).toBe(true);
+    expect(isFiltering(f)).toBe(true);
+    expect(clearCriteria(f).decade).toBeNull();
+  });
+
+  it('ignores a decade the table holds no row of', () => {
+    const f = { ...EMPTY_FILTER, decade: 1980 };
+    expect(forDecades(f, [1990, 2000]).decade).toBeNull();
+    const kept = { ...EMPTY_FILTER, decade: 1990 };
+    expect(forDecades(kept, [1990, 2000])).toBe(kept);
+    expect(forDecades(EMPTY_FILTER, [])).toBe(EMPTY_FILTER);
   });
 });

@@ -1,10 +1,12 @@
 import type { Signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
+import { useState } from 'preact/hooks';
 import type { PlayRow } from '../../db/schema';
 import type { Model } from '../../model/aggregate';
 import { hasMonthData } from '../../model/crate';
 import { featureFor } from '../../model/features';
 import { nameKey } from '../../model/normalize';
+import { trackYear } from '../../model/year';
 import { historySummary, model } from '../../model/state';
 import { MonthBars } from '../charts/MonthBars';
 import { seriesLabel, yearSpan, type MonthPoint } from '../charts/series';
@@ -16,7 +18,9 @@ import {
   keyColumn,
   rankColumn,
   titleColumn,
+  yearColumn,
 } from '../table/columns';
+import { yearSortOffered, type TableLayout } from '../table/layout';
 import { DataTable, type Column } from '../table/DataTable';
 import type { SortState } from '../table/sort';
 import { trackFilterView } from '../filters/FilterBar';
@@ -120,7 +124,8 @@ export function chartColumn<Item extends CrateItem>(
 
 /**
  * The columns every Crate view shares (spec 003, screens.md §6): #, Title,
- * Artist, then the view's own figures and chart, its flag, BPM and Key. The
+ * Artist, then the view's own figures and chart, its flag, BPM, Key and
+ * Released (round 005). The
  * flag's precedence belongs to each view (Heavy rotation's `New` beats
  * "not in a playlist"), so it is passed in already decided; `null` leaves
  * the cell empty.
@@ -159,7 +164,14 @@ export function crateColumns<Item extends CrateItem>(spec: {
     },
     bpmColumn(featureOf),
     keyColumn(featureOf),
+    yearColumn(crateYearOf),
   ];
+}
+
+/** A Crate item's release year (`yearOf`, cached per model). */
+function crateYearOf(item: CrateItem): number | null {
+  const m = model.value;
+  return m ? trackYear(m, item.row.trackId) : null;
 }
 
 /**
@@ -177,6 +189,9 @@ export function CrateTable<Item extends CrateItem>(p: {
   resetKey: string;
   detail: string | undefined;
 }) {
+  // What the table draws at its width: "Sort by year" shows in the
+  // filters where its Released header cannot sort (round 005).
+  const [layout, setLayout] = useState<TableLayout | null>(null);
   const m = model.value;
   const filtered = trackFilterView({
     filter: p.filter,
@@ -185,6 +200,14 @@ export function CrateTable<Item extends CrateItem>(p: {
     textOf: (item) => {
       const label = trackLabel(item.row);
       return `${label.title} ${label.subtitle}`;
+    },
+    yearOf: crateYearOf,
+    yearSort: {
+      sort: p.sort.value,
+      onSort: (s) => {
+        p.sort.value = s;
+      },
+      offered: yearSortOffered(layout),
     },
   });
   return (
@@ -203,6 +226,7 @@ export function CrateTable<Item extends CrateItem>(p: {
             p.sort.value = s;
           }}
           resetKey={p.resetKey}
+          onLayout={setLayout}
           selectedKey={p.detail ?? null}
           follow={p.detail !== undefined}
           onOpen={(item) => openDetail(item.row.trackId)}
