@@ -10,15 +10,13 @@ import {
 import { parseClock } from '../../features/mix/parse';
 import {
   FILTER_CAPTION,
-  inFilter,
   reviewChips,
   spotifyStatus,
   type ReviewFilter,
 } from '../../features/mix/review';
 import { isIdentified } from '../../features/mix/spotifySearch';
-import { viewRows, type RowSort } from '../../features/mix/worker';
+import type { RowSort } from '../../features/mix/worker';
 import { decadeLabel } from '../../model/year';
-import { decadesPresent } from '../../model/yearView';
 import {
   addMixRow,
   deleteMixRow,
@@ -45,6 +43,7 @@ import { yearColumn } from '../table/columns';
 import { DataTable, type Column } from '../table/DataTable';
 import type { SortState } from '../table/sort';
 import { Clues } from './Clues';
+import { tracklistView } from './tracklistView';
 import { RowMenu, type RowMenuItem } from './RowMenu';
 import {
   confidenceShort,
@@ -609,25 +608,11 @@ export function TracklistTable() {
     setSaveError(null);
     setEditing(i);
   };
-  const counted = rows.some((r) => r.hits !== undefined);
-  // Round 005: the decades of the dated rows; none hides the year controls.
-  const decades = decadesPresent(rows, rowYear);
-  const dated = decades.length > 0;
-  // A choice the current rows no longer allow falls back, never empties.
-  const sortNow: RowSort =
-    (sort === 'year' && !dated) ||
-    ((sort === 'clips' || sort === 'score') && !counted)
-      ? 'time'
-      : sort;
-  const decadeNow = decade !== null && decades.includes(decade) ? decade : null;
-  const viewed = viewRows(rows, sortNow, false, decadeNow);
-  // The row being edited stays on screen whatever the view (main's rule):
-  // Add track's new row is undated and never heard.
-  const order = (
-    editing !== null && editing < rows.length && !viewed.includes(editing)
-      ? [...viewed, editing]
-      : viewed
-  ).filter((i) => i === editing || inFilter(rows[i], filter));
+  // The Sort, the decade and the chip, with their fallbacks (round 005).
+  const view = tracklistView(rows, { sort, decade, filter }, editing);
+  const { counted, decades, order } = view;
+  const sortNow = view.sort;
+  const decadeNow = view.decade;
   const lines: Line[] = order.map((i) => ({
     row: rows[i],
     index: i,

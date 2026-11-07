@@ -5,6 +5,7 @@ import {
   jobView,
   mergeWorkerRows,
   requestList,
+  rowYear,
   viewRows,
   progressLine,
   requestStatusText,
@@ -866,5 +867,11 @@ describe('viewRows — round 005 year', () => {
     expect(viewRows(rows, 'clips', false, 1990)).toEqual([1, 5, 4]);
     expect(viewRows(rows, 'year', false, 2010)).toEqual([0]);
     expect(viewRows(rows, 'time', false, 1970)).toEqual([]);
+  });
+  it('reads the year the Released column shows: never a gap row (S13c M6)', () => {
+    const withGap = [r({ year: 1993 }), r({ gap: true, year: 1991 })];
+    expect(rowYear(withGap[1])).toBeNull();
+    expect(viewRows(withGap, 'time', false, 1990)).toEqual([0]);
+    expect(viewRows(withGap, 'year', false)).toEqual([0, 1]);
   });
 });

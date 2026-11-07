@@ -78,10 +78,8 @@ const YEAR_FROM_TEXT = {
   spotify: 'from Spotify (Create playlist or Check on Spotify)',
 } as const;
 
-/** The row's own year, the one the year sort uses; null for a gap or undated. */
-export function rowYear(row: TracklistRow): number | null {
-  return !row.gap && typeof row.year === 'number' ? row.year : null;
-}
+/** The row's own year (`features/mix/worker.ts`), re-exported for the table. */
+export { rowYear } from '../../features/mix/worker';
 
 /** "1993, from Shazam"; the year alone when its source is unknown. */
 export function yearText(row: TracklistRow, year: number): string {
