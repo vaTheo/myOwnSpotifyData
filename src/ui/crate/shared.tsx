@@ -1,6 +1,6 @@
 import type { Signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
-import { useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import type { PlayRow } from '../../db/schema';
 import type { Model } from '../../model/aggregate';
 import { hasMonthData } from '../../model/crate';
@@ -161,7 +161,8 @@ export function crateColumns<Item extends CrateItem>(spec: {
       header: 'Flag',
       headerHidden: true,
       priority: 2,
-      width: '148px',
+      // Sized to the widest chip, "not in a playlist" (re-review N2).
+      width: '132px',
       cell: (item) => spec.flag(item),
       compact: 'meta',
     },
@@ -195,6 +196,17 @@ export function CrateTable<Item extends CrateItem>(p: {
   // What the table draws at its width: "Sort by year" shows in the
   // filters where its Released header cannot sort (round 005).
   const [layout, setLayout] = useState<TableLayout | null>(null);
+  // A view none of whose rows carries a flag drops the flag column, so
+  // its width goes to the title and the artist (re-review N2).
+  const columns = useMemo(() => {
+    const flag = p.columns.find((c) => c.id === 'flag');
+    if (!flag) return p.columns;
+    const any = p.items.some((item) => {
+      const out = flag.cell(item, 0);
+      return out !== null && out !== undefined && out !== false;
+    });
+    return any ? p.columns : p.columns.filter((c) => c !== flag);
+  }, [p.items, p.columns]);
   const m = model.value;
   const filtered = trackFilterView({
     filter: p.filter,
@@ -220,7 +232,7 @@ export function CrateTable<Item extends CrateItem>(p: {
         <DataTable
           label={p.label}
           noun="track"
-          columns={p.columns}
+          columns={columns}
           rows={p.items}
           only={filtered.only}
           rowKey={(item) => item.row.trackId}
