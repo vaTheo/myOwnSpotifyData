@@ -168,19 +168,16 @@ export function FilterBar(p: {
             </div>
           )}
           {p.yearSort && (
-            <label class="key-menu-switch filter-year-sort">
-              <input
-                type="checkbox"
-                role="switch"
-                checked={p.yearSort.on}
-                onChange={(e) =>
-                  p.yearSort?.onChange(
-                    (e.currentTarget as HTMLInputElement).checked
-                  )
-                }
-              />
+            <button
+              type="button"
+              role="switch"
+              class="filter-clear filter-year-sort"
+              aria-checked={p.yearSort.on}
+              onClick={() => p.yearSort?.onChange(!p.yearSort.on)}
+            >
+              {p.yearSort.on && <Icon name="check" size={18} />}
               <span>Sort by year, oldest first</span>
-            </label>
+            </button>
           )}
         </div>
       )}
