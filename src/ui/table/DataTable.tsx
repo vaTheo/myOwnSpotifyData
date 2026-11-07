@@ -276,6 +276,30 @@ export function DataTable<Row>(p: {
 
   // A filter may leave fewer rows: the Tab stop stays on one (FR-043).
   const tabTarget = rovingTarget(active, visible.length);
+
+  // One Tab stop per table (T100): the links and buttons of a row are Tab
+  // stops only in the row that holds it, so Tab leaves a 500-row table in
+  // a few presses and the arrows reach the others. A full row (a row being
+  // edited, a gap) keeps its controls in the order.
+  useLayoutEffect(() => {
+    const rows = body.current?.querySelectorAll<HTMLElement>(
+      ':scope > .dt-row, :scope > .dt-item'
+    );
+    rows?.forEach((row) => {
+      const on = Number(row.dataset.index) === tabTarget;
+      for (const el of row.querySelectorAll<HTMLElement>(
+        'a[href], button, input, select, textarea'
+      )) {
+        if (on && el.dataset.dtTab === 'off') {
+          el.removeAttribute('tabindex');
+          delete el.dataset.dtTab;
+        } else if (!on && !el.hasAttribute('tabindex')) {
+          el.tabIndex = -1;
+          el.dataset.dtTab = 'off';
+        }
+      }
+    });
+  });
   let lastGroup: string | null | undefined;
 
   const rowsOut = visible.map(({ row, rank }, index) => {

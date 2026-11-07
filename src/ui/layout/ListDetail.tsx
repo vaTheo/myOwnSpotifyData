@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { TrackRow } from '../components/TrackRow';
 import { moveIndex } from '../table/keyboard';
 import { ESCAPE_RANK, pushEscapeLayer } from './escape';
@@ -107,8 +107,10 @@ export interface PaneItem {
 /**
  * The narrowed list beside a detail (contracts/components.md `ListPane`):
  * cover, name, one figure, the open item selected. Up and Down move between
- * the items, Enter opens one (FR-043). On mount the open item is scrolled
- * into the pane's view.
+ * the items, Enter opens one (FR-043). The list is one Tab stop (the item
+ * last focused, else the open one, else the first), so Tab reaches the
+ * detail in a press, not a thousand (T100). On mount the open item is
+ * scrolled into the pane's view.
  */
 export function ListPane(p: {
   label: string;
@@ -119,6 +121,14 @@ export function ListPane(p: {
   empty?: ComponentChildren;
 }) {
   const box = useRef<HTMLDivElement>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const has = (id: string | null) =>
+    id !== null && p.items.some((i) => i.id === id);
+  const stopId = has(focusedId)
+    ? focusedId
+    : has(p.selectedId)
+      ? p.selectedId
+      : (p.items[0]?.id ?? null);
 
   useEffect(() => {
     const pane = box.current;
@@ -150,7 +160,15 @@ export function ListPane(p: {
       {p.items.length === 0 && p.empty ? (
         p.empty
       ) : (
-        <ul class="list" aria-label={p.label} onKeyDown={onKeyDown}>
+        <ul
+          class="list"
+          aria-label={p.label}
+          onKeyDown={onKeyDown}
+          onFocusIn={(e) => {
+            const id = (e.target as HTMLElement).dataset.rowId;
+            if (id !== undefined) setFocusedId(id);
+          }}
+        >
           {p.items.map((item) => (
             <TrackRow
               key={item.id}
@@ -160,6 +178,7 @@ export function ListPane(p: {
               href={item.href}
               rowId={item.id}
               selected={item.id === p.selectedId}
+              tabIndex={item.id === stopId ? 0 : -1}
             />
           ))}
         </ul>
