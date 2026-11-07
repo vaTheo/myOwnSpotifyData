@@ -1,14 +1,18 @@
+/*
+ * Spec 003: every colour, font and ring below reads the Material 3 tokens of
+ * ui/theme/tokens.css, directly or through the short aliases just below;
+ * nothing here holds a raw colour.
+ */
 :root {
-  color-scheme: dark;
-  --bg: #121212;
-  --surface: #1e1e1e;
-  --surface-2: #2a2a2a;
-  --text: #f5f5f5;
-  --muted: #a0a0a0;
-  --accent: #1db954;
-  --danger: #e5484d;
-  --warn: #f5a623;
-  --tab-height: 56px;
+  --bg: var(--md-sys-color-surface);
+  --surface: var(--md-sys-color-surface-container);
+  --surface-2: var(--md-sys-color-surface-container-highest);
+  --text: var(--md-sys-color-on-surface);
+  --muted: var(--md-sys-color-on-surface-variant);
+  --accent: var(--md-sys-color-primary);
+  --danger: var(--md-sys-color-error);
+  --warn: var(--app-color-warning);
+  --line: var(--md-sys-color-outline-variant);
 }
 
 * {
@@ -20,102 +24,112 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font:
-    16px/1.4 system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font: 400 16px/1.4 var(--md-ref-typeface-plain);
 }
 
-.app {
-  min-height: 100dvh;
+/* FR-042: one visible 3 px chartreuse ring on every control. */
+:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: 2px;
 }
 
-.screen {
-  padding: 12px 12px
-    calc(var(--tab-height) + env(safe-area-inset-bottom) + 12px);
-  max-width: 720px;
-  margin: 0 auto;
+/* A link inside a line of text is underlined: colour alone is not enough. */
+p a,
+li a,
+.caption a,
+.provenance a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
-h1 {
-  font-size: 1.4rem;
-  margin: 8px 0 12px;
-}
-
-h2 {
-  font-size: 1.05rem;
-  margin: 0 0 8px;
-}
-
-a {
-  color: var(--accent);
-}
-
-.tabs {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  height: calc(var(--tab-height) + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
-  background: var(--surface);
-  border-top: 1px solid #333;
-}
-
-.tab {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  text-decoration: none;
-  /* Six tabs on a 360 px phone: 60 px each, "Playlists" must fit. */
-  font-size: 0.8rem;
-  white-space: nowrap;
-  min-height: 48px;
-}
-
-.tab.active {
-  color: var(--accent);
-  font-weight: 600;
-}
-
+/* Material 3 tonal button by default; .primary is the filled one. */
 button {
-  font: inherit;
+  font: var(--md-sys-typescale-label-large);
   border: 0;
-  border-radius: 8px;
-  padding: 12px 16px;
-  min-height: 48px;
-  background: var(--surface-2);
-  color: var(--text);
+  border-radius: var(--md-sys-shape-corner-full);
+  padding: 0 24px;
+  min-height: var(--app-target);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
   cursor: pointer;
+  transition: background-color var(--md-sys-motion-duration-short)
+    var(--md-sys-motion-easing-standard);
 }
 
+button:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-secondary-container),
+    var(--md-sys-color-on-secondary-container) var(--md-sys-state-hover)
+  );
+}
+
+/* Disabled: Material's 12% fill, and a label at 50% of on-surface rather
+   than 38%, so it keeps 3.6:1 on a card (38% gives 2.7:1). */
 button:disabled {
-  opacity: 0.5;
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 12%,
+    transparent
+  );
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 50%, transparent);
   cursor: default;
 }
 
-button.primary {
-  background: var(--accent);
-  color: #000;
-  font-weight: 600;
+/* A text button, disabled, keeps its own shape: no fill, only the 50%
+   label (S08b review F7). */
+button.btn-text:disabled {
+  background: transparent;
 }
 
+/* An outlined or destructive button, disabled, drops its colour: no fill,
+   a 12% outline and the same 50% label (4.2:1 on a card). */
+button.btn-outlined:disabled,
+button.btn-danger:disabled,
+button.danger:disabled {
+  background: transparent;
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 50%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 12%,
+    transparent
+  );
+}
+
+button.primary {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+button.primary:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary),
+    var(--md-sys-color-on-primary) var(--md-sys-state-hover)
+  );
+}
+
+/* Destructive: outlined in the error colour, never white on red. */
 button.danger {
-  background: var(--danger);
-  color: #fff;
+  background: transparent;
+  color: var(--md-sys-color-error);
+  border: 1px solid var(--md-sys-color-error);
 }
 
 .card {
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 14px;
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 16px;
   margin-bottom: 12px;
+}
+
+.card > h2 {
+  font: var(--md-sys-typescale-title-medium);
+}
+
+.card-description {
+  color: var(--muted);
+  margin-top: -4px;
 }
 
 .card ol {
@@ -143,38 +157,74 @@ button.danger {
   top: 0;
   z-index: 2;
   display: flex;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
-  background: #3a2a00;
-  color: #ffd27a;
+  font: var(--md-sys-typescale-body-medium);
+  background: var(--app-color-warning-container);
+  color: var(--app-color-on-warning-container);
   padding: 10px 12px;
 }
 
 .banner.error {
-  background: #3d1416;
-  color: #f0a0a2;
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
 }
 
-.banner button {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 4px 10px;
-  background: transparent;
+.banner .banner-text {
+  flex: 1;
+}
+
+.banner .icon-btn {
   color: inherit;
-  margin-left: auto;
+}
+
+/* Material 3 linear progress indicator. */
+.progress-label {
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.progress-count {
+  font: var(--md-sys-typescale-body-small);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-bar {
-  height: 6px;
-  background: var(--surface-2);
-  border-radius: 3px;
+  height: 4px;
+  background: var(--md-sys-color-surface-container-highest);
+  border-radius: var(--md-sys-shape-corner-full);
   overflow: hidden;
-  margin: 6px 0;
+  margin: 8px 0;
 }
 
 .progress-bar div {
   height: 100%;
-  background: var(--accent);
+  background: var(--md-sys-color-primary);
+  border-radius: inherit;
+  transition: width var(--md-sys-motion-duration-medium)
+    var(--md-sys-motion-easing-standard);
+}
+
+.progress-bar.indeterminate div {
+  width: 30%;
+  animation: progress-slide 1.4s var(--md-sys-motion-easing-standard) infinite;
+}
+
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(350%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar.indeterminate div {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
 }
 
 .actions {
@@ -195,7 +245,7 @@ button.danger {
   align-items: center;
   min-height: 56px;
   padding: 8px 4px;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--line);
 }
 
 .row .rank {
@@ -222,7 +272,11 @@ button.danger {
   text-align: left;
   background: none;
   padding: 0;
-  min-height: 0;
+  /* A whole 48 px target (FR-045), its lines centred. */
+  min-height: var(--app-target);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   border-radius: 0;
 }
 
@@ -249,80 +303,113 @@ button.danger {
   margin-top: 4px;
 }
 
-.badge {
-  font-size: 0.75rem;
+/* A small non-interactive chip: what the badge was (components.md Flag). */
+.flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--md-sys-typescale-label-medium);
+  font-variant-numeric: tabular-nums;
   padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--surface-2);
+  border-radius: var(--md-sys-shape-corner-small);
+  background: var(--md-sys-color-surface-container-highest);
   color: var(--muted);
 }
 
-.badge.plays {
-  background: #143d24;
-  color: #7ee2a3;
+/* Finish rate 65% and up: the high band's mint, with its words beside it. */
+.flag-high {
+  background: var(--md-sys-color-surface-container-highest);
+  color: var(--app-color-band-high);
 }
 
-.badge.top {
-  background: #1f2a44;
-  color: #9cc0ff;
+/* A play count is a plain figure: neutral, so green keeps meaning "match". */
+.flag-plays {
+  background: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-on-surface);
 }
 
-.badge.todo {
-  background: #3a2a00;
-  color: #ffd27a;
+.flag-top {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
 }
 
-.badge.skip {
-  background: #3d1416;
-  color: #f0a0a2;
+.flag-todo {
+  background: var(--app-color-warning-container);
+  color: var(--app-color-on-warning-container);
+}
+
+.flag-skip {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
 }
 
 .spotify-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   flex: none;
-  min-width: 44px;
-  min-height: 44px;
-  color: var(--accent);
-  text-decoration: none;
 }
 
 .spotify-link-text {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  gap: 4px;
+  min-height: var(--app-target);
   padding: 0 4px;
-  color: var(--accent);
+  color: var(--md-sys-color-primary);
   text-decoration: none;
   white-space: nowrap;
 }
 
+/* Material 3 segmented buttons: an outlined pill, the selected segment
+   filled in secondary-container with a check. */
 .segmented {
   display: flex;
-  background: var(--surface);
-  border-radius: 10px;
-  padding: 3px;
-  margin-bottom: 10px;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-full);
+  overflow: hidden;
+  margin-bottom: 12px;
 }
 
 .segmented button {
   flex: 1;
-  min-height: 40px;
-  padding: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--app-target);
+  padding: 0 12px;
   background: transparent;
-  color: var(--muted);
-  border-radius: 8px;
+  color: var(--md-sys-color-on-surface);
+  border-radius: 0;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--md-sys-color-outline);
 }
 
 .segmented button.active {
-  background: var(--surface-2);
-  color: var(--text);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
 }
 
+/* Disabled segments (a pick that cannot change while a job runs). */
+.segmented button:disabled {
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 50%, transparent);
+}
+
+.segmented button.active:disabled {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 12%,
+    transparent
+  );
+}
+
+/* A scrolling row (years, periods) reads as filter chips. */
 .segmented.scroll {
   overflow-x: auto;
   scrollbar-width: none;
+  border: 0;
+  border-radius: 0;
+  gap: 8px;
 }
 
 .segmented.scroll::-webkit-scrollbar {
@@ -331,8 +418,18 @@ button.danger {
 
 .segmented.scroll button {
   flex: none;
-  min-height: 44px;
-  padding: 8px 14px;
+  min-height: var(--app-target);
+  padding: 0 16px;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-small);
+}
+
+.segmented.scroll button + button {
+  border-left: 1px solid var(--md-sys-color-outline);
+}
+
+.segmented.scroll button.active {
+  border-color: transparent;
 }
 
 /* Only on the side that still has chips beyond it, so a two-year history
@@ -377,7 +474,7 @@ button.danger {
   font: inherit;
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid #333;
+  border: 1px solid var(--md-sys-color-outline);
   background: var(--surface);
   color: var(--text);
   margin-bottom: 10px;
@@ -389,39 +486,6 @@ button.danger {
   padding: 32px 12px;
 }
 
-.connect {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 100dvh;
-  padding: 24px;
-  max-width: 480px;
-  margin: 0 auto;
-  gap: 12px;
-}
-
-.sublist {
-  list-style: none;
-  margin: 0 0 0 38px;
-  padding: 0 0 8px;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-.sublist li {
-  min-height: 44px;
-  display: flex;
-  align-items: stretch;
-}
-
-.sublist li > a {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-}
-
-.sublist p a,
 .caption a {
   display: inline-block;
   padding: 13px 4px;
@@ -460,29 +524,6 @@ label.file input {
   opacity: 0;
 }
 
-.back {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 0.9rem;
-  padding: 6px 4px 6px 0;
-}
-
-.provenance {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  color: var(--muted);
-  font-size: 0.9rem;
-  margin: 0 0 10px;
-}
-
-.provenance a {
-  text-decoration: none;
-}
-
 .caption {
   color: var(--muted);
   font-size: 0.85rem;
@@ -496,74 +537,32 @@ label.file input {
   margin: -4px 0 8px;
 }
 
-.footer-note {
-  color: var(--muted);
-  font-size: 0.85rem;
-  margin: 10px 0 8px;
-}
-
-.strip {
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.5;
-  margin: 4px 0;
-}
-
-/* One year/month pair per span: a line breaks only after a separator. */
-.strip span {
-  white-space: nowrap;
-}
-
-.hub-row {
-  display: flex;
-  gap: 10px;
+.legend-item {
+  display: inline-flex;
   align-items: center;
-  width: 100%;
-  min-height: 64px;
-  padding: 10px 4px;
-  border: 0;
-  border-bottom: 1px solid #2a2a2a;
-  border-radius: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  text-decoration: none;
-}
-
-.hub-row .main {
-  flex: 1;
-  min-width: 0;
-}
-
-.hub-row .name {
-  display: block;
-  font-weight: 600;
-}
-
-.hub-row .sub {
-  display: block;
-  font-size: 0.85rem;
-  color: var(--muted);
+  gap: 6px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* The Finish rate bands, as the meters draw them. */
+.swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+.swatch-high {
+  background: var(--app-color-band-high);
+}
+
+.swatch-low {
+  background: var(--md-sys-color-error);
 }
 
 .chev {
   color: var(--muted);
   flex: none;
-}
-
-.sublist ul {
-  list-style: none;
-  margin: 4px 0;
-  padding: 0;
-}
-
-.sublist p {
-  margin: 2px 0;
 }
 
 .pill {
@@ -580,16 +579,10 @@ label.file input {
   color: var(--text);
 }
 
-.pill.year {
-  background: transparent;
-  border-color: var(--surface-2);
-  color: var(--muted);
-}
-
 .pill.minor {
   background: var(--hue);
   border-color: var(--hue);
-  color: #14181f;
+  color: var(--md-sys-color-surface);
 }
 
 .pill.major {
@@ -599,56 +592,56 @@ label.file input {
 }
 
 .pill.key-1 {
-  --hue: #e68989;
+  --hue: var(--app-key-1);
 }
 
 .pill.key-2 {
-  --hue: #e6b889;
+  --hue: var(--app-key-2);
 }
 
 .pill.key-3 {
-  --hue: #e6e689;
+  --hue: var(--app-key-3);
 }
 
 .pill.key-4 {
-  --hue: #b8e689;
+  --hue: var(--app-key-4);
 }
 
 .pill.key-5 {
-  --hue: #89e689;
+  --hue: var(--app-key-5);
 }
 
 .pill.key-6 {
-  --hue: #89e6b8;
+  --hue: var(--app-key-6);
 }
 
 .pill.key-7 {
-  --hue: #89e6e6;
+  --hue: var(--app-key-7);
 }
 
 .pill.key-8 {
-  --hue: #89b8e6;
+  --hue: var(--app-key-8);
 }
 
 .pill.key-9 {
-  --hue: #8989e6;
+  --hue: var(--app-key-9);
 }
 
 .pill.key-10 {
-  --hue: #b889e6;
+  --hue: var(--app-key-10);
 }
 
 .pill.key-11 {
-  --hue: #e689e6;
+  --hue: var(--app-key-11);
 }
 
 .pill.key-12 {
-  --hue: #e689b8;
+  --hue: var(--app-key-12);
 }
 
-.badge.relation {
-  background: #1c3a6e;
-  color: #cfe0ff;
+.flag-relation {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
 }
 
 .card button + label.file {
@@ -682,47 +675,7 @@ details.card > summary {
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--muted);
-  border-bottom: 1px solid #2a2a2a;
-}
-
-/* Spec §6: the three Mix-screen additions. The player is built by the app
-   from the validated oEmbed src; a gap row's title reads muted-italic; the
-   `.src` provenance span rides in TrackRow's `badges` flex row and takes a
-   full basis, so it drops below the pills the way `.reach` does. */
-.mix-player {
-  width: 100%;
-  border: 0;
-  border-radius: 8px;
-}
-
-.list li.gap .title {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.mix .src {
-  flex-basis: 100%;
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-/* Spec §5/§6: the create-playlist "not found" disclosure on the Mix screen.
-   The base `details.card > summary` rule only styles card summaries; this
-   mirrors it for the inline disclosure — a pointer cursor and a ≥44px tap
-   target — while keeping the default `list-item` display so the triangle
-   marker stays. The list reuses `.list`; its rows get a readable line-height.
-   No other new CSS: the button reuses `.primary`, and the
-   prompt/progress/error lines reuse `.muted`/`.error`. */
-.mix details > summary {
-  cursor: pointer;
-  min-height: 44px;
-  padding: 10px 0;
-  color: var(--muted);
-}
-
-.mix details .list li {
-  padding: 4px 0;
-  font-size: 0.9rem;
+  border-bottom: 1px solid var(--line);
 }
 
 /* The not-found list's store searches: one brand icon per site, each a 44px
@@ -737,8 +690,8 @@ details.card > summary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 48px;
+  min-height: 48px;
   color: var(--muted);
 }
 
@@ -761,78 +714,3393 @@ details.card > summary {
   vertical-align: top;
 }
 .stamps th {
-  color: var(--muted, #888);
+  color: var(--muted);
   font-weight: normal;
 }
 
-/* Mix: the "Identify on my computer" block (worker round) */
-.mix .identify {
-  margin: 0.5rem 0 0.75rem;
-}
-.mix .identify details {
-  margin-top: 0.25rem;
-}
-.mix .identify ul {
-  margin: 0.25rem 0 0;
-  padding-left: 1.25rem;
+/* ---------- Spec 003 shared components (contracts/components.md) ---------- */
+
+.icon {
+  flex: none;
+  vertical-align: middle;
 }
 
-/* Round 003: clues read by the worker (third-party text, plain). */
-.mix details.clues {
-  margin: 0.25rem 0;
-  font-size: 0.85rem;
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
-.mix details.clues summary {
+
+.no-data {
   color: var(--muted);
+}
+
+/* Buttons as a component; a raw <button> carries the same look. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+a.btn {
+  font: var(--md-sys-typescale-label-large);
+  min-height: var(--app-target);
+  padding: 0 24px;
+  border-radius: var(--md-sys-shape-corner-full);
+}
+
+/* A link styled as a button is tonal unless it names a variant; the
+   `:where` keeps `.btn-outlined` and the others in charge of their own
+   colours (spec 003 §10: the Artist reach links are outlined). */
+a.btn:where(:not(.btn-filled, .btn-outlined, .btn-text, .btn-danger)) {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.btn-filled {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.btn-outlined,
+.btn-text,
+.btn-danger {
+  background: transparent;
+}
+
+.btn-outlined {
+  border: 1px solid var(--md-sys-color-outline);
+  color: var(--md-sys-color-primary);
+}
+
+.btn-text {
+  color: var(--md-sys-color-primary);
+  padding: 0 12px;
+}
+
+.btn-danger {
+  border: 1px solid var(--md-sys-color-error);
+  color: var(--md-sys-color-error);
+}
+
+/* Material 3 standard icon button: 48 x 48 target, round state layer. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--app-target);
+  height: var(--app-target);
+  min-height: var(--app-target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  text-decoration: none;
   cursor: pointer;
 }
-.mix details.clues ul {
-  margin: 0.25rem 0 0;
-  padding-left: 1.25rem;
-}
-.mix details.clues li {
-  overflow-wrap: anywhere;
-  margin: 0.15rem 0;
-}
-.mix .src.clue {
-  font-style: italic;
-  overflow-wrap: anywhere;
+
+.icon-btn:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+  color: var(--md-sys-color-on-surface);
 }
 
-/* Round 004: sort and "heard once" over the tracklist (view only). */
-.mix .rowview {
+/* A line of status with its icon. */
+.status {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 8px 0;
+}
+
+.status .icon {
+  margin-top: 1px;
+}
+
+.status-info {
+  color: var(--muted);
+}
+
+.status-warning {
+  color: var(--app-color-warning);
+}
+
+.status-error {
+  color: var(--md-sys-color-error);
+}
+
+.status-success {
+  color: var(--md-sys-color-primary);
+}
+
+/* Why a screen is empty, and the one action. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-state-text p {
+  margin: 0;
+  font: var(--md-sys-typescale-body-large);
+}
+
+/* Material 3 outlined text field. */
+.text-field {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+  background: transparent;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+.text-field:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+.text-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: var(--md-sys-typescale-body-small);
+  color: var(--muted);
+}
+
+/* A file picker that also takes a dropped file. */
+.file-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 96px;
+  padding: 16px;
+  border: 1px dashed var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-medium);
+  color: var(--md-sys-color-on-surface);
+  text-align: center;
+  cursor: pointer;
+}
+
+.file-drop:hover,
+.file-drop.over {
+  border-color: var(--md-sys-color-primary);
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.file-drop:focus-within {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.file-drop.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.file-drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.file-drop-hint {
+  display: none;
+  font: var(--md-sys-typescale-body-small);
+  color: var(--muted);
+}
+
+@media (min-width: 600px) {
+  .file-drop-hint {
+    display: block;
+  }
+}
+
+/* ---------- The frame (spec 003, US1, contracts/design-tokens.md "Sizes") ----------
+ * compact (< 600): a bottom navigation bar; medium and expanded: an 80 px
+ * rail; large (>= 1200): the expanded rail, labels beside the icons. */
+
+.frame {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* A control reached with Tab is never hidden under a bar (WCAG 2.4.11,
+   T100): the page scrolls it clear of the sticky top bar and, on compact
+   windows, of the bottom navigation. */
+html {
+  scroll-padding-top: var(--app-top-bar);
+  scroll-padding-bottom: calc(var(--app-nav-bar) + env(safe-area-inset-bottom));
+}
+
+.frame-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  flex: 1;
+  width: 100%;
+  /* The old row lists stay at a readable width; a screen with a table uses
+     the whole window (FR-005), see `.screen:has(.dt-wrap)` below. */
+  max-width: 960px;
+  padding: 8px var(--app-margin)
+    calc(var(--app-nav-bar) + env(safe-area-inset-bottom) + 16px);
+}
+
+.screen-loading {
+  max-width: 480px;
+  padding: 48px 0;
+}
+
+h1 {
+  font: var(--md-sys-typescale-title-large);
+  margin: 8px 0 12px;
+}
+
+h2 {
+  font: var(--md-sys-typescale-title-medium);
+  margin: 0 0 8px;
+}
+
+a {
+  color: var(--md-sys-color-primary);
+}
+
+/* Material 3 small top app bar. */
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--app-top-bar);
+  padding: 0 var(--app-margin);
+  background: var(--md-sys-color-surface);
+}
+
+.top-bar .icon-btn:first-child {
+  margin-left: -12px;
+}
+
+.top-bar-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: var(--md-sys-typescale-title-large);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Material 3 primary tabs under the top bar. */
+.screen-tabs {
+  display: flex;
+  padding: 0 var(--app-margin);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.screen-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: var(--app-target);
+  padding: 0 16px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface-variant);
+  text-decoration: none;
+}
+
+.screen-tab.active {
+  color: var(--md-sys-color-primary);
+}
+
+.screen-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--md-sys-color-primary);
+}
+
+/* The navigation: a bottom bar on compact windows. */
+.nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  height: calc(var(--app-nav-bar) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--md-sys-color-surface-container);
+}
+
+.nav-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: var(--app-target);
+  color: var(--md-sys-color-on-surface-variant);
+  text-decoration: none;
+}
+
+.nav-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 32px;
+  border-radius: var(--md-sys-shape-corner-full);
+  transition: background-color var(--md-sys-motion-duration-short)
+    var(--md-sys-motion-easing-standard);
+}
+
+.nav-label {
+  font: var(--md-sys-typescale-label-medium);
+  white-space: nowrap;
+}
+
+.nav-item:hover .nav-indicator {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.nav-item.active {
+  color: var(--md-sys-color-on-surface);
+}
+
+.nav-item.active .nav-indicator {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.nav-item.active .nav-label {
+  font-weight: 700;
+}
+
+/* Medium and expanded: an 80 px navigation rail on the left. */
+@media (min-width: 600px) {
+  .frame {
+    grid-template-columns: var(--app-nav-rail) minmax(0, 1fr);
+  }
+
+  .screen {
+    padding-bottom: 32px;
+  }
+
+  html {
+    scroll-padding-bottom: 0;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    height: 100dvh;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 24px 0 24px;
+    background: var(--md-sys-color-surface-container-low);
+  }
+
+  .nav-item {
+    flex: none;
+    min-height: 56px;
+  }
+
+  .nav-indicator {
+    width: 56px;
+  }
+
+  .nav-foot {
+    margin-top: auto;
+  }
+}
+
+/* Large: the expanded rail, labels beside the icons. */
+@media (min-width: 1200px) {
+  .frame {
+    grid-template-columns: var(--app-nav-rail-expanded) minmax(0, 1fr);
+  }
+
+  .nav {
+    padding: 24px 12px;
+    gap: 4px;
+  }
+
+  .nav-item {
+    position: relative;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 56px;
+    padding: 0 16px;
+    border-radius: var(--md-sys-shape-corner-full);
+  }
+
+  .nav-indicator {
+    width: auto;
+    height: auto;
+    background: none;
+  }
+
+  .nav-item:hover .nav-indicator,
+  .nav-item.active .nav-indicator {
+    background: none;
+  }
+
+  .nav-item:hover {
+    background: color-mix(
+      in srgb,
+      var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+      transparent
+    );
+  }
+
+  .nav-item.active {
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .nav-label {
+    font: var(--md-sys-typescale-label-large);
+  }
+
+  .top-bar-title {
+    font: var(--md-sys-typescale-headline-small);
+  }
+}
+
+/* The activity button and its panel of running jobs. */
+.activity {
+  position: relative;
+}
+
+.ring {
+  transform: rotate(-90deg);
+}
+
+.ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ring-track {
+  stroke: var(--md-sys-color-surface-container-highest);
+}
+
+.ring-value {
+  stroke: var(--md-sys-color-primary);
+  stroke-linecap: round;
+}
+
+.ring.spinning {
+  animation: ring-spin 1s linear infinite;
+}
+
+@keyframes ring-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring.spinning {
+    animation: none;
+  }
+}
+
+.activity-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 5;
+  width: min(320px, calc(100vw - 32px));
+  padding: 8px;
+  border-radius: var(--md-sys-shape-corner-small);
+  background: var(--md-sys-color-surface-container-high);
+  box-shadow: var(--md-sys-elevation-2);
+}
+
+.activity-job {
+  display: block;
+  padding: 8px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  color: var(--md-sys-color-on-surface);
+  text-decoration: none;
+}
+
+.activity-job:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+/* The sign-in card. */
+.connect {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px var(--app-margin);
+}
+
+.connect-card {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 32px 24px;
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  background: var(--md-sys-color-surface-container);
+}
+
+.connect-card h1 {
+  margin: 0;
+  font: var(--md-sys-typescale-headline-small);
+}
+
+.connect-mark {
+  color: var(--md-sys-color-primary);
+}
+
+.connect-purpose {
+  margin: 0;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.connect-reads {
+  margin: 0;
+  padding-left: 20px;
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.connect-privacy summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--app-target);
+  color: var(--md-sys-color-primary);
+  cursor: pointer;
+}
+
+.connect-privacy p {
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.connect-card button.primary {
+  margin-top: 8px;
+}
+
+/* ---- Data tables (spec 003, FR-015–FR-018, FR-022, FR-023) ---- */
+
+/* A screen with a table, Compare periods, the Crate hub's cards or the
+   Overview's feed uses the whole window (FR-005). */
+.screen:has(.dt-wrap),
+.screen:has(.compare),
+.screen:has(.hub-grid),
+.screen:has(.overview) {
+  max-width: none;
+}
+
+.dt-wrap {
+  container: dt / inline-size;
+}
+
+.dt {
+  --dt-pad: 8px;
+  min-width: 0;
+}
+
+.dt-row {
+  display: grid;
+  grid-template-columns: var(--dt-cols-1);
+  align-items: center;
+  min-height: var(--app-row);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  padding: 0 calc(var(--dt-pad) * 2) 0 var(--dt-pad);
+  cursor: default;
+}
+
+/* The header's separator is drawn inside its 48 px, so the rows start
+   48 px under its top (SC-001 counts them). */
+.dt-header-row {
+  min-height: var(--app-target);
+  border-bottom: 0;
+  box-shadow: inset 0 -1px 0 var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: var(--md-sys-shape-corner-medium)
+    var(--md-sys-shape-corner-medium) 0 0;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-label-large);
+  cursor: auto;
+}
+
+.dt-body .dt-row {
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface);
+}
+
+.dt-body .dt-row:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.dt-row[aria-selected='true'],
+.dt-item[aria-selected='true'] {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.dt-row:focus-visible,
+.dt-item:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+/* A cell fills its track, whatever its content. Columns of a lower
+   priority than the window allows are removed from view with a zero track
+   and no padding, so the others keep their places. */
+.dt-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 var(--dt-pad);
+}
+
+.dt-cell.end {
+  justify-content: flex-end;
+  text-align: end;
+}
+
+/* A hidden cell also has no height, so its text never sizes the row (a
+   focused row lets its text wrap, below). */
+.dt-cell.p2,
+.dt-cell.p3,
+.dt-cell.p4 {
+  visibility: hidden;
+  height: 0;
+  padding: 0;
+}
+
+@container dt (min-width: 720px) {
+  .dt-row {
+    grid-template-columns: var(--dt-cols-2);
+  }
+  .dt-cell.p2 {
+    visibility: visible;
+    height: auto;
+    padding: 0 var(--dt-pad);
+  }
+}
+
+@container dt (min-width: 960px) {
+  .dt-row {
+    grid-template-columns: var(--dt-cols-3);
+  }
+  .dt-cell.p3 {
+    visibility: visible;
+    height: auto;
+    padding: 0 var(--dt-pad);
+  }
+}
+
+/* About 1120 px: the table a 1440 window leaves beside the rail (FR-018,
+   US2: album, length and added show at 1440). */
+@container dt (min-width: 1120px) {
+  .dt-row {
+    grid-template-columns: var(--dt-cols-4);
+  }
+  .dt-cell.p4 {
+    visibility: visible;
+    height: auto;
+    padding: 0 var(--dt-pad);
+  }
+}
+
+/* The level `DataTable` draws (`data-level`, `fitLevel` in
+   `ui/table/layout.ts`): it hides more columns than the container queries
+   above when the title would otherwise get under 160 px. The paddings above
+   (--dt-pad) are mirrored by ROW_PAD and CELL_PAD in that file. */
+.dt[data-level='1'] .dt-row {
+  grid-template-columns: var(--dt-cols-1);
+}
+.dt[data-level='2'] .dt-row {
+  grid-template-columns: var(--dt-cols-2);
+}
+.dt[data-level='3'] .dt-row {
+  grid-template-columns: var(--dt-cols-3);
+}
+.dt[data-level='1'] .dt-cell.p2,
+.dt[data-level='1'] .dt-cell.p3,
+.dt[data-level='1'] .dt-cell.p4,
+.dt[data-level='2'] .dt-cell.p3,
+.dt[data-level='2'] .dt-cell.p4,
+.dt[data-level='3'] .dt-cell.p4 {
+  visibility: hidden;
+  height: 0;
+  padding: 0;
+}
+
+/* FR-023: a row with the keyboard focus shows its truncated text whole, by
+   letting it wrap; the pointer gets the cell's tooltip instead. The row
+   grows only when a text was cut. */
+.dt-body .dt-row:focus-visible {
+  padding-block: 6px;
+}
+
+.dt-row:focus-visible .dt-text,
+.dt-item:focus-visible .dt-text,
+.dt-item:focus-visible .dt-item-sub,
+.dt-item:focus-visible .dt-item-part {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.dt-sort {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: var(--app-target);
+  gap: 4px;
+  min-height: var(--app-target);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dt-cell.end .dt-sort {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+.toolbar .segmented button {
+  white-space: nowrap;
+}
+
+.dt-sort:hover:not(:disabled) {
+  background: none;
+  color: var(--md-sys-color-on-surface);
+}
+
+.dt-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dt-link {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--app-target);
+  color: inherit;
+  text-decoration: none;
+}
+
+.dt-link:hover .dt-text {
+  text-decoration: underline;
+}
+
+.dt-rank,
+.dt-year {
+  color: var(--md-sys-color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-cover {
+  display: block;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  object-fit: cover;
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+.dt-cover.round {
+  border-radius: var(--md-sys-shape-corner-full);
+}
+
+.dt-plays {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-note {
+  display: inline-flex;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Top flags on one line: a flag that does not fit whole wraps to a second
+   line the cell hides, so no stub of it shows; the tooltip names them all. */
+.dt-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 4px;
+  min-width: 0;
+  max-height: 24px;
+  overflow: hidden;
+}
+
+/* A flag never wraps inside itself, which would grow the row. */
+.dt-flags .flag {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* FR-023: the keyboard focus shows every flag, the row grows to fit. */
+.dt-row:focus-visible .dt-flags {
+  row-gap: 4px;
+  max-height: none;
+}
+
+.dt-unit {
+  display: none;
+}
+
+.dt-group {
+  display: block;
+  padding: 16px var(--dt-pad) 4px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  font: var(--md-sys-typescale-title-small);
+  min-height: 0;
+}
+
+.dt-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px var(--dt-pad);
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.dt-footer p {
+  margin: 0;
+}
+
+/* Compact windows: a two-line item. */
+.dt.compact .dt-body {
+  display: block;
+}
+
+.dt-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: var(--app-row-two-line);
+  padding: 8px 4px 8px var(--app-margin);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.dt-item-lead {
+  grid-column: 1;
+  margin-right: 12px;
+}
+
+.dt-item-lead:empty,
+.dt-item-trail:empty {
+  display: none;
+}
+
+.dt-item-main {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.dt-item-trail {
+  grid-column: 3;
+}
+
+.dt-item-title {
+  display: flex;
+  min-width: 0;
+  font: var(--md-sys-typescale-body-large);
+}
+
+/* The subtitle (artists) has the whole line and ends with an ellipsis. */
+.dt-item-sub {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.dt-item-sub .dt-item-part {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-item-sub .dt-item-part + .dt-item-part::before {
+  content: '·';
+  margin: 0 6px;
+}
+
+/* The meta line: plays, BPM and key pills, the to-do flag last. Parts are
+   spaced rather than dotted so a part that wraps starts its line cleanly. */
+.dt-item-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1rem;
-  margin: 0.5rem 0;
-  font-size: 0.85rem;
-}
-.mix .rowview select {
-  min-height: 36px;
+  gap: 2px 8px;
+  min-width: 0;
+  margin-top: 2px;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
 }
 
-/* Round 005 (US5): the year sort toggle and the decade chips, placed with a
-   screen's other controls; a wrapping row of small rounded buttons in the
-   segmented control's colours. */
-.yearview {
+.dt-item-meta .dt-item-part {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* Under the radar on a phone: a Well known row's Wikipedia figures get a
+   line of their own under listeners and fans. */
+.dt-item-meta .dt-item-part:has(.radar-wiki) {
+  flex-basis: 100%;
+  white-space: normal;
+}
+
+.dt-item-part:has(.flag-todo) {
+  order: 1;
+}
+
+.dt-item-part:empty,
+.dt-item-part:has(> .dt-wide:only-child) {
+  display: none;
+}
+
+/* Numbers that only make sense under a column header. */
+.dt-item .dt-wide {
+  display: none;
+}
+
+.dt-item .dt-unit {
+  display: inline;
+  margin-left: 0.25em;
+}
+
+.dt-item .dt-plays {
+  gap: 0;
+}
+
+/* ---- Top: toolbar and compare ---- */
+
+.toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 12px;
 }
 
-.yearview .chip {
-  min-height: 36px;
-  padding: 6px 12px;
-  background: var(--surface);
+.toolbar .segmented {
+  margin: 0;
+}
+
+.compare {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--app-gap);
+}
+
+.compare-col h2 {
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-title-medium);
+}
+
+.compare-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.compare-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--app-row);
+  padding: 0 8px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-small);
+  color: inherit;
+  text-decoration: none;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+}
+
+.compare-item.same {
+  outline: 2px solid var(--md-sys-color-primary);
+  background: var(--md-sys-color-primary-container);
+}
+
+/* After `.same`, so the focused item keeps the full focus ring; its text
+   wraps to show it whole (FR-023). */
+.compare-item:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+}
+
+.compare-item:focus-visible .dt-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.compare-rank {
+  flex: none;
+  width: 28px;
+  text-align: end;
+  color: var(--md-sys-color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.compare-text .dt-text {
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.compare-text .dt-text + .dt-text {
+  font: var(--md-sys-typescale-body-small);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ---- Library details: Playlist and Artist (spec 003 §8, §10) ---- */
+
+.toolbar .filter {
+  flex: 1 1 240px;
+  width: auto;
+  max-width: 360px;
+  min-height: var(--app-target);
+  margin: 0;
+}
+
+.detail-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.detail-cover {
+  display: block;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--md-sys-shape-corner-small);
+  object-fit: cover;
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+.detail-head-text {
+  min-width: 0;
+}
+
+.detail-name {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font: var(--md-sys-typescale-title-large);
+  color: var(--md-sys-color-on-surface);
+}
+
+.detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  margin: 0;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.artist-meta {
+  margin-bottom: 12px;
+}
+
+/* Medium and larger windows: the playlist's meta line, its gates and the
+   order control on one strip above the table; the top bar names the
+   playlist (spec 003 §8, SC-001). */
+.playlist-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-bottom: 8px;
+}
+
+.playlist-strip .caption {
+  margin: 0;
+}
+
+.playlist-strip .segmented {
+  margin: 0 0 0 auto;
+}
+
+.playlist-strip .segmented button {
+  white-space: nowrap;
+}
+
+/* With the strip above it, a 900 px tall window holds 15 rows of 48 px, not
+   of 52 (SC-001). Large windows only; a row keeps its 48 px target. */
+.playlist-dense {
+  --app-row: 48px;
+}
+
+/* The separator is drawn inside the 48 px, as the header's is, so a row
+   holding a 48 px link stays 48 px tall. */
+.playlist-dense .dt-body .dt-row {
+  border-bottom: 0;
+  box-shadow: inset 0 -1px 0 var(--md-sys-color-outline-variant);
+}
+
+.like-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.like-status .status,
+.seed-bar .status {
+  margin: 0;
+}
+
+.seed-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 0 12px;
+}
+
+.seed-caption {
+  margin: 0;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface);
+}
+
+.seed-bar .status {
+  flex-basis: 100%;
+}
+
+.dt-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.reach-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 720px;
+}
+
+.reach-card p {
+  margin: 0;
+}
+
+.reach-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 40px;
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+}
+
+.figure-value {
+  font: var(--md-sys-typescale-headline-small);
+  color: var(--md-sys-color-on-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.figure-label,
+.reach-credit {
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-small);
+}
+
+.reach-none,
+.reach-profile {
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.reach-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Under the radar's group headings: a title, and a note with its link. */
+.dt-group > [role='gridcell'] {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dt-group-title {
+  color: var(--md-sys-color-on-surface);
+}
+
+.dt-group-note {
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+}
+
+/* ---- List–detail: Playlists and Artists with one open (spec 003, FR-020) ----
+ * Expanded and large: a 360 px pane of the list beside the detail. The pane
+ * stays under the top bar and scrolls on its own, so the page scrolls the
+ * detail. On large, a docked details sheet folds the pane away. */
+
+.screen:has(.list-detail) {
+  max-width: none;
+}
+
+.list-detail.split {
+  display: grid;
+  grid-template-columns: var(--app-list-pane) minmax(0, 1fr);
+  gap: var(--app-gap);
+  align-items: start;
+}
+
+.list-detail.split:has(.side-sheet.docked) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.list-detail.split:has(.side-sheet.docked) > .list-detail-pane {
+  display: none;
+}
+
+/* Below 1600 px, a playlist in Match folds the pane too: Relation, ΔBPM
+   and Released need the width, and beside the pane at 1440 the titles were
+   cut to a few letters (S04 fix 1, ruling R1; S13c review I1). */
+@media (max-width: 1599.98px) {
+  .list-detail.split:has([data-matching]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .list-detail.split:has([data-matching]) > .list-detail-pane {
+    display: none;
+  }
+}
+
+.list-detail-detail {
+  min-width: 0;
+}
+
+.list-detail-pane {
+  position: sticky;
+  top: var(--app-top-bar);
+}
+
+.list-pane {
+  max-height: calc(100dvh - var(--app-top-bar) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+
+.list-pane-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 8px 0;
+  background: var(--md-sys-color-surface-container-low);
+}
+
+.list-pane .list .row {
+  padding: 4px 8px;
+}
+
+.list-pane .row .main:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+/* "synced" before a date, on a phone's second line only. */
+.dt-prefix {
+  display: none;
+}
+
+.dt-item .dt-prefix {
+  display: inline;
+}
+
+/* ---- Track details: the side sheet (spec 003, US3, research D9) ----
+ * Large: docked at 400 px, the frame beside it shrinks (the table keeps its
+ * height, so SC-001 holds). Medium and expanded: a modal sheet over a scrim.
+ * Compact: a full-screen dialog. */
+
+.side-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--app-side-sheet), calc(100vw - 56px));
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface);
+  outline: none;
+}
+
+.side-sheet.docked {
+  z-index: 2;
+  border-left: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.frame:has(.side-sheet.docked) .frame-body {
+  margin-right: var(--app-side-sheet);
+}
+
+.side-sheet.modal {
+  border-radius: var(--md-sys-shape-corner-large) 0 0
+    var(--md-sys-shape-corner-large);
+  box-shadow: var(--md-sys-elevation-3);
+}
+
+.side-sheet.fullscreen {
+  left: 0;
+  width: auto;
+  background: var(--md-sys-color-surface);
+}
+
+.side-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  background: var(--md-sys-color-scrim);
+}
+
+.side-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--app-top-bar);
+  padding: 8px 8px 8px var(--app-gap);
+}
+
+.side-sheet.fullscreen .side-sheet-head {
+  padding-left: var(--app-margin);
+}
+
+/* A long title keeps three lines; the full name is its tooltip and the
+   dialog's accessible name (FR-023). */
+.side-sheet-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: var(--md-sys-typescale-title-large);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.side-sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--app-gap) 24px;
+}
+
+.side-sheet.fullscreen .side-sheet-body {
+  padding: 0 var(--app-margin) calc(24px + env(safe-area-inset-bottom));
+}
+
+.details-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.details-section:last-child {
+  border-bottom: 0;
+}
+
+.details-heading {
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.details-artists {
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-body-large);
+}
+
+.details-artists a,
+.details-links a,
+.details-note a {
+  display: inline-block;
+  min-height: var(--app-target);
+  line-height: var(--app-target);
+}
+
+.details-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 9em) minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.details-fact {
+  display: contents;
+}
+
+.details-fact dt {
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.details-fact dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.details-key,
+.details-plays {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.details-small {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-small);
+}
+
+.details-note {
+  margin: 0 0 4px;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.details-note p {
+  margin: 0;
+}
+
+.details-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.details-section > p {
+  margin: 0 0 4px;
+}
+
+.details-section .spotify-link-text {
+  margin-left: -4px;
+}
+
+.details-section > p > a {
+  display: inline-block;
+  min-height: var(--app-target);
+  line-height: var(--app-target);
+}
+
+.row.selected {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+/* ---------- Charts (research D10): plain SVG and CSS, tokens only ---------- */
+
+.month-bars {
+  position: relative;
+  padding-top: 32px; /* room for the tooltip above the bars */
+}
+
+.month-bars-svg {
+  display: block;
+  width: 100%;
+  height: 48px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  cursor: crosshair;
+}
+
+.month-bars-bar {
+  fill: var(--md-sys-color-primary);
+}
+
+.month-bars-bar.active {
+  fill: var(--md-sys-color-on-surface);
+}
+
+.month-bars-tick {
+  fill: var(--md-sys-color-on-surface-variant);
+}
+
+/* In a table row: 24 px of bars, no axis, no tooltip; the cell sets the
+   width. */
+.month-bars-svg.compact {
+  width: 100%;
+  height: 24px;
+  border-bottom: 0;
+  cursor: default;
+}
+
+.month-bars-axis {
+  display: flex;
+  margin-top: 4px;
+  justify-content: space-between;
+  font: var(--md-sys-typescale-body-small);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.chart-tip {
+  position: absolute;
+  top: 0;
+  padding: 4px 8px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  background: var(--md-sys-color-inverse-surface);
+  color: var(--md-sys-color-inverse-on-surface);
+  font: var(--md-sys-typescale-body-small);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.meter-track {
+  flex: 1;
+  min-width: 48px;
+  height: 8px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container-highest);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+}
+
+.meter-value {
+  flex: none;
+  min-width: 4ch;
+  text-align: right;
+  font: var(--md-sys-typescale-label-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.meter-high {
+  color: var(--app-color-band-high);
+}
+
+.meter-mid {
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.meter-low {
+  color: var(--md-sys-color-error);
+}
+
+/* The grid scrolls inside its box on a phone; the page never does. */
+.ym-scroll {
+  position: relative; /* holds the visually hidden labels inside the scroll */
+  max-width: 100%;
+  /* Room for the focus ring of a selected edge cell: with the cells' own
+     2 px side padding, 6 px clears its 5 px offset and 3 px outline. */
+  padding: 6px;
+  overflow-x: auto;
+}
+
+/* No horizontal border spacing: the sticky year column would leave a
+   strip beside it where scrolled cells show. The 4 px between cells is
+   their own 2 px side padding instead. */
+.ym-grid {
+  border-collapse: separate;
+  border-spacing: 0 4px;
+  font: var(--md-sys-typescale-label-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.ym-grid th,
+.ym-grid td {
+  padding: 0 2px;
+}
+
+/* January's cells: room for the selection ring (4 px) and the focus
+   outline (5 px off, 3 px wide) between them and the year column. */
+.ym-grid tbody td:nth-child(2),
+.ym-grid thead th:nth-child(2) {
+  padding-left: 10px;
+}
+
+.ym-month {
+  color: var(--md-sys-color-on-surface-variant);
+  font-weight: 500;
+  text-align: center;
+}
+
+/* The year column and the header corners stay put while the grid
+   scrolls. The left shadow paints over the scroll padding, and the
+   vertical ones over the 4 px row gaps above and below, so nothing scrolled
+   under them (a selected cell's ring included) shows beside them. */
+.ym-grid .ym-year,
+.ym-grid .ym-corner {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--md-sys-color-surface);
+  box-shadow:
+    -6px 0 0 var(--md-sys-color-surface),
+    0 -4px 0 var(--md-sys-color-surface),
+    0 4px 0 var(--md-sys-color-surface),
+    -6px -4px 0 var(--md-sys-color-surface),
+    -6px 4px 0 var(--md-sys-color-surface);
+}
+
+.ym-year {
+  padding-right: 8px;
+  color: var(--md-sys-color-on-surface-variant);
+  text-align: right;
+}
+
+.ym-grid .ym-cell,
+.ym-grid .ym-total,
+.ym-grid .ym-season {
+  display: block;
+  width: 100%;
+  min-width: var(--app-target);
+  height: var(--app-target);
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ym-grid .ym-cell {
+  background-color: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface);
+}
+
+/* Five levels against the busiest month; the count is printed as well. */
+.ym-grid .ym-cell.heat-1 {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 12%,
+    var(--md-sys-color-surface-container)
+  );
+}
+
+.ym-grid .ym-cell.heat-2 {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 25%,
+    var(--md-sys-color-surface-container)
+  );
+}
+
+.ym-grid .ym-cell.heat-3 {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 65%,
+    var(--md-sys-color-surface-container)
+  );
+  color: var(--md-sys-color-on-primary);
+}
+
+.ym-grid .ym-cell.heat-4 {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.ym-grid .ym-total {
+  min-width: 56px;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  font-weight: 500;
+  text-align: right;
+}
+
+.ym-grid .ym-season {
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font-weight: 500;
+}
+
+.ym-grid .ym-season:hover,
+.ym-grid .ym-total:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.ym-grid .ym-season[aria-pressed='true'] {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+/* Scoped under .ym-grid so the global button hover (0,2,1) never repaints
+   a heat cell. The state layer over the heat shade, which stays readable under it: an
+   inset shadow, so the contrast checker reads the heat colour itself. */
+.ym-grid .ym-cell {
+  --ym-layer: 0 0 0 0 transparent;
+}
+
+.ym-grid .ym-cell:hover {
+  --ym-layer: inset 0 0 0 100px
+    color-mix(
+      in srgb,
+      var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+      transparent
+    );
+  box-shadow: var(--ym-layer);
+}
+
+/* The selection: every month it covers, and the total when it is the year.
+   Two layers, a surface gap then a primary ring, so it shows on every heat
+   level, the busiest primary-filled cells included. A focused selected cell
+   draws its 3 px focus outline beyond that ring (FR-042), so the two never
+   merge. */
+.ym-grid .ym-cell.selected,
+.ym-grid .ym-total.selected {
+  box-shadow:
+    0 0 0 2px var(--md-sys-color-surface),
+    0 0 0 4px var(--md-sys-color-primary);
+}
+
+.ym-grid .ym-cell.selected {
+  box-shadow:
+    0 0 0 2px var(--md-sys-color-surface),
+    0 0 0 4px var(--md-sys-color-primary),
+    var(--ym-layer);
+}
+
+.ym-grid .ym-cell.selected:focus-visible,
+.ym-grid .ym-total.selected:focus-visible {
+  outline-offset: 5px;
+}
+
+/* ---------- Crate (spec 003, screens.md §5–§6) ---------- */
+
+.import-line {
+  margin: 0 0 12px;
+}
+
+/* Five cards: three columns on large windows, two on medium, one on phones. */
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 1200px) {
+  .hub-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.hub-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.hub-card:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    var(--md-sys-color-surface-container)
+  );
+}
+
+.hub-card > h2 {
+  margin: 0;
+}
+
+.hub-card .card-description {
+  margin: 0;
+}
+
+/* The name's link covers the whole card; its ring is the card's. */
+.hub-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--app-target);
+  color: inherit;
+  text-decoration: none;
+}
+
+.hub-link .icon {
+  color: var(--md-sys-color-primary);
+}
+
+.hub-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+
+/* The ring is the link's own, drawn by its box over the whole card. */
+.hub-link:focus-visible {
+  outline: none;
+}
+
+.hub-link:focus-visible::after {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.hub-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.hub-top {
+  margin: 0;
+  overflow: hidden;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hub-chart {
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.hub-chart .month-bars-svg.compact {
+  height: 32px;
+}
+
+/* Below 400 px a card keeps its words and drops its chart. */
+@media (max-width: 399px) {
+  .hub-chart {
+    display: none;
+  }
+}
+
+/* ---- Overview (spec 003, US8, screens.md §3) ---- */
+
+/* A feed of cards: one column on phones, two on medium and expanded
+   windows, three on large ones. */
+.overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+@media (min-width: 600px) {
+  .overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ov-card {
+  container: ov / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+
+.ov-card > h2 {
+  margin: 0;
+}
+
+.ov-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--app-target);
+  color: inherit;
+  text-decoration: none;
+}
+
+.ov-link:hover span:first-child {
+  text-decoration: underline;
+}
+
+.ov-link span:last-child {
+  color: var(--md-sys-color-primary);
+  font: var(--md-sys-typescale-title-large);
+}
+
+.ov-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.ov-figure {
+  min-width: 0;
+}
+
+.ov-figure dt {
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-label-medium);
+}
+
+.ov-figure dd {
+  margin: 0;
+  font: var(--md-sys-typescale-title-medium);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.card .ov-items {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card .ov-items > li {
+  margin: 0;
+}
+
+.ov-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--app-target);
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-radius: var(--md-sys-shape-corner-small);
+  color: inherit;
+  text-decoration: none;
+}
+
+a.ov-item:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.ov-item-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ov-item-title,
+.ov-item-subtitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ov-item-title {
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.ov-item-subtitle {
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-small);
+}
+
+.ov-item-chart {
+  flex: none;
+  width: 72px;
+}
+
+.ov-item-chart .month-bars-svg.compact {
+  height: 24px;
+}
+
+/* A narrow card keeps the titles and drops the bars; the details sheet the
+   row opens draws them. */
+@container ov (max-width: 319.98px) {
+  .ov-item-chart {
+    display: none;
+  }
+}
+
+.ov-item-pills {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.ov-item-value {
+  flex: none;
+  min-width: 56px;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-small);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ov-caption {
+  margin: 0;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-small);
+}
+
+.ov-card .status {
+  margin: 0;
+}
+
+.ov-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.crate-empty {
+  max-width: 640px;
+}
+
+.crate-empty .actions {
+  flex-wrap: wrap;
+  margin: 8px 0 0;
+}
+
+/* A row's small bars: the cell's width, or less for a short series. */
+.dt-chart {
+  display: block;
+  width: 100%;
+}
+
+.crate-view .ym-scroll {
+  margin: 0 0 8px -6px;
+}
+
+/* The mini year × month grid (hub card, track details on large). */
+.ym-mini {
+  display: grid;
+  gap: 2px;
+  font: var(--md-sys-typescale-label-small);
+  color: var(--md-sys-color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.ym-mini-row {
+  display: grid;
+  grid-template-columns: 4ch repeat(12, minmax(0, 1fr));
+  gap: 2px;
+  align-items: center;
+}
+
+.ym-mini-cell {
+  height: 10px;
+  border-radius: 2px;
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+.ym-mini-cell.out {
+  background: transparent;
+}
+
+.ym-mini-cell.heat-1 {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 25%,
+    var(--md-sys-color-surface-container-highest)
+  );
+}
+
+.ym-mini-cell.heat-2 {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 50%,
+    var(--md-sys-color-surface-container-highest)
+  );
+}
+
+.ym-mini-cell.heat-3 {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 75%,
+    var(--md-sys-color-surface-container-highest)
+  );
+}
+
+.ym-mini-cell.heat-4 {
+  background: var(--md-sys-color-primary);
+}
+
+.details-section .ym-mini {
+  margin: 8px 0;
+}
+
+/* ---- Settings: "Data and sync" (spec 003, US5, FR-038) ----
+ * One card per data source at a readable width; on large windows a 220 px
+ * sticky index of the sections sits on their left. */
+
+.screen:has(.settings.with-index) {
+  max-width: none;
+}
+
+.settings.with-index {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 840px);
+  gap: var(--app-gap);
+  align-items: start;
+}
+
+.settings-section {
+  /* Clear of the top bar by `html`'s scroll-padding-top. */
+  scroll-margin-top: 8px;
+}
+
+.settings-section > .actions {
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+}
+
+.settings-section .file-drop {
+  margin: 12px 0 4px;
+}
+
+.settings-label {
+  margin: 20px 0 8px;
+  font: var(--md-sys-typescale-title-small);
+}
+
+.settings-credit {
+  font: var(--md-sys-typescale-body-small);
+  margin: 12px 0 0;
+}
+
+.settings-sign-in {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.settings-sign-in .text-field {
+  flex: 1 1 240px;
+  width: auto;
+}
+
+.stamps-wrap {
+  overflow-x: auto;
+}
+
+.settings-section .segmented {
+  max-width: 480px;
+}
+
+/* The border takes 1 px of the padding, so the text lines up with the
+   other cards. */
+.settings-danger {
+  border: 1px solid var(--md-sys-color-error);
+  padding: 15px;
+}
+
+.settings-version {
+  font: var(--md-sys-typescale-body-small);
+  margin: 16px 0 0;
+}
+
+.settings-index {
+  position: sticky;
+  top: calc(var(--app-top-bar) + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-index button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: var(--app-target);
+  padding: 0 16px;
+  text-align: left;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.settings-index button:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.settings-index button.active {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  font-weight: 700;
+}
+
+/* ---- Import (spec 003 §14, FR-039): one card at reading width. ---- */
+
+.import {
+  max-width: 840px;
+}
+
+.import .card > h2:not(:first-child) {
+  margin-top: 20px;
+}
+
+.import-steps > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--app-target);
+  font: var(--md-sys-typescale-title-medium);
+  cursor: pointer;
+}
+
+.import-steps > summary::before {
+  content: '▸';
+  width: 20px;
   color: var(--muted);
-  border-radius: 999px;
-  font-size: 0.85rem;
 }
 
-.yearview .chip.active {
-  background: var(--surface-2);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--muted);
+.import-steps[open] > summary::before {
+  content: '▾';
+}
+
+.import .file-drop {
+  margin: 8px 0;
+}
+
+/* ---- Mix workspace (spec 003 §12, T081–T084, T120) ----
+ * The left pane beside the open mix from expanded windows, one column below.
+ * Clues are third-party text: plain, wrapped anywhere, never links. */
+
+.mix-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100dvh - var(--app-top-bar) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+
+.mix-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mix-pane-title {
+  margin: 0 0 4px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface);
+}
+
+.mix-caption {
+  margin: 4px 0;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.mix-link,
+.mix-identify {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mix-link-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mix-link-form .text-field {
+  flex: 1 1 220px;
+  width: auto;
+}
+
+.mix-identify > .btn {
+  align-self: flex-start;
+}
+
+/* A collapsed section: a 48 px summary with its own marker. */
+details.mix-section > summary,
+details.mix-clues > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--app-target);
+  cursor: pointer;
+  list-style: none;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-on-surface);
+}
+
+details.mix-section > summary::-webkit-details-marker,
+details.mix-clues > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.mix-section > summary::before,
+details.mix-clues > summary::before {
+  content: '▸';
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+details.mix-section[open] > summary::before,
+details.mix-clues[open] > summary::before {
+  content: '▾';
+}
+
+details.mix-section > summary:focus-visible,
+details.mix-clues > summary:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+.mix-howto > p,
+.mix-howto details > p {
+  margin: 8px 0;
+  font: var(--md-sys-typescale-body-medium);
+  overflow-wrap: anywhere;
+}
+
+.mix-howto details {
+  padding-left: 16px;
+}
+
+.mix-lines {
+  margin: 0;
+  padding-left: 20px;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* The Mixes list (T116, T123): the row and its menu, then the request's
+ * line, progress, actions and earlier requests. */
+.mix-item {
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.mix-item-head {
+  display: flex;
+  align-items: center;
+}
+
+.mix-item-head > .row {
+  flex: 1;
+  min-width: 0;
+  border-bottom: none;
+}
+
+/* A row that fills the link field reads like one that opens a saved mix. */
+.mix-item-head button.main {
+  font: inherit;
+  color: inherit;
+}
+
+.mix-item-line {
+  margin: 0;
+  padding: 0 4px 4px;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.mix-item-progress {
+  padding: 0 4px 8px;
+}
+
+/* The line above already starts with the step name; the bar keeps it as
+ * its accessible name (aria-label) only. */
+.mix-item-progress .progress-label {
+  display: none;
+}
+
+.mix-requests-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+
+.mix-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 8px 4px;
+}
+
+/* The open mix's running request and its run line (T124). */
+.mix-open-request,
+.mix-run {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.mix-open-request .mix-item-progress {
+  align-self: stretch;
+  padding: 0 0 4px;
+}
+
+.mix-run-stopped {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+}
+
+.mix-earlier {
+  padding: 0 8px 4px;
+}
+
+.row-menu {
+  position: relative;
+  flex: none;
+}
+
+.row-menu-list {
+  position: fixed;
+  z-index: 40;
+  min-width: 160px;
+  padding: 4px 0;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  background: var(--md-sys-color-surface-container);
+  box-shadow: var(--md-sys-elevation-2);
+  overflow-y: auto;
+}
+
+.row-menu-list button,
+.row-menu-list a {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  text-decoration: none;
+  width: 100%;
+  min-height: var(--app-target);
+  padding: 0 16px;
+  text-align: start;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.row-menu-list button:hover,
+.row-menu-list button:focus-visible,
+.row-menu-list a:hover,
+.row-menu-list a:focus-visible {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+/* The open mix. */
+.mix-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mix-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mix-head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mix-head-text .mix-caption {
+  margin: 0;
+}
+
+.mix-title {
+  margin: 8px 0 0;
+  font: var(--md-sys-typescale-title-large);
+  overflow-wrap: anywhere;
+}
+
+.mix-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mix-provenance .status {
+  margin: 4px 0;
+}
+
+/* A link in a caption keeps a 48 px target. */
+.mix-out {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--app-target);
+  overflow-wrap: anywhere;
+}
+
+.mix-player-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.mix-player {
+  width: 100%;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-small);
+}
+
+.mix-player-box .btn[aria-pressed='true'] {
+  color: var(--md-sys-color-primary);
+}
+
+.mix-clues {
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.mix-clues ul {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.mix-clues li {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+/* Round 004's view controls (was `.mix .rowview`). */
+.mix-rowview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 0 0 8px;
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.mix-rowview select {
+  min-height: var(--app-target);
+  padding: 0 8px;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+/* Table cells (S08 fix 1): the title takes the free width and a second
+   line for what a round-003 row says in words; Source is an icon, the
+   Confidence column narrow, Edit and Delete in the row's More menu. */
+.mix-title-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.mix-second {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  min-width: 0;
+  font: var(--md-sys-typescale-body-small);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-origin,
+.mix-refs {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Was `.mix .src.clue`: the candidate's clue, in its own words. */
+.mix-quote {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-style: italic;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.mix-second .flag {
+  flex: none;
+}
+
+.mix-source-icon {
+  display: inline-flex;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-conf {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The long confidence is for screen readers in the table (visually
+   hidden), and visible on a phone, where the short one goes. */
+.dt-item .mix-conf-short {
+  display: none;
+}
+
+.dt-item .mix-conf-long.visually-hidden {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+}
+
+.mix-library {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+/* The review (T117, T118): the Spotify status, the Listen menu, ✓ and ✕. */
+.mix-spotify {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--app-target);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-spotify.found {
+  color: var(--md-sys-color-primary);
+}
+
+.mix-spotify.notFound,
+.mix-spotify-text.notFound {
+  color: var(--md-sys-color-error);
+}
+
+.mix-spotify-text.found {
+  color: var(--md-sys-color-primary);
+}
+
+.mix-review {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The 48 px Listen column and the 96 px Review column hold their 48 px
+   targets edge to edge: no cell padding (Spotify has 64 px for its
+   header's word). */
+.dt-cell:has(> .row-menu, > .mix-review) {
+  padding-inline: 0;
+}
+
+.icon-btn.mix-validate.on {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+/* The review line and Check on Spotify, under the open mix's header. */
+.mix-review-head {
+  display: flex;
+  flex-direction: column;
+}
+
+.mix-review-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.mix-review-head .mix-item-progress {
+  padding: 0;
+}
+
+.mix-rowview .segmented {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+/* A phone: the title has the whole line; the second line wraps. */
+.dt-item .mix-title-cell {
+  padding: 0;
+}
+
+.dt-item .mix-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* The folding Mixes pane: below 1,600 px a wide window gives the open mix
+   the whole width (its tracklist needs it); the header's Mixes button
+   brings the pane back. */
+.mix-pane-toggle {
+  display: none;
+}
+
+/* The Mixes button's error mark: the list has an error to show. */
+.mix-pane-alert {
+  display: inline-flex;
+  margin-left: 4px;
+  color: var(--md-sys-color-error);
+}
+
+@media (min-width: 840px) and (max-width: 1599.98px) {
+  .mix-pane-toggle {
+    display: inline-flex;
+  }
+
+  .mix:not(.mix-pane-on) .list-detail.split:has(.mix-detail) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mix:not(.mix-pane-on)
+    .list-detail.split:has(.mix-detail)
+    > .list-detail-pane {
+    display: none;
+  }
+}
+
+/* A row drawn whole: a gap separator or the row being edited. */
+.dt-full {
+  display: block;
+  padding: 4px var(--dt-pad);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.dt-full:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+.mix-gap {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mix-gap-text {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  min-width: 0;
+  min-height: var(--app-target);
+}
+
+.mix-gap-title {
+  font-style: italic;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-gap-span {
+  font-variant-numeric: tabular-nums;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-gap .mix-clues {
+  flex-basis: 100%;
+}
+
+.mix-edit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.mix-edit-actions {
+  display: flex;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.mix-under {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mix-create {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Validated only / All tracks: each segment as wide as its words, on one
+   line (equal halves wrapped "Validated only (4)"). */
+.mix-create .segmented {
+  max-width: 100%;
+  margin-bottom: 0;
+}
+
+.mix-create .segmented button {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.mix-notfound {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mix-notfound li {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.mix-paste {
+  min-height: 112px;
+  padding: 12px 16px;
+  margin: 4px 0 8px;
+  resize: vertical;
+}
+
+/* ---- Find and filter (spec 003, US7) ---- */
+
+/* The filters above a track table: text, BPM range, key, Clear filters. */
+.filter-bar {
+  margin: 0 0 12px;
+}
+
+.filter-bar-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.filter-text {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 220px;
+  max-width: 360px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.filter-text .icon {
+  position: absolute;
+  left: 14px;
+  pointer-events: none;
+}
+
+.filter-text input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--app-target);
+  padding: 0 12px 0 42px;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+  background: transparent;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-full);
+}
+
+.filter-text input:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+.filter-bpm-range {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.text-field.filter-bpm {
+  width: 96px;
+  min-height: var(--app-target);
+  padding: 0 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-field.filter-bpm[aria-invalid='true'] {
+  border-color: var(--md-sys-color-error);
+  border-width: 2px;
+}
+
+.filter-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font: var(--md-sys-typescale-body-small);
+  color: var(--md-sys-color-error);
+}
+
+.filter-count {
+  margin: 6px 0 0;
+}
+
+/* Round 005: the decade chips and, where the Released header cannot sort,
+   "Sort by year, oldest first". */
+.filter-bar-year {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  margin-top: 8px;
+}
+
+.filter-decades {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.filter-decades-label {
+  flex: none;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Few decades: the chips wrap rather than scroll, so none hides. */
+.filter-decades .segmented.scroll {
+  flex-wrap: wrap;
+  overflow: visible;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+/* A filter chip that toggles: filled while the table sorts by year. */
+.filter-year-sort[aria-checked='true'] {
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-color: transparent;
+}
+
+.filter-clear,
+.key-picker-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--app-target);
+  padding: 0 12px 0 16px;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-on-surface-variant);
+  background: transparent;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-small);
+  cursor: pointer;
+}
+
+.filter-clear {
+  padding: 0 16px 0 12px;
+}
+
+.key-picker-button.set {
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-color: var(--md-sys-color-secondary-container);
+}
+
+.filter-clear:hover,
+.key-picker-button:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.key-picker {
+  position: relative;
+}
+
+.key-menu {
+  position: fixed;
+  z-index: 40;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 12px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  background: var(--md-sys-color-surface-container);
+  box-shadow: var(--md-sys-elevation-2);
+}
+
+.key-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 48px);
+  gap: 4px;
+}
+
+.key-choice.pill {
+  min-width: 48px;
+  min-height: var(--app-target);
+  padding: 0;
+  font: var(--md-sys-typescale-label-large);
+  border-width: 2px;
+  border-radius: var(--md-sys-shape-corner-small);
+  cursor: pointer;
+}
+
+.key-choice.checked {
+  outline: 3px solid var(--md-sys-color-on-surface);
+  outline-offset: 2px;
+}
+
+.key-menu-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--app-target);
+  margin-top: 8px;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+  cursor: pointer;
+}
+
+.key-menu-switch input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--md-sys-color-primary);
+}
+
+.key-menu-any {
+  min-height: var(--app-target);
+  padding: 0 12px;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  cursor: pointer;
+}
+
+.key-menu-any:disabled {
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: default;
+}
+
+/* A phone draws no sort headers: the sort in force, and its reset. */
+.dt-sorted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.dt-sorted button {
+  min-height: var(--app-target);
+  padding: 0 12px;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  cursor: pointer;
+}
+
+/* The top bar's search field (FR-051). */
+.top-bar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 360px;
+  min-width: 0;
+  min-height: var(--app-target);
+  margin: 0 auto 0 24px;
+  padding: 0 8px 0 16px;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  cursor: text;
+}
+
+/* The field follows the title, the actions keep the right end. */
+.top-bar:has(.top-bar-search) .top-bar-title {
+  flex: 0 1 auto;
+}
+
+.top-bar-search-text {
+  flex: 1;
+  text-align: start;
+}
+
+.top-bar-search kbd {
+  padding: 0 8px;
+  font: var(--md-sys-typescale-label-medium);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+/* The search view: a docked panel, full screen on a phone. */
+.search-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--md-sys-color-scrim);
+}
+
+.search-view {
+  position: fixed;
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+}
+
+/* The top bar's field opens into it: its left edge where the field's is
+   (SearchView places it), never past the window's right edge. */
+.search-view.docked {
+  top: 8px;
+  left: var(--search-left, 16px);
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  box-shadow: var(--md-sys-elevation-2);
+}
+
+.search-view.fullscreen {
+  inset: 0;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-height: 56px;
+  padding: 4px 8px 4px 16px;
+  color: var(--md-sys-color-on-surface-variant);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.search-view.fullscreen .search-field {
+  padding-left: 4px;
+}
+
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--app-target);
+  padding: 0;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+  background: transparent;
+  border: 0;
+}
+
+.search-field input:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+.search-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 0 12px;
+}
+
+.search-body > .status {
+  margin: 4px 16px;
+}
+
+.search-note {
+  margin: 0;
+  padding: 16px 24px;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.search-group-title {
+  margin: 8px 0 0;
+  padding: 8px 24px 4px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.search-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 4px 24px;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+}
+
+.search-option.active {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.search-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.search-name,
+.search-context {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.search-name {
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+}
+
+.search-option.active .search-name {
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.search-context {
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.search-name strong,
+.search-context strong {
+  font-weight: 700;
+}
+
+.search-more {
+  padding-left: 40px;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-primary);
 }

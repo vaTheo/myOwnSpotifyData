@@ -187,7 +187,10 @@ describe('data calls', () => {
       { kind: 'identify-mix', payload: { url: 'https://x.y/z' } },
       'tok'
     );
-    expect(res).toEqual({ ok: true, value: { id: 'u1', kind: 'identify-mix' } });
+    expect(res).toEqual({
+      ok: true,
+      value: { id: 'u1', kind: 'identify-mix' },
+    });
     const [url, init] = fetchFn.mock.calls[0];
     expect(url).toBe(`${BASE}/rest/v1/jobs`);
     expect(init?.method).toBe('POST');
@@ -268,6 +271,22 @@ describe('data calls', () => {
       `${BASE}/rest/v1/dataset_rows?dataset=eq.library&generation=lt.5`
     );
     expect(init?.method).toBe('DELETE');
+  });
+
+  it('removeReturning sends DELETE asking for the rows back', async () => {
+    const { c, fetchFn } = client(() => json([{ id: 'x' }]));
+    const res = await c.removeReturning(
+      'jobs',
+      { id: 'eq.x', status: 'eq.queued', select: 'id' },
+      'tok'
+    );
+    expect(res).toEqual({ ok: true, value: [{ id: 'x' }] });
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe(`${BASE}/rest/v1/jobs?id=eq.x&status=eq.queued&select=id`);
+    expect(init?.method).toBe('DELETE');
+    expect(new Headers(init?.headers).get('Prefer')).toBe(
+      'return=representation'
+    );
   });
 
   it('rpc posts to /rpc/<name> and returns the value', async () => {

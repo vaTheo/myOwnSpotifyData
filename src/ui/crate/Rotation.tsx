@@ -1,37 +1,41 @@
+import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
-import type { PlayRow } from '../../db/schema';
 import {
   MIN_ROTATION_PLAYS,
   MONTH_NAMES,
-  PAGE_SIZE,
   ROTATION_WINDOWS,
-  hasMonthData,
   heavyRotation,
   lastMonths,
   peakMonth,
+  type RotationItem,
 } from '../../model/crate';
-import { historySummary } from '../../model/state';
 import { routeHref } from '../../router';
-import { Badge } from '../components/Badge';
-import { Segmented } from '../components/Segmented';
-import { YearView, yearViewOf } from '../components/YearView';
+import { MonthBars } from '../charts/MonthBars';
+import { monthSeries } from '../charts/series';
+import { Flag } from '../components/Flag';
+import { SegmentedButtons } from '../components/SegmentedButtons';
+import { DetailsSection } from '../details/TrackDetails';
 import { plural } from '../format';
+import { countColumn } from '../table/columns';
+import { historySummary } from '../../model/state';
 import { staleMonthKey, windowLabel } from './labels';
 import { rotationMonths } from './selections';
 import {
-  CrateRow,
+  CrateSheet,
+  CrateTable,
+  DEFAULT_SORT,
   OpenMonthLink,
-  Paged,
-  PlaylistLinks,
-  Strip,
+  chartColumn,
+  crateColumns,
+  historyRange,
   inNoPlaylist,
   monthLabel,
-  rowYear,
   useCrateRows,
 } from './shared';
+import { EMPTY_FILTER } from '../filters/trackFilter';
 
-const expanded = signal<string | null>(null);
-const shown = signal(PAGE_SIZE);
+const sort = signal(DEFAULT_SORT);
+const filter = signal(EMPTY_FILTER);
 
 const OPTIONS = ROTATION_WINDOWS.map((n) => ({
   value: String(n),
@@ -52,39 +56,90 @@ function rangeLabel(keys: string[]): string {
   return `${monthLabel(first)} – ${monthLabel(last)}`;
 }
 
-function stripCells(row: PlayRow, keys: string[]): string[] {
-  if (!hasMonthData(row)) return [];
-  return keys.map((key) => {
-    const n = row.months[key] ?? 0;
-    return `${shortMonth(key)} ${n > 0 ? n.toLocaleString() : '—'}`;
-  });
+function windowSeries(item: RotationItem, keys: string[]) {
+  return monthSeries(item.row.months, keys, historyRange());
 }
 
-export function Rotation() {
+/** `New` first, then "not in a playlist" (today's precedence). */
+function rotationFlag(item: RotationItem) {
+  if (item.isNew) return <Flag kind="top">New</Flag>;
+  if (inNoPlaylist(item.row)) return <Flag kind="todo">not in a playlist</Flag>;
+  return null;
+}
+
+/** The view's figures for the opened track: the window, month by month. */
+function RotationExtra(p: { item: RotationItem; keys: string[] }) {
+  const months = p.item.row.months;
+  const month = months ? peakMonth(months, p.keys) : null;
+  return (
+    <DetailsSection title="Heavy rotation">
+      <p class="details-note">
+        {p.item.windowPlays.toLocaleString()} of{' '}
+        {plural(p.item.row.plays, 'play')}
+      </p>
+      <MonthBars series={windowSeries(p.item, p.keys)} />
+      {month && <OpenMonthLink month={month} />}
+    </DetailsSection>
+  );
+}
+
+export function Rotation({ detail }: { detail?: string }) {
   const rows = useCrateRows();
   const now = new Date();
   const months = rotationMonths.value;
   const keys = lastMonths(now, months);
-  const items = heavyRotation(rows, now, months);
-  const view = yearViewOf('crate-rotation', items, (it) => rowYear(it.row));
+  // `now` counts by its day.
+  const today = now.toDateString();
+  const items = useMemo(
+    () => heavyRotation(rows, now, months),
+    [rows, today, months]
+  );
   const caption = [rangeLabel(keys)];
   if (now.getDate() < 8) {
     const current = shortMonth(keys[keys.length - 1]);
     caption.push(`${current} is ${plural(now.getDate(), 'day')} in`);
   }
   caption.push(`${MIN_ROTATION_PLAYS}+ plays`, plural(items.length, 'track'));
+  const opened = items.find((item) => item.row.trackId === detail);
   const stale = staleMonthKey(historySummary.value?.range, now);
+  // Kept while its inputs stay, so the table's memos hold (S13 A5);
+  // the model comes in by its rows.
+  const columns = useMemo(
+    () =>
+      crateColumns<RotationItem>({
+        metrics: [
+          countColumn('window', 'Plays in window', (item) => item.windowPlays, {
+            unit: ['play', 'plays'],
+          }),
+          countColumn(
+            'lifetime',
+            'Lifetime',
+            (item) => item.row.plays,
+            {},
+            { priority: 3, width: '96px', compact: 'hidden' }
+          ),
+        ],
+        chart: chartColumn(
+          `Last ${windowLabel(months)}`,
+          'Plays per month',
+          (item) => windowSeries(item, keys),
+          keys.length
+        ),
+        flag: rotationFlag,
+      }),
+    [rows, today, months]
+  );
   return (
     <>
-      <Segmented
-        options={OPTIONS}
-        value={String(months)}
-        onChange={(v) => {
-          rotationMonths.value = Number(v);
-          shown.value = PAGE_SIZE;
-        }}
-      />
-      <YearView screen="crate-rotation" decades={view.decades} />
+      <div class="toolbar">
+        <SegmentedButtons
+          options={OPTIONS}
+          value={String(months)}
+          onChange={(v) => {
+            rotationMonths.value = Number(v);
+          }}
+        />
+      </div>
       <p class="caption">{caption.join(' · ')}</p>
       {items.length === 0 ? (
         <div class="empty">
@@ -107,7 +162,6 @@ export function Rotation() {
                   type="button"
                   onClick={() => {
                     rotationMonths.value = 6;
-                    shown.value = PAGE_SIZE;
                   }}
                 >
                   Try 6 months
@@ -117,59 +171,20 @@ export function Rotation() {
           )}
         </div>
       ) : (
-        <>
-          <ul class="list">
-            {view.shown.slice(0, shown.value).map((item, i) => {
-              const id = item.row.trackId;
-              const cells = stripCells(item.row, keys);
-              const month = hasMonthData(item.row)
-                ? peakMonth(item.row.months, keys)
-                : null;
-              return (
-                <CrateRow
-                  key={id}
-                  rank={i + 1}
-                  row={item.row}
-                  badge1={
-                    <Badge kind="plays">
-                      {plural(item.windowPlays, 'play')}
-                    </Badge>
-                  }
-                  badge2={
-                    item.isNew ? (
-                      <Badge kind="top">New</Badge>
-                    ) : inNoPlaylist(item.row) ? (
-                      <Badge kind="todo">not in a playlist</Badge>
-                    ) : (
-                      <Badge>{item.row.plays.toLocaleString()} lifetime</Badge>
-                    )
-                  }
-                  expanded={expanded.value === id}
-                  onToggle={() => {
-                    expanded.value = expanded.value === id ? null : id;
-                  }}
-                >
-                  <p class="muted">
-                    {item.windowPlays.toLocaleString()} of{' '}
-                    {plural(item.row.plays, 'play')}
-                  </p>
-                  {cells.length > 0 && <Strip cells={cells} />}
-                  <PlaylistLinks row={item.row} />
-                  {month && <OpenMonthLink month={month} />}
-                </CrateRow>
-              );
-            })}
-          </ul>
-          <Paged
-            shown={shown.value}
-            total={view.shown.length}
-            step={PAGE_SIZE}
-            onMore={() => {
-              shown.value += PAGE_SIZE;
-            }}
-          />
-        </>
+        <CrateTable
+          label={`Heavy rotation, last ${windowLabel(months)}`}
+          items={items}
+          columns={columns}
+          sort={sort}
+          filter={filter}
+          resetKey={String(months)}
+          detail={detail}
+        />
       )}
+      <CrateSheet
+        detail={detail}
+        extra={opened && <RotationExtra item={opened} keys={keys} />}
+      />
     </>
   );
 }

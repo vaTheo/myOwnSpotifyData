@@ -1,5 +1,25 @@
+import type { PlayRow } from '../../db/schema';
 import type { HistoryRange } from '../../history/importer';
+import type { Model } from '../../model/aggregate';
 import { monthKey } from '../../model/crate';
+import { artistNames } from '../format';
+
+/**
+ * A play row's title and artists. The synced track wins: the export holds
+ * whatever names Spotify wrote at play time, and either of them can be null.
+ * Pure, so the Overview's Heavy rotation names its tracks as the view does.
+ */
+export function playLabel(
+  m: Model | null,
+  row: PlayRow
+): { title: string; subtitle: string } {
+  const track = m?.tracksByKey.get(row.trackId);
+  if (track) return { title: track.name, subtitle: artistNames(track.artists) };
+  return {
+    title: row.trackName ?? 'Unknown title',
+    subtitle: row.artistName ?? 'Unknown artist',
+  };
+}
 
 /**
  * Spec §3: an export whose last play is older than this reads as stale. The

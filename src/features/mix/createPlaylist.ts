@@ -1,11 +1,14 @@
-import type { TracklistRow } from '../../db/schema';
+import type { MixRow, TracklistRow } from '../../db/schema';
 // Type-only import: erased under verbatimModuleSyntax, so this file never
 // evaluates state.ts (and its auth/browser localStorage) under Vitest. It
 // MUST stay `import type`.
 import type { CreatePlaylistState, UnmatchedRow } from '../../model/state';
 import type { SpotifyClient } from '../../spotify/client';
 import type { ApiPlaylist } from '../../spotify/types';
+import { QuotaError } from '../../spotify/errors';
 import { describeError } from '../../util/errors';
+import { sameTrack } from './keepReview';
+import { keepStoredAnswers, storedUri } from './spotifyCheck';
 import { isIdentified, searchTrack, type RowMatch } from './spotifySearch';
 
 export interface CreatePlaylistDeps {
@@ -25,11 +28,43 @@ export interface CreatePlaylistOutcome {
   /** Non-null once the playlist exists, so the wrapper can persist it. */
   playlistId: string | null;
   url: string | null;
+  /** Set when Spotify answered with its quota lock-out (epoch ms it
+   *  lapses), so the wrapper remembers it app-wide before the error
+   *  becomes text (S08d). */
+  quotaUntil?: number;
   /** Round 005: the year each undated row took from its match, kept even
    *  when a later step failed. Keyed on the input row object. */
   years: Map<TracklistRow, number>;
   /** The input rows with those years applied (`yearFrom: 'spotify'`). */
   rows: TracklistRow[];
+}
+
+/** Which tracks Create playlist adds (spec 003 §12, owner's D6). */
+export type CreateChoice = 'validated' | 'all';
+
+/**
+ * The rows Create playlist adds, in set order (T119, T126, owner's D6).
+ * **Validated only**: validated tracks, a candidate included once validated.
+ * **All tracks**: every track still in the list (a removed one is gone from
+ * it), candidates included. Gap and "ID" rows never. Only the working list
+ * decides: the filter chips and the Sort never change it.
+ */
+export function tracksToAdd(
+  rows: readonly TracklistRow[],
+  choice: CreateChoice
+): TracklistRow[] {
+  return rows.filter(
+    (r) => isIdentified(r) && (choice === 'all' || r.validated === true)
+  );
+}
+
+/** Validated only once any track is validated, else All tracks. */
+export function defaultChoice(rows: readonly TracklistRow[]): CreateChoice {
+  return rows.some((r) => !r.gap && r.validated === true) ? 'validated' : 'all';
+}
+
+function quotaOf(err: unknown): { quotaUntil?: number } {
+  return err instanceof QuotaError ? { quotaUntil: err.retryAt } : {};
 }
 
 /**
@@ -48,6 +83,36 @@ export function applyYears(
       ? row
       : { ...row, year, yearFrom: 'spotify' as const };
   });
+}
+
+/**
+ * `applyYears` on another copy of the rows (S13b M2): a row of `rows` that
+ * carries no year takes the year of a searched row naming the same track
+ * (`sameTrack` on artist and title only: an ISRC kept from a rejected
+ * identification never decides). For the copy the owner saved, or the open
+ * rows, during the run (a validated row is a new object). A row now naming
+ * another track, or already dated, is left alone.
+ */
+export function applyYearsByTrack(
+  rows: TracklistRow[],
+  years: Map<TracklistRow, number>
+): TracklistRow[] {
+  if (years.size === 0) return rows;
+  const learned = [...years];
+  let changed = false;
+  const out = rows.map((row) => {
+    if (row.gap || typeof row.year === 'number') return row;
+    const hit = learned.find(([searched]) =>
+      sameTrack(
+        { artist: searched.artist, title: searched.title },
+        { artist: row.artist, title: row.title }
+      )
+    );
+    if (hit === undefined) return row;
+    changed = true;
+    return { ...row, year: hit[1], yearFrom: 'spotify' as const };
+  });
+  return changed ? out : rows;
 }
 
 const ADD_BATCH = 100;
@@ -75,22 +140,31 @@ export async function runCreatePlaylist(
   const years = new Map<TracklistRow, number>();
   const outcome = (
     playlistId: string | null,
-    url: string | null
+    url: string | null,
+    err?: unknown
   ): CreatePlaylistOutcome => ({
     playlistId,
     url,
+    ...quotaOf(err),
     years,
     rows: applyYears(rows, years),
   });
   onState({ status: 'resolving', done: 0, total });
   let done = 0;
   for (const row of identified) {
+    // Check on Spotify already found it (T117): no search again.
+    const stored = storedUri(row);
+    if (stored !== null) {
+      uris.push(stored);
+      onState({ status: 'resolving', done: ++done, total });
+      continue;
+    }
     let match: RowMatch;
     try {
       match = await searchTrack(client, row);
     } catch (err) {
       onState({ status: 'error', message: describeError(err) });
-      return outcome(null, null);
+      return outcome(null, null, err);
     }
     // A dated row keeps its year (Shazam's or a catalogue's).
     if (match.year !== null && typeof row.year !== 'number')
@@ -119,7 +193,7 @@ export async function runCreatePlaylist(
     });
   } catch (err) {
     onState({ status: 'error', message: describeError(err) });
-    return outcome(null, null);
+    return outcome(null, null, err);
   }
   const playlistId = playlist.id;
   const url = playlist.external_urls?.spotify ?? null;
@@ -136,8 +210,14 @@ export async function runCreatePlaylist(
       } catch (err) {
         // The playlist exists: surface its link and the count added so far,
         // never swallowed. The wrapper still persists the link (returns url).
-        onState({ status: 'error', message: describeError(err), url, added });
-        return outcome(playlistId, url);
+        onState({
+          status: 'error',
+          message: describeError(err),
+          url,
+          added,
+          total,
+        });
+        return outcome(playlistId, url, err);
       }
       added += batch.length;
     }
@@ -146,4 +226,28 @@ export async function runCreatePlaylist(
   // 4. Done.
   onState({ status: 'done', name, url, added: uris.length, total, unmatched });
   return outcome(playlistId, url);
+}
+
+/**
+ * The mix Create playlist saves when it ends (S13 N1). A copy the owner
+ * saved after the tap wins whole (validates, edits, removed tracks): Create
+ * adds only its playlist. Otherwise the rows of the tap, with the check
+ * answers already stored put back (`keepStoredAnswers`).
+ */
+export function rowAfterCreate(
+  tapped: MixRow,
+  stored: MixRow | undefined,
+  tapAt: number,
+  playlist: { playlistUrl?: string; playlistId: string },
+  now: number
+): MixRow {
+  if (stored !== undefined && stored.savedAt >= tapAt) {
+    return { ...stored, ...playlist, savedAt: now };
+  }
+  return {
+    ...tapped,
+    rows: keepStoredAnswers(tapped.rows, stored?.rows ?? []),
+    ...playlist,
+    savedAt: now,
+  };
 }

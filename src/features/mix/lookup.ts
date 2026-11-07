@@ -1,4 +1,5 @@
 import type { TracklistRow } from '../../db/schema';
+import { nameKey } from '../../model/normalize';
 import { fetchOembed, type OembedResult } from './oembed';
 import { fetchTrackId, type TrackIdResult } from './trackid';
 import { permalinkCandidates, type MixInput } from './url';
@@ -140,8 +141,29 @@ export function editTracklistRow(
     (edit.artist !== row.detected.artist ||
       edit.title !== row.detected.title ||
       (edit.startSec !== undefined && edit.startSec !== row.startSec));
+  // A new artist or title names another track: Check on Spotify's answer
+  // (T117) no longer applies; the label or the time change nothing.
+  const renamed = edit.artist !== row.artist || edit.title !== row.title;
+  const kept: TracklistRow = { ...row };
+  if (renamed) {
+    delete kept.spotify;
+    delete kept.checkedAt;
+    // A year belongs to a track (S13b N1). A Spotify year goes with the
+    // answer above; a Shazam or ISRC year belongs to the identified
+    // recording, so it stays only when the row is renamed back to it.
+    // Compared as the library match compares names (case, accents and
+    // spacing aside): a recased name is still the identified recording.
+    const backToDetected =
+      row.detected !== null &&
+      nameKey(edit.artist, edit.title) ===
+        nameKey(row.detected.artist, row.detected.title);
+    if (row.yearFrom === 'spotify' || !backToDetected) {
+      delete kept.year;
+      delete kept.yearFrom;
+    }
+  }
   return {
-    ...row,
+    ...kept,
     artist: edit.artist,
     title: edit.title,
     label: label.length > 0 ? label : null,

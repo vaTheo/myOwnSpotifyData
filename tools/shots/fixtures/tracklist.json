@@ -1,0 +1,39 @@
+{
+  "mix_info": {
+    "title": "Fixture set at the test bench",
+    "artist": "Unknown artist",
+    "audio_filename": "Fixture set at the test bench.m4a"
+  },
+  "tracks": [
+    {
+      "song_name": "Bench Tone",
+      "artist": "Test Artist",
+      "time_in_mix": "00:00:00",
+      "confidence": 91.5,
+      "duration": null,
+      "metadata": {
+        "isrc": "ZZTEST000001",
+        "label": "Fixture Records",
+        "release_date": "1994"
+      }
+    },
+    {
+      "song_name": "Second Bench",
+      "artist": "Another Tester",
+      "time_in_mix": "00:06:30",
+      "confidence": 88.0,
+      "duration": null,
+      "metadata": {}
+    },
+    {
+      "song_name": "Closing Bench",
+      "artist": "Test Artist",
+      "time_in_mix": "00:13:10",
+      "confidence": 95.2,
+      "duration": null,
+      "metadata": {
+        "release_date": "2003"
+      }
+    }
+  ]
+}

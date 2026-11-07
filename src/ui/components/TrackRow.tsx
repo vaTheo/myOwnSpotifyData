@@ -1,50 +1,42 @@
-import type { ComponentChildren } from 'preact';
-import { SpotifyLink } from './SpotifyLink';
-
+/**
+ * One item of the list pane beside a detail (`ListPane`): cover, name and
+ * one figure, a link to the item, the open one `aria-current="page"`.
+ */
 export function TrackRow(p: {
-  rank?: number;
   imageUrl?: string | null;
   title: string;
   subtitle?: string;
-  href?: string;
-  onClick?: () => void;
-  spotifyUrl?: string | null;
-  badges?: ComponentChildren;
-  children?: ComponentChildren;
+  href: string;
+  /** Where focus returns when the row's details sheet closes. */
+  rowId?: string;
+  /** The row whose details sheet is open. */
+  selected?: boolean;
+  /** -1 leaves the row out of the Tab order (a roving list, T100). */
+  tabIndex?: number;
 }) {
-  const main = (
-    <>
-      <span class="title">{p.title}</span>
-      {p.subtitle && <span class="sub">{p.subtitle}</span>}
-      {p.badges && <div class="badges">{p.badges}</div>}
-    </>
-  );
   return (
     <li>
-      <div class="row">
-        {p.rank !== undefined && <span class="rank">{p.rank}</span>}
-        {p.imageUrl && (
+      <div class={p.selected ? 'row selected' : 'row'}>
+        {/* `null`: a cover column without a picture keeps its place. */}
+        {p.imageUrl ? (
           <img class="cover" src={p.imageUrl} loading="lazy" alt="" />
-        )}
-        {p.href ? (
-          <a class="main" href={p.href}>
-            {main}
-          </a>
-        ) : p.onClick ? (
-          <button type="button" class="main" onClick={p.onClick}>
-            {main}
-          </button>
         ) : (
-          <div class="main">{main}</div>
+          p.imageUrl === null && <span class="cover" aria-hidden="true" />
         )}
-        <SpotifyLink href={p.spotifyUrl} />
-        {p.href && (
-          <span class="chev" aria-hidden="true">
-            ›
-          </span>
-        )}
+        <a
+          class="main"
+          href={p.href}
+          data-row-id={p.rowId}
+          aria-current={p.selected ? 'page' : undefined}
+          tabIndex={p.tabIndex}
+        >
+          <span class="title">{p.title}</span>
+          {p.subtitle && <span class="sub">{p.subtitle}</span>}
+        </a>
+        <span class="chev" aria-hidden="true">
+          ›
+        </span>
       </div>
-      {p.children}
     </li>
   );
 }

@@ -1,30 +1,31 @@
+import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import {
   FINISH_MIN_OUTCOMES,
-  PAGE_SIZE,
   finishRate,
-  rateBand,
   type FinishItem,
 } from '../../model/crate';
-import { Badge } from '../components/Badge';
-import { Segmented } from '../components/Segmented';
-import { YearView, yearViewOf } from '../components/YearView';
+import { Meter } from '../charts/Meter';
+import { Flag } from '../components/Flag';
+import { SegmentedButtons } from '../components/SegmentedButtons';
+import { DetailsSection } from '../details/TrackDetails';
 import { plural } from '../format';
+import { countColumn } from '../table/columns';
 import { finishTab } from './selections';
 import {
-  CrateRow,
-  Paged,
-  PlaylistLinks,
+  CrateSheet,
+  CrateTable,
+  DEFAULT_SORT,
+  crateColumns,
   inNoPlaylist,
-  rowYear,
   useCrateRows,
 } from './shared';
+import { EMPTY_FILTER } from '../filters/trackFilter';
 
 type Tab = 'finished' | 'skipped';
 
-/** One row open at a time, keyed by track id. Reset when the tab changes. */
-const expanded = signal<string | null>(null);
-const limit = signal(PAGE_SIZE);
+const sort = signal(DEFAULT_SORT);
+const filter = signal(EMPTY_FILTER);
 
 const TAB_OPTIONS: { value: Tab; label: string }[] = [
   { value: 'finished', label: 'Finished' },
@@ -37,102 +38,147 @@ const CAPTION: Record<Tab, string> = {
 };
 
 /**
- * Both tabs show "<n>% finished", so the colour band is read off the integer
- * the row displays rather than off FinishItem.rate: the badge and the legend
- * can never disagree by a rounding step.
+ * Both tabs show "<n>% finished", so the meter's band is read off the
+ * integer it displays rather than off FinishItem.rate: the meter and the
+ * legend can never disagree by a rounding step.
  */
 function percentFinished(item: FinishItem): number {
   return Math.round(((item.row.finished ?? 0) / item.outcomes) * 100);
 }
 
-function rateKind(pct: number): 'plays' | 'skip' | undefined {
-  const band = rateBand(pct / 100);
-  if (band === 'high') return 'plays';
-  if (band === 'low') return 'skip';
-  return undefined;
+/** The view's figures for the opened track: the rate and its outcomes. */
+function FinishExtra({ item }: { item: FinishItem }) {
+  return (
+    <DetailsSection title="Finish rate">
+      <Meter pct={percentFinished(item)} />
+      <p class="details-note">
+        {percentFinished(item)}% finished ·{' '}
+        {(item.row.finished ?? 0).toLocaleString()} of{' '}
+        {plural(item.outcomes, 'clear outcome')}
+      </p>
+    </DetailsSection>
+  );
 }
 
-export function Finish() {
+/** The two band swatches and their words (spec 003, screens.md §6). */
+function Legend() {
+  return (
+    <p class="legend">
+      <span class="legend-item">
+        <span class="swatch swatch-high" aria-hidden="true" />
+        65%+ green
+      </span>{' '}
+      ·{' '}
+      <span class="legend-item">
+        <span class="swatch swatch-low" aria-hidden="true" />
+        under 35% red
+      </span>
+    </p>
+  );
+}
+
+export function Finish({ detail }: { detail?: string }) {
   const rows = useCrateRows();
   const tab = finishTab.value;
-  const items = finishRate(rows, tab);
-  const view = yearViewOf('crate-finish', items, (it) => rowYear(it.row));
-  const shown = view.shown.slice(0, limit.value);
+  const items = useMemo(() => finishRate(rows, tab), [rows, tab]);
+  const opened = items.find((item) => item.row.trackId === detail);
+  // Kept while its inputs stay, so the table's memos hold (S13 A5);
+  // the model comes in by its rows.
+  const columns = useMemo(
+    () =>
+      crateColumns<FinishItem>({
+        metrics: [
+          {
+            id: 'rate',
+            header: '% finished',
+            priority: 1,
+            // Narrower figures leave the Artist column readable at 1440
+            // (re-review N2).
+            width: '136px',
+            sortValue: percentFinished,
+            firstDirection: 'desc',
+            cell: (item) => <Meter pct={percentFinished(item)} />,
+            compact: 'meta',
+          },
+          {
+            id: 'finished',
+            header: 'Finished',
+            align: 'end',
+            priority: 2,
+            width: '96px',
+            sortValue: (item) => item.row.finished ?? 0,
+            firstDirection: 'desc',
+            cell: (item) => (
+              <span>
+                {(item.row.finished ?? 0).toLocaleString()} of{' '}
+                {item.outcomes.toLocaleString()}
+              </span>
+            ),
+            compact: 'hidden',
+          },
+          countColumn(
+            'skipped',
+            'Skipped',
+            (item) => item.row.skipped ?? null,
+            {},
+            { priority: 3, width: '88px', compact: 'hidden' }
+          ),
+          countColumn(
+            'unclear',
+            'Unclear',
+            (item) => item.unclear,
+            {},
+            {
+              priority: 3,
+              width: '88px',
+              compact: 'hidden',
+            }
+          ),
+        ],
+        flag: (item) =>
+          inNoPlaylist(item.row) ? (
+            <Flag kind="todo">not in a playlist</Flag>
+          ) : null,
+      }),
+    [rows]
+  );
   // Control, caption and legend render before the data check, so an empty
-  // result still leaves the Segmented reachable (spec section 3).
+  // result still leaves the control reachable (spec section 3).
   return (
     <>
-      <Segmented
-        options={TAB_OPTIONS}
-        value={tab}
-        onChange={(v) => {
-          finishTab.value = v;
-          expanded.value = null;
-          limit.value = PAGE_SIZE;
-        }}
-      />
+      <div class="toolbar">
+        <SegmentedButtons
+          options={TAB_OPTIONS}
+          value={tab}
+          onChange={(v) => {
+            finishTab.value = v;
+          }}
+        />
+      </div>
       <p class="caption">
         {CAPTION[tab]} · {FINISH_MIN_OUTCOMES}+ clear outcomes ·{' '}
         {plural(items.length, 'track')}
       </p>
-      <p class="legend">65%+ green · under 35% red</p>
-      <YearView screen="crate-finish" decades={view.decades} />
+      <Legend />
       {items.length === 0 ? (
         <p class="empty">
           No track has {FINISH_MIN_OUTCOMES} clear outcomes yet.
         </p>
       ) : (
-        <>
-          <ul class="list">
-            {shown.map((item, i) => {
-              const row = item.row;
-              const pct = percentFinished(item);
-              return (
-                <CrateRow
-                  key={row.trackId}
-                  rank={i + 1}
-                  row={row}
-                  expanded={expanded.value === row.trackId}
-                  onToggle={() => {
-                    expanded.value =
-                      expanded.value === row.trackId ? null : row.trackId;
-                  }}
-                  badge1={<Badge kind={rateKind(pct)}>{pct}% finished</Badge>}
-                  badge2={
-                    inNoPlaylist(row) ? (
-                      <Badge kind="todo">not in a playlist</Badge>
-                    ) : (
-                      <Badge>
-                        {(row.finished ?? 0).toLocaleString()} of{' '}
-                        {item.outcomes.toLocaleString()}
-                      </Badge>
-                    )
-                  }
-                >
-                  <p class="muted">
-                    {plural(row.plays, 'play')} ·{' '}
-                    {plural(row.attempts ?? 0, 'start')}
-                  </p>
-                  <p class="strip">
-                    {(row.finished ?? 0).toLocaleString()} finished ·{' '}
-                    {(row.skipped ?? 0).toLocaleString()} skipped ·{' '}
-                    {item.unclear.toLocaleString()} unclear
-                  </p>
-                  <PlaylistLinks row={row} />
-                </CrateRow>
-              );
-            })}
-          </ul>
-          <Paged
-            shown={shown.length}
-            total={view.shown.length}
-            step={PAGE_SIZE}
-            onMore={() => {
-              limit.value += PAGE_SIZE;
-            }}
-          />
-        </>
+        <CrateTable
+          label={`Finish rate, ${tab}`}
+          items={items}
+          columns={columns}
+          sort={sort}
+          filter={filter}
+          resetKey={tab}
+          detail={detail}
+        />
       )}
+      <CrateSheet
+        detail={detail}
+        extra={opened && <FinishExtra item={opened} />}
+      />
     </>
   );
 }

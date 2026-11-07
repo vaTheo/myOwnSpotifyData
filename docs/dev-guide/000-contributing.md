@@ -1,7 +1,7 @@
 # 000 — Contributing
 
 > **Status**: Living
-> **Last updated**: 2026-11-05
+> **Last updated**: 2026-11-07
 
 How to work on this repository: the commands, the files that change together, the documentation conventions (borrowed from the Armtek
 repos, adapted to one small app), what a feature round looks like, and how a release happens. The product itself is described in
@@ -22,8 +22,58 @@ Node 24 (`.nvmrc`), yarn classic 1.22. Install with `yarn` (CI: `yarn install --
 | `yarn lint` | ESLint flat config | after any change |
 | `yarn format` | Prettier (not enforced in CI) | optional |
 | `yarn build` | production build to `dist/` | before a release check |
+| `yarn shots` | the visual loop: every page at four widths on the demo data, layout and accessibility checks, screenshots | after any UI change |
+| `yarn shots:summary [checks]` | findings per check and page of the last run, with examples of the checks named | after `yarn shots` |
+| `yarn shots:sheet` | `shots-output/contact-sheet.html`: the 1440 and 390 px screenshots of every page with their findings | after `yarn shots` |
+| `yarn regression` | the end-to-end regression suite: drives the UI on the demo data and asserts results (routes, orders, gates, imports from `tools/shots/fixtures/`), about a minute | after a change to a screen, a route, a job or a `confirm()`; before a merge |
+| `yarn invariants` | compares the working tree with `main` (the merge base with `origin/main`, or `INVARIANTS_BASE`): `DB_VERSION`, `confirm()` texts, external hosts (code strings, the CSP of `index.html`, `vite.config.ts`), dependencies and `yarn.lock`, every unit test of main still running (not skipped, as many times), model outputs on the demo dataset | before a merge; after touching `src/model/`, `src/db/`, a `confirm()` or `package.json` |
 
 Run `yarn typecheck && yarn lint && yarn test` before every commit; CI runs the same three.
+
+## The visual loop
+
+Every UI change ends with it ([ADR-11](../architecture/700-adr/ADR-11-web-first-material-3.md)). It is dev only: Playwright and
+axe-core are dev dependencies, the run is not part of `yarn test` and not run in CI.
+
+1. **Demo data.** `yarn dev`, then open `http://127.0.0.1:5173/myOwnSpotifyData/?demo`. Variants: `?demo=full` (the default),
+   `empty`, `old-import`, `no-reach`, `locked`, `signed-out`. The demo lives in its own database with an in-memory session and no
+   server, so the real data in the same browser is never touched; a production build has no demo.
+2. **Pages.** Add or update the pages of the change in `tools/shots/pages.ts` (role and text selectors, `window.__demo.set` for a
+   job state).
+3. **Run.** `yarn shots` (the full default run takes about fifteen to twenty minutes). It always starts this worktree's own
+   `yarn dev` on port 5173 and never reuses a running one: when the port is taken (a `yarn dev` left open here or in another
+   worktree), the run fails at once; stop that server and run again. While working, use the quick per-page form:
+   `yarn shots --project=1440 -g "<page ids>"` (about a minute). A full run first empties `shots-output/findings/` and
+   `shots-output/pages/`, so the summary and the sheet read that run alone; any narrowed run (a file or name
+   filter, `-g`, `--project`, `--last-failed`, `--shard`, `--list`) keeps them and refreshes only its own pages. `--reporter=dot` replaces the configured reporters, so it does
+   not rewrite `shots-output/report.json` or `playwright-report/`: judge such a run by its exit code and `yarn shots:summary`
+   (which reads `findings/`), not by those reports. Judge it by its exit code, never by grepping the output. Other engines on demand:
+   `SHOTS_BROWSERS=firefox|webkit|all yarn shots` (WebKit needs libicu74 and libjpeg-turbo8 on Debian). Playwright runs with
+   `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64`, set by the script, because LMDE 7 is not recognised.
+4. **Read.** `yarn shots:summary` (add check names, such as `overlap,clipped-text`, for examples). The checks: page scroll,
+   clipped text, overlap, column alignment, target size, frame in viewport, focus ring, axe WCAG 2.2 AA, console errors, any
+   request outside 127.0.0.1. Findings on the pages you touched must reach 0.
+5. **Look.** Open the screen-sized screenshots of the pages you touched, `shots-output/pages/<1440|390>/<id>.png`, fix what is
+   misaligned and run again.
+6. **Show.** `yarn shots:sheet` builds `shots-output/contact-sheet.html` for the owner. Approved screens can become **baselines**
+   with `yarn shots --update-snapshots` (kept in `shots-output/baselines/`, compared on every later run). `shots-output/` and
+   `playwright-report/` are gitignored.
+
+## Before a merge: regression and invariants
+
+Two dev-only checks prove a large change broke nothing (spec 003, T111–T113). Neither runs in CI or in `yarn test`; judge both by
+their exit code.
+
+- **`yarn regression`** runs `tools/shots/regression.spec.ts`: one test per row of
+  `specs/003-web-first-redesign/regression.md` the demo can drive, named by the row's id. Like the visual loop it starts this
+  worktree's own `yarn dev` on port 5173, plus a second on port 5174 whose demo has a fake 127.0.0.1 server address (for the
+  questions asked before a server call); stop any other server on those ports first. A test fails on any request leaving 127.0.0.1, any console or
+  page error, and any `confirm()` whose text is not in the list of How the app works §14, which the suite reads. Chromium by
+  default; `REGRESSION_BROWSERS=firefox|webkit|all` for the others. A new feature, address or `confirm()` adds its row to
+  `regression.md` and, when the demo can drive it, its test; what only the owner can check is marked so in the row.
+- **`yarn invariants`** runs `tools/shots/invariants.ts` with Node: it checks out `main` in a temporary worktree (removed at
+  the end) and prints PASS or FAIL for each invariant. A change meant to move one (a new `confirm()`, a dependency, a renamed
+  test) updates the script's allowlist (`APPROVED_DEV_ADDITIONS`, `RENAMED_TESTS`) with the reason, in the same commit.
 
 ## Code conventions
 
@@ -49,6 +99,8 @@ Run `yarn typecheck && yarn lint && yarn test` before every commit; CI runs the 
   if the rule bends, a research note under `docs/research/`.
 - A **new IndexedDB store or field**: `src/db/CLAUDE.md` rules, the store table in How the app works §6.
 - A **new job**: the jobs table in How the app works §14, and a decision on `jobsBusy()` and `disconnect`.
+- A **screen change**: the visual loop above, with its pages in `tools/shots/pages.ts` and the demo data in `src/dev/demo.ts`
+  when the screen needs a new state.
 - A **known limit found or lifted**: [Limits and roadmap](../architecture/800-limits-roadmap.md).
 - Any page added under `docs/`: listed in the [documentation map](../README.md).
 
@@ -95,10 +147,10 @@ and a look at every relative link of the pages you touched.
    The `/speckit-*` skills (GitHub Spec Kit, `.claude/skills/`, state under `.specify/`) can drive steps 1–3: `/speckit-specify`,
    `/speckit-plan`, `/speckit-tasks`, `/speckit-implement`. They write to `specs/<nnn-name>/` at the repo root; the round still ends with
    the documents listed in "One change, several files".
-3. Implement test-first; keep `yarn typecheck`, `yarn lint` and `yarn test` green.
+3. Implement test-first; keep `yarn typecheck`, `yarn lint` and `yarn test` green; end every UI change with the visual loop.
 4. Documentation pass: the list in "One change, several files".
 5. Commit `type(scope): summary`; the owner pushes or approves the push to `main`.
-6. Check on the phone after the deploy when the change touches a screen.
+6. Check in the browser and on the phone after the deploy when the change touches a screen.
 
 ## Release
 
@@ -114,3 +166,5 @@ Every push to `main` runs CI (`.github/workflows/ci.yml`): install, typecheck, l
 - [Limits and roadmap](../architecture/800-limits-roadmap.md)
 - [ADR index](../architecture/700-adr/README.md)
 - [ADR-06 — Lean tooling](../architecture/700-adr/ADR-06-lean-tooling.md)
+- [100 — Design guide](100-design-guide.md)
+- [ADR-11 — Web-first, Material Design 3, the visual loop](../architecture/700-adr/ADR-11-web-first-material-3.md)

@@ -1,11 +1,20 @@
 import type { ArtistRef, Period } from '../db/schema';
+import type { ImportSummary } from '../history/importer';
 import type { ImportCounts } from '../history/records';
+import { MONTH_NAMES } from '../model/crate';
 import { WELL_KNOWN_MIN_SITELINKS } from '../model/reach';
 
 export const PERIOD_LABEL: Record<Period, string> = {
   short_term: '4 weeks',
   medium_term: '6 months',
   long_term: '1 year',
+};
+
+/** The Top screen's wording: Spotify's long term has no fixed length. */
+export const TOP_PERIOD_LABEL: Record<Period, string> = {
+  short_term: '4 weeks',
+  medium_term: '6 months',
+  long_term: 'All time',
 };
 
 export function formatTime(ms: number): string {
@@ -25,6 +34,17 @@ export function formatDateTime(ms: number): string {
 /** Accepts an export timestamp (ISO) or a stored epoch (`importedAt`). */
 export function formatDate(value: string | number): string {
   return new Date(value).toLocaleDateString([], { dateStyle: 'medium' });
+}
+
+/** Listening time: `45 min`, `2 h 6 min`, `1,234 h` (rounded to minutes). */
+export function formatListening(ms: number): string {
+  const minutes = Math.round(Math.max(0, ms) / 60_000);
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0
+    ? `${h.toLocaleString()} h`
+    : `${h.toLocaleString()} h ${m} min`;
 }
 
 export function plural(n: number, word: string): string {
@@ -128,4 +148,31 @@ export function formatClock(totalSeconds: number): string {
   return hours > 0
     ? `${hours}:${pad(minutes)}:${pad(seconds)}`
     : `${minutes}:${pad(seconds)}`;
+}
+
+/** '2026-08' -> 'Aug 2026'. */
+export function monthLabel(key: string): string {
+  const [year, month] = key.split('-');
+  return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
+}
+
+/**
+ * The Listening history line of Settings, word for word, which the
+ * Overview's Listening card repeats (spec 003, SC-009).
+ */
+export function historyLine(
+  summary: ImportSummary,
+  zoneAtImport?: string
+): string {
+  const parts = [
+    `Imported ${formatDate(summary.importedAt)}:`,
+    `${plural(summary.plays, 'play')} across`,
+    `${plural(summary.tracks, 'track')}.`,
+  ];
+  if (summary.range) {
+    parts.push(`${formatDate(summary.range.first)} –`);
+    parts.push(`${formatDate(summary.range.last)}.`);
+  }
+  if (zoneAtImport) parts.push(`Months bucketed in ${zoneAtImport}.`);
+  return parts.join(' ');
 }

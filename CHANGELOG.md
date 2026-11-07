@@ -3,6 +3,42 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-07 — A web-first redesign of every screen
+
+The app is rebuilt for a computer's browser first, on Material Design 3: dark only, chartreuse as its colour, Roboto served by
+the app. Five places in a side rail (a bottom bar on the phone): **Overview**, the new home that sums up your data from what is
+stored (never a Spotify read on open), **Listening** (Top, Crate), **Library** (Playlists, Artists), **Mix** and **Settings**.
+Every track list is a sortable table with columns that hide by priority (two-line items on the phone); a track's details open
+beside the list with everything the app holds, including album, length, added date, energy, listening time and first play,
+never shown before. Playlists, Artists and Mix open beside their lists. The Crate draws its numbers as charts (month bars,
+finish meters, plays per year, By year's year × month grid); Top can **Compare periods** side by side. New: one **search**
+(`/`, Ctrl+K) over tracks, artists, playlists and saved mixes; a **BPM range and key filter** (with compatible keys) on every
+track table; Settings as one page of seven sections. The **Mix** screen is a workspace: one Mixes list holding saved mixes and
+the requests to your computer (Move to top, Cancel, Stop, Ask again, "Already finished" when a request is gone), a run line
+under the open mix, **Check on Spotify**, a per-track review (Validate, Remove, the chips To review, Validated, Not on Spotify,
+Heard once), and Create playlist with **Validated only** or **All tracks** (a track from a comment joins Validated only once
+validated; amends [ADR-10](docs/architecture/700-adr/ADR-10-name-lookup-for-clues.md)); a later worker result keeps the review.
+One Spotify quota lock-out now holds for every Spotify read and survives a reload, and those reads take turns (sync,
+Check on Spotify, Create playlist and Like all songs never run two at once; a running check shows in the Activity button). Old addresses keep working; `#/` opens the
+Overview. Behaviour that changed: Check on Spotify reads `GET /search` on its own tap; Create playlist adds what Validated
+only or All tracks picks (D6); a quota answer to any Spotify read now locks all of them. No new Spotify endpoint, scope, write
+or host; rankings, Crate rules, Match and gates unchanged; no `confirm()` text changed; no `DB_VERSION` bump (optional Mix row
+fields).
+The release year (main's round 005) is a **Released** column on every song table and on the open mix, a line in a track's
+details, a **decade** in the Filters, and _Sort by year, oldest first_ in the Filters wherever the column cannot be sorted from
+its header (a phone, a narrow table); the open mix has a Year sort and a Decade menu; the Activity button says "Looking up
+release years" during the look-up's third pass. A renamed mix track drops a year that belonged to the old track.
+Proven against `main` before the merge: `yarn regression` drives every old address and every feature the demo can reach (71
+tests on fake fixture files, rounds 003 and 004 included, nothing leaving the computer, every `confirm()` held to its
+word-for-word list in How the app works §14), and `yarn invariants` finds `DB_VERSION`, every `confirm()` text, the external
+hosts (code, CSP), the dependencies and `yarn.lock` (Playwright and axe added for development), every unit test of `main` still
+running and the ranking, Crate, Match, Under the radar and release-year results on the demo data unchanged. It found two slips,
+fixed: Escape pressed the moment a playlist or artist opened beside its list was lost; and a link to a mix this browser does
+not hold, met while another mix was open, now says so above that mix.
+For developers: `yarn shots`, a dev-only visual loop on `?demo` data. [ADR-11](docs/architecture/700-adr/ADR-11-web-first-material-3.md),
+[spec](docs/specs/2026-11-06-web-first-redesign-design.md), the full round under `specs/003-web-first-redesign/`. Nothing to do
+after upgrading.
+
 ## 2026-11-07 — Shazam's answer time in the worker log (worker 0.5.1)
 
 Each probe line of the worker log says how long Shazam took to answer, and each scan ends with the median and the share of answers

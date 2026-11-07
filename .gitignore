@@ -12,3 +12,6 @@ worker/dist/
 .tracklistify/
 __pycache__/
 *.pyc
+shots-output/
+playwright-report/
+test-results/

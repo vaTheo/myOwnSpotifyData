@@ -261,14 +261,92 @@ export function validateMix(row: unknown): Valid<MixRow> {
       return fail('mixes.row.hits');
     if (t.clue !== undefined && !clueOk(t.clue)) return fail('mixes.row.clue');
     if (!cluesOk(t.clues, 30)) return fail('mixes.row.clues');
+    if (t.validated !== undefined && typeof t.validated !== 'boolean')
+      return fail('mixes.row.validated');
+    if (t.spotify !== undefined && !spotifyCheckOk(t.spotify))
+      return fail('mixes.row.spotify');
+    if (t.checkedAt !== undefined && !finite(t.checkedAt))
+      return fail('mixes.row.checkedAt');
   }
   if (!cluesOk(row.clues, 200)) return fail('mixes.clues');
+  if (row.run !== undefined && !runOk(row.run)) return fail('mixes.run');
+  if (row.removed !== undefined && !removedOk(row.removed))
+    return fail('mixes.removed');
   const rows = row.rows as Row[];
   const cleaned = rows.map(dropBadMixYear);
   const out = cleaned.some((t, i) => t !== rows[i])
     ? { ...row, rows: cleaned }
     : row;
   return { ok: true, row: out as unknown as MixRow };
+}
+
+/** Check on Spotify's answer (T117): 'not-found', or a track id and its
+ *  open.spotify.com track link, rendered as a link. */
+function spotifyCheckOk(v: unknown): boolean {
+  if (v === 'not-found') return true;
+  if (!obj(v)) return false;
+  return (
+    typeof v.id === 'string' &&
+    /^[A-Za-z0-9]{1,64}$/.test(v.id) &&
+    v.url === `${SPOTIFY_PREFIX}track/${v.id}`
+  );
+}
+
+const REMOVED_MAX = 500;
+
+/** The removed tracks (T125): plain names, an ISRC or null, 500 at most. */
+function removedOk(v: unknown): boolean {
+  return (
+    Array.isArray(v) &&
+    v.length <= REMOVED_MAX &&
+    v.every(
+      (t) =>
+        obj(t) &&
+        typeof t.artist === 'string' &&
+        typeof t.title === 'string' &&
+        (t.isrc === null || typeof t.isrc === 'string')
+    )
+  );
+}
+
+const RUN_TEXT_MAX = 200;
+const RUN_WARNINGS_MAX = 10;
+
+function count(v: unknown): boolean {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0;
+}
+
+function runText(v: unknown): boolean {
+  return typeof v === 'string' && v.length > 0 && v.length <= RUN_TEXT_MAX;
+}
+
+/** The worker's run (T124): every part optional, each well formed. */
+function runOk(run: unknown): boolean {
+  if (!obj(run)) return false;
+  const { secondPass, resumed, stoppedEarly, warnings } = run;
+  if (secondPass !== undefined) {
+    if (!obj(secondPass)) return false;
+    if (!count(secondPass.places) || !count(secondPass.found)) return false;
+    if (secondPass.stopped !== null && !runText(secondPass.stopped))
+      return false;
+  }
+  if (resumed !== undefined && !(obj(resumed) && count(resumed.probesKept)))
+    return false;
+  if (stoppedEarly !== undefined) {
+    if (!obj(stoppedEarly)) return false;
+    if (
+      typeof stoppedEarly.at !== 'string' ||
+      !/^\d{1,2}:\d{2}:\d{2}$/.test(stoppedEarly.at) ||
+      !runText(stoppedEarly.reason)
+    )
+      return false;
+  }
+  if (warnings !== undefined) {
+    if (!Array.isArray(warnings) || warnings.length > RUN_WARNINGS_MAX)
+      return false;
+    if (!warnings.every(runText)) return false;
+  }
+  return true;
 }
 
 /** The summary a dataset's stamp carries, as the screens' gates expect it. */

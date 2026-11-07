@@ -5,6 +5,7 @@ import type { Model } from '../../model/aggregate';
 // MUST stay `import type`.
 import type { LikeState } from '../../model/state';
 import type { SpotifyClient } from '../../spotify/client';
+import { QuotaError } from '../../spotify/errors';
 import { describeError } from '../../util/errors';
 
 /** Spotify's cap on both `/me/library` endpoints. */
@@ -77,6 +78,16 @@ function isAnswer(value: unknown, length: number): value is boolean[] {
   );
 }
 
+/** Set when Spotify answered with its quota lock-out (epoch ms it lapses),
+ *  so the wrapper remembers it app-wide before the error becomes text. */
+export interface LikeOutcome {
+  quotaUntil?: number;
+}
+
+function quotaOf(err: unknown): LikeOutcome {
+  return err instanceof QuotaError ? { quotaUntil: err.retryAt } : {};
+}
+
 /**
  * Checks which songs are already liked, asks, then likes the rest, 40 per
  * request in playlist order. Never throws: every failure ends in an `error`
@@ -86,7 +97,7 @@ function isAnswer(value: unknown, length: number): value is boolean[] {
 export async function runLikePlaylist(
   deps: LikeDeps,
   input: LikeInput
-): Promise<void> {
+): Promise<LikeOutcome> {
   const { client, confirm, onState } = deps;
   const { playlistId, uris, skipped } = input;
   const total = uris.length;
@@ -107,7 +118,7 @@ export async function runLikePlaylist(
         playlistId,
         message: `Could not check your Liked Songs: ${describeError(err)}`,
       });
-      return;
+      return quotaOf(err);
     }
     if (!isAnswer(answer, batch.length)) {
       onState({
@@ -115,7 +126,7 @@ export async function runLikePlaylist(
         playlistId,
         message: `Could not check your Liked Songs: ${UNEXPECTED}`,
       });
-      return;
+      return {};
     }
     answer.forEach((saved, j) => {
       if (!saved) toLike.push(batch[j]);
@@ -127,11 +138,11 @@ export async function runLikePlaylist(
   const already = total - toLike.length;
   if (toLike.length === 0) {
     onState({ status: 'done', playlistId, liked: 0, already, skipped });
-    return;
+    return {};
   }
   if (!confirm(toLike.length, total)) {
     onState({ status: 'idle' });
-    return;
+    return {};
   }
 
   // 3. Like, in batches, in playlist order.
@@ -149,7 +160,7 @@ export async function runLikePlaylist(
         liked,
         toLike: toLike.length,
       });
-      return;
+      return quotaOf(err);
     }
     liked += batch.length;
     onState({
@@ -160,6 +171,7 @@ export async function runLikePlaylist(
     });
   }
   onState({ status: 'done', playlistId, liked, already, skipped });
+  return {};
 }
 
 function count(n: number, word: string): string {

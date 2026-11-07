@@ -1,28 +1,62 @@
-import type { ComponentChild, ComponentChildren } from 'preact';
+import type { Signal } from '@preact/signals';
+import type { ComponentChildren } from 'preact';
+import { useMemo, useState } from 'preact/hooks';
 import type { PlayRow } from '../../db/schema';
 import type { Model } from '../../model/aggregate';
-import { MONTH_NAMES, hasMonthData, yearsWithPlays } from '../../model/crate';
+import { hasMonthData } from '../../model/crate';
+import { featureFor } from '../../model/features';
 import { nameKey } from '../../model/normalize';
+import { trackYear } from '../../model/year';
 import { historySummary, model } from '../../model/state';
-import { routeHref } from '../../router';
-import { FeaturePills } from '../components/FeaturePills';
-import { trackYear } from '../components/YearView';
-import { TrackRow } from '../components/TrackRow';
-import { artistNames, plural } from '../format';
+import { MonthBars } from '../charts/MonthBars';
+import { seriesLabel, yearSpan, type MonthPoint } from '../charts/series';
+import { openDetail } from '../details/navigate';
+import { TrackSheet } from '../details/TrackDetails';
+import { besideSheet } from '../layout/SideSheet';
+import { windowClass } from '../layout/windowClass';
+import { playLabel } from './labels';
+import {
+  bpmColumn,
+  keyColumn,
+  rankColumn,
+  titleColumn,
+  yearColumn,
+} from '../table/columns';
+import { yearSortOffered, type TableLayout } from '../table/layout';
+import { DataTable, type Column } from '../table/DataTable';
+import type { SortState } from '../table/sort';
+import { trackFilterView } from '../filters/FilterBar';
+import type { TrackFilter } from '../filters/trackFilter';
+import { lastCall } from '../table/lastCall';
+
+// The details' shared pieces, re-exported for the Crate views.
+export { NoPlaylistNote, OpenMonthLink, monthLabel } from '../details/parts';
 
 /** A play row from an import that recorded month buckets. */
 export type CrateRowData = PlayRow & { months: Record<string, number> };
 
-/** Every Crate view works on these rows; older rows are simply absent. */
-export function useCrateRows(): CrateRowData[] {
-  const m = model.value;
-  return m ? m.plays.filter(hasMonthData) : [];
+/** Every Crate view's item carries its play row. */
+export interface CrateItem {
+  row: PlayRow;
 }
 
-function yearOf(iso: string | undefined): number | null {
-  if (!iso) return null;
-  const year = new Date(iso).getFullYear();
-  return Number.isFinite(year) ? year : null;
+/** Each view keeps its sort per visit to the app, like its setting. */
+export const DEFAULT_SORT: SortState = { columnId: null, direction: 'asc' };
+
+/** Every Crate view works on these rows; older rows are simply absent. */
+const crateRowsOf = lastCall((plays: PlayRow[]) => plays.filter(hasMonthData));
+const NO_ROWS: CrateRowData[] = [];
+
+/** The plays with month data; the same array while the model stays, so the
+ *  views' memos hold (S13 A5). */
+export function useCrateRows(): CrateRowData[] {
+  const m = model.value;
+  return m ? crateRowsOf(m.plays) : NO_ROWS;
+}
+
+/** The import's range, for the charts' gaps (null: every month inside). */
+export function historyRange() {
+  return historySummary.value?.range ?? null;
 }
 
 /**
@@ -31,48 +65,15 @@ function yearOf(iso: string | undefined): number | null {
  * years that happen to have rows. Both `of N years` phrases count from it.
  */
 export function spanYears(rows: PlayRow[]): number[] {
-  const range = historySummary.value?.range;
-  const played = yearsWithPlays(rows);
-  const first = yearOf(range?.first) ?? played[0] ?? new Date().getFullYear();
-  const last = yearOf(range?.last) ?? played[played.length - 1] ?? first;
-  const years: number[] = [];
-  for (let y = first; y <= last; y += 1) years.push(y);
-  return years.length > 0 ? years : [first];
+  return yearSpan(rows, historyRange(), new Date().getFullYear());
 }
 
-/**
- * Round 005: the release year of a Crate row's track (not a listening year),
- * for the year view and its pill; null when no source dates it.
- */
-export function rowYear(row: PlayRow): number | null {
-  const m = model.value;
-  return m ? trackYear(m, row.trackId) : null;
-}
-
-/** '2026-08' -> 'Aug 2026'. */
-export function monthLabel(key: string): string {
-  const [year, month] = key.split('-');
-  return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
-}
-
-/**
- * The synced track wins: the export holds whatever names Spotify wrote at
- * play time, and either of them can be null.
- */
+/** `playLabel` on the current model. */
 export function trackLabel(row: PlayRow): {
   title: string;
   subtitle: string;
 } {
-  const track = model.value?.tracksByKey.get(row.trackId);
-  if (track) return { title: track.name, subtitle: artistNames(track.artists) };
-  return {
-    title: row.trackName ?? 'Unknown title',
-    subtitle: row.artistName ?? 'Unknown artist',
-  };
-}
-
-export function trackUrl(row: PlayRow): string {
-  return `https://open.spotify.com/track/${row.trackId}`;
+  return playLabel(model.value, row);
 }
 
 /** By id first, then by artist and title, so a relinked id still matches. */
@@ -86,145 +87,199 @@ export function playlistsOfRow(m: Model, row: PlayRow): string[] {
   return byName ? [...byName] : [];
 }
 
-/** The amber badge stays silent until a playlist has actually been synced. */
+/** The amber flag stays silent until a playlist has actually been synced. */
 export function inNoPlaylist(row: PlayRow): boolean {
   const m = model.value;
   return !!m && m.playlists.length > 0 && playlistsOfRow(m, row).length === 0;
 }
 
 /**
- * Badge 2 is passed in already decided: the amber rule competes with `New`
- * on Heavy rotation, so the precedence belongs to each screen, not here.
- *
- * The feature pills are appended once, for all five views. Spec §5: the
- * "never a third badge" rule covers the sort and context badges only, and the
- * pills are a separate group after them. `FeaturePills` draws nothing until
- * a lookup or a Rekordbox import has given this track a value, so an
- * un-enriched Crate looks exactly as it does today.
+ * A row's small bars (24 px, no tab stop). The bars are hidden from
+ * assistive technology, so the cell carries the series as text: the row
+ * reads its values (FR-026). A short series keeps narrow bars instead of
+ * stretching one bar across the column.
  */
-export function CrateRow(p: {
-  rank: number;
-  row: PlayRow;
-  badge1: ComponentChildren;
-  badge2?: ComponentChildren;
-  expanded: boolean;
-  onToggle: () => void;
-  children?: ComponentChildren;
-}) {
-  const label = trackLabel(p.row);
-  return (
-    <TrackRow
-      rank={p.rank}
-      title={label.title}
-      subtitle={label.subtitle}
-      spotifyUrl={trackUrl(p.row)}
-      onClick={p.onToggle}
-      badges={
-        <>
-          {p.badge1}
-          {p.badge2}
-          <FeaturePills trackId={p.row.trackId} />
-        </>
+export function chartColumn<Item extends CrateItem>(
+  header: string,
+  title: string,
+  seriesOf: (item: Item) => MonthPoint[],
+  /** How many bars the series has: the column is sized from it. */
+  points: number
+): Column<Item> {
+  return {
+    id: 'chart',
+    header,
+    priority: 3,
+    width: `${Math.min(192, Math.max(112, points * 12)) + 16}px`,
+    cell: (item) => {
+      const series = seriesOf(item);
+      return (
+        <span class="dt-chart" style={{ maxWidth: `${series.length * 20}px` }}>
+          <MonthBars compact series={series} title={title} />
+          <span class="visually-hidden">{seriesLabel(title, series)}</span>
+        </span>
+      );
+    },
+    compact: 'hidden',
+  };
+}
+
+/**
+ * The columns every Crate view shares (spec 003, screens.md §6): #, Title,
+ * Artist, then the view's own figures and chart, its flag, BPM, Key and
+ * Released (round 005). The
+ * flag's precedence belongs to each view (Heavy rotation's `New` beats
+ * "not in a playlist"), so it is passed in already decided; `null` leaves
+ * the cell empty.
+ */
+export function crateColumns<Item extends CrateItem>(spec: {
+  metrics: Column<Item>[];
+  chart?: Column<Item>;
+  flag: (item: Item) => ComponentChildren | null;
+}): Column<Item>[] {
+  const m = model.value;
+  const featureOf = (item: Item) =>
+    m ? featureFor(m, item.row.trackId) : null;
+  return [
+    rankColumn({ compact: 'lead' }),
+    titleColumn((item) => trackLabel(item.row).title),
+    titleColumn(
+      (item) => trackLabel(item.row).subtitle,
+      { header: 'Artist' },
+      {
+        id: 'artist',
+        priority: 2,
+        // Room for its header; the title keeps its own minimum.
+        width: 'minmax(64px, 1.5fr)',
+        compact: 'subtitle',
       }
-    >
-      {p.expanded && <div class="sublist">{p.children}</div>}
-    </TrackRow>
-  );
+    ),
+    ...spec.metrics,
+    ...(spec.chart ? [spec.chart] : []),
+    {
+      id: 'flag',
+      header: 'Flag',
+      headerHidden: true,
+      priority: 2,
+      // Sized to the widest chip, "not in a playlist" (re-review N2).
+      width: '132px',
+      cell: (item) => spec.flag(item),
+      compact: 'meta',
+    },
+    bpmColumn(featureOf),
+    keyColumn(featureOf),
+    yearColumn(crateYearOf),
+  ];
+}
+
+/** A Crate item's release year (`yearOf`, cached per model). */
+function crateYearOf(item: CrateItem): number | null {
+  const m = model.value;
+  return m ? trackYear(m, item.row.trackId) : null;
 }
 
 /**
- * A dense year/month readout. Each `<label> <count>` pair is one nowrap span
- * carrying its own trailing separator, so a line can break only after a " · "
- * and a count never opens a line.
+ * A Crate view's table: ranked as the view ranks, 100 rows a page with the
+ * footer's count, a row opening the track's details (`?d=`).
  */
-export function Strip(p: { cells: string[] }) {
-  const nodes: ComponentChild[] = [];
-  p.cells.forEach((cell, i) => {
-    const last = i === p.cells.length - 1;
-    nodes.push(<span key={`${i} ${cell}`}>{last ? cell : `${cell} ·`}</span>);
-    if (!last) nodes.push(' ');
-  });
-  return <p class="strip">{nodes}</p>;
-}
-
-/**
- * The one sentence a row shows when the track sits in none of the synced
- * playlists. `Top.tsx` renders it too, so the wording exists once.
- */
-export function NoPlaylistNote() {
-  const m = model.value;
-  if (!m) return null;
-  return (
-    <p>
-      {m.playlists.length === 0
-        ? 'Sync your playlists in Settings to see where this sits'
-        : `Not in any of your ${plural(m.playlists.length, 'playlist')}`}
-    </p>
-  );
-}
-
-export function PlaylistLinks(p: { row: PlayRow }) {
-  const m = model.value;
-  if (!m) return null;
-  const ids = playlistsOfRow(m, p.row);
-  if (ids.length === 0) return <NoPlaylistNote />;
-  return (
-    <>
-      <p>In {plural(ids.length, 'playlist')}</p>
-      <ul>
-        {ids.map((id) => (
-          <li key={id}>
-            <a href={routeHref({ name: 'playlist', id })}>
-              {m.playlistsById.get(id)?.name ?? id}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </>
-  );
-}
-
-export function OpenMonthLink(p: { month: string }) {
-  return (
-    <p>
-      <a href={routeHref({ name: 'crateView', view: 'year', period: p.month })}>
-        Open {monthLabel(p.month)} ›
-      </a>
-    </p>
-  );
-}
-
-/** The `‹ Crate` link and the title of spec §3, before any data check. */
-export function CrateShell(p: { title: string; children?: ComponentChildren }) {
-  return (
-    <section>
-      <a class="back" href={routeHref({ name: 'crate' })}>
-        ‹ Crate
-      </a>
-      <h1>{p.title}</h1>
-      {p.children}
-    </section>
-  );
-}
-
-/** List footer: spec §3 renders PAGE_SIZE rows, then grows on demand. */
-export function Paged(p: {
-  shown: number;
-  total: number;
-  step: number;
-  onMore: () => void;
+export function CrateTable<Item extends CrateItem>(p: {
+  label: string;
+  items: Item[];
+  columns: Column<Item>[];
+  sort: Signal<SortState>;
+  /** The view's own filters (FR-052), one signal per view. */
+  filter: Signal<TrackFilter>;
+  /** The view's setting: a change goes back to the first page. */
+  resetKey: string;
+  detail: string | undefined;
 }) {
-  if (p.total <= p.shown) return null;
+  // What the table draws at its width: "Sort by year" shows in the
+  // filters where its Released header cannot sort (round 005).
+  const [layout, setLayout] = useState<TableLayout | null>(null);
+  // A view none of whose rows carries a flag drops the flag column, so
+  // its width goes to the title and the artist (re-review N2).
+  const columns = useMemo(() => {
+    const flag = p.columns.find((c) => c.id === 'flag');
+    if (!flag) return p.columns;
+    const any = p.items.some((item) => {
+      const out = flag.cell(item, 0);
+      return out !== null && out !== undefined && out !== false;
+    });
+    return any ? p.columns : p.columns.filter((c) => c !== flag);
+  }, [p.items, p.columns]);
+  const m = model.value;
+  const filtered = trackFilterView({
+    filter: p.filter,
+    rows: p.items,
+    featureOf: (item) => (m ? featureFor(m, item.row.trackId) : null),
+    textOf: (item) => {
+      const label = trackLabel(item.row);
+      return `${label.title} ${label.subtitle}`;
+    },
+    yearOf: crateYearOf,
+    yearSort: {
+      sort: p.sort.value,
+      onSort: (s) => {
+        p.sort.value = s;
+      },
+      offered: yearSortOffered(layout),
+    },
+  });
   return (
     <>
-      <p class="footer-note">
-        Showing the top {p.shown.toLocaleString()} of {p.total.toLocaleString()}
-      </p>
-      <div class="actions">
-        <button type="button" onClick={p.onMore}>
-          Show {p.step.toLocaleString()} more
-        </button>
-      </div>
+      {filtered.bar}
+      {filtered.empty ?? (
+        <DataTable
+          label={p.label}
+          noun="track"
+          columns={columns}
+          rows={p.items}
+          only={filtered.only}
+          rowKey={(item) => item.row.trackId}
+          sort={p.sort.value}
+          onSort={(s) => {
+            p.sort.value = s;
+          }}
+          resetKey={p.resetKey}
+          onLayout={setLayout}
+          // Beside the docked sheet the table follows its own width.
+          compactBelow={besideSheet(p.detail !== undefined, windowClass.value)}
+          selectedKey={p.detail ?? null}
+          follow={p.detail !== undefined}
+          onOpen={(item) => openDetail(item.row.trackId)}
+        />
+      )}
     </>
   );
+}
+
+/**
+ * The details sheet of a Crate view (spec 003, US3): the track's facts, and
+ * `extra`, the view's own figures and chart for it (on a phone the chart
+ * lives only here).
+ */
+export function CrateSheet(p: {
+  detail: string | undefined;
+  extra?: ComponentChildren;
+}) {
+  if (!p.detail) return null;
+  // A track the history never played (opened from search) has no play row:
+  // its sheet is the track's own.
+  const row = model.value?.playsById.has(p.detail);
+  return (
+    <TrackSheet
+      trackRef={row ? { playRowId: p.detail } : { trackId: p.detail }}
+      rowId={p.detail}
+      extra={p.extra}
+    />
+  );
+}
+
+/**
+ * A Crate view's section. Its title and the way back to the hub are the top
+ * bar's (spec 003, FR-004: the title and the up arrow come from
+ * `layout/titles.ts`), drawn before any data check as before.
+ */
+export function CrateShell(p: { children?: ComponentChildren }) {
+  return <section class="crate-view">{p.children}</section>;
 }

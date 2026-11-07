@@ -267,6 +267,38 @@ export interface TracklistRow {
   clue?: Clue;
   /** Gap rows from the worker: the clues placed around this gap. */
   clues?: Clue[];
+  /** Spec 003 T118: the owner validated the track. Absent or false: To
+   *  review. A later worker result keeps it (T125). */
+  validated?: boolean;
+  /** Spec 003 T117: what Check on Spotify found for this row, or absent
+   *  when never checked. An edit of the artist or title clears it. */
+  spotify?: SpotifyCheck;
+  /** When Check on Spotify answered for this row, epoch ms. */
+  checkedAt?: number;
+}
+
+/** Check on Spotify's answer for one row: the track, or none found. */
+export type SpotifyCheck = { id: string; url: string } | 'not-found';
+
+/** A scan track the owner removed, so a later result does not bring it
+ *  back (spec 003 T125, owner's D1). */
+export interface RemovedTrack {
+  artist: string;
+  title: string;
+  isrc: string | null;
+}
+
+/** What the worker said about its run (spec 003 T124, owner's D3), from
+ *  the result's `mix_info`. Every part is optional. */
+export interface MixRun {
+  /** The second listen: places replayed, tracks found, why it stopped. */
+  secondPass?: { places: number; found: number; stopped: string | null };
+  /** The scan resumed an earlier one, keeping this many clips. */
+  resumed?: { probesKept: number };
+  /** The scan stopped before the end: where (hh:mm:ss) and why. */
+  stoppedEarly?: { at: string; reason: string };
+  /** The worker's warnings, such as "refuses often". */
+  warnings?: string[];
 }
 
 /** A description line, chapter or comment the worker read (round 003).
@@ -326,6 +358,10 @@ export interface MixRow {
   /** Round 003: set-wide clues from the worker (a tracklist without times in
    *  the description or a comment), shown once above the tracklist. */
   clues?: Clue[];
+  /** The last worker result's run (T124); replaced with each result. */
+  run?: MixRun;
+  /** Scan tracks the owner removed, oldest first, at most 500 (T125). */
+  removed?: RemovedTrack[];
   savedAt: number;
 }
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Unchanged. TypeScript 6.0.x, Vite 8, Preact 10 + @preact/signals, idb 8, fflate 0.8, Vitest 5, fake-indexeddb 6, ESLint 10 flat config, yarn classic, Node 24, GitHub Pages via Actions. **No new dependency:** four sources are plain `fetch`, Deezer is a twenty-line `<script>` injection, and the SPARQL query is a template string.
 
-**Spec:** `docs/specs/2026-09-05-artist-reach-design.md` (authority). §2 Data, §3 Identity resolution, §4 Reach lookup job, §5 Screens, §6 Components and styles, §7 Tests and §8's rulings are this plan's requirements. Research: `docs/research/2026-09-05-artist-reach-sources.md`. It builds on `docs/specs/2026-09-05-bpm-key-design.md` (whose `DB_VERSION` 2 has landed) and the two 2026-09-04 specs; the shipped app's plans are `docs/plans/2026-09-04-spotify-dj-webapp.md`, `2026-09-04-crate-history-views.md`, `2026-09-05-bpm-key.md` and `2026-09-05-ux-polish.md`. The ledger of pre-execution rulings is `.superpowers/sdd/2026-09-05-artist-reach/progress.md`; **Task 7 amends the spec so it says what was actually built**, and until that task lands the spec and this plan disagree in the eight places the Decisions below name.
+**Spec:** `docs/specs/2026-09-05-artist-reach-design.md` (authority). §2 Data, §3 Identity resolution, §4 Reach lookup job, §5 Screens, §6 Components and styles, §7 Tests and §8's rulings are this plan's requirements. Research: `docs/research/2026-09-05-artist-reach-sources.md`. It builds on `docs/specs/2026-09-05-bpm-key-design.md` (whose `DB_VERSION` 2 has landed) and the two 2026-09-04 specs; the shipped app's plans are `docs/plans/2026-09-04-spotify-dj-webapp.md`, `2026-09-04-crate-history-views.md`, `2026-09-05-bpm-key.md` and `2026-09-05-ux-polish.md`. The ledger of pre-execution rulings is `.superpowers/sdd/2026-09-05-artist-reach/progress.md` (the controller's local ledger, not committed); **Task 7 amends the spec so it says what was actually built**, and until that task lands the spec and this plan disagree in the eight places the Decisions below name.
 
 ## Global Constraints
 
@@ -9383,7 +9383,7 @@ and the amendments correct §2, §3.2, §4.2, §4.5 and §7 — sections **Tasks
   those tasks ship it.
 - Produces: no code. The amendments it applies are the eight in
   `scratchpad/reach-plan/spec-amendments.md`, and the §8 block records the
-  rulings from `.superpowers/sdd/2026-09-05-artist-reach/progress.md` plus
+  rulings from the controller's local ledger (not committed) plus
   decisions 25, 30 and 31 of this plan — the three places where a screen reads
   the spec rather than following it literally.
 - The plan ends here; nothing depends on this task.
@@ -9746,7 +9746,7 @@ with `getMeta<ArtistReachSummary>(ARTIST_REACH_SUMMARY_META)` and written with
 
 The existing "**Rulings made while planning.**" block records what the design
 settled. These are a different set — what the *implementation* settled, from
-`.superpowers/sdd/2026-09-05-artist-reach/progress.md` — so they go in their
+the controller's local ledger (not committed) — so they go in their
 own labelled block rather than interleaved. In §8, replace this exact line:
 
 ```markdown

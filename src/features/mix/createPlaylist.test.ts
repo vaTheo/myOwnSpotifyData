@@ -1,10 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applyYears, runCreatePlaylist } from './createPlaylist';
+import {
+  applyYears,
+  applyYearsByTrack,
+  defaultChoice,
+  rowAfterCreate,
+  runCreatePlaylist,
+  tracksToAdd,
+} from './createPlaylist';
 import type { CreatePlaylistState } from '../../model/state';
 import type { Query, SpotifyClient } from '../../spotify/client';
 import type { ApiPlaylist } from '../../spotify/types';
-import type { TracklistRow } from '../../db/schema';
-import { ApiError } from '../../spotify/errors';
+import type { MixRow, TracklistRow } from '../../db/schema';
+import { ApiError, QuotaError } from '../../spotify/errors';
 
 const ARTIST = 'Artist';
 const PLAYLIST: ApiPlaylist = {
@@ -296,6 +303,73 @@ describe('runCreatePlaylist', () => {
     expect(outcome).toMatchObject({ playlistId: null, url: null });
   });
 
+  it('reuses a track Check on Spotify found instead of searching again (T117)', async () => {
+    const checked: TracklistRow = {
+      ...id(t(0)),
+      spotify: { id: 'X1', url: 'https://open.spotify.com/track/X1' },
+      checkedAt: 1,
+    };
+    const notFound: TracklistRow = {
+      ...id(t(1)),
+      spotify: 'not-found',
+      checkedAt: 1,
+    };
+    const { client, get, post } = makeClient({ matchable: [t(1)] });
+    const { onState } = record();
+
+    await runCreatePlaylist({ client, onState }, input([checked, notFound]));
+
+    expect(get).toHaveBeenCalledTimes(1); // only the row without an id
+    expect(itemsBatches(post)[0]).toEqual([
+      'spotify:track:X1',
+      'spotify:track:T001',
+    ]);
+  });
+
+  it('remembers a quota lock-out met by a search; nothing is written', async () => {
+    const rows = ids(2);
+    const { client, post } = makeClient({
+      matchable: rows.map((r) => r.title),
+      getReject: new QuotaError(5_000),
+    });
+    const { states, onState } = record();
+
+    const outcome = await runCreatePlaylist({ client, onState }, input(rows));
+
+    expect(post).not.toHaveBeenCalled();
+    expect(states.at(-1)?.status).toBe('error');
+    expect(outcome).toMatchObject({
+      playlistId: null,
+      url: null,
+      quotaUntil: 5_000,
+    });
+  });
+
+  it('remembers a quota lock-out met by an add batch, keeping the link', async () => {
+    const rows = ids(2);
+    const { client, post } = makeClient({
+      matchable: rows.map((r) => r.title),
+    });
+    post.mockImplementation(async (path: string) => {
+      if (path === '/me/playlists') return PLAYLIST;
+      throw new QuotaError(9_000);
+    });
+    const { states, onState } = record();
+
+    const outcome = await runCreatePlaylist({ client, onState }, input(rows));
+
+    const err = states.at(-1);
+    if (err?.status !== 'error') throw new Error('expected error');
+    expect(err.added).toBe(0);
+    expect(err.total).toBe(2);
+    expect(post).toHaveBeenCalledTimes(2); // never retried
+    expect(outcome).toMatchObject({
+      playlistId: 'PL',
+      url: 'https://open.spotify.com/playlist/PL',
+      quotaUntil: 9_000,
+    });
+  });
+
   it('drives the state sequence resolving*->creating->adding->done', async () => {
     const rows = ids(2);
     const { client } = makeClient({ matchable: rows.map((r) => r.title) });
@@ -310,6 +384,136 @@ describe('runCreatePlaylist', () => {
       'creating',
       'adding',
       'done',
+    ]);
+  });
+});
+
+/* ---------- the selection rule (T119, T126, owner's D6) ---------- */
+
+describe('tracksToAdd', () => {
+  const validated: TracklistRow = { ...id('V'), validated: true };
+  const toReview: TracklistRow = { ...id('R') };
+  const candidate: TracklistRow = { ...id('C'), origin: 'clue' };
+  const validCandidate: TracklistRow = {
+    ...id('VC'),
+    origin: 'clue',
+    validated: true,
+  };
+  const heardOnce: TracklistRow = { ...id('H'), hits: 1 };
+  const validGap: TracklistRow = { ...gap, validated: true };
+  const rows = [
+    validated,
+    gap,
+    toReview,
+    candidate,
+    validCandidate,
+    heardOnce,
+    validGap,
+    idRow,
+  ];
+
+  it('Validated only keeps validated tracks, a validated candidate included', () => {
+    expect(tracksToAdd(rows, 'validated')).toEqual([validated, validCandidate]);
+  });
+
+  it('All tracks keeps every track not removed, candidates included', () => {
+    expect(tracksToAdd(rows, 'all')).toEqual([
+      validated,
+      toReview,
+      candidate,
+      validCandidate,
+      heardOnce,
+    ]);
+  });
+
+  it('an unvalidated candidate is out of Validated only and in All tracks', () => {
+    expect(tracksToAdd([candidate], 'validated')).toEqual([]);
+    expect(tracksToAdd([candidate], 'all')).toEqual([candidate]);
+  });
+
+  it('a validated candidate is in both', () => {
+    expect(tracksToAdd([validCandidate], 'validated')).toEqual([
+      validCandidate,
+    ]);
+    expect(tracksToAdd([validCandidate], 'all')).toEqual([validCandidate]);
+  });
+
+  it('a gap row is in neither, even marked validated; nor an ID row', () => {
+    for (const choice of ['validated', 'all'] as const) {
+      expect(tracksToAdd([gap, validGap, idRow], choice)).toEqual([]);
+    }
+  });
+
+  it('keeps set order whatever the rows hold for the chips and the Sort', () => {
+    // The Heard once chip and the Sort are view state: the rule reads only
+    // the working list, so a heard-once row and clip counts change nothing.
+    const a: TracklistRow = { ...id('A'), hits: 5, confidence: 90 };
+    const b: TracklistRow = { ...id('B'), hits: 1, confidence: 99 };
+    expect(tracksToAdd([a, b], 'all')).toEqual([a, b]);
+  });
+
+  it('a candidate starts To review, so Validated only leaves it out', () => {
+    expect(candidate.validated).toBeUndefined();
+    expect(tracksToAdd([validated, candidate], 'validated')).toEqual([
+      validated,
+    ]);
+  });
+});
+
+describe('defaultChoice', () => {
+  it('is Validated only once any track is validated', () => {
+    expect(defaultChoice([id('A'), { ...id('B'), validated: true }])).toBe(
+      'validated'
+    );
+  });
+
+  it('is All tracks while none is', () => {
+    expect(defaultChoice([id('A'), id('B')])).toBe('all');
+    expect(defaultChoice([])).toBe('all');
+  });
+
+  it('ignores a validated gap row', () => {
+    expect(defaultChoice([id('A'), { ...gap, validated: true }])).toBe('all');
+  });
+});
+
+describe('rowAfterCreate (S13 N1): what Create saves when it ends', () => {
+  const mix = (rows: TracklistRow[], savedAt: number): MixRow =>
+    ({ url: 'u', title: 't', rows, savedAt }) as unknown as MixRow;
+  const made = {
+    playlistUrl: 'https://open.spotify.com/playlist/PL',
+    playlistId: 'PL',
+  };
+
+  it('keeps a review the owner saved during the run, adding only the playlist', () => {
+    const tapped = mix([id('One'), id('Two')], 100);
+    const stored = {
+      ...mix([{ ...id('One'), validated: true }], 150),
+      removed: [{ artist: 'A', title: 'Gone', isrc: null }],
+    };
+    const out = rowAfterCreate(tapped, stored, 120, made, 200);
+    expect(out.rows).toEqual([{ ...id('One'), validated: true }]);
+    expect(out.removed).toEqual([{ artist: 'A', title: 'Gone', isrc: null }]);
+    expect(out).toMatchObject({ ...made, savedAt: 200 });
+  });
+
+  it('saves the rows of the tap when nothing was saved since, with stored answers', () => {
+    const checked = {
+      ...id('Two'),
+      spotify: { id: 'S2', url: 'https://open.spotify.com/track/S2' },
+      checkedAt: 7,
+    };
+    const tapped = mix([id('One'), id('Two')], 100);
+    const stored = mix([id('One'), checked], 90);
+    const out = rowAfterCreate(tapped, stored, 120, made, 200);
+    expect(out.rows[1]).toMatchObject({ spotify: { id: 'S2' }, checkedAt: 7 });
+    expect(out).toMatchObject({ ...made, savedAt: 200 });
+  });
+
+  it('saves the rows of the tap for a mix never saved', () => {
+    const tapped = mix([id('One')], 100);
+    expect(rowAfterCreate(tapped, undefined, 120, made, 200).rows).toEqual([
+      id('One'),
     ]);
   });
 });
@@ -397,5 +601,40 @@ describe('applyYears', () => {
     expect(out[1]).toBe(edited);
     const rows = [a];
     expect(applyYears(rows, new Map())).toBe(rows);
+  });
+});
+
+describe('applyYearsByTrack (S13b M2)', () => {
+  it('dates the same track on another copy of the rows (a validate, a reload)', () => {
+    const a = id(t(0));
+    const years = new Map([[a, 1990]]);
+    const copy = { ...a, validated: true };
+    expect(applyYearsByTrack([copy], years)[0]).toEqual({
+      ...copy,
+      year: 1990,
+      yearFrom: 'spotify',
+    });
+  });
+
+  it('leaves a row now naming another track, and a dated row', () => {
+    const a = id(t(0));
+    const years = new Map([[a, 1990]]);
+    const edited = { ...a, title: 'Edited' };
+    const dated: TracklistRow = { ...a, year: 1985, yearFrom: 'shazam' };
+    const out = applyYearsByTrack([edited, dated], years);
+    expect(out[0]).toBe(edited);
+    expect(out[1]).toBe(dated);
+  });
+
+  it('never matches on an ISRC kept from a rejected identification', () => {
+    const a: TracklistRow = { ...id(t(0)), isrc: 'QZ0001' };
+    const years = new Map([[a, 1990]]);
+    const corrected = { ...a, title: 'Corrected' };
+    expect(applyYearsByTrack([corrected], years)[0]).toBe(corrected);
+  });
+
+  it('returns the same array when nothing changes', () => {
+    const rows = [id(t(0))];
+    expect(applyYearsByTrack(rows, new Map())).toBe(rows);
   });
 });

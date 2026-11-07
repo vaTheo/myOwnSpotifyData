@@ -26,7 +26,12 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 - `N languages` (Wikidata sitelinks) is a floor, not an exact count.
 - Playlist name and description caps (100 / 300) are defensive guesses, not measured Spotify maxima.
 - A Tracklistify `tracklist.json` without `mix_info.audio_filename` and `.title` is refused.
-- No DOM or component tests: the UI and the `start*` wrappers in `state.ts` are checked by hand.
+- No DOM or component tests in `yarn test`: the UI is checked by the dev-only visual loop (`yarn shots`, every page at four
+  widths on demo data, [ADR-11](700-adr/ADR-11-web-first-material-3.md)) and by hand; it runs on Chromium and Firefox here,
+  WebKit needs system libraries (libicu74, libjpeg-turbo8) the owner's Debian lacks. It is not run in CI.
+- Check on Spotify (F21) saves its answers when it ends: a page reload in the middle loses the answers read so far.
+- The redesign's speed targets (LCP ≤ 2.5 s, INP < 200 ms, CLS < 0.1) are checked on demo data only until the owner runs
+  the speed run on the real profile (`specs/003-web-first-redesign/quickstart.md` §12).
 - The worker (F19): Shazam's tolerance for unauthenticated calls is undocumented; the pacing (one 12 s probe a minute, 3 s
   cooldown, one pause) is a guess from the surviving Tracklistify copy, and a second refusal fails the request. A set is sampled
   once a minute, so a track played under a minute can be missed. The executables are unsigned; the ffmpeg inside is a GPL build;
@@ -35,8 +40,8 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   of database; no automatic backups; a sign-in link only works in the browser that asked for it, within 10 minutes; the built-in
   email service sends a few links an hour at most.
 - Release years (F20) are only as good as their source: ReccoBeats' earliest album, else the album a playlist or Top list
-  holds (often a remaster or a compilation), else Shazam's or a catalogue's year for the ISRC heard; a year no source has stays
-  blank and sorts last. The first BPM run with years takes about 45 minutes for a 5,000-track library (one request a second);
+  holds (often a remaster or a compilation), else Shazam's or a catalogue's year for the ISRC heard; a year no source has shows
+  as a dash ("no data") and sorts last. The first BPM run with years takes about 45 minutes for a 5,000-track library (one request a second);
   a playlist synced before 2026-11-07 gets album years only when it changes or is synced again; a set saved before then gets
   years only when it is identified again (or on Create playlist, from the matched album).
 - Server rows are stored in clear (the owner declined client-side encryption): whoever holds the supabase.com login can read them.
@@ -52,7 +57,11 @@ Each spec has an "Out of scope" block; the main ones:
 - Any audio fetch, fingerprinting or recognition **in the app or on the server**; the worker on the owner's computer does it
   ([ADR-09](700-adr/ADR-09-mix-identification-on-the-owners-computer.md)). MixesDB/1001Tracklists scraping (the worker reads the set's own description and comments through yt-dlp only).
 - Adding to an existing playlist, editing a created playlist, public playlists, cover images.
-- Charts, adjustable Crate thresholds, a single blended reach score, a reach number on track rows.
+- Light theme: not built, the owner's choice (dark only, no theme switch; [ADR-11](700-adr/ADR-11-web-first-material-3.md)).
+  Adding one later would be its own small round on the same tokens.
+- In-app confirmation dialogs: the browser's `confirm()` stays, word for word (How the app works §14).
+- Adjustable Crate thresholds, a single blended reach score, a reach number on track rows. (Charts of the existing data were
+  out of scope until the redesign, F21, which draws them.)
 - Commit hooks, Dependabot, branch protection, PR templates, a docs checker ([ADR-06](700-adr/ADR-06-lean-tooling.md)).
 
 ## 4. Roadmap

@@ -1,4 +1,4 @@
-import type { Clue, MixJobView, TracklistRow } from '../../db/schema';
+import type { Clue, MixJobView, MixRun, TracklistRow } from '../../db/schema';
 import type { ServerStatus } from '../../server/types';
 import { validateJobRow, type MixJobRow } from '../../server/validate';
 import { decadeOf, parseYear } from '../../model/year';
@@ -19,6 +19,8 @@ export type WorkerResult =
       rows: TracklistRow[];
       /** Round 003: set-wide clues (empty when none). */
       clues: Clue[];
+      /** T124: what the worker said about its run, absent when nothing. */
+      run?: MixRun;
     }
   | { ok: false; message: string };
 
@@ -196,12 +198,118 @@ export function resultToRows(result: unknown): WorkerResult {
     typeof mixInfo?.artist === 'string' && mixInfo.artist.trim() !== ''
       ? mixInfo.artist.trim()
       : null;
+  const run = toRun(info);
   return {
     ok: true,
     title: parsed.title,
     author: artist,
     rows: mergeWorkerRows([], rows),
     clues: toClues(mixInfo?.clues, SET_CLUES_MAX),
+    ...(run ? { run } : {}),
+  };
+}
+
+/** Caps on the run's worker text (third-party to the app, kept short). */
+export const RUN_TEXT_MAX = 200;
+export const RUN_WARNINGS_MAX = 10;
+
+function count(v: unknown): number | null {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null;
+}
+
+function shortText(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() !== ''
+    ? cut(v.trim(), RUN_TEXT_MAX)
+    : null;
+}
+
+/**
+ * T124 (owner's D3): the run's facts from `mix_info` — the second pass
+ * (`places`, or round 003's `replays`), the resume, the early stop and
+ * the warnings. A malformed part is dropped, never fixed up; undefined
+ * when nothing is left.
+ */
+export function toRun(info: unknown): MixRun | undefined {
+  if (typeof info !== 'object' || info === null) return undefined;
+  const i = info as Record<string, unknown>;
+  const run: MixRun = {};
+  const sp = i.second_pass;
+  if (typeof sp === 'object' && sp !== null) {
+    const s = sp as Record<string, unknown>;
+    const places = count(s.places ?? s.replays);
+    const found = count(s.found);
+    const stopped = s.stopped === null ? null : shortText(s.stopped);
+    if (
+      places !== null &&
+      found !== null &&
+      (s.stopped === null || stopped !== null)
+    ) {
+      run.secondPass = { places, found, stopped };
+    }
+  }
+  const re = i.resumed;
+  if (typeof re === 'object' && re !== null) {
+    const kept = count((re as Record<string, unknown>).probes_kept);
+    if (kept !== null && kept > 0) run.resumed = { probesKept: kept };
+  }
+  const se = i.stopped_early;
+  if (typeof se === 'object' && se !== null) {
+    const s = se as Record<string, unknown>;
+    const at = typeof s.at === 'string' && CLOCK.test(s.at) ? s.at : null;
+    const reason = shortText(s.reason);
+    if (at !== null && reason !== null) run.stoppedEarly = { at, reason };
+  }
+  if (Array.isArray(i.warnings)) {
+    const warnings = i.warnings
+      .map(shortText)
+      .filter((w): w is string => w !== null)
+      .slice(0, RUN_WARNINGS_MAX);
+    if (warnings.length > 0) run.warnings = warnings;
+  }
+  return Object.keys(run).length > 0 ? run : undefined;
+}
+
+/** A worker clock, "01:12:00" (hours may have one digit). */
+export const CLOCK = /^\d{1,2}:\d{2}:\d{2}$/;
+
+/** The worker's warning codes as the owner reads them. */
+const WARNING_TEXT: Record<string, string> = {
+  'refuses often': 'Shazam refuses often: a VPN or a shared network?',
+};
+
+export interface RunLineText {
+  /** "Second pass: 41 places · 3 found · Resumed (120 clips kept)", or null. */
+  line: string | null;
+  /** "Stopped early at 01:12:00 (rate limited)", or null. */
+  stoppedEarly: string | null;
+  /** One sentence per warning. */
+  warnings: string[];
+}
+
+/** T124: the open mix's run line, or null for a mix without a run. */
+export function runLine(run: MixRun | undefined): RunLineText | null {
+  if (!run) return null;
+  const parts: string[] = [];
+  const sp = run.secondPass;
+  if (sp) {
+    parts.push(
+      `Second pass: ${sp.places} ${sp.places === 1 ? 'place' : 'places'} · ${sp.found} found` +
+        (sp.stopped !== null ? ` · stopped (${sp.stopped})` : '')
+    );
+  }
+  if (run.resumed) {
+    parts.push(`Resumed (${run.resumed.probesKept} clips kept)`);
+  }
+  const stoppedEarly = run.stoppedEarly
+    ? `Stopped early at ${run.stoppedEarly.at} (${run.stoppedEarly.reason})`
+    : null;
+  const warnings = (run.warnings ?? []).map((w) => WARNING_TEXT[w] ?? w);
+  if (parts.length === 0 && stoppedEarly === null && warnings.length === 0)
+    return null;
+  return {
+    line: parts.length > 0 ? parts.join(' · ') : null,
+    stoppedEarly,
+    warnings,
   };
 }
 
@@ -304,6 +412,13 @@ const STEP_NAMES: Record<string, string> = {
   paused: 'Paused by Shazam',
 };
 
+/** A progress step as the owner reads it: "First pass", "Second pass ×1.04". */
+export function stepName(step: string): string {
+  return step.startsWith('second')
+    ? `Second pass ${step.slice('second'.length).trim()}`.trim()
+    : (STEP_NAMES[step] ?? step);
+}
+
 function clock(ms: number): string {
   return new Date(ms).toLocaleTimeString(undefined, { timeStyle: 'short' });
 }
@@ -317,9 +432,7 @@ export function progressLine(view: MixJobView, now: number): string | null {
   const p = view.progress;
   if (!p) return null;
   const parts: string[] = [];
-  const name = p.step.startsWith('second')
-    ? `Second pass ${p.step.slice('second'.length).trim()}`.trim()
-    : (STEP_NAMES[p.step] ?? p.step);
+  const name = stepName(p.step);
   if (p.step === 'paused' && p.pausedUntil !== null) {
     parts.push(`Paused by Shazam until ${clock(p.pausedUntil)}`);
   } else {
@@ -421,10 +534,13 @@ export interface RequestListItem {
   canAskAgain: boolean;
 }
 
-function shortLink(key: string): string {
+/** A link without a title: its host and last path part. */
+export function shortLink(key: string): string {
   try {
     const u = new URL(key);
-    const last = u.pathname.split('/').filter(Boolean).pop();
+    // A YouTube watch link is named by its video id, not "watch".
+    const last =
+      u.searchParams.get('v') ?? u.pathname.split('/').filter(Boolean).pop();
     const host = u.hostname.replace(/^www\./, '');
     return last ? `${host} · ${decodeURIComponent(last)}` : host;
   } catch {
@@ -445,10 +561,30 @@ function labelOf(view: MixJobView): RequestListItem['label'] {
   }
 }
 
+/** When a request last changed: finished, else claimed, else created. */
+export function requestAt(v: MixJobView): number {
+  return v.finishedAt ?? v.claimedAt ?? v.createdAt;
+}
+
 /**
- * Every link's latest request, for the card: the running ones first, then
- * the waiting ones oldest first (the order the worker takes them), then the
- * finished ones newest first.
+ * The queue's order (T121): running first; then waiting in the order the
+ * worker takes them (`claim_job`: priority high to low, then oldest first),
+ * so Move to top shows the request first; then the finished ones, newest
+ * first. A comparator for `sort`.
+ */
+export function queueOrder(a: MixJobView, b: MixJobView): number {
+  const rank = (v: MixJobView): number =>
+    v.status === 'claimed' ? 0 : v.status === 'queued' ? 1 : 2;
+  const r = rank(a) - rank(b);
+  if (r !== 0) return r;
+  if (a.status === 'queued') {
+    return (b.priority ?? 0) - (a.priority ?? 0) || a.createdAt - b.createdAt;
+  }
+  return requestAt(b) - requestAt(a);
+}
+
+/**
+ * Every link's latest request, for the card, in `queueOrder`.
  */
 export function requestList(
   jobs: Record<string, MixJobView[]>,
@@ -459,20 +595,12 @@ export function requestList(
   }[],
   server: ServerStatus
 ): RequestListItem[] {
-  const rank = (v: MixJobView): number =>
-    v.status === 'claimed' ? 0 : v.status === 'queued' ? 1 : 2;
   const latest = Object.entries(jobs)
     .map(([key, history]) => ({ key, view: history[0] }))
     .filter(
       (e): e is { key: string; view: MixJobView } => e.view !== undefined
     );
-  latest.sort((a, b) => {
-    const r = rank(a.view) - rank(b.view);
-    if (r !== 0) return r;
-    if (a.view.status === 'queued') return a.view.createdAt - b.view.createdAt;
-    const at = (v: MixJobView) => v.finishedAt ?? v.claimedAt ?? v.createdAt;
-    return at(b.view) - at(a.view);
-  });
+  latest.sort((a, b) => queueOrder(a.view, b.view));
   return latest.map(({ key, view }) => {
     const mix = mixes.find((m) => m.url === key);
     const label = labelOf(view);
@@ -494,6 +622,14 @@ export function requestList(
 export type RowSort = 'time' | 'clips' | 'score' | 'year';
 
 /**
+ * A tracklist row's own year, the one the Released column shows and the
+ * year sort and decade use: null for a gap or an undated row (round 005).
+ */
+export function rowYear(row: TracklistRow): number | null {
+  return !row.gap && typeof row.year === 'number' ? row.year : null;
+}
+
+/**
  * Round 004: the order and subset of the tracklist the owner chose to look
  * at, as indexes into `rows` (so Edit and Delete still act on the real row).
  * "Heard once" keeps rows matched by a single clip; it hides, never deletes.
@@ -513,14 +649,14 @@ export function viewRows(
     .filter((i) => !heardOnce || rows[i].hits === 1)
     .filter((i) => {
       if (decade === null) return true;
-      const y = rows[i].year;
-      return typeof y === 'number' && decadeOf(y) === decade;
+      const y = rowYear(rows[i]);
+      return y !== null && decadeOf(y) === decade;
     });
   if (sort === 'time') return idx;
   if (sort === 'year') {
     return idx.sort((a, b) => {
-      const x = rows[a].year ?? null;
-      const y = rows[b].year ?? null;
+      const x = rowYear(rows[a]);
+      const y = rowYear(rows[b]);
       if (x === null && y === null) return a - b;
       if (x === null) return 1;
       if (y === null) return -1;

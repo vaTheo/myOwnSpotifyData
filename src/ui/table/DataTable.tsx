@@ -1,0 +1,581 @@
+import type { ComponentChildren, JSX } from 'preact';
+import { Fragment } from 'preact';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'preact/hooks';
+import { PAGE_SIZE } from '../../model/crate';
+import { Icon } from '../icons';
+import { windowClass } from '../layout/windowClass';
+import { moveIndex, rovingTarget } from './keyboard';
+import {
+  levelOf,
+  widthLevel,
+  type ColumnTrack,
+  type TableLayout,
+} from './layout';
+import { shownToReveal } from './paging';
+import {
+  nextSort,
+  sortRows,
+  type SortDirection,
+  type SortState,
+  type SortValue,
+} from './sort';
+
+/**
+ * One column of a table (spec 003, data-model §3). `priority` 1 never hides;
+ * 2 to 4 hide in that order as the table narrows (FR-018). `compact` is the
+ * column's place in the two-line item drawn on phones (FR-017).
+ */
+export interface Column<Row> {
+  id: string;
+  header: string;
+  /** The header is for screen readers only (a cover, a link column). */
+  headerHidden?: boolean;
+  align?: 'start' | 'end';
+  priority: 1 | 2 | 3 | 4;
+  /** A CSS grid track: `56px`, `minmax(0, 2fr)`. */
+  width: string;
+  sortValue?: (row: Row) => SortValue;
+  /**
+   * In a `presorted` table, the header is a sort button though the table
+   * never sorts by it: the click is reported, the screen re-ranks.
+   */
+  sortable?: boolean;
+  firstDirection?: SortDirection;
+  /** The rank column: sorting by it restores the screen's own ranking. */
+  rank?: boolean;
+  cell: (row: Row, rank: number) => ComponentChildren;
+  /**
+   * The cell in the two-line item, when it differs from `cell`; null
+   * leaves the part out (an undated song adds nothing to the meta line).
+   */
+  compactCell?: (row: Row, rank: number) => ComponentChildren;
+  /** Full text for a truncated cell's tooltip (FR-023). */
+  title?: (row: Row) => string | undefined;
+  compact?: 'lead' | 'title' | 'subtitle' | 'meta' | 'trail' | 'hidden';
+}
+
+/** The grid template at each priority level: hidden columns get 0 px. */
+function templates<Row>(columns: Column<Row>[]): Record<string, string> {
+  const vars: Record<string, string> = {};
+  for (let level = 1; level <= 4; level += 1) {
+    vars[`--dt-cols-${level}`] = columns
+      .map((c) => (c.priority <= level ? c.width : '0px'))
+      .join(' ');
+  }
+  return vars;
+}
+
+/**
+ * What the table's width decides, kept as one small code (`widthLevel`):
+ * the column-priority level and whether the table draws two-line items
+ * (narrower than `compactBelow`, or too narrow for a readable title). A
+ * resize re-renders the table only when that changes, not on every pixel
+ * (S13c review M3). Null until measured.
+ */
+function useWidthLevel(
+  ref: { current: HTMLElement | null },
+  compactBelow: number | undefined,
+  columns: readonly ColumnTrack[]
+): number | null {
+  const [level, setLevel] = useState<number | null>(null);
+  // The observer reads the latest columns without being made again.
+  const latest = useRef(columns);
+  latest.current = columns;
+  // The first width is read before the browser paints, so a table that
+  // fits never shows its two-line items for a frame (S09 round 1).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el) {
+      const width = Math.round(el.getBoundingClientRect().width);
+      setLevel(widthLevel(width, compactBelow, columns));
+    }
+  }, [compactBelow, columns]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let frame = 0;
+    // Read in the next frame: the layout the new width brings (items or
+    // rows) must not land inside the observer's own notification.
+    const observer = new ResizeObserver((entries) => {
+      const width = Math.round(entries[0].contentRect.width);
+      const next = widthLevel(width, compactBelow, latest.current);
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setLevel(next));
+    });
+    observer.observe(el);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [compactBelow]);
+  return level;
+}
+
+/** How long the focus rests on a row before an open sheet follows it. */
+const FOLLOW_DELAY_MS = 150;
+
+function ariaSort(
+  column: Column<unknown>,
+  sort: SortState
+): JSX.AriaAttributes['aria-sort'] {
+  if (column.rank && sort.columnId === null) return 'ascending';
+  if (sort.columnId !== column.id) return undefined;
+  return sort.direction === 'asc' ? 'ascending' : 'descending';
+}
+
+/**
+ * The tables of the redesign (spec 003, FR-015–FR-018, FR-022, FR-043,
+ * FR-044). ARIA grid roles on CSS grid rows; header buttons sort; rows take
+ * a roving tabindex. Ranks are computed before any sort or filter and travel
+ * with their rows. Long lists grow 100 rows at a time, as before.
+ */
+export function DataTable<Row>(p: {
+  label: string;
+  columns: Column<Row>[];
+  /** The rows in the screen's own ranking order. */
+  rows: Row[];
+  rowKey: (row: Row) => string;
+  /** The row's rank; by default its place in `rows`. */
+  rankOf?: (row: Row, index: number) => number;
+  sort: SortState;
+  onSort: (sort: SortState) => void;
+  onOpen?: (row: Row) => void;
+  selectedKey?: string | null;
+  /** Heading rows between groups (Under the radar); kept in order. */
+  groupOf?: (row: Row) => string | null;
+  groupHeading?: (group: string) => ComponentChildren;
+  /** A change resets the paging, as a sort change does. */
+  resetKey?: string;
+  /** What a row is called in the paging footer ("track", "artist"). */
+  noun?: string;
+  /**
+   * A details sheet is open: moving the focus with the arrow keys opens the
+   * focused row too, so the sheet follows (US3). Debounced, so a held key
+   * changes the address once it stops.
+   */
+  follow?: boolean;
+  /**
+   * Two-line items whatever the window: a detail beside the list pane on an
+   * expanded window is a phone's width (S04 fix 1).
+   */
+  compact?: boolean;
+  /**
+   * The rows arrive already in the order `sort` names (Under the radar's
+   * three sorts): a header click only reports the column, the table never
+   * re-sorts, and the group headings stay.
+   */
+  presorted?: boolean;
+  /**
+   * A row drawn whole across the columns instead of cell by cell (Mix: a
+   * gap separator, a row being edited); null for an ordinary row. It keeps
+   * its place in the keyboard order.
+   */
+  fullRow?: (row: Row) => ComponentChildren | null;
+  /**
+   * A row key to keep on the page: when it changes, the table shows more
+   * pages until that row is in them (Mix: the row Add track just made).
+   */
+  revealKey?: string | null;
+  /**
+   * The rows a filter keeps (FR-052); null or absent keeps them all. Applied
+   * after the ranks are taken, so a rank travels with its row (FR-049).
+   */
+  only?: ReadonlySet<Row> | null;
+  /**
+   * Two-line items while the table itself is narrower than this many
+   * pixels: a detail beside a list pane follows its own width, not the
+   * window's class (S04 parked fix 1). Overrides `compact` once measured.
+   */
+  compactBelow?: number;
+  /**
+   * What the table draws at its width (round 005, screens.md "From main…"
+   * §2): two-line items or not, and the highest column priority shown.
+   * Called when either changes, so a screen can offer "Sort by year"
+   * where the Released header is not drawn.
+   */
+  onLayout?: (layout: TableLayout) => void;
+}) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const level = levelOf(useWidthLevel(wrap, p.compactBelow, p.columns));
+  // Measured, the table's own width decides (`compactBelow`, a readable
+  // title); a phone, or `compact` without `compactBelow`, still asks for
+  // two-line items.
+  const fallback = p.compact ?? windowClass.value === 'compact';
+  const compact =
+    level.narrow === null
+      ? fallback
+      : p.compactBelow !== undefined
+        ? level.narrow
+        : level.narrow || fallback;
+  const widest = level.widest;
+  const onLayout = p.onLayout;
+  useLayoutEffect(() => {
+    onLayout?.({ twoLine: compact, widestPriority: widest });
+  }, [compact, widest]);
+  const [shown, setShown] = useState(PAGE_SIZE);
+  const [active, setActive] = useState<number | null>(null);
+  const [announce, setAnnounce] = useState('');
+  const body = useRef<HTMLDivElement>(null);
+  const followTimer = useRef<ReturnType<typeof setTimeout>>();
+  // The sheet closed (or the table went): a pending follow would reopen it.
+  useEffect(() => () => clearTimeout(followTimer.current), [p.follow]);
+
+  const ranked = useMemo(() => {
+    const rankOf = p.rankOf ?? ((_: Row, i: number) => i + 1);
+    return p.rows.map((row, i) => ({ row, rank: rankOf(row, i) }));
+  }, [p.rows, p.rankOf]);
+  const column = p.columns.find((c) => c.id === p.sort.columnId);
+  const sorted = useMemo(
+    () =>
+      column?.sortValue && !p.presorted
+        ? sortRows(ranked, (r) => column.sortValue!(r.row), p.sort.direction)
+        : ranked,
+    [ranked, column, p.sort.direction, p.presorted]
+  );
+  const only = p.only ?? null;
+  const ordered = useMemo(
+    () => (only ? sorted.filter((r) => only.has(r.row)) : sorted),
+    [sorted, only]
+  );
+
+  useEffect(() => {
+    setShown(PAGE_SIZE);
+    setActive(null);
+  }, [p.sort.columnId, p.sort.direction, p.resetKey]);
+
+  useEffect(() => {
+    if (p.revealKey == null) return;
+    const at = ordered.findIndex((r) => p.rowKey(r.row) === p.revealKey);
+    setShown((n) => shownToReveal(at, n, PAGE_SIZE));
+  }, [p.revealKey]);
+
+  const visible = ordered.slice(0, shown);
+  const grouped =
+    p.groupOf !== undefined && (p.presorted || p.sort.columnId === null);
+
+  function focusRow(index: number): void {
+    setActive(index);
+    body.current
+      ?.querySelector<HTMLElement>(`[data-index="${index}"]`)
+      ?.focus();
+  }
+
+  function onKeyDown(e: KeyboardEvent): void {
+    const target = e.target as HTMLElement;
+    if (!target.matches('[data-index]')) return;
+    const index = Number(target.dataset.index);
+    if (e.key === 'Enter' && p.onOpen) {
+      e.preventDefault();
+      p.onOpen(visible[index].row);
+      return;
+    }
+    const next = moveIndex(index, e.key, visible.length, 10);
+    if (next === null) return;
+    e.preventDefault();
+    focusRow(next);
+    if (p.follow && p.onOpen) {
+      const open = p.onOpen;
+      const row = visible[next].row;
+      clearTimeout(followTimer.current);
+      followTimer.current = setTimeout(() => {
+        // Escape may have closed the sheet before the render that clears
+        // this timer: follow only while a sheet is still open.
+        if (location.hash.includes('?d=')) open(row);
+      }, FOLLOW_DELAY_MS);
+    }
+  }
+
+  function onRowClick(e: MouseEvent, row: Row, index: number): void {
+    // A link or button inside the row does its own thing.
+    if ((e.target as HTMLElement).closest('a, button')) return;
+    setActive(index);
+    p.onOpen?.(row);
+  }
+
+  function sortBy(c: Column<Row>): void {
+    if (p.presorted) {
+      p.onSort({ columnId: c.id, direction: c.firstDirection ?? 'asc' });
+      setAnnounce(`Sorted by ${c.header}`);
+      return;
+    }
+    const next = nextSort(p.sort, c.id, c);
+    p.onSort(next);
+    const by = next.columnId === null ? 'the default order' : c.header;
+    setAnnounce(
+      next.columnId === null
+        ? `Sorted by ${by}`
+        : `Sorted by ${by}, ${next.direction === 'asc' ? 'ascending' : 'descending'}`
+    );
+  }
+
+  // A filter may leave fewer rows: the Tab stop stays on one (FR-043).
+  const tabTarget = rovingTarget(active, visible.length);
+
+  // One Tab stop per table (T100): the links and buttons of a row are Tab
+  // stops only in the row that holds it, so Tab leaves a 500-row table in
+  // a few presses and the arrows reach the others. A full row (a row being
+  // edited, a gap) keeps its controls in the order.
+  useLayoutEffect(() => {
+    const rows = body.current?.querySelectorAll<HTMLElement>(
+      ':scope > .dt-row, :scope > .dt-item'
+    );
+    rows?.forEach((row) => {
+      const on = Number(row.dataset.index) === tabTarget;
+      for (const el of row.querySelectorAll<HTMLElement>(
+        'a[href], button, input, select, textarea'
+      )) {
+        if (on && el.dataset.dtTab === 'off') {
+          el.removeAttribute('tabindex');
+          delete el.dataset.dtTab;
+        } else if (!on && !el.hasAttribute('tabindex')) {
+          el.tabIndex = -1;
+          el.dataset.dtTab = 'off';
+        }
+      }
+    });
+  }, [ordered, shown, tabTarget, compact, p.columns]);
+
+  // A control of another row focused with the pointer moves the stop to
+  // that row, so the next Tab reaches its row-mates.
+  function onFocusIn(e: FocusEvent): void {
+    const target = e.target as HTMLElement;
+    if (target.matches('[data-index]')) return;
+    const row = target.closest<HTMLElement>('[data-index]');
+    if (row) setActive(Number(row.dataset.index));
+  }
+  let lastGroup: string | null | undefined;
+
+  const rowsOut = visible.map(({ row, rank }, index) => {
+    const key = p.rowKey(row);
+    const group = grouped
+      ? (p.groupOf as (r: Row) => string | null)(row)
+      : null;
+    const heading =
+      grouped && group !== lastGroup && group !== null && p.groupHeading
+        ? p.groupHeading(group)
+        : null;
+    lastGroup = group;
+    const selected = p.selectedKey === key;
+    const common = {
+      role: 'row' as const,
+      tabIndex: index === tabTarget ? 0 : -1,
+      'data-index': index,
+      'data-row-id': key,
+      'aria-selected': p.onOpen ? selected : undefined,
+      onClick: (e: MouseEvent) => onRowClick(e, row, index),
+      onFocus: () => setActive(index),
+    };
+    const full = p.fullRow?.(row);
+    return (
+      <Fragment key={key}>
+        {heading && (
+          <div role="row" class="dt-group">
+            <div role="gridcell" data-span="true">
+              {heading}
+            </div>
+          </div>
+        )}
+        {full !== null && full !== undefined ? (
+          <div {...common} class={selected ? 'dt-full selected' : 'dt-full'}>
+            <div role="gridcell" data-span="true">
+              {full}
+            </div>
+          </div>
+        ) : compact ? (
+          <div {...common} class={selected ? 'dt-item selected' : 'dt-item'}>
+            <CompactItem columns={p.columns} row={row} rank={rank} />
+          </div>
+        ) : (
+          <div {...common} class={selected ? 'dt-row selected' : 'dt-row'}>
+            {p.columns.map((c) => (
+              <div
+                role="gridcell"
+                key={c.id}
+                class={`dt-cell p${c.priority}${c.align === 'end' ? ' end' : ''}`}
+                data-align={c.align ?? 'start'}
+                title={c.title?.(row)}
+              >
+                {c.cell(row, rank)}
+              </div>
+            ))}
+          </div>
+        )}
+      </Fragment>
+    );
+  });
+
+  // Phones draw no sort headers: a sort chosen on a wider window stays
+  // applied, so it is said here and can be reset (S04 parked fix 2).
+  const sortedBy =
+    compact && !p.presorted && p.sort.columnId !== null ? column : undefined;
+
+  return (
+    <div class="dt-wrap" ref={wrap}>
+      {sortedBy && (
+        <div class="dt-sorted">
+          <Icon
+            name={
+              p.sort.direction === 'asc' ? 'arrow_upward' : 'arrow_downward'
+            }
+            size={18}
+          />
+          <span>
+            Sorted by {sortedBy.header},{' '}
+            {p.sort.direction === 'asc' ? 'ascending' : 'descending'}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              p.onSort({ columnId: null, direction: 'asc' });
+              setAnnounce('Sorted by the default order');
+            }}
+          >
+            Reset
+          </button>
+        </div>
+      )}
+      <div
+        class={compact ? 'dt compact' : 'dt'}
+        // The level drawn, which may hide more than the container queries
+        // would so a title stays readable (`fitLevel`); unset until measured.
+        data-level={level.narrow === null ? undefined : level.widest}
+        role="grid"
+        aria-label={p.label}
+        aria-rowcount={ordered.length + 1}
+        style={templates(p.columns)}
+      >
+        <div role="rowgroup" class={compact ? 'visually-hidden' : 'dt-head'}>
+          <div role="row" class="dt-row dt-header-row">
+            {p.columns.map((c) => (
+              <div
+                role="columnheader"
+                key={c.id}
+                class={`dt-cell p${c.priority}${c.align === 'end' ? ' end' : ''}`}
+                data-align={c.align ?? 'start'}
+                aria-sort={ariaSort(c as Column<unknown>, p.sort)}
+              >
+                {(c.sortValue || c.rank || (p.presorted && c.sortable)) &&
+                !compact ? (
+                  <button
+                    type="button"
+                    class="dt-sort"
+                    onClick={() => sortBy(c)}
+                  >
+                    <span class={c.headerHidden ? 'visually-hidden' : ''}>
+                      {c.header}
+                    </span>
+                    {p.sort.columnId === c.id && (
+                      <Icon
+                        name={
+                          p.sort.direction === 'asc'
+                            ? 'arrow_upward'
+                            : 'arrow_downward'
+                        }
+                        size={16}
+                      />
+                    )}
+                  </button>
+                ) : (
+                  <span class={c.headerHidden ? 'visually-hidden' : ''}>
+                    {c.header}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div
+          role="rowgroup"
+          class="dt-body"
+          ref={body}
+          onKeyDown={onKeyDown}
+          onFocusIn={onFocusIn}
+        >
+          {rowsOut}
+        </div>
+      </div>
+      <div class="visually-hidden" aria-live="polite">
+        {announce}
+      </div>
+      {ordered.length > shown && (
+        <div class="dt-footer">
+          <p>
+            Showing the top {shown.toLocaleString()} of{' '}
+            {ordered.length.toLocaleString()}
+            {p.noun ? ` ${p.noun}s` : ''}
+          </p>
+          <button type="button" onClick={() => setShown(shown + PAGE_SIZE)}>
+            Show {PAGE_SIZE.toLocaleString()} more
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The item of a phone: lead, then title, subtitle (artists) and meta lines,
+ * then trail. The subtitle has its own line so a long meta never cuts the
+ * artists to a few letters; meta parts are spaced, not dotted, and wrap.
+ */
+function CompactItem<Row>(p: {
+  columns: Column<Row>[];
+  row: Row;
+  rank: number;
+}) {
+  const part = (place: Column<Row>['compact']) =>
+    p.columns.filter((c) => c.compact === place);
+  const sub = part('subtitle');
+  // A part whose two-line cell is null adds nothing to the meta line.
+  const meta = part('meta')
+    .map((c) => ({
+      c,
+      content: (c.compactCell ?? c.cell)(p.row, p.rank),
+    }))
+    .filter(({ content }) => content !== null && content !== undefined);
+  return (
+    <>
+      <div role="gridcell" class="dt-item-lead">
+        {part('lead').map((c) => (
+          <Fragment key={c.id}>{c.cell(p.row, p.rank)}</Fragment>
+        ))}
+      </div>
+      <div role="gridcell" class="dt-item-main">
+        <div class="dt-item-title">
+          {part('title').map((c) => (
+            <Fragment key={c.id}>{c.cell(p.row, p.rank)}</Fragment>
+          ))}
+        </div>
+        {sub.length > 0 && (
+          <div class="dt-item-sub">
+            {sub.map((c) => (
+              <span key={c.id} class="dt-item-part">
+                {c.cell(p.row, p.rank)}
+              </span>
+            ))}
+          </div>
+        )}
+        {meta.length > 0 && (
+          <div class="dt-item-meta">
+            {meta.map(({ c, content }) => (
+              <span key={c.id} class="dt-item-part">
+                {content}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div role="gridcell" class="dt-item-trail">
+        {part('trail').map((c) => (
+          <Fragment key={c.id}>{c.cell(p.row, p.rank)}</Fragment>
+        ))}
+      </div>
+    </>
+  );
+}

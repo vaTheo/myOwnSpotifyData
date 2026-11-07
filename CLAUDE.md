@@ -1,7 +1,8 @@
 # myOwnSpotifyData
 
-Browser-only Preact web app the owner (a DJ) uses on an Android phone: most played Spotify tracks, their playlists ranked by play
-count, artists ranked by saved tracks, and set preparation (Crate, BPM and key, Match, Under the radar, Mix tracklist). Public repo
+Browser-only Preact web app the owner (a DJ) uses mainly in a web browser on a computer, and on an Android phone: most played
+Spotify tracks, their playlists ranked by play count, artists ranked by saved tracks, and set preparation (Crate, BPM and key, Match,
+Under the radar, Mix tracklist). Public repo
 `vaTheo/myOwnSpotifyData`, single `main` branch, deployed to GitHub Pages at `https://vatheo.github.io/myOwnSpotifyData/`. Keep it lean:
 the owner declined commit hooks, Dependabot, branch protection, PR templates and a docs checker, and wants the minimum that solves the
 request ([ADR-06](docs/architecture/700-adr/ADR-06-lean-tooling.md)).
@@ -19,6 +20,7 @@ Every page of the docs: [docs/README.md](docs/README.md). What is built and the 
 | `src/features/mix/` (tracklist, Search matching, create playlist) | `src/features/mix/CLAUDE.md`, how-it-works §10 | accepted **and** refused cases in `spotifySearch.test.ts` |
 | `src/server/`, sync between devices, the job queue | `src/server/CLAUDE.md`, [ADR-08](docs/architecture/700-adr/ADR-08-owner-server-free-tier.md), how-it-works §16 | no Spotify read from a pull; pending flags survive a failure; every pulled row validated |
 | `worker/` (the owner's-computer worker), an `identify-mix` request | `worker/CLAUDE.md`, [ADR-08](docs/architecture/700-adr/ADR-08-owner-server-free-tier.md), how-it-works §17 | never a Spotify host; one probe at a time; the F15 JSON shape; `python -m unittest discover -s worker/tests` green |
+| a screen, `src/ui/`, `tools/shots/` | [Design guide](docs/dev-guide/100-design-guide.md), [ADR-11](docs/architecture/700-adr/ADR-11-web-first-material-3.md), how-it-works §13, `specs/003-web-first-redesign/contracts/` | tokens only; `yarn shots` 0 findings on the pages touched |
 | a Spotify scope, a write, `src/spotify/client.ts` | [ADR-03](docs/architecture/700-adr/ADR-03-library-writes-on-tap.md), how-it-works §3–§4 | inventory §3 "The two Spotify writes" |
 | sync, quota, anything that reads Spotify | [ADR-02](docs/architecture/700-adr/ADR-02-no-spotify-reads-on-load.md), how-it-works §7 | no read on load |
 | history import, Crate, play counts | [ADR-07](docs/architecture/700-adr/ADR-07-play-counts-from-export.md), how-it-works §8, §12–§13 | the summary-version gate |
@@ -42,7 +44,11 @@ Every page of the docs: [docs/README.md](docs/README.md). What is built and the 
 
 Node 24 (`.nvmrc`), yarn classic 1.22, install with `yarn`. `yarn dev` (open `http://127.0.0.1:5173/myOwnSpotifyData/`), `yarn test`,
 `yarn test src/router.test.ts`, `yarn test -t "name"`, `yarn vitest` (watch), `yarn typecheck`, `yarn lint`, `yarn format` (not
-enforced), `yarn build`. Details: [Contributing](docs/dev-guide/000-contributing.md).
+enforced), `yarn build`. A UI change ends with the visual loop: `yarn shots` (Playwright, dev only, every page at four widths on
+the demo data), `yarn shots:summary`, `yarn shots:sheet`; the demo is `yarn dev` opened with `?demo` (or `?demo=<variant>`), never
+the owner's data ([ADR-11](docs/architecture/700-adr/ADR-11-web-first-material-3.md)). Before a merge: `yarn regression` (the UI driven
+on the demo, one test per row of `specs/003-web-first-redesign/regression.md`) and `yarn invariants` (the branch against `main`).
+Details: [Contributing](docs/dev-guide/000-contributing.md).
 
 ## Non-negotiable rules
 
@@ -54,7 +60,8 @@ enforced), `yarn build`. Details: [Contributing](docs/dev-guide/000-contributing
 - Spotify writes exist in exactly two places (Create playlist from mix, Like all songs), on a tap, gated by `hasScope`; `post` is never
   retried; a refresh never widens a scope, so a new scope means **Connect again** (ADR-03).
 - External sources: keyless, keyed on Spotify ids or ISRCs, never name search; clients never throw; long jobs start only from Settings and
-  resume; the reach pacing split is pinned by a test (ADR-04).
+  resume; the reach pacing split is pinned by a test (ADR-04). The one exception: the worker may look up by name a clue that carries no
+  identifier, exact equality only, the row marked "not heard" (ADR-10); the app's external sources never search by name.
 - IndexedDB upgrades only add stores; optional fields need no bump; `mixes` stays out of `buildModel` (ADR-05).
 - Play counts come only from the history export; the Crate gates on `historySummary.version === 2`, Under the radar on
   `artistReachSummary.version === 1`, never on rows (ADR-07).

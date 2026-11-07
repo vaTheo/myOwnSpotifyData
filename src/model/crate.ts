@@ -40,7 +40,8 @@ export const MONTH_NAMES = [
   'Dec',
 ];
 
-function yearMonth(year: number, month: number): string {
+/** `YYYY-MM`, month 1–12. */
+export function yearMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`;
 }
 
@@ -222,7 +223,7 @@ export function classics(
       if (plays >= CLASSIC_MIN_PLAYS_PER_YEAR) yearsActive += 1;
     }
     if (yearsActive < CLASSIC_MIN_YEARS) continue;
-    // Ascending, so the expansion strip can walk the years as they come.
+    // Ascending, so the per-year chart can walk the years as they come.
     const perYear = new Map([...totals.entries()].sort((a, b) => a[0] - b[0]));
     items.push({ row, yearsActive, perYear });
   }

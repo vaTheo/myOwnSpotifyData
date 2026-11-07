@@ -16,10 +16,17 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "shots": "PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 playwright test -c tools/shots/playwright.config.ts",
+    "shots:sheet": "node tools/shots/contact-sheet.ts",
+    "shots:summary": "node tools/shots/summary.ts",
+    "invariants": "node tools/shots/invariants.ts",
+    "regression": "PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 playwright test -c tools/shots/regression.config.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.0",
     "@types/node": "^26.4.1",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
