@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   put: vi.fn(),
+  serverConfigured: false,
 }));
 
 vi.mock('../auth/browser', async () => {
@@ -36,7 +37,9 @@ vi.mock('../spotify/api', () => ({
 vi.mock('../server/browser', async () => {
   const { signal: s } = await import('@preact/signals');
   return {
-    serverConfigured: false,
+    get serverConfigured() {
+      return mocks.serverConfigured;
+    },
     serverClient: {},
     serverAuth: {
       session: s(null),
@@ -306,5 +309,31 @@ describe('loadServerPending (S11, parked minor)', () => {
     expect(state.serverPending.value).toEqual({ mixes: true });
     expect(state.serverPendingError.value).toBeNull();
     state.serverPending.value = null;
+  });
+
+  it('a late read never undoes the flags a push request just wrote', async () => {
+    const repo = await import('../db/repo');
+    let releaseOld: (v: unknown) => void = () => undefined;
+    vi.mocked(repo.getMeta)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseOld = resolve;
+          })
+      )
+      .mockResolvedValueOnce({} as never);
+    mocks.serverConfigured = true;
+    try {
+      const first = state.loadServerPending();
+      // Signed out of the server: the flags are written, nothing is sent.
+      await state.queueServerPush(['history']);
+      expect(state.serverPending.value).toEqual({ history: true });
+      releaseOld({});
+      await first;
+      expect(state.serverPending.value).toEqual({ history: true });
+    } finally {
+      mocks.serverConfigured = false;
+      state.serverPending.value = null;
+    }
   });
 });
