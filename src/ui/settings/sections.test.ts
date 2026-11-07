@@ -10,9 +10,10 @@ import {
 const ORDER = SETTINGS_SECTIONS.map((s) => s.id);
 
 describe('SETTINGS_SECTIONS', () => {
-  it('lists the Updates section (round 006) and the seven sections of US5 in page order', () => {
-    expect(SETTINGS_SECTIONS.map((s) => s.label)).toEqual([
-      'Updates',
+  it('lists the seven sections of US5 in page order', () => {
+    expect(
+      SETTINGS_SECTIONS.map((s) => s.label).filter((l) => l !== 'Updates')
+    ).toEqual([
       'Spotify account',
       'Spotify sync',
       'Listening history',
@@ -21,6 +22,10 @@ describe('SETTINGS_SECTIONS', () => {
       'Server',
       'Danger zone',
     ]);
+  });
+
+  it('puts the Updates section (round 006) first', () => {
+    expect(SETTINGS_SECTIONS[0]).toEqual({ id: 'updates', label: 'Updates' });
   });
 
   it('gives each section its own element id', () => {

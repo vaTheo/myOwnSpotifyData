@@ -536,7 +536,9 @@ test.describe('A. addresses', () => {
       .getByRole('navigation', { name: 'Settings sections' })
       .getByRole('button')
       .allTextContents();
-    expect(sections).toEqual([
+    // Round 006 adds the Updates section first; the seven of US5 follow.
+    expect(sections[0]).toBe('Updates');
+    expect(sections.slice(1)).toEqual([
       'Spotify account',
       'Spotify sync',
       'Listening history',
@@ -1939,6 +1941,30 @@ test.describe('Y. release year', () => {
     });
     await app.page.getByRole('button', { name: /^Running/ }).click();
     await expect(app.page.getByText('Looking up release years')).toBeVisible();
+  });
+
+  test('U01 Settings · Updates lists the six jobs and the switch', async ({
+    app,
+  }) => {
+    await app.open('#/settings');
+    await expect(
+      app.page.getByRole('heading', { name: 'Updates', exact: true })
+    ).toBeVisible();
+    for (const label of [
+      'Server',
+      'Spotify',
+      'BPM and key',
+      'Artist reach',
+      'History',
+      'Rekordbox',
+    ]) {
+      await expect(
+        app.page.locator('.update-line').filter({ hasText: label }).first()
+      ).toBeVisible();
+    }
+    await expect(
+      app.page.getByRole('heading', { name: 'Automatic updates' })
+    ).toBeVisible();
   });
 
   test('Y08 Settings · Audio data counts release years', async ({ app }) => {

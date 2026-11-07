@@ -433,7 +433,7 @@ puts the job first (even with the switch off). `disconnect` calls `autoChain.sto
 (`spotifyHeld`) while the account-mismatch notice is up, and an automatic sync answers the account-switch question "no" without
 asking: that `confirm()` follows a tap only. The BPM and reach runs push only when they looked something up (`featuresChanged`,
 `reachChanged`, `src/model/pushAfter.ts`), so a resume with nothing new sends nothing. "Sync this playlist" is disabled while
-`jobsBusy()`. The Settings Updates section's six lines (`src/ui/settings/UpdatesSection.tsx`) come from
+`jobsBusy()`. The demo (`?demo`, dev only) never starts the chain: it has no Spotify session. The Settings Updates section's six lines (`src/ui/settings/UpdatesSection.tsx`) come from
 `updateLines` (`src/model/updateLines.ts`, pure). The switch is `localStorage` `autoUpdates` (`'off'` = off).
 
 The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:888`). The mix and like
