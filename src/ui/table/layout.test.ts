@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   levelOf,
+  MIN_TITLE_PX,
+  titleRoom,
+  type ColumnTrack,
   widestPriority,
   widthLevel,
   yearSortFor,
@@ -51,5 +54,75 @@ describe('the Sort by year switch (S13c review M2)', () => {
       direction: 'asc',
     });
     expect(yearSortFor(false)).toEqual({ columnId: null, direction: 'asc' });
+  });
+});
+
+describe('titleRoom and two-line items (S13c review I1)', () => {
+  // Top's tracks: # · cover · title · artists · plays · playlists · BPM ·
+  // key · released · link.
+  const top: ColumnTrack[] = [
+    { id: 'rank', priority: 1, width: '56px' },
+    { id: 'cover', priority: 3, width: '56px' },
+    { id: 'title', priority: 1, width: 'minmax(0, 2fr)' },
+    { id: 'artists', priority: 2, width: 'minmax(0, 1.5fr)' },
+    { id: 'plays', priority: 1, width: '88px' },
+    { id: 'playlists', priority: 2, width: '152px' },
+    { id: 'bpm', priority: 1, width: '76px' },
+    { id: 'key', priority: 1, width: '76px' },
+    { id: 'released', priority: 2, width: '88px' },
+    { id: 'spotify', priority: 1, width: '64px' },
+  ];
+
+  it('shares the free width by fr, after the fixed columns and padding', () => {
+    // 1170 px, every column: free 1170 − 24 − 656 = 490, title 2/3.5.
+    expect(titleRoom(top, 1170)).toBeCloseTo((490 * 2) / 3.5 - 16);
+    // 770 px (beside the docked sheet), level 2: free 770 − 24 − 600 = 146.
+    expect(titleRoom(top, 770)).toBeCloseTo((146 * 2) / 3.5 - 16);
+    // 600 px, level 1: the artists are hidden, the title takes it all.
+    expect(titleRoom(top, 600)).toBe(600 - 24 - 360 - 16);
+  });
+
+  it('honours a column minimum, and is null without a title', () => {
+    const mix: ColumnTrack[] = [
+      { id: 'time', priority: 1, width: '72px' },
+      { id: 'title', priority: 1, width: 'minmax(200px, 1fr)' },
+      { id: 'label', priority: 1, width: 'minmax(0, 0.4fr)' },
+    ];
+    expect(titleRoom(mix, 300)).toBe(200 - 16);
+    expect(titleRoom([{ id: 'x', priority: 1, width: '1fr' }], 900)).toBeNull();
+  });
+
+  it('keeps the title at its minimum while it fits, else gives the free width', () => {
+    const min = top.map((c) =>
+      c.id === 'title' ? { ...c, width: 'minmax(176px, 2fr)' } : c
+    );
+    // 900 px, level 2: free 276; 2/3.5 of it is under 176, the title
+    // keeps 176 (160 of text) and the artists take the rest.
+    expect(titleRoom(min, 900)).toBe(160);
+    expect(levelOf(widthLevel(900, undefined, min)).narrow).toBe(false);
+    // 770 px: free 146, under the minimum: the title would overflow.
+    expect(titleRoom(min, 770)).toBe(130);
+    expect(levelOf(widthLevel(770, undefined, min)).narrow).toBe(true);
+  });
+
+  it('counts the minimums of the other columns before the title', () => {
+    const crate: ColumnTrack[] = [
+      { id: 'rank', priority: 1, width: '56px' },
+      { id: 'title', priority: 1, width: 'minmax(176px, 2fr)' },
+      { id: 'artist', priority: 1, width: 'minmax(64px, 1.5fr)' },
+      { id: 'rest', priority: 1, width: '800px' },
+    ];
+    // 1120: free 1120 − 24 − 856 = 240 = 176 + 64, the title keeps 160.
+    expect(titleRoom(crate, 1120)).toBe(160);
+    // 1100: free 220 < 240, the title gets 220 − 64 − 16.
+    expect(titleRoom(crate, 1100)).toBe(140);
+  });
+
+  it('draws two-line items when the title would get under 160 px', () => {
+    expect(MIN_TITLE_PX).toBe(160);
+    expect(levelOf(widthLevel(770, undefined, top)).narrow).toBe(true);
+    expect(levelOf(widthLevel(1170, undefined, top)).narrow).toBe(false);
+    expect(levelOf(widthLevel(600, undefined, top)).narrow).toBe(false);
+    expect(levelOf(widthLevel(770)).narrow).toBe(false);
   });
 });

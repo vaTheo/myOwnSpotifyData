@@ -17,6 +17,7 @@ import { Empty } from './components/Empty';
 import { SegmentedButtons } from './components/SegmentedButtons';
 import { openDetail } from './details/navigate';
 import { TrackSheet } from './details/TrackDetails';
+import { besideSheet } from './layout/SideSheet';
 import { artistNames, TOP_PERIOD_LABEL } from './format';
 import { windowClass } from './layout/windowClass';
 import {
@@ -207,6 +208,11 @@ export function Top({ detail }: { detail?: string }) {
               }}
               resetKey={period.value}
               onLayout={setLayout}
+              // Beside the docked sheet the table follows its own width.
+              compactBelow={besideSheet(
+                detail !== undefined,
+                windowClass.value
+              )}
               selectedKey={detail ?? null}
               follow={detail !== undefined}
               onOpen={(r) => openDetail(r.item.id)}

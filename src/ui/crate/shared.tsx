@@ -12,6 +12,8 @@ import { MonthBars } from '../charts/MonthBars';
 import { seriesLabel, yearSpan, type MonthPoint } from '../charts/series';
 import { openDetail } from '../details/navigate';
 import { TrackSheet } from '../details/TrackDetails';
+import { besideSheet } from '../layout/SideSheet';
+import { windowClass } from '../layout/windowClass';
 import { playLabel } from './labels';
 import {
   bpmColumn,
@@ -147,7 +149,8 @@ export function crateColumns<Item extends CrateItem>(spec: {
       {
         id: 'artist',
         priority: 2,
-        width: 'minmax(0, 1.5fr)',
+        // Room for its header; the title keeps its own minimum.
+        width: 'minmax(64px, 1.5fr)',
         compact: 'subtitle',
       }
     ),
@@ -158,7 +161,7 @@ export function crateColumns<Item extends CrateItem>(spec: {
       header: 'Flag',
       headerHidden: true,
       priority: 2,
-      width: '168px',
+      width: '148px',
       cell: (item) => spec.flag(item),
       compact: 'meta',
     },
@@ -227,6 +230,8 @@ export function CrateTable<Item extends CrateItem>(p: {
           }}
           resetKey={p.resetKey}
           onLayout={setLayout}
+          // Beside the docked sheet the table follows its own width.
+          compactBelow={besideSheet(p.detail !== undefined, windowClass.value)}
           selectedKey={p.detail ?? null}
           follow={p.detail !== undefined}
           onOpen={(item) => openDetail(item.row.trackId)}

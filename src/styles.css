@@ -2031,9 +2031,10 @@ a {
   display: none;
 }
 
-/* Below large, a playlist in Match folds the pane too: Relation and ΔBPM
-   need the width (S04 fix 1, ruling R1). */
-@media (max-width: 1199.98px) {
+/* Below 1600 px, a playlist in Match folds the pane too: Relation, ΔBPM
+   and Released need the width, and beside the pane at 1440 the titles were
+   cut to a few letters (S04 fix 1, ruling R1; S13c review I1). */
+@media (max-width: 1599.98px) {
   .list-detail.split:has([data-matching]) {
     grid-template-columns: minmax(0, 1fr);
   }

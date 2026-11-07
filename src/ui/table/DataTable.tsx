@@ -11,7 +11,12 @@ import { PAGE_SIZE } from '../../model/crate';
 import { Icon } from '../icons';
 import { windowClass } from '../layout/windowClass';
 import { moveIndex, rovingTarget } from './keyboard';
-import { levelOf, widthLevel, type TableLayout } from './layout';
+import {
+  levelOf,
+  widthLevel,
+  type ColumnTrack,
+  type TableLayout,
+} from './layout';
 import { shownToReveal } from './paging';
 import {
   nextSort,
@@ -68,25 +73,29 @@ function templates<Row>(columns: Column<Row>[]): Record<string, string> {
 
 /**
  * What the table's width decides, kept as one small code (`widthLevel`):
- * the column-priority level and, with `compactBelow`, whether the table is
- * narrower than it. A resize re-renders the table only when the level
- * changes, not on every pixel (S13c review M3). Null until measured.
+ * the column-priority level and whether the table draws two-line items
+ * (narrower than `compactBelow`, or too narrow for a readable title). A
+ * resize re-renders the table only when that changes, not on every pixel
+ * (S13c review M3). Null until measured.
  */
 function useWidthLevel(
   ref: { current: HTMLElement | null },
-  compactBelow: number | undefined
+  compactBelow: number | undefined,
+  columns: readonly ColumnTrack[]
 ): number | null {
   const [level, setLevel] = useState<number | null>(null);
+  // The observer reads the latest columns without being made again.
+  const latest = useRef(columns);
+  latest.current = columns;
   // The first width is read before the browser paints, so a table that
   // fits never shows its two-line items for a frame (S09 round 1).
   useLayoutEffect(() => {
     const el = ref.current;
     if (el) {
-      setLevel(
-        widthLevel(Math.round(el.getBoundingClientRect().width), compactBelow)
-      );
+      const width = Math.round(el.getBoundingClientRect().width);
+      setLevel(widthLevel(width, compactBelow, columns));
     }
-  }, [compactBelow]);
+  }, [compactBelow, columns]);
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -94,10 +103,8 @@ function useWidthLevel(
     // Read in the next frame: the layout the new width brings (items or
     // rows) must not land inside the observer's own notification.
     const observer = new ResizeObserver((entries) => {
-      const next = widthLevel(
-        Math.round(entries[0].contentRect.width),
-        compactBelow
-      );
+      const width = Math.round(entries[0].contentRect.width);
+      const next = widthLevel(width, compactBelow, latest.current);
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => setLevel(next));
     });
@@ -195,11 +202,17 @@ export function DataTable<Row>(p: {
   onLayout?: (layout: TableLayout) => void;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
-  const level = levelOf(useWidthLevel(wrap, p.compactBelow));
+  const level = levelOf(useWidthLevel(wrap, p.compactBelow, p.columns));
+  // Measured, the table's own width decides (`compactBelow`, a readable
+  // title); a phone, or `compact` without `compactBelow`, still asks for
+  // two-line items.
+  const fallback = p.compact ?? windowClass.value === 'compact';
   const compact =
-    p.compactBelow !== undefined && level.narrow !== null
-      ? level.narrow
-      : (p.compact ?? windowClass.value === 'compact');
+    level.narrow === null
+      ? fallback
+      : p.compactBelow !== undefined
+        ? level.narrow
+        : level.narrow || fallback;
   const widest = level.widest;
   const onLayout = p.onLayout;
   useLayoutEffect(() => {
