@@ -17,6 +17,8 @@ import {
 } from '../../features/mix/review';
 import { isIdentified } from '../../features/mix/spotifySearch';
 import { viewRows, type RowSort } from '../../features/mix/worker';
+import { decadeLabel } from '../../model/year';
+import { decadesPresent } from '../../model/yearView';
 import {
   addMixRow,
   deleteMixRow,
@@ -39,6 +41,7 @@ import { TextField } from '../components/TextField';
 import { formatClock, plural } from '../format';
 import { Icon, type IconName } from '../icons';
 import { windowClass } from '../layout/windowClass';
+import { yearColumn } from '../table/columns';
 import { DataTable, type Column } from '../table/DataTable';
 import type { SortState } from '../table/sort';
 import { Clues } from './Clues';
@@ -49,8 +52,10 @@ import {
   gapCluesSummary,
   originText,
   referencesText,
+  rowYear,
   sourceLabel,
   timeText,
+  yearText,
 } from './rowText';
 
 /** One line of the table: the row, its place in `mixRows`, its library match. */
@@ -310,6 +315,15 @@ function columns(on: {
         ) : null,
       compact: 'meta',
     },
+    // Round 005: the row's own year (the one the year sort uses), its source
+    // in the tooltip. No header sort here: the Sort select orders the rows.
+    yearColumn(
+      (l: Line) => rowYear(l.row),
+      {
+        describe: (l, year) => yearText(l.row, year),
+      },
+      { sortValue: undefined }
+    ),
     {
       id: 'spotify',
       header: 'Spotify',
@@ -480,7 +494,12 @@ function RowView(p: {
   filter: ReviewFilter;
   onFilter: (filter: ReviewFilter) => void;
   counted: boolean;
+  /** Round 005: the decades of the dated rows; none hides the year controls. */
+  decades: readonly number[];
+  decade: number | null;
+  onDecade: (decade: number | null) => void;
 }) {
+  const dated = p.decades.length > 0;
   return (
     <div class="mix-rowview">
       <SegmentedButtons
@@ -492,7 +511,7 @@ function RowView(p: {
         value={p.filter}
         onChange={p.onFilter}
       />
-      {p.counted && (
+      {(p.counted || dated) && (
         <label>
           Sort{' '}
           <select
@@ -503,12 +522,35 @@ function RowView(p: {
             }
           >
             <option value="time">Time</option>
-            <option value="clips">Clips heard</option>
-            <option value="score">Best score</option>
+            {p.counted && <option value="clips">Clips heard</option>}
+            {p.counted && <option value="score">Best score</option>}
+            {dated && <option value="year">Year, oldest first</option>}
           </select>
         </label>
       )}
-      {p.filter !== 'all' && <span class="mix-caption">{FILTER_CAPTION}</span>}
+      {dated && (
+        <label>
+          Decade{' '}
+          <select
+            id="mix-decade"
+            value={p.decade === null ? '' : String(p.decade)}
+            onChange={(e) => {
+              const v = (e.currentTarget as HTMLSelectElement).value;
+              p.onDecade(v === '' ? null : Number(v));
+            }}
+          >
+            <option value="">All decades</option>
+            {p.decades.map((d) => (
+              <option key={d} value={String(d)}>
+                {decadeLabel(d)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {(p.filter !== 'all' || p.decade !== null) && (
+        <span class="mix-caption">{FILTER_CAPTION}</span>
+      )}
     </div>
   );
 }
@@ -550,6 +592,11 @@ export function TracklistTable() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [sort, setSortState] = useState<RowSort>('time');
   const [filter, setFilterState] = useState<ReviewFilter>('all');
+  const [decade, setDecadeState] = useState<number | null>(null);
+  const setDecade = (v: number | null): void => {
+    setSaveError(null);
+    setDecadeState(v);
+  };
   const setSort = (v: RowSort): void => {
     setSaveError(null);
     setSortState(v);
@@ -563,8 +610,23 @@ export function TracklistTable() {
     setEditing(i);
   };
   const counted = rows.some((r) => r.hits !== undefined);
+  // Round 005: the decades of the dated rows; none hides the year controls.
+  const decades = decadesPresent(rows, rowYear);
+  const dated = decades.length > 0;
+  // A choice the current rows no longer allow falls back, never empties.
+  const sortNow: RowSort =
+    (sort === 'year' && !dated) ||
+    ((sort === 'clips' || sort === 'score') && !counted)
+      ? 'time'
+      : sort;
+  const decadeNow = decade !== null && decades.includes(decade) ? decade : null;
+  const viewed = viewRows(rows, sortNow, false, decadeNow);
+  // The row being edited stays on screen whatever the view (main's rule):
+  // Add track's new row is undated and never heard.
   const order = (
-    counted ? viewRows(rows, sort, false) : rows.map((_, i) => i)
+    editing !== null && editing < rows.length && !viewed.includes(editing)
+      ? [...viewed, editing]
+      : viewed
   ).filter((i) => i === editing || inFilter(rows[i], filter));
   const lines: Line[] = order.map((i) => ({
     row: rows[i],
@@ -598,11 +660,14 @@ export function TracklistTable() {
     <div class="mix-tracklist">
       <RowView
         rows={rows}
-        sort={sort}
+        sort={sortNow}
         onSort={setSort}
         filter={filter}
         onFilter={setFilter}
         counted={counted}
+        decades={decades}
+        decade={decadeNow}
+        onDecade={setDecade}
       />
       <DataTable
         label="Tracklist"
@@ -612,7 +677,7 @@ export function TracklistTable() {
         sort={NO_SORT.value}
         onSort={() => undefined}
         noun="track"
-        resetKey={`${sort}-${filter}`}
+        resetKey={`${sortNow}-${filter}-${decadeNow ?? ''}`}
         revealKey={editing === null ? null : keyOf(editing, editing)}
         fullRow={(l) => {
           if (editing === l.index) {

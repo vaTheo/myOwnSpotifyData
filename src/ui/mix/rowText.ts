@@ -71,6 +71,25 @@ export function referencesText(row: TracklistRow): string | null {
   return `${n.toLocaleString()} other ${n === 1 ? 'mix' : 'mixes'}`;
 }
 
+/** Where a row's year came from, in the Released cell's tooltip (round 005). */
+const YEAR_FROM_TEXT = {
+  shazam: 'from Shazam',
+  catalogue: 'from the ISRC (Deezer or MusicBrainz)',
+  spotify: 'from Spotify (Create playlist or Check on Spotify)',
+} as const;
+
+/** The row's own year, the one the year sort uses; null for a gap or undated. */
+export function rowYear(row: TracklistRow): number | null {
+  return !row.gap && typeof row.year === 'number' ? row.year : null;
+}
+
+/** "1993, from Shazam"; the year alone when its source is unknown. */
+export function yearText(row: TracklistRow, year: number): string {
+  return row.yearFrom
+    ? `${year}, ${YEAR_FROM_TEXT[row.yearFrom]}`
+    : String(year);
+}
+
 /** The start time; a gap row shows its span. */
 export function timeText(row: TracklistRow): string | null {
   if (row.startSec === null) return null;
