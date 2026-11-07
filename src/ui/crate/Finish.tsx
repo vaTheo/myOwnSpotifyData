@@ -92,7 +92,9 @@ export function Finish({ detail }: { detail?: string }) {
             id: 'rate',
             header: '% finished',
             priority: 1,
-            width: '160px',
+            // Narrower figures leave the Artist column readable at 1440
+            // (re-review N2).
+            width: '136px',
             sortValue: percentFinished,
             firstDirection: 'desc',
             cell: (item) => <Meter pct={percentFinished(item)} />,
@@ -103,7 +105,7 @@ export function Finish({ detail }: { detail?: string }) {
             header: 'Finished',
             align: 'end',
             priority: 2,
-            width: '112px',
+            width: '96px',
             sortValue: (item) => item.row.finished ?? 0,
             firstDirection: 'desc',
             cell: (item) => (
@@ -119,7 +121,7 @@ export function Finish({ detail }: { detail?: string }) {
             'Skipped',
             (item) => item.row.skipped ?? null,
             {},
-            { priority: 3, width: '96px', compact: 'hidden' }
+            { priority: 3, width: '88px', compact: 'hidden' }
           ),
           countColumn(
             'unclear',
@@ -128,7 +130,7 @@ export function Finish({ detail }: { detail?: string }) {
             {},
             {
               priority: 3,
-              width: '96px',
+              width: '88px',
               compact: 'hidden',
             }
           ),
