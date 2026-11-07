@@ -283,6 +283,43 @@ describe('editTracklistRow', () => {
     expect(renamed.validated).toBe(true);
   });
 
+  it('drops a year on a rename unless the row is renamed back to the identified track (S13b N1)', () => {
+    const fromSpotify: TracklistRow = { ...base, year: 1993, yearFrom: 'spotify' };
+    const fromShazam: TracklistRow = { ...base, year: 1991, yearFrom: 'shazam' };
+    // A label or time edit names the same track: every year stays.
+    const relabelled = editTracklistRow(fromSpotify, {
+      artist: 'Apollonia',
+      title: 'Chez Michel',
+      label: 'Ovum',
+      startSec: 12,
+    });
+    expect(relabelled.year).toBe(1993);
+    expect(relabelled.yearFrom).toBe('spotify');
+    // Another track: no source's year belongs to it.
+    for (const row of [fromSpotify, fromShazam]) {
+      const renamed = editTracklistRow(row, { artist: 'Apollonia', title: 'Other', label: '' });
+      expect('year' in renamed).toBe(false);
+      expect('yearFrom' in renamed).toBe(false);
+    }
+    // Renamed back to what Shazam identified: its year (or the ISRC's)
+    // still belongs to that recording; a Spotify year went with the answer.
+    const typo: TracklistRow = { ...fromShazam, title: 'Chez Michell' };
+    const restored = editTracklistRow(typo, {
+      artist: 'Apollonia',
+      title: 'Chez Michel',
+      label: '',
+    });
+    expect(restored.year).toBe(1991);
+    expect(restored.yearFrom).toBe('shazam');
+    const typoSpotify: TracklistRow = { ...fromSpotify, title: 'Chez Michell' };
+    const restoredSpotify = editTracklistRow(typoSpotify, {
+      artist: 'Apollonia',
+      title: 'Chez Michel',
+      label: '',
+    });
+    expect('year' in restoredSpotify).toBe(false);
+  });
+
   it('leaves an added row (detected null) manual', () => {
     const added: TracklistRow = { ...base, source: 'manual', detected: null };
     const out = editTracklistRow(added, { artist: 'X', title: 'Y', label: '' });
