@@ -23,10 +23,14 @@ describe('withDetailOf', () => {
     ).toBe('#/artist/a');
   });
 
-  it('leaves a route without details alone', () => {
+  it('puts a searched track over a screen without a list (US7)', () => {
     expect(withDetailOf({ name: 'settings' }, 't1')).toEqual({
       name: 'settings',
+      detail: 't1',
     });
+    expect(routeHref(withDetailOf({ name: 'mix', key: 'u' }, 't1'))).toBe(
+      '#/mix/u?d=t1'
+    );
   });
 });
 
@@ -221,10 +225,21 @@ describe('the detail parameter (spec 003)', () => {
     });
   });
 
-  it('drops ?d= on routes that list no tracks', () => {
-    expect(parseRoute('#/playlists?d=1')).toEqual({ name: 'playlists' });
-    expect(parseRoute('#/settings?d=1')).toEqual({ name: 'settings' });
-    expect(parseRoute('#/crate?d=1')).toEqual({ name: 'crate' });
+  it('keeps ?d= on every other screen: a search result over it (US7)', () => {
+    expect(parseRoute('#/playlists?d=1')).toEqual({
+      name: 'playlists',
+      detail: '1',
+    });
+    expect(parseRoute('#/settings?d=1')).toEqual({
+      name: 'settings',
+      detail: '1',
+    });
+    expect(parseRoute('#/crate?d=1')).toEqual({ name: 'crate', detail: '1' });
+    expect(parseRoute('#/mix/a%2Fb?d=t')).toEqual({
+      name: 'mix',
+      key: 'a/b',
+      detail: 't',
+    });
   });
 
   it('ignores an empty ?d=', () => {

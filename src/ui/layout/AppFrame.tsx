@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact';
+import { useEffect } from 'preact/hooks';
 import type { BannerMessage } from '../../model/banner';
 import { model } from '../../model/state';
 import type { Route } from '../../router';
@@ -6,6 +7,14 @@ import { ActivityButton } from '../ActivityButton';
 import { PlaylistActions } from '../Playlist';
 import { Banner } from '../components/Banner';
 import { ProgressBar } from '../components/ProgressBar';
+import { TrackSheet } from '../details/TrackDetails';
+import { frameDetail } from '../search/choose';
+import {
+  installSearchKeys,
+  openSearch,
+  searchOpen,
+  SearchView,
+} from '../search/SearchView';
 import { Nav } from './Nav';
 import { ScreenTabs } from './ScreenTabs';
 import { TopBar } from './TopBar';
@@ -25,11 +34,13 @@ export function AppFrame(p: {
   children: ComponentChildren;
 }) {
   const { title, up } = screenTitle(p.route, model.value);
+  useEffect(installSearchKeys, []);
+  const detail = p.loading ? null : frameDetail(p.route);
   return (
     <div class="frame">
       <Nav current={p.route} />
       <div class="frame-body">
-        <TopBar title={title} up={up}>
+        <TopBar title={title} up={up} onSearch={openSearch}>
           <ActivityButton />
           {p.route.name === 'playlist' && !p.loading && (
             <PlaylistActions id={p.route.id} />
@@ -47,6 +58,8 @@ export function AppFrame(p: {
           )}
         </main>
       </div>
+      {detail && <TrackSheet trackRef={{ trackId: detail }} rowId={detail} />}
+      {searchOpen.value && <SearchView />}
     </div>
   );
 }

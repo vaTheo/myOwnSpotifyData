@@ -10,7 +10,8 @@
  */
 
 /**
- * Activity panel over the details sheet over the list–detail pane. `fold`:
+ * Search over the Activity panel over the details sheet over the list–detail
+ * pane. `fold`:
  * a list pane brought back over its detail (Mix, 840–1,599 px) folds before
  * the detail closes.
  */
@@ -19,6 +20,7 @@ export const ESCAPE_RANK = {
   fold: 1.5,
   sheet: 2,
   activity: 3,
+  search: 4,
 } as const;
 
 export interface EscapeLayer {

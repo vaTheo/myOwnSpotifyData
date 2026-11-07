@@ -11,6 +11,7 @@ import { buildModel } from '../../model/aggregate';
 import {
   buildSearchIndex,
   highlight,
+  markedLine,
   searchAll,
   type SearchEntry,
 } from './searchIndex';
@@ -281,5 +282,20 @@ describe('highlight', () => {
   it('is null without a match or a query', () => {
     expect(highlight('Blurred', 'kia')).toBeNull();
     expect(highlight('Blurred', '')).toBeNull();
+  });
+});
+
+describe('markedLine', () => {
+  it('bolds the line where the query starts a word', () => {
+    const wave = {
+      name: 'Wave Shadow',
+      context: 'Harbor Orchestra · 141 plays',
+    };
+    expect(markedLine(wave, 'ha')).toBe('context');
+    expect(markedLine(wave, 'sha')).toBe('name');
+    expect(markedLine(wave, 'ado')).toBe('name');
+    expect(markedLine(wave, 'rbo')).toBe('context');
+    expect(markedLine(wave, 'zzz')).toBeNull();
+    expect(markedLine(wave, '')).toBeNull();
   });
 });
