@@ -10,21 +10,24 @@ export const CRATE_VIEWS = [
 export type CrateView = (typeof CRATE_VIEWS)[number];
 
 /**
- * `detail` is the track whose details sheet is open over a list (spec 003,
+ * `detail` is the track whose details sheet is open over a screen (spec 003,
  * contracts/routes.md): `?d=<id>` in the address, so a selection can be
- * bookmarked and closed with back. `key` on `mix` is an open saved mix.
+ * bookmarked and closed with back. A list names its own row; any other
+ * screen carries a track a search opened over it (US7). `key` on `mix` is
+ * an open saved mix.
  */
-export type Route =
-  | { name: 'top'; detail?: string }
+export type Route = (
+  | { name: 'top' }
   | { name: 'playlists' }
-  | { name: 'playlist'; id: string; detail?: string }
+  | { name: 'playlist'; id: string }
   | { name: 'artists' }
-  | { name: 'artist'; key: string; detail?: string }
+  | { name: 'artist'; key: string }
   | { name: 'import' }
   | { name: 'settings' }
   | { name: 'mix'; key?: string }
   | { name: 'crate' }
-  | { name: 'crateView'; view: CrateView; period?: string; detail?: string };
+  | { name: 'crateView'; view: CrateView; period?: string }
+) & { detail?: string };
 
 /** decodeURIComponent throws on a malformed escape; keep the raw segment. */
 function decodeSegment(segment: string): string {
@@ -45,16 +48,7 @@ export function parseRoute(hash: string): Route {
   const route = parsePath(at === -1 ? raw : raw.slice(0, at));
   if (at === -1) return route;
   const detail = new URLSearchParams(raw.slice(at + 1)).get('d');
-  if (!detail) return route;
-  switch (route.name) {
-    case 'top':
-    case 'playlist':
-    case 'artist':
-    case 'crateView':
-      return { ...route, detail };
-    default:
-      return route;
-  }
+  return detail ? { ...route, detail } : route;
 }
 
 /** The path, without its `?d=` part; the detail parses on its own. */
@@ -99,27 +93,16 @@ function withDetail(href: string, detail: string | undefined): string {
   return detail ? `${href}?d=${encodeURIComponent(detail)}` : href;
 }
 
-export function routeHref(route: Route): string {
+function pathHref(route: Route): string {
   switch (route.name) {
-    case 'top':
-      return withDetail('#/top', route.detail);
     case 'playlist':
-      return withDetail(
-        `#/playlist/${encodeURIComponent(route.id)}`,
-        route.detail
-      );
+      return `#/playlist/${encodeURIComponent(route.id)}`;
     case 'artist':
-      return withDetail(
-        `#/artist/${encodeURIComponent(route.key)}`,
-        route.detail
-      );
+      return `#/artist/${encodeURIComponent(route.key)}`;
     case 'crateView':
-      return withDetail(
-        route.period
-          ? `#/crate/${route.view}/${encodeURIComponent(route.period)}`
-          : `#/crate/${route.view}`,
-        route.detail
-      );
+      return route.period
+        ? `#/crate/${route.view}/${encodeURIComponent(route.period)}`
+        : `#/crate/${route.view}`;
     case 'mix':
       return route.key ? `#/mix/${encodeURIComponent(route.key)}` : '#/mix';
     default:
@@ -127,26 +110,18 @@ export function routeHref(route: Route): string {
   }
 }
 
-/**
- * The same route with its details sheet open on `detail`, or closed when it
- * is empty. A route that carries no sheet comes back unchanged.
- */
+export function routeHref(route: Route): string {
+  return withDetail(pathHref(route), route.detail);
+}
+
+/** The same route with its details sheet open on `detail`, or closed. */
 export function withDetailOf(
   route: Route,
   detail: string | null | undefined
 ): Route {
-  switch (route.name) {
-    case 'top':
-    case 'playlist':
-    case 'artist':
-    case 'crateView': {
-      const next = { ...route };
-      delete next.detail;
-      return detail ? { ...next, detail } : next;
-    }
-    default:
-      return route;
-  }
+  const next = { ...route };
+  delete next.detail;
+  return detail ? { ...next, detail } : next;
 }
 
 /**

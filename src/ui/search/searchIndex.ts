@@ -222,3 +222,22 @@ export function highlight(
   if (at === -1) return null;
   return [from[at], from[at + q.length - 1] + 1];
 }
+
+/**
+ * Which line of a result carries the bold match: the name when the query
+ * starts it or one of its words, else a context line that does (a track
+ * found by its artist), else wherever it is found.
+ */
+export function markedLine(
+  entry: Pick<SearchEntry, 'name' | 'context'>,
+  query: string
+): 'name' | 'context' | null {
+  const q = normalize(query);
+  if (q === '') return null;
+  const name = normalize(entry.name);
+  const context = normalize(entry.context);
+  if (tier(name, q) < 2 && name.includes(q)) return 'name';
+  if (tier(context, q) < 2 && context.includes(q)) return 'context';
+  if (name.includes(q)) return 'name';
+  return context.includes(q) ? 'context' : null;
+}
