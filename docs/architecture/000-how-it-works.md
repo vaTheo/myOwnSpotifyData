@@ -186,6 +186,30 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 - `digLinks.ts` (`digRows`): a track Search did not find is listed under the result, repeats grouped by name with every time in the mix,
   five store/preview search links (Beatport, Bandcamp, Discogs, SoundCloud, YouTube) plus Tracklistify's Shazam page (kept by the parser
   only when it is an https `shazam.com` URL, dropped once the row is edited), drawn as Simple Icons (CC0) by `ui/components/DigLinks.tsx`.
+  Spec 003 (T118): every track's **Listen** menu holds the same links (plain search pages, no request until opened).
+
+**The review** (spec 003 §12, S08c):
+- `spotifyCheck.ts` (**Check on Spotify**, T117): a read on the open mix header's tap only, never on load or open (ADR-02). Gated like
+  Create playlist in `startSpotifyCheck` (`model/state.ts`): a Spotify session, no sync running, no quota lock-out. `runSpotifyCheck`
+  runs `searchTrack`/`pickMatch` unchanged on each named track not checked yet (`rowsToCheck`: candidates and second-listen rows
+  included, gaps and "ID" rows never), one at a time, with "Checked 12 of 40" and Stop; it never throws. Each answer is kept on the row
+  as optional fields (`spotify: {id, url} | 'not-found'`, `checkedAt`; no `DB_VERSION` bump) and the mix is saved at the end (its saved
+  copy when it was closed meanwhile). An edit of the artist or title drops the answer (`editTracklistRow`). Create playlist adds a found
+  id without searching again (`storedUri`). No write; not in `jobsBusy()`; failures (quota, network) inline, never a banner.
+- `review.ts` (T118, T127): the filter chips All, To review, Validated, Not on Spotify and Heard once (N) (only when a row has `hits`),
+  one at a time, gaps under All only; the header line "N tracks · K validated · M on Spotify · L not found". **Validate** is the
+  optional `TracklistRow.validated`, saved with Save mix like an edit; **Remove** is `deleteMixRow`.
+- `keepReview.ts` (T125, owner's D1): `mergeKeepingReview` replaces `mergeWorkerRows` when a result lands on a saved mix
+  (`mixWithResult`, `server/sync.ts`). An untouched scan row matched by an incoming row (same ISRC, else `artistCore` and `sameTitle`)
+  hands it `validated`, `spotify` and `checkedAt`; a validated scan row the result misses stays; edited, typed, pasted, TrackId and
+  description rows stay, and an incoming row matching them (their text or what was detected) is dropped; so is one matching
+  `MixRow.removed`, which `deleteMixRow` fills with a deleted scan row's detected artist, title and ISRC (500 at most).
+- `worker.ts` `toRun`/`runLine` (T124, owner's D3): `mix_info.second_pass` (`places` or round 003's `replays`), `resumed`,
+  `stopped_early` and `warnings` kept as the optional `MixRow.run`, replaced wholesale by each result, shown under the open mix's header
+  ("Second pass: 41 places · 3 found", "Resumed (120 clips kept)", "Stopped early at 01:12:00 (rate limited)" with Ask again, the
+  warnings collapsed). The header also shows the open mix's running request (progress line, bar, Stop) from the last pull.
+- `validateMix` checks every new optional field (`validated`, `spotify`, `checkedAt`, `removed`, `run`); Save mix keeps a saved mix's
+  `clues`, `run`, `identifyJobId` and `identifiedAt`.
 
 ## 11. `features/like/`: Like all songs
 
@@ -239,6 +263,7 @@ One Preact component per screen plus small shared components (`ui/components/`).
 | Artist reach | `startReach` (`:604`) | Settings · Artist reach | yes |
 | Mix lookup | `startMixLookup` (`:665`), `startTracklistifyImport` (`:753`) | `#/mix` | no |
 | Create playlist | `startCreatePlaylist` (`:928`) | `#/mix` | no |
+| Check on Spotify | `startSpotifyCheck`, `stopSpotifyCheck` (spec 003 T117) | `#/mix`, the open mix's header | no (Spotify reads only, one track at a time; refused while a sync runs or the quota is locked; no `confirm()`; reset by `disconnect`) |
 | Like all songs | `startLikePlaylist` (`:1389`) | Playlist screen | no |
 | Server pull | `startServerPull` (`:284`) | the open (after the first paint), Settings · Server · Sync now | yes |
 | Server push | `queueServerPush` (`:246`) | the tail of the five library jobs, every mix save or delete | no |
