@@ -36,6 +36,8 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 - [000 — Contributing](dev-guide/000-contributing.md) — commands, code conventions, the files that change together, the documentation
   rules, a feature round, releasing.
+- [100 — Design guide](dev-guide/100-design-guide.md) — the rules every screen follows: tokens, size classes, tables, failures, Escape and
+  scroll owners, a missing number, the definition of done for a UI change.
 
 ## Specs, newest first
 

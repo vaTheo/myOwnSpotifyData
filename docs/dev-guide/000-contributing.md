@@ -166,4 +166,5 @@ Every push to `main` runs CI (`.github/workflows/ci.yml`): install, typecheck, l
 - [Limits and roadmap](../architecture/800-limits-roadmap.md)
 - [ADR index](../architecture/700-adr/README.md)
 - [ADR-06 — Lean tooling](../architecture/700-adr/ADR-06-lean-tooling.md)
+- [100 — Design guide](100-design-guide.md)
 - [ADR-11 — Web-first, Material Design 3, the visual loop](../architecture/700-adr/ADR-11-web-first-material-3.md)
