@@ -87,6 +87,78 @@ async function openGrid(page: Page): Promise<void> {
   await page.getByRole('grid', { name: 'Tracklist' }).waitFor();
 }
 
+/** The demo's TrackId mix: nothing validated, so All tracks by default. */
+const HARBOUR = 'https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour';
+
+/**
+ * No button or link left behind the opaque top bar, where axe reads it as
+ * a covered touch target: the page moves by the fewest pixels (up first)
+ * until the band under the bar holds none.
+ */
+async function settleRows(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const bar = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue(
+        '--app-top-bar'
+      )
+    );
+    const targets = [
+      ...document.querySelectorAll<HTMLElement>(
+        'button, a[href], select, input, [role=tab]'
+      ),
+    ].filter((el) => !el.closest('header'));
+    const clear = (): boolean =>
+      targets.every((el) => {
+        const r = el.getBoundingClientRect();
+        return r.height === 0 || r.bottom <= 0 || r.top >= bar;
+      });
+    const start = window.scrollY;
+    for (let d = 0; d <= 400; d += 1) {
+      for (const y of [start - d, start + d]) {
+        window.scrollTo(0, y);
+        if (clear()) return;
+      }
+    }
+    window.scrollTo(0, start);
+  });
+}
+
+/**
+ * The Create playlist card brought on screen, below the tracklist, after
+ * the demo states are set (they change its height): Add track right under
+ * the top bar, then no row cut half under it.
+ */
+async function createCard(
+  page: Page,
+  ...states: [string, unknown][]
+): Promise<void> {
+  await openGrid(page);
+  for (const [name, value] of states) await setState(page, name, value);
+  await page
+    .getByRole('button', { name: 'Add track', exact: true })
+    .evaluate((el) => {
+      (el as HTMLElement).style.scrollMarginTop = 'var(--app-top-bar)';
+      el.scrollIntoView({ block: 'start' });
+    });
+  await settleRows(page);
+}
+
+/** Two tracks Create playlist did not find, with their dig links. */
+const UNMATCHED = [
+  {
+    artist: 'Lone Harbour',
+    title: 'Fog Signal (Dub)',
+    startSec: 1810,
+    shazamUrl: 'https://www.shazam.com/track/1/fog-signal',
+  },
+  {
+    artist: 'Unknown Pressing',
+    title: 'Side B',
+    startSec: 3655,
+    shazamUrl: null,
+  },
+];
+
 /** The 1440 project's window widened to 1,600 px (the Mixes pane stays). */
 async function at1600(page: Page): Promise<void> {
   if (page.viewportSize()?.width !== 1440) return;
@@ -450,7 +522,7 @@ export const PAGES: ShotPage[] = [
   ...(
     [
       ['mix-filter-review', /^To review/],
-      ['mix-filter-validated', /^Validated/],
+      ['mix-filter-validated', /^Validated \(/],
       ['mix-filter-notfound', /^Not on Spotify/],
       ['mix-filter-heard', /^Heard once/],
     ] as const
@@ -579,10 +651,158 @@ export const PAGES: ShotPage[] = [
     },
   },
 
+  {
+    // A gap's clues and the set-wide clues opened (T120): one
+    // "mm:ss · author · text" line each, as plain text.
+    id: 'mix-clues-open',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await page
+        .getByText(/^Tracklist from the /)
+        .first()
+        .click();
+      const gap = page.getByText(/clues? around here$/).first();
+      await gap.scrollIntoViewIfNeeded();
+      await gap.click();
+    },
+  },
+  {
+    // The Sort select on Clips heard (round 004): most heard first.
+    id: 'mix-sort-clips',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await page.getByLabel('Sort').selectOption('clips');
+    },
+  },
+  {
+    // Create playlist on Validated only, the default once a track is
+    // validated (T119, D6): the unvalidated candidate is left out.
+    id: 'mix-create-validated',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: (page) => createCard(page),
+  },
+  {
+    // The same mix on All tracks: every track, the candidate included.
+    id: 'mix-create-all',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await createCard(page);
+      await page.getByRole('tab', { name: /^All tracks/ }).click();
+    },
+  },
+  {
+    // Validated only with nothing validated: the button rests, and why.
+    id: 'mix-create-none',
+    hash: `#/mix/${enc(HARBOUR)}`,
+    setup: async (page) => {
+      await createCard(page);
+      await page.getByRole('tab', { name: /^Validated only/ }).click();
+    },
+  },
+  {
+    // Matching tracks: the bar, the button busy.
+    id: 'mix-create-running',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await createCard(page, [
+        'createPlaylistState',
+        {
+          status: 'resolving',
+          done: 2,
+          total: 4,
+        },
+      ]);
+    },
+  },
+  {
+    // Done: the link, and the not-found disclosure open with dig links.
+    id: 'mix-create-done',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await createCard(page, [
+        'createPlaylistState',
+        {
+          status: 'done',
+          name: 'Sunrise closing set',
+          url: 'https://open.spotify.com/playlist/demoPlaylist01',
+          added: 2,
+          total: 4,
+          unmatched: UNMATCHED,
+        },
+      ]);
+      const notFound = page.getByText(/^2 not found/);
+      await notFound.click();
+      await notFound.scrollIntoViewIfNeeded();
+      await settleRows(page);
+    },
+  },
+  {
+    // An add batch failed: the error inline, the playlist's link, the count.
+    id: 'mix-create-error',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await createCard(page, [
+        'createPlaylistState',
+        {
+          status: 'error',
+          message: 'Spotify error 502: Bad gateway',
+          url: 'https://open.spotify.com/playlist/demoPlaylist01',
+          added: 0,
+          total: 4,
+        },
+      ]);
+    },
+  },
+  {
+    // Spotify's quota met inside the run (S08d): remembered app-wide and
+    // said once, inline; the button rests until the lock lapses.
+    id: 'mix-create-quota',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await createCard(
+        page,
+        ['spotifyQuotaLock', DEMO_NOW + 3 * 3_600_000],
+        [
+          'createPlaylistState',
+          {
+            status: 'error',
+            message:
+              'Spotify quota reached. Try again after 6 Nov 2026, 16:00.',
+          },
+        ]
+      );
+    },
+  },
+  {
+    // The playlist scope missing: Connect again, inline.
+    id: 'mix-create-scope',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await createCard(page, ['createPlaylistState', { status: 'needScope' }]);
+    },
+  },
+  {
+    // Inside the one quota lock-out (S08d): the button rests with its line.
+    id: 'mix-create-locked',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await createCard(page, ['spotifyQuotaLock', DEMO_NOW + 3 * 3_600_000]);
+    },
+  },
+
   // Settings and Import (US5): every job state and failure the sections show
   { id: 'settings', hash: '#/settings' },
   { id: 'settings-empty', variant: 'empty', hash: '#/settings' },
   { id: 'settings-locked', variant: 'locked', hash: '#/settings' },
+  {
+    // A quota lock-out another reader met (S08d): Sync now rests, with why.
+    id: 'settings-quota',
+    hash: '#/settings',
+    setup: (page) =>
+      setState(page, 'spotifyQuotaLock', DEMO_NOW + 3 * 3_600_000),
+  },
   {
     // Sync, lookup, Rekordbox and reach running, the server sending.
     id: 'settings-running',
