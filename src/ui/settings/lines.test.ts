@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ImportSummary } from '../../history/importer';
-import { formatDate } from '../format';
+import { formatDate, historyLine } from '../format';
 import {
   coverageLine,
-  historyLine,
   pausedLine,
   reachCoverageLine,
   reachRunLine,

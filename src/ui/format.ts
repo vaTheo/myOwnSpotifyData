@@ -1,5 +1,7 @@
 import type { ArtistRef, Period } from '../db/schema';
+import type { ImportSummary } from '../history/importer';
 import type { ImportCounts } from '../history/records';
+import { MONTH_NAMES } from '../model/crate';
 import { WELL_KNOWN_MIN_SITELINKS } from '../model/reach';
 
 export const PERIOD_LABEL: Record<Period, string> = {
@@ -146,4 +148,31 @@ export function formatClock(totalSeconds: number): string {
   return hours > 0
     ? `${hours}:${pad(minutes)}:${pad(seconds)}`
     : `${minutes}:${pad(seconds)}`;
+}
+
+/** '2026-08' -> 'Aug 2026'. */
+export function monthLabel(key: string): string {
+  const [year, month] = key.split('-');
+  return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
+}
+
+/**
+ * The Listening history line of Settings, word for word, which the
+ * Overview's Listening card repeats (spec 003, SC-009).
+ */
+export function historyLine(
+  summary: ImportSummary,
+  zoneAtImport?: string
+): string {
+  const parts = [
+    `Imported ${formatDate(summary.importedAt)}:`,
+    `${plural(summary.plays, 'play')} across`,
+    `${plural(summary.tracks, 'track')}.`,
+  ];
+  if (summary.range) {
+    parts.push(`${formatDate(summary.range.first)} –`);
+    parts.push(`${formatDate(summary.range.last)}.`);
+  }
+  if (zoneAtImport) parts.push(`Months bucketed in ${zoneAtImport}.`);
+  return parts.join(' ');
 }
