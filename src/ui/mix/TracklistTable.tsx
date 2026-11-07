@@ -299,7 +299,7 @@ function columns(on: {
     {
       id: 'library',
       header: 'In your library',
-      priority: 1,
+      priority: 2,
       width: '120px',
       cell: (l) =>
         l.match ? (
