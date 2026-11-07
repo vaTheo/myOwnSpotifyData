@@ -299,7 +299,16 @@ export function DataTable<Row>(p: {
         }
       }
     });
-  });
+  }, [ordered, shown, tabTarget, compact, p.columns]);
+
+  // A control of another row focused with the pointer moves the stop to
+  // that row, so the next Tab reaches its row-mates.
+  function onFocusIn(e: FocusEvent): void {
+    const target = e.target as HTMLElement;
+    if (target.matches('[data-index]')) return;
+    const row = target.closest<HTMLElement>('[data-index]');
+    if (row) setActive(Number(row.dataset.index));
+  }
   let lastGroup: string | null | undefined;
 
   const rowsOut = visible.map(({ row, rank }, index) => {
@@ -438,7 +447,13 @@ export function DataTable<Row>(p: {
             ))}
           </div>
         </div>
-        <div role="rowgroup" class="dt-body" ref={body} onKeyDown={onKeyDown}>
+        <div
+          role="rowgroup"
+          class="dt-body"
+          ref={body}
+          onKeyDown={onKeyDown}
+          onFocusIn={onFocusIn}
+        >
           {rowsOut}
         </div>
       </div>
