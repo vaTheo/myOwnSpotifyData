@@ -255,15 +255,31 @@ async function search(page: Page, text: string): Promise<Locator> {
   return box;
 }
 
-/** Picks a file through the file chooser a button opens. */
+/**
+ * Picks a file through the file chooser a button opens. Firefox, about half
+ * the time on a second pick in one page, opens no chooser for a click that
+ * is delivered correctly and stays closed for later clicks (S15: the click
+ * lands on the visible input, the page is idle and enabled, waiting longer
+ * and clicking again do not help, a plain label and input page does 14 in
+ * 14). The first pick of a page always goes through the chooser; when none
+ * opens within 4 s the file is set on the input, which fires the same
+ * `change` the app listens to.
+ */
 async function chooseFile(
   page: Page,
   button: Locator,
   file: string
 ): Promise<void> {
-  const chooser = page.waitForEvent('filechooser');
+  const chooser = page.waitForEvent('filechooser', { timeout: 4_000 });
+  chooser.catch(() => undefined);
   await button.click();
-  await (await chooser).setFiles(file);
+  try {
+    await (await chooser).setFiles(file);
+  } catch {
+    await button
+      .locator('xpath=ancestor-or-self::label//input[@type="file"]')
+      .setInputFiles(file);
+  }
 }
 
 /** The demo's open mix tracklist, drawn. */
@@ -674,6 +690,14 @@ test.describe('F. features', () => {
       /^confirm: This import covers .+; your current history covers .+\. Replace it\?$/
     );
     await expect(main(app.page)).toContainText('78,873 plays credited');
+    // The picker is disabled while the import runs; the refusal ends it
+    // a moment after the question. Wait for that end (the message), not
+    // only for the picker: Firefox opens nothing on a click that lands
+    // between the two (S15, 3 runs in 8).
+    await expect(main(app.page)).toContainText(
+      'Import cancelled. Your existing history was kept.'
+    );
+    await expect(app.page.locator('input[type=file]')).toBeEnabled();
     app.answer = true;
     await chooseFile(app.page, pick, `${file}`);
     await expect.poll(() => app.confirms.length).toBe(2);
@@ -1709,9 +1733,13 @@ test.describe('R. rounds 003 and 004', () => {
       next.getByRole('button', { name: 'Move to top' })
     ).toBeVisible();
     // The younger request moved to the top sits above the older one.
-    const order = await list
-      .getByRole('button', { name: / Queued$/ })
-      .allTextContents();
+    // One read per button: `allTextContents` over this list crashes the
+    // Firefox page (S15), `textContent` of each button does not.
+    const queued = list.getByRole('button', { name: / Queued$/ });
+    const order: string[] = [];
+    for (let i = 0; i < (await queued.count()); i++) {
+      order.push((await queued.nth(i).textContent()) ?? '');
+    }
     expect(order.map((t) => t.split(' ')[2].replace(/Queued$/, ''))).toEqual([
       'demoSet0003',
       'lakeside-open-air',
