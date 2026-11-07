@@ -3681,10 +3681,10 @@ details.mix-clues > summary:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 0 1 280px;
+  flex: 0 1 360px;
   min-width: 0;
   min-height: var(--app-target);
-  margin: 0 8px;
+  margin: 0 auto 0 24px;
   padding: 0 8px 0 16px;
   font: var(--md-sys-typescale-body-large);
   color: var(--md-sys-color-on-surface-variant);
@@ -3692,6 +3692,11 @@ details.mix-clues > summary:focus-visible {
   border: 0;
   border-radius: var(--md-sys-shape-corner-full);
   cursor: text;
+}
+
+/* The field follows the title, the actions keep the right end. */
+.top-bar:has(.top-bar-search) .top-bar-title {
+  flex: 0 1 auto;
 }
 
 .top-bar-search-text {
@@ -3723,10 +3728,11 @@ details.mix-clues > summary:focus-visible {
   color: var(--md-sys-color-on-surface);
 }
 
-/* The top bar's field opens into it: right-aligned under the bar's edge. */
+/* The top bar's field opens into it: its left edge where the field's is
+   (SearchView places it), never past the window's right edge. */
 .search-view.docked {
   top: 8px;
-  right: 16px;
+  left: var(--search-left, 16px);
   width: min(720px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   border-radius: var(--md-sys-shape-corner-extra-large);

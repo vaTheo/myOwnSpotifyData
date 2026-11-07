@@ -96,7 +96,15 @@ export function SearchView() {
   const m = model.value;
   const phone = windowClass.value === 'compact';
 
+  const [left, setLeft] = useState<number | null>(null);
   useEffect(() => {
+    // The docked panel opens where the top bar's field is.
+    const field = document.querySelector('.top-bar-search');
+    if (field) {
+      const width = Math.min(720, innerWidth - 32);
+      const at = field.getBoundingClientRect().left;
+      setLeft(Math.max(16, Math.min(at, innerWidth - 16 - width)));
+    }
     opener.current = document.activeElement as HTMLElement | null;
     input.current?.focus();
     input.current?.select();
@@ -247,6 +255,7 @@ export function SearchView() {
       )}
       <div
         class={phone ? 'search-view fullscreen' : 'search-view docked'}
+        style={left === null ? undefined : { '--search-left': `${left}px` }}
         role="dialog"
         aria-modal="true"
         aria-label="Search"
