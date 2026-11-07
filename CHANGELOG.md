@@ -3,6 +3,27 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-07 — A web-first redesign of every screen
+
+The app is rebuilt for a computer's browser first, on Material Design 3: dark only, chartreuse as its colour, Roboto served by
+the app. Five places in a side rail (a bottom bar on the phone): **Overview**, the new home that sums up your data from what is
+stored (never a Spotify read on open), **Listening** (Top, Crate), **Library** (Playlists, Artists), **Mix** and **Settings**.
+Every track list is a sortable table with columns that hide by priority (two-line items on the phone); a track's details open
+beside the list with everything the app holds, including album, length, added date, energy, listening time and first play,
+never shown before. Playlists, Artists and Mix open beside their lists. The Crate draws its numbers as charts (month bars,
+finish meters, plays per year, By year's year × month grid); Top can **Compare periods** side by side. New: one **search**
+(`/`, Ctrl+K) over tracks, artists, playlists and saved mixes; a **BPM range and key filter** (with compatible keys) on every
+track table; Settings as one page of seven sections. The **Mix** screen is a workspace: one Mixes list holding saved mixes and
+the requests to your computer (Move to top, Cancel, Stop, Ask again, "Already finished" when a request is gone), a run line
+under the open mix, **Check on Spotify**, a per-track review (Validate, Remove, the chips To review, Validated, Not on Spotify,
+Heard once), and Create playlist with **Validated only** or **All tracks** (a track from a comment joins Validated only once
+validated; amends [ADR-10](docs/architecture/700-adr/ADR-10-name-lookup-for-clues.md)); a later worker result keeps the review.
+One Spotify quota lock-out now holds for every Spotify read and survives a reload. Old addresses keep working; `#/` opens the
+Overview. No stored data, ranking, rule, Spotify call or `confirm()` changed; no `DB_VERSION` bump (optional Mix row fields).
+For developers: `yarn shots`, a dev-only visual loop on `?demo` data. [ADR-11](docs/architecture/700-adr/ADR-11-web-first-material-3.md),
+[spec](docs/specs/2026-11-06-web-first-redesign-design.md), the full round under `specs/003-web-first-redesign/`. Nothing to do
+after upgrading.
+
 ## 2026-11-06 — See, steer and trust the worker's scans (worker 0.4.0)
 
 Each heard track shows how many 12-second clips matched it and its best score ("heard 3× · best 91 %"), sortable, with a
