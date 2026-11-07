@@ -1,4 +1,4 @@
-import { computed, signal } from '@preact/signals';
+import { computed, effect, signal } from '@preact/signals';
 import { auth } from '../auth/browser';
 import {
   DB_BLOCKED_MESSAGE,
@@ -44,7 +44,12 @@ import { parseTracklistifyJson } from '../features/mix/tracklistify';
 import { classifyMixInput, isShortLink, requestKey } from '../features/mix/url';
 import { queueFailure, queueNote } from '../features/mix/queue';
 import { requestStatusText } from '../features/mix/worker';
-import { runCreatePlaylist } from '../features/mix/createPlaylist';
+import {
+  defaultChoice,
+  runCreatePlaylist,
+  tracksToAdd,
+  type CreateChoice,
+} from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
   applyAnswers,
@@ -53,6 +58,15 @@ import {
   type CheckAnswer,
 } from '../features/mix/spotifyCheck';
 import { QuotaError } from '../spotify/errors';
+import {
+  QUOTA_LOCK_KEY,
+  activeLock,
+  lapseDelay,
+  laterLock,
+  parseStoredLock,
+  quotaRefusal,
+} from '../spotify/quotaLock';
+import { demoVariant } from '../dev/flag';
 import {
   canLikeTracks,
   isLiking,
@@ -568,6 +582,8 @@ export type CreatePlaylistState =
       message: string;
       url?: string | null;
       added?: number;
+      /** The tracks the run tried to add, with `added` (an add failure). */
+      total?: number;
     };
 
 /**
@@ -599,6 +615,86 @@ export const likeState = signal<LikeState>({ status: 'idle' });
 
 export const createPlaylistState = signal<CreatePlaylistState>({
   status: 'idle',
+});
+
+/** The owner's Validated only / All tracks pick for one mix (T119); none
+ *  picked: `defaultChoice`. Keyed by the mix so another mix starts fresh. */
+export const createChoice = signal<{
+  url: string;
+  choice: CreateChoice;
+} | null>(null);
+
+/** What Create playlist adds for this mix: the owner's pick, else the
+ *  default (Validated only once a track is validated). */
+export function createChoiceFor(
+  url: string,
+  rows: readonly TracklistRow[]
+): CreateChoice {
+  const picked = createChoice.value;
+  return picked !== null && picked.url === url
+    ? picked.choice
+    : defaultChoice(rows);
+}
+
+/* ---------- the one Spotify quota lock-out (S08d) ---------- */
+
+/** The demo keeps its own key, so a demo lock never reaches the real app. */
+const QUOTA_KEY =
+  import.meta.env.DEV && demoVariant() !== null
+    ? `demo:${QUOTA_LOCK_KEY}`
+    : QUOTA_LOCK_KEY;
+
+function storedQuotaLock(): number | null {
+  try {
+    return parseStoredLock(localStorage.getItem(QUOTA_KEY), Date.now());
+  } catch {
+    return null; // storage blocked: the lock lives in memory only
+  }
+}
+
+/**
+ * When Spotify's quota lock-out lapses (epoch ms), or null. One for the
+ * whole app: sync, Check on Spotify, Create playlist and Like all songs
+ * each refuse to read Spotify while it holds, whichever of them met it.
+ * Kept in localStorage (survives a reload and Disconnect); cleared by a
+ * timer when it lapses, so the buttons come back on time.
+ */
+export const spotifyQuotaLock = signal<number | null>(storedQuotaLock());
+
+/** Remembers a quota answer; a shorter one never shortens the lock. */
+export function noteQuotaLock(retryAt: number): void {
+  spotifyQuotaLock.value = activeLock(
+    laterLock(activeLock(spotifyQuotaLock.peek(), Date.now()), retryAt),
+    Date.now()
+  );
+}
+
+/** The quota lock-out still holding, or null. */
+export function spotifyLockedUntil(now = Date.now()): number | null {
+  return activeLock(spotifyQuotaLock.value, now);
+}
+
+effect(() => {
+  const until = spotifyQuotaLock.value;
+  try {
+    if (until === null) localStorage.removeItem(QUOTA_KEY);
+    else localStorage.setItem(QUOTA_KEY, String(until));
+  } catch {
+    // Storage blocked: the lock still holds in memory.
+  }
+  if (until === null) return;
+  let timer: ReturnType<typeof setTimeout>;
+  const arm = (): void => {
+    timer = setTimeout(
+      () => {
+        if (until > Date.now()) arm();
+        else spotifyQuotaLock.value = null;
+      },
+      lapseDelay(until, Date.now())
+    );
+  };
+  arm();
+  return () => clearTimeout(timer);
 });
 
 export type KeyNotation = 'camelot' | 'open' | 'classic';
@@ -713,6 +809,7 @@ export async function loadFromDb(): Promise<void> {
     lastSyncAt.value = (await getMeta<number>(LAST_SYNC_META)) ?? null;
     const saved = await getMeta<SyncState>(SYNC_STATE_META);
     if (saved && saved.status !== 'running') syncState.value = saved;
+    if (saved?.status === 'locked') noteQuotaLock(saved.retryAt);
     historySummary.value =
       (await getMeta<ImportSummary>(HISTORY_SUMMARY_META)) ?? null;
     rekordboxSummary.value =
@@ -769,8 +866,10 @@ export function jobsBusy(): boolean {
 export async function startSync(priorityId?: string): Promise<void> {
   const current = syncState.value;
   if (current.status === 'running') return;
-  if (current.status === 'locked' && current.retryAt > Date.now()) {
-    banner.value = warnBanner(lockMessage(current.retryAt));
+  // The one quota lock-out, whichever reader met it (S08d).
+  const locked = spotifyLockedUntil();
+  if (locked !== null) {
+    banner.value = warnBanner(lockMessage(locked));
     return;
   }
   clearBanner();
@@ -818,6 +917,7 @@ export async function startSync(priorityId?: string): Promise<void> {
     banner.value = errorBanner(state.message, ['settings']);
   }
   if (state.status === 'locked') {
+    noteQuotaLock(state.retryAt);
     banner.value = warnBanner(lockMessage(state.retryAt));
   }
   // A refused account switch is a cancellation, not a failure: amber, muted
@@ -1433,16 +1533,22 @@ export async function startCreatePlaylist(): Promise<void> {
     return;
   }
 
-  // Its searches read Spotify like Check on Spotify: not inside a quota
-  // lock-out the check or the sync met (fix round 1, M2).
-  const locked = spotifyLockedUntil();
-  if (locked !== null) {
-    createPlaylistState.value = {
-      status: 'error',
-      message: `Spotify quota reached. Try again after ${formatDateTime(locked)}.`,
-    };
+  // Its searches read Spotify: not inside the quota lock-out, whichever
+  // reader met it (S08d).
+  const refused = quotaRefusal(
+    'create',
+    spotifyLockedUntil(),
+    Date.now(),
+    formatDateTime
+  );
+  if (refused !== null) {
+    createPlaylistState.value = { status: 'error', message: refused };
     return;
   }
+  // Validated only or All tracks (T119, owner's D6); the mix itself is
+  // saved whole below.
+  const toAdd = tracksToAdd(rows, createChoiceFor(view.url, rows));
+  if (toAdd.length === 0) return;
 
   // Claim the running state synchronously so a second tap cannot double-run,
   // with the `as CreatePlaylistState` cast the codebase uses (startSync /
@@ -1470,8 +1576,22 @@ export async function startCreatePlaylist(): Promise<void> {
         createPlaylistState.value = s;
       },
     },
-    { name, description, rows }
+    { name, description, rows: toAdd }
   );
+  // Spotify's quota, met by a search or a POST: remembered app-wide and said
+  // inline (the POST is still never retried).
+  if (outcome.quotaUntil !== undefined) {
+    noteQuotaLock(outcome.quotaUntil);
+    const s = createPlaylistState.value;
+    if (s.status === 'error') {
+      createPlaylistState.value = {
+        ...s,
+        message:
+          quotaRefusal('create', outcome.quotaUntil, 0, formatDateTime) ??
+          s.message,
+      };
+    }
+  }
 
   // Persist whenever the playlist was created (even on a partial add failure).
   // Build the row from the CAPTURED view and rows, not the live signals: the
@@ -1587,25 +1707,8 @@ let spotifyCheckStop = false;
  *  answers write nothing (fix round 1, M4). */
 let spotifyCheckRun = 0;
 
-/**
- * When a quota lock-out a check met lapses (epoch ms), or null. While it
- * holds, no check and no Create playlist search reads Spotify (fix round
- * 1, M2); the sync's own lock-out counts too (`spotifyLockedUntil`).
- */
-export const spotifyCheckLock = signal<number | null>(null);
-
 /** Counts saves made by a check, so the Save mix button flashes "Saved ✓". */
 export const mixCheckSaved = signal(0);
-
-/** The quota lock-out still holding (the check's or the sync's), or null. */
-export function spotifyLockedUntil(now = Date.now()): number | null {
-  const sync = syncState.value;
-  const until = Math.max(
-    spotifyCheckLock.value ?? 0,
-    sync.status === 'locked' ? sync.retryAt : 0
-  );
-  return until > now ? until : null;
-}
 
 /** Stop asked: the check ends after the track it is reading. */
 export function stopSpotifyCheck(): void {
@@ -1687,7 +1790,7 @@ export async function startSpotifyCheck(): Promise<void> {
   if (answers.length > 0) await keepChecks(url, answers, stillOpen());
   if (out.status === 'error') {
     if (out.error instanceof QuotaError) {
-      spotifyCheckLock.value = out.error.retryAt;
+      noteQuotaLock(out.error.retryAt);
       fail(checkLockMessage(out.error.retryAt));
     } else {
       fail(`Could not check on Spotify: ${describeError(out.error)}`);
@@ -1767,6 +1870,16 @@ export async function startLikePlaylist(playlistId: string): Promise<void> {
     likeState.value = { status: 'needScope', playlistId };
     return;
   }
+  const refused = quotaRefusal(
+    'like',
+    spotifyLockedUntil(),
+    Date.now(),
+    formatDateTime
+  );
+  if (refused !== null) {
+    likeState.value = { status: 'error', playlistId, message: refused };
+    return;
+  }
   // Claim the running state synchronously so a second tap cannot double-run.
   likeState.value = {
     status: 'checking',
@@ -1835,7 +1948,8 @@ export async function disconnect(): Promise<void> {
   spotifyCheckStop = true;
   spotifyCheckRun += 1;
   spotifyCheckState.value = { status: 'idle' };
-  spotifyCheckLock.value = null;
+  // The quota lock-out stays: it belongs to the app's client id, not to the
+  // session (S08d).
   likeState.value = { status: 'idle' };
   lastSyncAt.value = null;
   historySummary.value = null;

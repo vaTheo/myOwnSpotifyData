@@ -470,7 +470,7 @@ export const PAGES: ShotPage[] = [
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: async (page) => {
       await openGrid(page);
-      await setState(page, 'spotifyCheckLock', DEMO_NOW + 3 * 3_600_000);
+      await setState(page, 'spotifyQuotaLock', DEMO_NOW + 3 * 3_600_000);
     },
   },
   {
