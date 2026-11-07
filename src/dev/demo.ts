@@ -21,11 +21,14 @@ import type {
   Period,
   PlayRow,
   PlaylistRow,
+  RemovedTrack,
   TopItemsRow,
   TrackRow,
   TracklistRow,
 } from '../db/schema';
 import { PERIODS, reachKey, topKey } from '../db/schema';
+import { mergeKeepingReview, recordRemoved } from '../features/mix/keepReview';
+import { checkedRow } from '../features/mix/spotifyCheck';
 import { ARTIST_REACH_SUMMARY_META } from '../features/reachRun';
 import { REKORDBOX_SUMMARY_META } from '../features/rekordboxImport';
 import { HISTORY_SUMMARY_META } from '../history/importer';
@@ -798,25 +801,71 @@ function buildMixes(
     );
     at += int(rand, 200, 380);
   }
-  const third: TracklistRow[] = [];
+  // The review (S08c, T117, T118): validated rows, rows Check on Spotify
+  // found or did not find, rows not checked yet; the candidate To review.
+  const checkedAt = DEMO_NOW - 2 * 3_600_000;
+  second.forEach((row, i) => {
+    if (row.gap || row.origin === 'clue') return;
+    const t = known[12 + i];
+    let next = row;
+    if (i <= 6) {
+      next = checkedRow(next, i === 3 || i === 6 ? null : t.uri, checkedAt);
+    }
+    if (i === 0 || i === 1 || i === 2 || i === 5) {
+      next = { ...next, validated: true };
+    }
+    second[i] = next;
+  });
+  const sunriseRemoved: RemovedTrack[] = [
+    {
+      artist: known[0].artists[0].name,
+      title: known[0].name,
+      isrc: known[0].isrc,
+    },
+  ];
+
+  // The Dock: a result asked again after a stop, merged into the rows the
+  // owner had reviewed (T125): the review kept, a removed track left out,
+  // the new tracks To review.
+  const scanRow = (t: (typeof known)[number], startSec: number) =>
+    tracklistRow({
+      startSec,
+      endSec: startSec + 12,
+      artist: t.artists[0].name,
+      title: t.name,
+      source: 'tracklistify',
+      detected: { artist: t.artists[0].name, title: t.name },
+      confidence: int(rand, 60, 98),
+      isrc: t.isrc,
+      hits: int(rand, 1, 5),
+    });
+  const before: TracklistRow[] = [];
   at = 0;
-  for (let i = 0; i < 9; i += 1) {
-    const t = known[i + 3];
-    third.push(
-      tracklistRow({
-        startSec: at,
-        endSec: at + 12,
-        artist: t.artists[0].name,
-        title: t.name,
-        source: 'tracklistify',
-        detected: { artist: t.artists[0].name, title: t.name },
-        confidence: int(rand, 60, 98),
-        isrc: t.isrc,
-        hits: int(rand, 1, 5),
-      })
+  for (let i = 0; i < 6; i += 1) {
+    const row = scanRow(known[i + 3], at);
+    before.push(
+      i < 4
+        ? {
+            ...checkedRow(row, i === 2 ? null : known[i + 3].uri, checkedAt),
+            validated: i !== 2,
+          }
+        : row
     );
     at += int(rand, 220, 360);
   }
+  // The owner removed the fifth track as a wrong match.
+  const dockRemoved = recordRemoved(undefined, before[4]) ?? [];
+  const incoming: TracklistRow[] = [];
+  at = 0;
+  for (let i = 0; i < 9; i += 1) {
+    incoming.push(scanRow(known[i + 3], at));
+    at += int(rand, 220, 360);
+  }
+  const third = mergeKeepingReview(
+    before.filter((_, i) => i !== 4),
+    incoming,
+    dockRemoved
+  );
   const playlistId = spotifyId('m', 1);
   const mixes: MixRow[] = [
     {
@@ -873,6 +922,12 @@ function buildMixes(
       ],
       identifyJobId: JOB.done,
       identifiedAt: DEMO_NOW - DAY,
+      run: {
+        secondPass: { places: 41, found: 3, stopped: null },
+        resumed: { probesKept: 120 },
+        warnings: ['refuses often'],
+      },
+      removed: sunriseRemoved,
       savedAt: DEMO_NOW - DAY,
     },
     {
@@ -889,6 +944,12 @@ function buildMixes(
         worker: true,
       },
       rows: third,
+      run: {
+        secondPass: { places: 12, found: 1, stopped: 'by you' },
+        resumed: { probesKept: 64 },
+        stoppedEarly: { at: '01:12:00', reason: 'by you' },
+      },
+      removed: dockRemoved,
       identifyJobId: JOB.stoppedEarly,
       identifiedAt: DEMO_NOW - 2 * 3_600_000,
       savedAt: DEMO_NOW - 2 * 3_600_000,

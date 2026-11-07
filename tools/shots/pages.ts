@@ -79,6 +79,21 @@ async function setState(page: Page, name: string, value: unknown) {
   ] as const);
 }
 
+/** The demo's scanned mix: the review, the run line, the filters (S08c). */
+const SUNRISE = 'https://www.youtube.com/watch?v=demoSet0001';
+
+/** The open mix's tracklist on screen. */
+async function openGrid(page: Page): Promise<void> {
+  await page.getByRole('grid', { name: 'Tracklist' }).waitFor();
+}
+
+/** The 1440 project's window widened to 1,600 px (the Mixes pane stays). */
+async function at1600(page: Page): Promise<void> {
+  if (page.viewportSize()?.width !== 1440) return;
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.waitForTimeout(150);
+}
+
 /** The 1024 project's window shrunk to 900 px; other widths stay. */
 async function at900(page: Page): Promise<void> {
   if (page.viewportSize()?.width !== 1024) return;
@@ -371,6 +386,119 @@ export const PAGES: ShotPage[] = [
     // clues, set-wide clues; the Sort select shows.
     id: 'mix-round004',
     hash: `#/mix/${enc('https://www.youtube.com/watch?v=demoSet0001')}`,
+  },
+  {
+    // The review (S08c, T117, T118): Spotify status per row (found, not
+    // found, not checked), Validate on, the filter chips, the run line
+    // with its warning collapsed, the review line and Check on Spotify.
+    id: 'mix-review',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: openGrid,
+  },
+  {
+    // The same with the Mixes pane beside it: 1,600 px, where it stays.
+    id: 'mix-review-1600',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await at1600(page);
+      await openGrid(page);
+    },
+  },
+  {
+    // Check on Spotify running: "Checked 12 of 40", the bar and Stop.
+    id: 'mix-check-running',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await setState(page, 'spotifyCheckState', {
+        status: 'running',
+        url: SUNRISE,
+        done: 12,
+        total: 40,
+        stopping: false,
+      });
+    },
+  },
+  {
+    // Check on Spotify done: every named track checked, the button resting.
+    id: 'mix-check-done',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await setState(page, 'spotifyCheckState', {
+        status: 'finished',
+        url: SUNRISE,
+        done: 40,
+        total: 40,
+        stopped: false,
+      });
+    },
+  },
+  {
+    // A check refused inline (quota), never a banner.
+    id: 'mix-check-error',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await setState(page, 'spotifyCheckState', {
+        status: 'error',
+        url: SUNRISE,
+        message: 'Spotify quota reached. Check again after 7 Nov 2026, 22:00.',
+      });
+    },
+  },
+  ...(
+    [
+      ['mix-filter-review', /^To review/],
+      ['mix-filter-validated', /^Validated/],
+      ['mix-filter-notfound', /^Not on Spotify/],
+      ['mix-filter-heard', /^Heard once/],
+    ] as const
+  ).map(([id, name]): ShotPage => ({
+    // One filter chip on: the rows it keeps and the caption.
+    id,
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await page.getByRole('tab', { name }).click();
+    },
+  })),
+  {
+    // The run line's warning expanded.
+    id: 'mix-run-warnings',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await page.getByText('1 warning', { exact: true }).click();
+    },
+  },
+  {
+    // A result asked again after a stop (T124, T125): stopped early with
+    // Ask again, the review kept on the earlier tracks, the removed one
+    // left out, the new ones To review. The server is connected.
+    id: 'mix-reresult',
+    hash: `#/mix/${enc('https://soundcloud.com/demo-dj/closing-set-at-the-dock')}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await setState(page, 'serverSession', SERVER_SESSION);
+      await setState(page, 'serverState', SERVER_CONNECTED);
+    },
+  },
+  {
+    // The Listen menu open (the More menu on phones, where it joins it).
+    id: 'mix-listen',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      const grid = page.getByRole('grid', { name: 'Tracklist' });
+      const listen = grid.getByRole('button', { name: /^Listen to / }).first();
+      if (await listen.isVisible()) await listen.click();
+      else
+        await grid
+          .getByRole('button', { name: /^More for / })
+          .first()
+          .click();
+    },
   },
   {
     // The Mixes list (T116, T121, T123): running with progress (first pass,
