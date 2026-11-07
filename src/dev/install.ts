@@ -24,6 +24,7 @@ import {
   serverLinkSent,
   serverSession,
   serverState,
+  spotifyCheckLock,
   spotifyCheckState,
   syncState,
 } from '../model/state';
@@ -62,6 +63,8 @@ const CONTROLLED: Record<string, Signal<unknown>> = {
   serverState,
   /** Check on Spotify mid-run or finished (S08c, T117). */
   spotifyCheckState,
+  /** A quota lock-out a check met (S08c fix round 1). */
+  spotifyCheckLock,
   /** The Spotify session, to show the missing-scope warning. */
   spotifySession: auth.session,
   syncState,

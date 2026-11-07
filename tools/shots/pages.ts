@@ -464,6 +464,32 @@ export const PAGES: ShotPage[] = [
     },
   })),
   {
+    // A quota lock-out met by a check: the button rests disabled with the
+    // message until it lapses (fix round 1).
+    id: 'mix-check-locked',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await setState(page, 'spotifyCheckLock', DEMO_NOW + 3 * 3_600_000);
+    },
+  },
+  {
+    // The phone's More menu with its Listen… item opened (fix round 1, R3);
+    // on wider windows the same row's More menu.
+    id: 'mix-listen-more',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await openGrid(page);
+      await page
+        .getByRole('grid', { name: 'Tracklist' })
+        .getByRole('button', { name: /^More for / })
+        .first()
+        .click();
+      const listen = page.getByRole('menuitem', { name: 'Listen…' });
+      if (await listen.isVisible()) await listen.click();
+    },
+  },
+  {
     // The run line's warning expanded.
     id: 'mix-run-warnings',
     hash: `#/mix/${enc(SUNRISE)}`,

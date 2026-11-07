@@ -7,6 +7,8 @@ export interface RowMenuItem {
   /** A link item (opens in a new tab) instead of an action. */
   href?: string;
   onSelect?: () => void;
+  /** A sub-menu: the list shows these items (and Back) in its place. */
+  items?: RowMenuItem[];
 }
 
 /** Where the open list sits: under the button, or above it. */
@@ -54,7 +56,9 @@ function place(r: DOMRect, items: number): Place {
  * fixed to the viewport, so a table cell's clipping never hides it. Closes
  * on Escape (focus back on the button), a tap outside, a scroll that moves
  * the row, and when the focus leaves it. Up and Down move between the
- * items (wrapping), Home and End to the first and the last.
+ * items (wrapping), Home and End to the first and the last. An item with
+ * `items` opens them in the same list, after a Back item (the phone's
+ * "Listen…", fix round 1 R3).
  */
 export function RowMenu(p: {
   label: string;
@@ -62,9 +66,17 @@ export function RowMenu(p: {
   /** The button's icon: `more_vert` unless given (Listen: `headphones`). */
   icon?: IconName;
 }) {
-  const [at, setAt] = useState<Place | null>(null);
+  const [at, setAtState] = useState<Place | null>(null);
+  const [sub, setSub] = useState<RowMenuItem[] | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  // While the list swaps to or from a sub-menu, the focused item leaves the
+  // page: that focus loss must not close the menu.
+  const switching = useRef(false);
   const open = at !== null;
+  const setAt = (next: Place | null): void => {
+    if (next === null) setSub(null);
+    setAtState(next);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -82,13 +94,28 @@ export function RowMenu(p: {
     document.addEventListener('pointerdown', onDown);
     addEventListener('scroll', onScroll, true);
     addEventListener('resize', close);
-    box.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     return () => {
       document.removeEventListener('pointerdown', onDown);
       removeEventListener('scroll', onScroll, true);
       removeEventListener('resize', close);
     };
   }, [open]);
+
+  // The first item takes the focus when the list or the sub-menu opens.
+  useEffect(() => {
+    if (!open) return;
+    box.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    switching.current = false;
+  }, [open, sub]);
+
+  /** Shows a sub-menu in the list, placed again for its length. */
+  function openSub(items: RowMenuItem[]): void {
+    const r = box.current?.getBoundingClientRect();
+    if (!r) return;
+    switching.current = true;
+    setSub(items);
+    setAtState(place(r, items.length + 1));
+  }
 
   function toggle(): void {
     if (open) {
@@ -140,6 +167,7 @@ export function RowMenu(p: {
         items[next].focus();
       }}
       onFocusOut={(e) => {
+        if (switching.current) return;
         if (!box.current?.contains(e.relatedTarget as Node | null)) {
           setAt(null);
         }
@@ -161,7 +189,21 @@ export function RowMenu(p: {
             maxHeight: `${at.maxHeight}px`,
           }}
         >
-          {p.items.map((item) =>
+          {sub !== null && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const r = box.current?.getBoundingClientRect();
+                switching.current = true;
+                setSub(null);
+                if (r) setAtState(place(r, p.items.length));
+              }}
+            >
+              ‹ Back
+            </button>
+          )}
+          {(sub ?? p.items).map((item) =>
             item.href ? (
               <a
                 key={item.label}
@@ -178,7 +220,12 @@ export function RowMenu(p: {
                 key={item.label}
                 type="button"
                 role="menuitem"
+                aria-haspopup={item.items ? 'menu' : undefined}
                 onClick={() => {
+                  if (item.items) {
+                    openSub(item.items);
+                    return;
+                  }
                   setAt(null);
                   item.onSelect?.();
                 }}

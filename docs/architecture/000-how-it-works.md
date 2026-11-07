@@ -196,6 +196,10 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   as optional fields (`spotify: {id, url} | 'not-found'`, `checkedAt`; no `DB_VERSION` bump) and the mix is saved at the end (its saved
   copy when it was closed meanwhile). An edit of the artist or title drops the answer (`editTracklistRow`). Create playlist adds a found
   id without searching again (`storedUri`). No write; not in `jobsBusy()`; failures (quota, network) inline, never a banner.
+  The check saves the mix when it ends, edits and deletions included, and an unsaved lookup becomes a saved mix (ruling R1, S08c fix
+  round 1; Save mix's "Saved ✓" shows it). Answers are put back by the row's place and unchanged artist and title, never object
+  identity, so a row validated or a list reopened during the run keeps them; an edited or deleted row's answer is dropped. A quota
+  lock-out the check meets (`spotifyCheckLock`) disables the button with its message, and Create playlist's searches wait for it too.
 - `review.ts` (T118, T127): the filter chips All, To review, Validated, Not on Spotify and Heard once (N) (only when a row has `hits`),
   one at a time, gaps under All only; the header line "N tracks · K validated · M on Spotify · L not found". **Validate** is the
   optional `TracklistRow.validated`, saved with Save mix like an edit; **Remove** is `deleteMixRow`.
@@ -203,7 +207,8 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   (`mixWithResult`, `server/sync.ts`). An untouched scan row matched by an incoming row (same ISRC, else `artistCore` and `sameTitle`)
   hands it `validated`, `spotify` and `checkedAt`; a validated scan row the result misses stays; edited, typed, pasted, TrackId and
   description rows stay, and an incoming row matching them (their text or what was detected) is dropped; so is one matching
-  `MixRow.removed`, which `deleteMixRow` fills with a deleted scan row's detected artist, title and ISRC (500 at most).
+  `MixRow.removed`, which `deleteMixRow` fills with a deleted row's detected artist, title and ISRC whenever something was detected
+  (a scan or TrackId row, corrected or not; 500 at most). One existing row's review goes to one incoming row.
 - `worker.ts` `toRun`/`runLine` (T124, owner's D3): `mix_info.second_pass` (`places` or round 003's `replays`), `resumed`,
   `stopped_early` and `warnings` kept as the optional `MixRow.run`, replaced wholesale by each result, shown under the open mix's header
   ("Second pass: 41 places · 3 found", "Resumed (120 clips kept)", "Stopped early at 01:12:00 (rate limited)" with Ask again, the
