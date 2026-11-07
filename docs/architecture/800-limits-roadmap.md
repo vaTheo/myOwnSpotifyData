@@ -87,3 +87,5 @@ track rows or a Crate-only play threshold, Linux/macOS binaries are already buil
 - [Specs](../specs/) · [Research](../research/)
 - [Contributing](../dev-guide/000-contributing.md)
 - [Documentation map](../README.md)
+
+- **Long lists only append (round 008).** Scrolling adds 100 rows at a time and keeps every drawn row, so a 20,000-row list scrolled to the end holds all of them in the page. Windowing (drawing only the rows on screen) is the follow-up if a phone slows down.

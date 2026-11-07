@@ -342,7 +342,7 @@ screen, grouped by role under `src/ui/`.
   (`details/navigate.ts`), so Back returns to the list.
 - **Tables** (`ui/table/`): `DataTable.tsx` (ARIA table roles on a CSS grid) with the `Column<Row>` builders of `columns.tsx`;
   pure `sort.ts` (`sortRows`, `nextSort`: any column, both directions, missing values last, ranks from the full list),
-  `paging.ts` ("Showing 100 of 2,431", page by page) and `keyboard.ts` (arrows, Home and End, Enter opens). Columns hide by
+  `paging.ts` ("Showing 100 of 2,431"; 100 rows more each time the end of the list nears the screen, an observer under the rows, with the Show 100 more button kept as a fallback) and `keyboard.ts` (arrows, Home and End, Enter opens). Columns hide by
   priority as the table narrows. Compact windows, and a table beside a list pane on expanded windows, show two-line items
   without sort headers (spec FR-015/016 as amended). A title is never drawn under 160 px (SC-001, S13c): `titleColumn` is
   `minmax(176px, 2fr)`, so the other flexible columns give way first; a table too narrow for that hides columns by priority

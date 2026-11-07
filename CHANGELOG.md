@@ -3,6 +3,13 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-07 — Lists keep loading as you scroll
+
+Every long list (Top, Playlists, a playlist, Artists, the Crate views, Under the radar, a mix) now shows 100 more rows by itself when
+you near the end, so you no longer tap **Show 100 more** again and again. The button stays under the list as a fallback (keyboard,
+screen reader) and the "Showing the top N of M" line still counts. All the data was already on the device, so nothing is fetched.
+Spec: `specs/008-infinite-lists/`.
+
 ## 2026-11-07 — Rarely played
 
 Listening · Crate gains a sixth view, **Rarely played**: the songs of your playlists you played 0, 1, 2 or 3 times (the Never, 1, 2

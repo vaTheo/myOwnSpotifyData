@@ -1638,6 +1638,10 @@ a {
   min-height: 0;
 }
 
+.dt-sentinel {
+  height: 1px;
+}
+
 .dt-footer {
   display: flex;
   align-items: center;

@@ -17,7 +17,7 @@ import {
   type ColumnTrack,
   type TableLayout,
 } from './layout';
-import { shownToReveal } from './paging';
+import { shownAfterScroll, shownToReveal } from './paging';
 import {
   nextSort,
   sortRows,
@@ -254,6 +254,26 @@ export function DataTable<Row>(p: {
     const at = ordered.findIndex((r) => p.rowKey(r.row) === p.revealKey);
     setShown((n) => shownToReveal(at, n, PAGE_SIZE));
   }, [p.revealKey]);
+
+  // Infinite scroll (round 008): the sentinel under the rows asks for one
+  // page more when it nears the viewport. The observer is made again after
+  // each page, so a sentinel still in view asks again until it leaves.
+  const sentinel = useRef<HTMLDivElement>(null);
+  const more = ordered.length > shown;
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!more || !el || typeof IntersectionObserver === 'undefined') return;
+    const watch = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setShown((n) => shownAfterScroll(n, ordered.length, PAGE_SIZE));
+        }
+      },
+      { rootMargin: '600px 0px' }
+    );
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [more, shown, ordered.length]);
 
   const visible = ordered.slice(0, shown);
   const grouped =
@@ -503,7 +523,8 @@ export function DataTable<Row>(p: {
       <div class="visually-hidden" aria-live="polite">
         {announce}
       </div>
-      {ordered.length > shown && (
+      {more && <div class="dt-sentinel" ref={sentinel} aria-hidden="true" />}
+      {more && (
         <div class="dt-footer">
           <p>
             Showing the top {shown.toLocaleString()} of{' '}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shownToReveal } from './paging';
+import { shownAfterScroll, shownToReveal } from './paging';
 
 describe('shownToReveal: how many rows to show so one row is on the page', () => {
   it('keeps the count when the row is already shown', () => {
@@ -15,5 +15,18 @@ describe('shownToReveal: how many rows to show so one row is on the page', () =>
 
   it('changes nothing for a row that is not in the table', () => {
     expect(shownToReveal(-1, 100, 100)).toBe(100);
+  });
+});
+
+describe('shownAfterScroll', () => {
+  it('adds one page', () => {
+    expect(shownAfterScroll(100, 450, 100)).toBe(200);
+  });
+  it('stops at the total', () => {
+    expect(shownAfterScroll(400, 450, 100)).toBe(450);
+    expect(shownAfterScroll(450, 450, 100)).toBe(450);
+  });
+  it('never goes below what is shown', () => {
+    expect(shownAfterScroll(100, 30, 100)).toBe(100);
   });
 });

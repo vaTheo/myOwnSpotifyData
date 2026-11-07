@@ -11,3 +11,12 @@ export function shownToReveal(
   if (index < shown) return shown;
   return (Math.floor(index / pageSize) + 1) * pageSize;
 }
+
+/** The count after reaching the bottom: one page more, never past the total. */
+export function shownAfterScroll(
+  shown: number,
+  total: number,
+  pageSize: number
+): number {
+  return Math.min(shown + pageSize, Math.max(total, shown));
+}

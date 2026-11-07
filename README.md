@@ -99,8 +99,9 @@ phone. It is dark, with chartreuse marking what you act on.
   first; title, the main number, BPM and key stay. On a phone each row is two
   lines and there are no sort headers (the order controls, such as a
   playlist's order or Under the radar's sorts, stay).
-- Long lists say "Showing the top 100 of 2,431" with a **Show 100 more**
-  button. Arrow keys
+- Long lists say "Showing the top 100 of 2,431" and show 100 more by
+  themselves as you scroll near the end; the **Show 100 more** button stays
+  as a fallback. Arrow keys
   move through a table; Enter opens the row.
 - **Click a track to open its details** beside the list (full screen on a
   phone): album, length, added date, BPM, key, energy and where they came
