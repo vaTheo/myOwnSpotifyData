@@ -2,7 +2,12 @@ import type { LookupState } from '../features/lookup';
 import type { ReachState } from '../features/reachRun';
 import type { RekordboxState } from '../features/rekordboxImport';
 import type { ImportState } from '../history/importer';
-import type { CreatePlaylistState, LikeState, MixState } from '../model/state';
+import type {
+  CreatePlaylistJob,
+  LikeState,
+  MixState,
+  SpotifyCheckState,
+} from '../model/state';
 import { routeHref } from '../router';
 import type { ServerStatus } from '../server/types';
 import type { SyncState } from '../sync/runner';
@@ -16,8 +21,9 @@ export interface JobStates {
   reach: ReachState;
   server: ServerStatus;
   like: LikeState;
-  createPlaylist: CreatePlaylistState;
+  createPlaylist: CreatePlaylistJob;
   mix: MixState;
+  spotifyCheck: SpotifyCheckState;
 }
 
 export interface ActiveJob {
@@ -30,6 +36,7 @@ export interface ActiveJob {
     | 'server'
     | 'like'
     | 'createPlaylist'
+    | 'spotifyCheck'
     | 'mixLookup';
   label: string;
   done: number | null;
@@ -126,7 +133,21 @@ export function activeJobs(s: JobStates): ActiveJob[] {
       label: 'Creating playlist',
       done: create.status === 'resolving' ? create.done : null,
       total: create.status === 'resolving' ? create.total : null,
-      href: MIX,
+      href:
+        create.mixUrl !== undefined
+          ? routeHref({ name: 'mix', key: create.mixUrl })
+          : MIX,
+    });
+  }
+  // Check on Spotify reads Spotify for minutes (S13, FR-007): shown from
+  // every screen, with a link back to its mix.
+  if (s.spotifyCheck.status === 'running') {
+    jobs.push({
+      id: 'spotifyCheck',
+      label: 'Checking on Spotify',
+      done: s.spotifyCheck.done,
+      total: s.spotifyCheck.total,
+      href: routeHref({ name: 'mix', key: s.spotifyCheck.url }),
     });
   }
   if (s.mix.status === 'looking') {

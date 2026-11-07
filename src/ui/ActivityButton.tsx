@@ -8,6 +8,7 @@ import {
   reachState,
   rekordboxState,
   serverState,
+  spotifyCheckState,
   syncState,
 } from '../model/state';
 import { activeJobs, type ActiveJob } from './jobs';
@@ -55,13 +56,20 @@ export function ActivityButton() {
     like: likeState.value,
     createPlaylist: createPlaylistState.value,
     mix: mixState.value,
+    spotifyCheck: spotifyCheckState.value,
   });
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const none = jobs.length === 0;
+  // The last job ended: the panel closes, so its Escape layer and click
+  // listener go with it and the next job's panel starts closed (S13 A2).
+  useLayoutEffect(() => {
+    if (none) setOpen(false);
+  }, [none]);
   // A layout effect: the layer is there as soon as the panel is drawn, so
   // an Escape pressed at once is not lost (S11 round 1).
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!open || none) return;
     // Escape closes the panel alone, the topmost layer (FR-043), and gives
     // the focus back to the button.
     const pop = pushEscapeLayer(() => {
@@ -77,8 +85,8 @@ export function ActivityButton() {
       pop();
       document.removeEventListener('click', close);
     };
-  }, [open]);
-  if (jobs.length === 0) return null;
+  }, [open, none]);
+  if (none) return null;
   const label =
     jobs.length === 1
       ? `Running: ${jobs[0].label}`
