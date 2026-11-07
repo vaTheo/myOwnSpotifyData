@@ -26,7 +26,7 @@ Node 24 (`.nvmrc`), yarn classic 1.22. Install with `yarn` (CI: `yarn install --
 | `yarn shots:summary [checks]` | findings per check and page of the last run, with examples of the checks named | after `yarn shots` |
 | `yarn shots:sheet` | `shots-output/contact-sheet.html`: the 1440 and 390 px screenshots of every page with their findings | after `yarn shots` |
 | `yarn regression` | the end-to-end regression suite: drives the UI on the demo data and asserts results (routes, orders, gates, imports from `tools/shots/fixtures/`), about a minute | after a change to a screen, a route, a job or a `confirm()`; before a merge |
-| `yarn invariants` | compares the working tree with `main` (the merge base with `origin/main`, or `INVARIANTS_BASE`): `DB_VERSION`, `confirm()` texts, external hosts, dependencies, unit test names, model outputs on the demo dataset | before a merge; after touching `src/model/`, `src/db/`, a `confirm()` or `package.json` |
+| `yarn invariants` | compares the working tree with `main` (the merge base with `origin/main`, or `INVARIANTS_BASE`): `DB_VERSION`, `confirm()` texts, external hosts (code strings, the CSP of `index.html`, `vite.config.ts`), dependencies and `yarn.lock`, every unit test of main still running (not skipped, as many times), model outputs on the demo dataset | before a merge; after touching `src/model/`, `src/db/`, a `confirm()` or `package.json` |
 
 Run `yarn typecheck && yarn lint && yarn test` before every commit; CI runs the same three.
 
@@ -66,7 +66,8 @@ their exit code.
 
 - **`yarn regression`** runs `tools/shots/regression.spec.ts`: one test per row of
   `specs/003-web-first-redesign/regression.md` the demo can drive, named by the row's id. Like the visual loop it starts this
-  worktree's own `yarn dev` on port 5173 (stop any other first). A test fails on any request leaving 127.0.0.1, any console or
+  worktree's own `yarn dev` on port 5173, plus a second on port 5174 whose demo has a fake 127.0.0.1 server address (for the
+  questions asked before a server call); stop any other server on those ports first. A test fails on any request leaving 127.0.0.1, any console or
   page error, and any `confirm()` whose text is not in the list of How the app works §14, which the suite reads. Chromium by
   default; `REGRESSION_BROWSERS=firefox|webkit|all` for the others. A new feature, address or `confirm()` adds its row to
   `regression.md` and, when the demo can drive it, its test; what only the owner can check is marked so in the row.

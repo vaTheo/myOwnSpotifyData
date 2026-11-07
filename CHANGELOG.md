@@ -28,11 +28,13 @@ The release year (main's round 005) is a **Released** column on every song table
 details, a **decade** in the Filters, and _Sort by year, oldest first_ in the Filters wherever the column cannot be sorted from
 its header (a phone, a narrow table); the open mix has a Year sort and a Decade menu; the Activity button says "Looking up
 release years" during the look-up's third pass. A renamed mix track drops a year that belonged to the old track.
-Proven against `main` before the merge: `yarn regression` drives every old address and every feature the demo can reach (55
-tests on fake fixture files, nothing leaving the computer, every `confirm()` held to its word-for-word list in How the app
-works §14), and `yarn invariants` finds `DB_VERSION`, every `confirm()` text, the external hosts, the dependencies (Playwright
-and axe added for development), every unit test name and the ranking, Crate, Match and Under the radar results on the demo
-data unchanged. It found one slip, fixed: Escape pressed the moment a playlist or artist opened beside its list was lost.
+Proven against `main` before the merge: `yarn regression` drives every old address and every feature the demo can reach (71
+tests on fake fixture files, rounds 003 and 004 included, nothing leaving the computer, every `confirm()` held to its
+word-for-word list in How the app works §14), and `yarn invariants` finds `DB_VERSION`, every `confirm()` text, the external
+hosts (code, CSP), the dependencies and `yarn.lock` (Playwright and axe added for development), every unit test of `main` still
+running and the ranking, Crate, Match, Under the radar and release-year results on the demo data unchanged. It found two slips,
+fixed: Escape pressed the moment a playlist or artist opened beside its list was lost; and a link to a mix this browser does
+not hold, met while another mix was open, now says so above that mix.
 For developers: `yarn shots`, a dev-only visual loop on `?demo` data. [ADR-11](docs/architecture/700-adr/ADR-11-web-first-material-3.md),
 [spec](docs/specs/2026-11-06-web-first-redesign-design.md), the full round under `specs/003-web-first-redesign/`. Nothing to do
 after upgrading.

@@ -29,7 +29,7 @@ After the first visit, each destination's link opens the last route used inside 
 | `#/artists` | `artists` | Library · Artists | unchanged |
 | `#/artist/<key>` | `artist` | Library · Artists | on expanded and large it renders as list + detail |
 | `#/mix` | `mix` | Mix | unchanged |
-| `#/mix/<key>` | `mix` + key | Mix | **new**: opens that saved mix; an unknown key shows the workspace with an inline "This saved mix is not in this browser" |
+| `#/mix/<key>` | `mix` + key | Mix | **new**: opens that saved mix; an unknown key shows the workspace with an inline "This saved mix is not in this browser" (above the open mix when one is open; it stays) |
 | `#/settings` | `settings` | Settings | unchanged |
 | `#/import` | `import` | Settings | unchanged (reached from Settings · Listening history) |
 

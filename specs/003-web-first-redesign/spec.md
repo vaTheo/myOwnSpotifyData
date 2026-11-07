@@ -67,12 +67,17 @@ list is the record; the steps that made them are in [execution.md](execution.md)
   (S08b, constitution VII); the "Found tracks" chip carries no count; the CC BY-SA credit sits in the "Well known" heading
   row; Connect's `/me` refused inside the lock-out is a warning banner (Connect is not Mix or Like).
 - **Non-regression rulings (S14)**: `main` for `yarn invariants` is the merge base with `origin/main` (ff6e5a6 at S14); the
-  external hosts are read from the app's code without comments, tests or the dev-only demo (`src/dev/`, never fetched); the router
-  test renamed by T097 (the default route became the Overview) is listed as renamed on purpose; the model outputs compare the
-  demo variants full, old-import and no-reach. The `confirm()` texts are written word for word in how-it-works §14, which
-  `yarn regression` reads. Five questions need the network or a configured server and stay the owner's (T115): account switch,
-  Remove server data, Like all songs' count, Look up again, the description. ListDetail's Escape layer moved to a layout effect,
-  like the sheet's (regression F21e).
+  external hosts are read with TypeScript's parser from every string of the app's code (URLs and bare host names; not comments,
+  tests or the dev-only demo `src/dev/`, never fetched), `index.html`'s CSP and `vite.config.ts`; a unit test of `main` counts only
+  while it still runs (skipped, todo or failing on purpose is missing; counted with multiplicity); the router test renamed by T097
+  (the default route became the Overview) is listed as renamed on purpose; every `yarn.lock` entry of `main` resolves the same; the
+  model outputs compare the demo variants full, old-import and no-reach, release-year functions included. The `confirm()` texts are
+  written word for word in how-it-works §14, which `yarn regression` reads. Three questions need Spotify or SoundCloud and stay the
+  owner's (T115): account switch, Like all songs' count, Look up again; Remove server data is asked on a second dev server whose
+  demo has a fake 127.0.0.1 server address (`VITE_DEMO_FAKE_SERVER`, dev only), the description on a view the demo sets. Move to
+  top's reorder needs a server answer (unit tests and the owner). ListDetail's Escape layer moved to a layout effect, like the
+  sheet's (regression F21e); an unknown `#/mix/<key>` met while a mix is open shows "This saved mix is not in this browser." above
+  that mix, which stays (fix round 1, M9).
 - **Numbering**: the round's ADR is ADR-11 (ADR-10 was taken on `main` by round 003), its inventory row F21 (F20 was taken on
   `main` by round 005), and the constitution PATCH is 2.1.1 (`main` reached 2.1.0). The folder keeps the number 003 beside
   `specs/003-fill-scan-gaps/`: the round's execution plan ([execution.md](execution.md)) and its steps point at this path.
