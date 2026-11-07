@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import {
   createPlaylistState,
   importState,
@@ -58,7 +58,9 @@ export function ActivityButton() {
   });
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  // A layout effect: the layer is there as soon as the panel is drawn, so
+  // an Escape pressed at once is not lost (S11 round 1).
+  useLayoutEffect(() => {
     if (!open) return;
     // Escape closes the panel alone, the topmost layer (FR-043), and gives
     // the focus back to the button.
