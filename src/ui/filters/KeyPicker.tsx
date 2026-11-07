@@ -61,12 +61,15 @@ export function KeyPicker(p: {
       menu.style.top = `${b.bottom + 4}px`;
       menu.style.left = `${Math.max(8, Math.min(b.left, room))}px`;
     }
-    // A scroll or a resize would leave it behind: it closes.
+    // A scroll or a resize would leave it behind: it closes, and a focus
+    // that was in it goes back to the button, never to the page (T100).
     const close = (e: Event) => {
       if (e.type === 'scroll' && box.current?.contains(e.target as Node)) {
         return;
       }
+      const inside = menu?.contains(document.activeElement) ?? false;
       setOpen(false);
+      if (inside) button?.focus({ preventScroll: true });
     };
     addEventListener('resize', close);
     addEventListener('scroll', close, true);
@@ -75,7 +78,7 @@ export function KeyPicker(p: {
     (
       keys?.querySelector<HTMLElement>('[aria-checked="true"]') ??
       keys?.querySelector<HTMLElement>('[role="radio"]')
-    )?.focus();
+    )?.focus({ preventScroll: true });
     return () => {
       document.removeEventListener('pointerdown', onDown);
       removeEventListener('resize', close);
@@ -115,7 +118,9 @@ export function KeyPicker(p: {
               : 0;
     if (step === 0) return;
     e.preventDefault();
-    keys[(at + step + keys.length) % keys.length]?.focus();
+    keys[(at + step + keys.length) % keys.length]?.focus({
+      preventScroll: true,
+    });
   }
 
   return (
