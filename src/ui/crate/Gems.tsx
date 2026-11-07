@@ -1,3 +1,4 @@
+import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import type { PlayRow } from '../../db/schema';
 import {
@@ -91,39 +92,52 @@ export function Gems({ detail }: { detail?: string }) {
   const rows = useCrateRows();
   const now = new Date();
   const months = gemMonths.value;
-  const items = forgottenGems(rows, now, months);
+  // `now` counts by its day.
+  const today = now.toDateString();
+  const items = useMemo(
+    () => forgottenGems(rows, now, months),
+    [rows, today, months]
+  );
   const span = spanYears(rows).length;
   const keys = lastMonths(now, CHART_MONTHS);
   const opened = items.find((item) => item.row.trackId === detail);
   const since = monthLabel(cutoffMonth(now, months));
-  const columns = crateColumns<GemItem>({
-    metrics: [
-      countColumn('plays', 'Plays', (item) => item.row.plays, {
-        unit: ['play', 'plays'],
+  // Kept while its inputs stay, so the table's memos hold (S13 A5);
+  // the model comes in by its rows.
+  const columns = useMemo(
+    () =>
+      crateColumns<GemItem>({
+        metrics: [
+          countColumn('plays', 'Plays', (item) => item.row.plays, {
+            unit: ['play', 'plays'],
+          }),
+          {
+            id: 'last',
+            header: 'Last played',
+            align: 'end',
+            priority: 3,
+            width: '120px',
+            sortValue: (item) => item.lastPlayed.getTime(),
+            firstDirection: 'desc',
+            cell: (item) => (
+              <span>{monthLabel(monthKey(item.lastPlayed))}</span>
+            ),
+            compact: 'hidden',
+          },
+        ],
+        chart: chartColumn(
+          'Last 2 years',
+          'Plays per month',
+          (item) => monthSeries(item.row.months, keys, historyRange()),
+          keys.length
+        ),
+        flag: (item) =>
+          inNoPlaylist(item.row) ? (
+            <Flag kind="todo">not in a playlist</Flag>
+          ) : null,
       }),
-      {
-        id: 'last',
-        header: 'Last played',
-        align: 'end',
-        priority: 3,
-        width: '120px',
-        sortValue: (item) => item.lastPlayed.getTime(),
-        firstDirection: 'desc',
-        cell: (item) => <span>{monthLabel(monthKey(item.lastPlayed))}</span>,
-        compact: 'hidden',
-      },
-    ],
-    chart: chartColumn(
-      'Last 2 years',
-      'Plays per month',
-      (item) => monthSeries(item.row.months, keys, historyRange()),
-      keys.length
-    ),
-    flag: (item) =>
-      inNoPlaylist(item.row) ? (
-        <Flag kind="todo">not in a playlist</Flag>
-      ) : null,
-  });
+    [rows, today, historyRange()]
+  );
   return (
     <>
       <div class="toolbar">

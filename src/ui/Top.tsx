@@ -5,6 +5,7 @@ import {
   topTracks,
   type AnnotatedTopArtist,
   type AnnotatedTopTrack,
+  type Model,
 } from '../model/aggregate';
 import { featureFor } from '../model/features';
 import { model } from '../model/state';
@@ -29,6 +30,7 @@ import {
   titleColumn,
 } from './table/columns';
 import { DataTable, type Column } from './table/DataTable';
+import { lastCall } from './table/lastCall';
 import type { SortState } from './table/sort';
 import { ComparePeriods } from './top/ComparePeriods';
 import { trackFilterView } from './filters/FilterBar';
@@ -63,6 +65,15 @@ function trackColumns(
     spotifyLinkColumn((r) => r.item.spotifyUrl),
   ];
 }
+
+/* Kept while their inputs stay, so the tables' memos hold (S13 A5). */
+const topTracksOf = lastCall(topTracks);
+const topArtistsOf = lastCall(topArtists);
+const trackColumnsOf = lastCall((m: Model, hasPlaylists: boolean) =>
+  trackColumns(hasPlaylists, (r) => featureFor(m, r.item.id))
+);
+const rankOfItem = (r: { item: { rank: number } }): number => r.item.rank;
+const keyOfItem = (r: { item: { id: string } }): string => r.item.id;
 
 /** Artists: # · image · name · saved tracks · playlists. */
 const ARTIST_COLUMNS: Column<AnnotatedTopArtist>[] = [
@@ -109,7 +120,7 @@ export function Top({ detail }: { detail?: string }) {
   }
   const comparing = compare.value && windowClass.value === 'large';
   const hasPlaylists = m.playlists.length > 0;
-  const tracks = topTracks(m, period.value);
+  const tracks = topTracksOf(m, period.value);
   const featureOf = (r: AnnotatedTopTrack) => featureFor(m, r.item.id);
   const filtered = trackFilterView({
     filter: tracksFilter,
@@ -161,11 +172,11 @@ export function Top({ detail }: { detail?: string }) {
             <DataTable
               label={`Top tracks, ${TOP_PERIOD_LABEL[period.value]}`}
               noun="track"
-              columns={trackColumns(hasPlaylists, featureOf)}
+              columns={trackColumnsOf(m, hasPlaylists)}
               rows={tracks}
               only={filtered.only}
-              rowKey={(r) => r.item.id}
-              rankOf={(r) => r.item.rank}
+              rowKey={keyOfItem}
+              rankOf={rankOfItem}
               sort={tracksSort.value}
               onSort={(s) => {
                 tracksSort.value = s;
@@ -182,9 +193,9 @@ export function Top({ detail }: { detail?: string }) {
           label={`Top artists, ${TOP_PERIOD_LABEL[period.value]}`}
           noun="artist"
           columns={ARTIST_COLUMNS}
-          rows={topArtists(m, period.value)}
-          rowKey={(r) => r.item.id}
-          rankOf={(r) => r.item.rank}
+          rows={topArtistsOf(m, period.value)}
+          rowKey={keyOfItem}
+          rankOf={rankOfItem}
           sort={artistsSort.value}
           onSort={(s) => {
             artistsSort.value = s;

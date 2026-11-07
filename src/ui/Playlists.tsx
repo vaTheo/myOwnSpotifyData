@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import { useMemo } from 'preact/hooks';
 import type { PlaylistRow } from '../db/schema';
 import type { Model } from '../model/aggregate';
 import { normalize } from '../model/normalize';
@@ -96,6 +97,76 @@ function FilterField() {
   );
 }
 
+/**
+ * The narrowed list beside an open playlist. Its items are kept while the
+ * model and the filter stay, so a `?d=` change (the sheet following the
+ * arrows in the playlist's table) redraws none of them (S13 A4).
+ */
+function PlaylistPane(p: { m: Model; selected: string | null }) {
+  const query = normalize(filter.value);
+  const items = useMemo(
+    () =>
+      (query
+        ? p.m.playlists.filter((pl) => normalize(pl.name).includes(query))
+        : p.m.playlists
+      ).map((pl) => ({
+        id: pl.id,
+        title: pl.name,
+        subtitle: plural(
+          p.m.entriesByPlaylist.get(pl.id)?.length ?? 0,
+          'track'
+        ),
+        imageUrl: pl.imageUrl,
+        href: routeHref({ name: 'playlist', id: pl.id }),
+      })),
+    [p.m, query]
+  );
+  return (
+    <ListPane
+      label="Playlists"
+      head={<FilterField />}
+      empty={<NoPlaylistMatch />}
+      selectedId={p.selected}
+      items={items}
+    />
+  );
+}
+
+/** The full-width table; its rows kept while their inputs stay (S13 A5). */
+function PlaylistTable(p: { m: Model }) {
+  const query = filter.value;
+  const sync = syncState.value;
+  const rows = useMemo(() => listRows(p.m), [p.m, query, sync]);
+  return (
+    <section>
+      <div class="toolbar">
+        <FilterField />
+      </div>
+      {rows.length === 0 ? (
+        <NoPlaylistMatch />
+      ) : (
+        <DataTable
+          label="Playlists"
+          noun="playlist"
+          columns={COLUMNS}
+          rows={rows}
+          rowKey={rowKey}
+          sort={sort.value}
+          onSort={(s) => {
+            sort.value = s;
+          }}
+          resetKey={query}
+          onOpen={(r) => {
+            location.hash = routeHref({ name: 'playlist', id: r.playlist.id });
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+const rowKey = (r: PlaylistListRow): string => r.playlist.id;
+
 function NoPlaylistMatch() {
   return (
     <EmptyState
@@ -129,52 +200,13 @@ export function Playlists(p: { selected?: string; detail?: string }) {
       <Empty what="playlists" />
     );
   }
-  const rows = listRows(m);
   const selected = p.selected ?? null;
 
   const list = (narrow: boolean) =>
     narrow ? (
-      <ListPane
-        label="Playlists"
-        head={<FilterField />}
-        empty={<NoPlaylistMatch />}
-        selectedId={selected}
-        items={rows.map((r) => ({
-          id: r.playlist.id,
-          title: r.playlist.name,
-          subtitle: plural(r.tracks, 'track'),
-          imageUrl: r.playlist.imageUrl,
-          href: routeHref({ name: 'playlist', id: r.playlist.id }),
-        }))}
-      />
+      <PlaylistPane m={m} selected={selected} />
     ) : (
-      <section>
-        <div class="toolbar">
-          <FilterField />
-        </div>
-        {rows.length === 0 ? (
-          <NoPlaylistMatch />
-        ) : (
-          <DataTable
-            label="Playlists"
-            noun="playlist"
-            columns={COLUMNS}
-            rows={rows}
-            rowKey={(r) => r.playlist.id}
-            sort={sort.value}
-            onSort={(s) => {
-              sort.value = s;
-            }}
-            resetKey={filter.value}
-            onOpen={(r) => {
-              location.hash = routeHref({
-                name: 'playlist',
-                id: r.playlist.id,
-              });
-            }}
-          />
-        )}
-      </section>
+      <PlaylistTable m={m} />
     );
 
   return (

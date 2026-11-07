@@ -16,7 +16,7 @@ import { SideSheet } from '../layout/SideSheet';
 import { windowClass } from '../layout/windowClass';
 import { formatDuration } from '../table/columnValues';
 import { closeDetail } from './navigate';
-import { trackFacts, type TrackFacts, type TrackRef } from './trackFacts';
+import { factsCache, type TrackFacts, type TrackRef } from './trackFacts';
 
 const NOTATIONS: KeyNotation[] = ['camelot', 'open', 'classic'];
 
@@ -238,6 +238,8 @@ export function TrackDetails(p: {
   );
 }
 
+const sheetFacts = factsCache();
+
 /**
  * The details sheet of one track over a list: nothing for an unknown or
  * stale reference (contracts/routes.md), so the screen renders without it.
@@ -250,7 +252,7 @@ export function TrackSheet(p: {
   extra?: ComponentChildren;
 }) {
   const m = model.value;
-  const facts = m ? trackFacts(m, p.trackRef) : null;
+  const facts = m ? sheetFacts(m, p.trackRef) : null;
   if (!facts) return null;
   return (
     <SideSheet title={facts.title} rowId={p.rowId} onClose={closeDetail}>
