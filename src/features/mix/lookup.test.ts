@@ -330,6 +330,15 @@ describe('editTracklistRow', () => {
       label: '',
     });
     expect('year' in restoredSpotify).toBe(false);
+    // Back to the identified track with other case, accents or spacing:
+    // the same recording, the Shazam year stays (S13c review M4).
+    const recased = editTracklistRow(typo, {
+      artist: 'APOLLONIA ',
+      title: 'chez  michel',
+      label: '',
+    });
+    expect(recased.year).toBe(1991);
+    expect(recased.yearFrom).toBe('shazam');
   });
 
   it('leaves an added row (detected null) manual', () => {
