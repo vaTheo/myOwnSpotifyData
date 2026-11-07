@@ -9,6 +9,7 @@ import {
   LOOKUP_NOT_FOUND_TTL_MS,
   PASS_BY_ID,
   PASS_BY_ISRC,
+  PASS_RIDS,
   PASS_YEARS,
   YEAR_WRITE_BATCH,
   candidateIds,
@@ -243,6 +244,8 @@ describe('runLookup', () => {
       { status: 'running', pass: PASS_BY_ID, done: 4, total: 4 },
       { status: 'running', pass: PASS_BY_ISRC, done: 0, total: 2 },
       { status: 'running', pass: PASS_BY_ISRC, done: 2, total: 2 },
+      { status: 'running', pass: PASS_RIDS, done: 0, total: 2 },
+      { status: 'running', pass: PASS_RIDS, done: 2, total: 2 },
       { status: 'running', pass: PASS_YEARS, done: 0, total: 2 },
       { status: 'running', pass: PASS_YEARS, done: 1, total: 2 },
       { status: 'running', pass: PASS_YEARS, done: 2, total: 2 },
@@ -590,5 +593,82 @@ describe('runLookup — round 005 release years', () => {
         'fetch',
       ]).flat(),
     ]);
+  });
+});
+
+describe('runLookup — year pass cost (round 006 fix)', () => {
+  const rids = (url: string) => {
+    const ids = new URL(url).searchParams.get('ids')!.split(',');
+    return json({
+      content: ids.map((id) => ({
+        id: `r-${id}`,
+        href: `https://open.spotify.com/track/${id}`,
+      })),
+    });
+  };
+  const years = (url: string) =>
+    /\/album/.test(url)
+      ? json({ content: [{ name: 'A', releaseDate: '1999' }] })
+      : rids(url);
+
+  it('asks ReccoBeats for no year of a track Spotify already dates', async () => {
+    const { deps, fetchFn } = setup(
+      [
+        () =>
+          json({ content: [feature('a', null, 120), feature('b', null, 121)] }),
+      ],
+      years
+    );
+    await runLookup(
+      deps,
+      [
+        { id: 'a', isrc: null },
+        { id: 'b', isrc: null },
+      ],
+      [],
+      new Set(['a'])
+    );
+    const urls = fetchFn.mock.calls.map((c) => c[0]);
+    expect(urls).toEqual([
+      `${RECCOBEATS_URL}?ids=a,b`,
+      `${RECCOBEATS_TRACK_URL}?ids=b`,
+      `${RECCOBEATS_TRACK_URL}/r-b/album?size=50`,
+    ]);
+    const rows = new Map((await getFeatures()).map((r) => [r.trackId, r]));
+    expect(rows.get('a')?.reccobeats).toMatchObject({ bpm: 120 });
+    expect(rows.get('a')?.releaseYear).toBeUndefined();
+    expect(rows.get('b')?.releaseYear).toMatchObject({ year: 1999 });
+  });
+
+  it('counts the id lookups instead of sitting at 0 of the year total', async () => {
+    const ids = Array.from({ length: MAX_IDS + 1 }, (_, i) => `t${i}`);
+    const { deps, states } = setup(
+      [
+        () =>
+          json({
+            content: ids.slice(0, MAX_IDS).map((i) => feature(i, null, 120)),
+          }),
+        () => json({ content: [feature(ids[MAX_IDS], null, 120)] }),
+      ],
+      years
+    );
+    await runLookup(
+      deps,
+      ids.map((id) => ({ id, isrc: null })),
+      []
+    );
+    const ridStates = states.filter(
+      (s) => s.status === 'running' && s.pass === PASS_RIDS
+    );
+    expect(ridStates.at(0)).toMatchObject({ done: 0, total: ids.length });
+    expect(ridStates.at(-1)).toMatchObject({
+      done: ids.length,
+      total: ids.length,
+    });
+    expect(ridStates.length).toBeGreaterThanOrEqual(3);
+    const firstYear = states.findIndex(
+      (s) => s.status === 'running' && s.pass === PASS_YEARS
+    );
+    expect(firstYear).toBeGreaterThan(states.indexOf(ridStates.at(-1)!));
   });
 });

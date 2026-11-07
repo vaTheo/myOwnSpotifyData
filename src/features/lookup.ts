@@ -27,6 +27,9 @@ export const PASS_BY_ID = 'by track id';
 export const PASS_BY_ISRC = 'retry by ISRC';
 /** Round 005: one album request per found track without a fresh year. */
 export const PASS_YEARS = 'release years';
+/** Round 006 fix: the id lookups that precede the year requests, counted so
+ *  the line moves while they run (forty tracks per request). */
+export const PASS_RIDS = 'ReccoBeats ids';
 
 /** Year rows are written every this many tracks, so an error keeps them. */
 export const YEAR_WRITE_BATCH = 10;
@@ -155,7 +158,13 @@ function withReccobeats(
 export async function runLookup(
   deps: LookupDeps,
   candidates: Candidate[],
-  existing: FeatureRow[]
+  existing: FeatureRow[],
+  /**
+   * Tracks Spotify already dates (an album year from a sync or a Top list):
+   * the year pass leaves them out, one album request each saved. Their year
+   * still shows, from the album (`datedYear`'s second source).
+   */
+  albumDated: ReadonlySet<string> = new Set()
 ): Promise<void> {
   const rows = new Map(existing.map((row) => [row.trackId, row]));
   const startedAt = deps.now();
@@ -298,14 +307,9 @@ export async function runLookup(
         (row): row is FeatureRow =>
           row !== undefined &&
           reccobeatsValue(row) !== null &&
+          !albumDated.has(row.trackId) &&
           !isYearFresh(row, startedAt)
       );
-    if (dated.length > 0) {
-      pass = PASS_YEARS;
-      done = 0;
-      total = dated.length;
-      running();
-    }
     const rids = new Map<string, string>();
     const needRid: string[] = [];
     for (const row of dated) {
@@ -313,9 +317,23 @@ export async function runLookup(
       if (rid) rids.set(row.trackId, rid);
       else needRid.push(row.trackId);
     }
+    if (needRid.length > 0) {
+      pass = PASS_RIDS;
+      done = 0;
+      total = needRid.length;
+      running();
+    }
     for (const batch of chunk(needRid, MAX_IDS)) {
       const answer = await paced(() => fetchTrackRids(batch, deps));
       for (const [id, rid] of answer) rids.set(id, rid);
+      done += batch.length;
+      running();
+    }
+    if (dated.length > 0) {
+      pass = PASS_YEARS;
+      done = 0;
+      total = dated.length;
+      running();
     }
     for (const row of dated) {
       const value = reccobeatsValue(row) as FeatureValue;

@@ -24,6 +24,7 @@ interface Fake {
   lastSyncAt: number | null;
   lockedUntil: number | null;
   spotifyHeld: boolean;
+  yearsBackfillDue: boolean;
   idle: Promise<void>;
 }
 
@@ -43,6 +44,7 @@ function fake(init: Partial<Fake> = {}): Fake {
     lastSyncAt: null,
     lockedUntil: null,
     spotifyHeld: false,
+    yearsBackfillDue: false,
     idle: Promise.resolve(),
     ...init,
     deps: undefined as unknown as ChainDeps,
@@ -56,6 +58,7 @@ function fake(init: Partial<Fake> = {}): Fake {
     lastSyncAt: () => f.lastSyncAt,
     lockedUntil: () => f.lockedUntil,
     spotifyHeld: () => f.spotifyHeld,
+    yearsBackfillDue: () => f.yearsBackfillDue,
     run: async (step, auto) => {
       f.calls.push([step, auto]);
       if (f.block.has(step)) {
@@ -91,6 +94,12 @@ describe('isSpotifyDue', () => {
   it('is due once the lock lapsed', () => {
     expect(isSpotifyDue(null, T - 1, T)).toBe(true);
   });
+  it('is due when the years backfill is, however young the library', () => {
+    expect(isSpotifyDue(T - 1000, null, T, true)).toBe(true);
+  });
+  it('is never due while locked, backfill or not', () => {
+    expect(isSpotifyDue(null, T + 1, T, true)).toBe(false);
+  });
   it('is 12 hours', () => {
     expect(AUTO_SYNC_AGE_MS).toBe(12 * 60 * 60 * 1000);
   });
@@ -115,6 +124,12 @@ describe('createChain', () => {
       ['features', true],
       ['reach', true],
     ]);
+  });
+
+  it('syncs spotify first on a young library while the years backfill is due', async () => {
+    const f = fake({ lastSyncAt: T - 1000, yearsBackfillDue: true });
+    await createChain(f.deps).trigger();
+    expect(f.calls.map(([s]) => s)).toEqual(['spotify', 'features', 'reach']);
   });
 
   it('skips spotify while locked', async () => {

@@ -1,7 +1,8 @@
 /**
  * The automatic updates chain (round 006, ADR-11). After the server sync of
  * an open or a return to the app, it runs the Spotify sync when the library
- * is older than `AUTO_SYNC_AGE_MS`, then the BPM and key run, then Artist
+ * is older than `AUTO_SYNC_AGE_MS` (or a playlist still lacks its album
+ * years), then the BPM and key run, then Artist
  * reach: one at a time, never while another library job runs. Pure: the jobs
  * and every predicate are injected, so `state.ts` wires it and the tests
  * drive it with fakes.
@@ -50,6 +51,12 @@ export interface ChainDeps {
    * question.
    */
   spotifyHeld(): boolean;
+  /**
+   * True while a stored playlist lacks its album years (downloaded before
+   * round 005): the Spotify step is then due whatever the library's age, so
+   * the order Spotify, BPM and key, reach holds on every start.
+   */
+  yearsBackfillDue(): boolean;
   /** Runs the job; `auto` is false for a tap. Never throws. */
   run(step: AutoStep, auto: boolean): Promise<StepResult>;
   onView(view: ChainView): void;
@@ -67,9 +74,11 @@ export interface Chain {
 export function isSpotifyDue(
   lastSyncAt: number | null,
   lockedUntil: number | null,
-  now: number
+  now: number,
+  backfillDue = false
 ): boolean {
   if (lockedUntil !== null && lockedUntil > now) return false;
+  if (backfillDue) return true;
   return lastSyncAt === null || now - lastSyncAt >= AUTO_SYNC_AGE_MS;
 }
 
@@ -87,7 +96,12 @@ export function createChain(deps: ChainDeps): Chain {
 
   const spotifyDueNow = () =>
     !deps.spotifyHeld() &&
-    isSpotifyDue(deps.lastSyncAt(), deps.lockedUntil(), deps.now());
+    isSpotifyDue(
+      deps.lastSyncAt(),
+      deps.lockedUntil(),
+      deps.now(),
+      deps.yearsBackfillDue()
+    );
 
   const emit = () =>
     deps.onView({

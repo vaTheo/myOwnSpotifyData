@@ -40,7 +40,7 @@ export function planSync(
   const unchanged: string[] = [];
   for (const p of listing) {
     const c = cachedById.get(p.id);
-    if (c && c.snapshotId === p.snapshotId) unchanged.push(p.id);
+    if (c && c.snapshotId === p.snapshotId && c.withYears) unchanged.push(p.id);
     else toFetch.push(p);
   }
   if (priorityId) {

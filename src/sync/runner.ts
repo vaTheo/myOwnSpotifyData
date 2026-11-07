@@ -335,7 +335,11 @@ export async function runSync(
         .map(mapPlaylistItem)
         .filter((m): m is MappedItem => m !== null);
       const { tracks, entries } = buildEntries(playlist.id, mapped);
-      await replacePlaylist({ ...playlist, syncedAt: now() }, tracks, entries);
+      await replacePlaylist(
+        { ...playlist, syncedAt: now(), withYears: true },
+        tracks,
+        entries
+      );
       done += 1;
       pending = pending.filter((id) => id !== playlist.id);
     }

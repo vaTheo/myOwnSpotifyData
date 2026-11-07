@@ -85,3 +85,22 @@ export function decadeLabel(decade: number): string {
 export function decadeOf(year: number): number {
   return Math.floor(year / 10) * 10;
 }
+
+/**
+ * Ids of the library tracks Spotify already dates: the album year a playlist
+ * sync stored, or a Top list's. The BPM run's year pass skips them, so it
+ * asks ReccoBeats' album list only for the rest.
+ */
+export function albumDatedIds(model: Model): Set<string> {
+  const out = new Set<string>();
+  for (const [key, track] of model.tracksByKey) {
+    if (typeof track.albumYear === 'number') out.add(track.id ?? key);
+  }
+  for (const row of model.topItems.values()) {
+    if (row.type !== 'tracks') continue;
+    for (const item of row.items) {
+      if (typeof item.albumYear === 'number') out.add(item.id);
+    }
+  }
+  return out;
+}

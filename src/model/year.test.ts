@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { FeatureRow, TopItemsRow, TrackRow } from '../db/schema';
 import type { Model } from './aggregate';
-import { datedYear, MIN_YEAR, parseYear, trackYear, yearOf } from './year';
+import {
+  albumDatedIds,
+  datedYear,
+  MIN_YEAR,
+  parseYear,
+  trackYear,
+  yearOf,
+} from './year';
 
 const NOW = Date.UTC(2026, 10, 7);
 
@@ -130,5 +137,19 @@ describe('yearOf', () => {
     expect(trackYear(album, 'other')).toBeNull();
     // The cache is per model: another model reads its own sources.
     expect(trackYear(all, 't1')).toBe(1971);
+  });
+});
+
+describe('albumDatedIds', () => {
+  it('lists the tracks a sync or a Top list dates, and only those', () => {
+    const m = model({
+      tracks: [
+        { key: 'a', id: 'a', albumYear: 2007 },
+        { key: 'b', id: 'b' },
+      ],
+      topItems: [top(2010)],
+    });
+    expect([...albumDatedIds(m)].sort()).toEqual(['a', 't1']);
+    expect(albumDatedIds(model({ topItems: [top()] })).size).toBe(0);
   });
 });

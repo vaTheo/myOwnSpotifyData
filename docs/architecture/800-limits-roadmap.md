@@ -39,10 +39,11 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 - The server (F18) is a Supabase Free project: it pauses after a week without traffic and only the dashboard resumes it; 500 MB
   of database; no automatic backups; a sign-in link only works in the browser that asked for it, within 10 minutes; the built-in
   email service sends a few links an hour at most.
-- Release years (F20) are only as good as their source: ReccoBeats' earliest album, else the album a playlist or Top list
+- Release years (F20) are only as good as their source: ReccoBeats' earliest album (asked only for songs Spotify does not already
+  date, since the round 006 fix, so a dated song shows its album's year), else the album a playlist or Top list
   holds (often a remaster or a compilation), else Shazam's or a catalogue's year for the ISRC heard; a year no source has shows
   as a dash ("no data") and sorts last. The first BPM run with years takes about 45 minutes for a 5,000-track library (one request a second);
-  a playlist synced before 2026-11-07 gets album years only when it changes or is synced again; a set saved before then gets
+  a playlist synced before 2026-11-07 is downloaded once more by the next Spotify sync (round 006 fix: no `withYears` marker) and then has its album years; a set saved before then gets
   years only when it is identified again (or on Create playlist, from the matched album).
 - Automatic updates (F22): the Spotify sync age (12 hours) is fixed in code (`AUTO_SYNC_AGE_MS`); an automatic run takes no wake lock,
   so a long first run stalls while the phone sleeps and continues on return; two devices running the reach run at once each push and

@@ -16,6 +16,9 @@ export interface PlaylistRow {
   imageUrl: string | null;
   spotifyUrl: string | null;
   syncedAt: number;
+  /** Round 006 fix: set once the playlist was downloaded with album release
+   *  dates; a playlist without it is downloaded again even if unchanged. */
+  withYears?: true;
 }
 
 export interface TrackRow {

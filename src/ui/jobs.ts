@@ -1,4 +1,4 @@
-import { PASS_YEARS, type LookupState } from '../features/lookup';
+import { PASS_RIDS, PASS_YEARS, type LookupState } from '../features/lookup';
 import type { ReachState } from '../features/reachRun';
 import type { RekordboxState } from '../features/rekordboxImport';
 import type { ImportState } from '../history/importer';
@@ -77,9 +77,10 @@ export function activeJobs(s: JobStates): ActiveJob[] {
   if (s.lookup.status === 'running') {
     jobs.push({
       id: 'lookup',
-      // The run's third pass dates the songs (round 005).
+      // The run's last passes date the songs (round 005; the id lookups
+      // that prepare them count too).
       label:
-        s.lookup.pass === PASS_YEARS
+        s.lookup.pass === PASS_YEARS || s.lookup.pass === PASS_RIDS
           ? 'Looking up release years'
           : 'Looking up BPM and key',
       done: s.lookup.done,

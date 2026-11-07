@@ -147,6 +147,7 @@ import {
   type StepResult,
 } from './autoChain';
 import { featuresChanged, reachChanged } from './pushAfter';
+import { albumDatedIds } from './year';
 import { errorBanner, warnBanner, type BannerMessage } from './banner';
 
 export const model = signal<Model | null>(null);
@@ -888,6 +889,9 @@ const autoChain = createChain({
   lockedUntil: () => spotifyLockedUntil(),
   // Another account was connected: the wipe question waits for a tap.
   spotifyHeld: () => banner.value?.text === ACCOUNT_MISMATCH_NOTICE,
+  // Playlists stored before round 005 have no album years: sync them first.
+  yearsBackfillDue: () =>
+    model.value?.playlists.some((p) => !p.withYears) ?? false,
   run: runStep,
   onView: (view) => {
     chainView.value = view;
@@ -1237,7 +1241,8 @@ export async function startLookup(opts: JobOptions = {}): Promise<void> {
       },
     },
     candidateIds(m),
-    [...m.features.values()]
+    [...m.features.values()],
+    albumDatedIds(m)
   );
   // Rows written batch by batch: reload even after an error, so a partial
   // run still shows its coverage.

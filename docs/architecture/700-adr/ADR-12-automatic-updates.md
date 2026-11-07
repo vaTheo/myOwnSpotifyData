@@ -24,7 +24,8 @@ and rekordbox imports need a file the owner picks, so they cannot start by thems
 
 After the server sync of an open, of a return to the app (60 s or more away) and of the network coming back, `src/model/autoChain.ts`
 runs, one at a time and never while another library job runs (`jobsBusy()`): the Spotify sync when `lastSyncAt` is absent or older
-than `AUTO_SYNC_AGE_MS` (12 hours) and Spotify's lock-out has lapsed, at most once per page session; then the BPM and key run; then
+than `AUTO_SYNC_AGE_MS` (12 hours), or a stored playlist lacks its album years (`withYears`, round 006 fix: so the order Spotify, BPM
+and key, reach holds on a start after that fix), and Spotify's lock-out has lapsed, at most once per page session; then the BPM and key run; then
 Artist reach. The pull restores the other device's sync time into `lastSyncAt`, so the gate counts both devices. A step that failed is
 not run again by the chain in the same page session. An automatic run takes no screen wake lock and raises no banner except the
 Spotify lock-out and an expired login; its failure shows on the Settings Updates card and its own card. A tap on a job's button runs it

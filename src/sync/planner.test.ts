@@ -27,7 +27,7 @@ function listed(id: string, snapshotId = 's1'): ListedPlaylist {
 }
 
 function cached(id: string, snapshotId = 's1'): PlaylistRow {
-  return { ...listed(id, snapshotId), syncedAt: 1 };
+  return { ...listed(id, snapshotId), syncedAt: 1, withYears: true };
 }
 
 describe('selectOwned', () => {
@@ -77,6 +77,13 @@ describe('planSync', () => {
     expect(plan.toDelete).toEqual(['gone']);
     expect(plan.toFetch.map((p) => p.id)).toEqual(['b', 'new']);
     expect(plan.unchanged).toEqual(['a']);
+  });
+
+  it('fetches an unchanged playlist stored before album years, once', () => {
+    const old: PlaylistRow = { ...cached('a'), withYears: undefined };
+    const plan = planSync([listed('a'), listed('b')], [old, cached('b')]);
+    expect(plan.toFetch.map((p) => p.id)).toEqual(['a']);
+    expect(plan.unchanged).toEqual(['b']);
   });
 
   it('moves the priority playlist to the front when it needs fetching', () => {
