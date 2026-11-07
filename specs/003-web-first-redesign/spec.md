@@ -37,6 +37,12 @@ list is the record; the steps that made them are in [execution.md](execution.md)
 - **FR-015 / FR-016, amended (owner, S04 Stop, 2026-11-06)**: beside a list pane on expanded windows (840–1199 px), the Playlist
   and Artist tracks show as two-line items without sort headers, as on compact; the table and its sort come back on large windows.
   At 1440 px with the pane, Album, Length and Added hide by priority.
+- **FR-015 / FR-016, amended (controller for the owner, S13c, 2026-11-07; main-sync rulings 17-18)**: on large windows, Top
+  (Tracks) and the Crate views beside the docked details sheet show two-line items when the table is under 960 px; the table
+  and its sort come back when the sheet closes. A playlist in Match folds its list pane below 1600 px (was 1200), so Relation,
+  ΔBPM and Released fit beside whole titles at 1440. Any table hides columns by priority before a title would get under
+  160 px, and draws two-line items only when its priority-1 columns alone leave less (`fitLevel`). The owner sees both on
+  the S15 contact sheet.
 - **FR-016 on phones (ruling)**: compact windows have no header sort; the screens whose order is a control (Playlist order, Under
   the radar sorts, Mix's Sort) keep that control.
 - **FR-026 (ruling, S06)**: All-time classics draws a year with no plays inside the imported range as a zero tick, not a gap;
