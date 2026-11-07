@@ -3,6 +3,13 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-08 — Opening a mix checks it on Spotify
+
+Opening a saved mix now runs **Check on Spotify** by itself for its named tracks never checked, once per mix per page session: only with
+**Automatic updates** on, a Spotify session, no lock-out and no other Spotify job running, and never in the demo; the answers are saved with
+the mix, so it is searched once. A refusal shows nothing; a failure shows inline as before. Decision: ADR-13 (amends ADR-02 and ADR-12;
+constitution 2.3.0). No `DB_VERSION` bump.
+
 ## 2026-11-07 — Sortable Mix tracklist
 
 Every column of the open mix's tracklist with a comparable value now sorts from its header: **Confidence** (found most often first, then by %; click

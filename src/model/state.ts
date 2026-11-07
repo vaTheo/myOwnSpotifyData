@@ -56,6 +56,7 @@ import {
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
   applyAnswers,
+  autoCheckDue,
   keepStoredAnswers,
   rowsToCheck,
   runSpotifyCheck,
@@ -1944,6 +1945,7 @@ export function openMix(url: string): void {
     playlistId: row.playlistId,
   };
   mixState.value = { status: 'ready', view };
+  maybeAutoCheck();
 }
 
 /**
@@ -1988,8 +1990,8 @@ export function stopSpotifyCheck(): void {
 }
 
 /**
- * Check on Spotify for the open mix (T117). Never on load or open: only
- * from the button (ADR-02). Gated like Create playlist: a Spotify session,
+ * Check on Spotify for the open mix (T117). Never on load: from the button
+ * or, when a saved mix opens, `maybeAutoCheck` (ADR-02, ADR-13). Gated like Create playlist: a Spotify session,
  * no sync running, no quota lock-out. Runs `searchTrack`/`pickMatch`
  * unchanged on each named track not checked yet, puts each answer on its
  * row as it comes (by place and text, never object identity), and saves
@@ -2078,6 +2080,38 @@ export async function startSpotifyCheck(): Promise<void> {
 
 export function checkLockMessage(retryAt: number): string {
   return quotaRefusal('check', retryAt, 0, formatDateTime) ?? '';
+}
+
+/** The mixes the automatic check already tried this page session (ADR-13). */
+const autoCheckTried = new Set<string>();
+
+/**
+ * Opening a mix checks its unchecked named tracks by itself (ADR-13): only
+ * under the conditions of `autoCheckDue`, once per mix per page session. It
+ * is the same `startSpotifyCheck` a tap runs, so its answers are saved with
+ * the mix and a mix is never searched twice.
+ */
+function maybeAutoCheck(): void {
+  // The demo (`yarn dev` with `?demo`) has no Spotify session to read with
+  // and the shots block the host, as for the automatic chain (main.tsx).
+  if (import.meta.env.DEV && demoVariant() !== null) return;
+  const state = mixState.value;
+  if (state.status !== 'ready') return;
+  const url = state.view.url;
+  if (
+    !autoCheckDue({
+      switchOn: autoUpdates.value,
+      signedIn: auth.session.value !== null && auth.session.value !== undefined,
+      lockedUntil: spotifyLockedUntil(),
+      busy: spotifyBusyMessage('check') !== null,
+      rows: mixRows.value,
+      alreadyTried: autoCheckTried.has(url),
+    })
+  ) {
+    return;
+  }
+  autoCheckTried.add(url);
+  void startSpotifyCheck();
 }
 
 /**

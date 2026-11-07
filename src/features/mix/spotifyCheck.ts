@@ -3,8 +3,8 @@ import type { SpotifyClient } from '../../spotify/client';
 import { isIdentified, searchTrack } from './spotifySearch';
 
 /**
- * Check on Spotify (spec 003 §12, T117): on a tap only, never on load or
- * open (ADR-02), each named track not checked yet goes through the same
+ * Check on Spotify (spec 003 §12, T117): on a tap, or when a saved mix opens
+ * (`autoCheckDue`, ADR-13), never on load (ADR-02), each named track not checked yet goes through the same
  * `searchTrack`/`pickMatch` as Create playlist, one at a time. A read, no
  * write. The answer is kept on the row (`spotify`, `checkedAt`), so Create
  * playlist reuses a found track instead of searching again.
@@ -15,6 +15,32 @@ const TRACK_PREFIX = 'spotify:track:';
 /** The rows a check asks about: named tracks never checked; no gap, no ID. */
 export function rowsToCheck(rows: readonly TracklistRow[]): TracklistRow[] {
   return rows.filter((r) => isIdentified(r) && r.spotify === undefined);
+}
+
+/**
+ * Whether opening a mix starts Check on Spotify by itself (ADR-13): the
+ * Automatic updates switch is on, a Spotify session exists, no quota lock-out
+ * and no other Spotify reader runs (so the automatic check never shows a
+ * refusal), the mix has named tracks never checked, and this page session has
+ * not tried this mix yet (a stopped or failed check is not retried on every
+ * reopen; the button stays).
+ */
+export function autoCheckDue(p: {
+  switchOn: boolean;
+  signedIn: boolean;
+  lockedUntil: number | null;
+  busy: boolean;
+  rows: readonly TracklistRow[];
+  alreadyTried: boolean;
+}): boolean {
+  return (
+    p.switchOn &&
+    p.signedIn &&
+    p.lockedUntil === null &&
+    !p.busy &&
+    !p.alreadyTried &&
+    rowsToCheck(p.rows).length > 0
+  );
 }
 
 /** The row with Search's answer: the track's id and link, or not found. */

@@ -47,6 +47,6 @@ while the account-mismatch notice is up and answers "no" otherwise.
 ## Links
 
 - Spec: [`specs/006-automatic-updates/spec.md`](../../../specs/006-automatic-updates/spec.md)
-- Amends [ADR-02](ADR-02-no-spotify-reads-on-load.md) and [ADR-04](ADR-04-keyless-sources-by-id.md)
+- Amends [ADR-02](ADR-02-no-spotify-reads-on-load.md) and [ADR-04](ADR-04-keyless-sources-by-id.md); amended by [ADR-13](ADR-13-automatic-mix-check.md)
 - [How the app works](../000-how-it-works.md) §7, §14, §16
 - [ADR index](README.md)

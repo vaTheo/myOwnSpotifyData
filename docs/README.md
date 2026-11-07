@@ -31,6 +31,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
     redesign's Mix review)
   - [ADR-11 — Web-first adaptive layout on Material Design 3](architecture/700-adr/ADR-11-web-first-material-3.md)
   - [ADR-12 — Automatic updates](architecture/700-adr/ADR-12-automatic-updates.md)
+  - [ADR-13 — Opening a mix checks it on Spotify](architecture/700-adr/ADR-13-automatic-mix-check.md)
 - [800 — Limits and roadmap](architecture/800-limits-roadmap.md)
 
 ## Dev guide

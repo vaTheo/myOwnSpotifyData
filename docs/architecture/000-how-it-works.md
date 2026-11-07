@@ -248,7 +248,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 
 **The review** (spec 003 §12, S08c):
 
-- `spotifyCheck.ts` (**Check on Spotify**, T117): a read on the open mix header's tap only, never on load or open (ADR-02). Gated like
+- `spotifyCheck.ts` (**Check on Spotify**, T117): a read on the open mix header's tap, or by itself when a saved mix opens (`maybeAutoCheck` in `openMix`, gated by `autoCheckDue`: Automatic updates on, a session, no lock-out, no other reader, a named track never checked, this mix not yet tried this page session; never in the demo; ADR-13), never on load (ADR-02). Gated like
   Create playlist in `startSpotifyCheck` (`model/state.ts`): a Spotify session, no other Spotify reader running (§4), no quota
   lock-out, and no check of another mix. `runSpotifyCheck`
   runs `searchTrack`/`pickMatch` unchanged on each named track not checked yet (`rowsToCheck`: candidates and second-listen rows

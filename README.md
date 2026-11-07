@@ -275,7 +275,8 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   tracks · 12 validated · 30 on Spotify · 4 not found"). **Check on
   Spotify** looks each named track up on Spotify, one at a time ("Checked 12
   of 40", Stop), and keeps the answer on the row (a Spotify link, or "not
-  found"); it reads Spotify only on that tap, and saves the mix when it ends.
+  found"); it runs when you tap it and also by itself when you open a saved mix with tracks not checked yet (once per mix, only with
+  **Automatic updates** on, never while Spotify's lock-out lasts or another Spotify job runs), and saves the mix when it ends.
   **Validate** (✓) marks a track you have checked by ear; **Remove** (✕)
   takes it out. The chips **All**, **To review**, **Validated**, **Not on
   Spotify** and **Heard once** (tracks one 12-second clip matched) show one

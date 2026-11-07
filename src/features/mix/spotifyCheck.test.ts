@@ -5,6 +5,7 @@ import { QuotaError } from '../../spotify/errors';
 import {
   answerFor,
   applyAnswers,
+  autoCheckDue,
   checkLine,
   checkedRow,
   keepStoredAnswers,
@@ -315,5 +316,38 @@ describe('runSpotifyCheck', () => {
     );
     expect(out).toEqual({ status: 'error', error: quota, done: 0, total: 1 });
     expect(onChecked).not.toHaveBeenCalled();
+  });
+});
+
+describe('autoCheckDue (ADR-13)', () => {
+  const ok = {
+    switchOn: true,
+    signedIn: true,
+    lockedUntil: null,
+    busy: false,
+    rows: [row('One'), row('Two', { spotify: 'not-found' })],
+    alreadyTried: false,
+  };
+
+  it('is due when a named track was never checked', () => {
+    expect(autoCheckDue(ok)).toBe(true);
+  });
+
+  it('is not due for each refusal, so the automatic check never shows one', () => {
+    expect(autoCheckDue({ ...ok, switchOn: false })).toBe(false);
+    expect(autoCheckDue({ ...ok, signedIn: false })).toBe(false);
+    expect(autoCheckDue({ ...ok, lockedUntil: 1 })).toBe(false);
+    expect(autoCheckDue({ ...ok, busy: true })).toBe(false);
+    expect(autoCheckDue({ ...ok, alreadyTried: true })).toBe(false);
+  });
+
+  it('is not due when every named track is checked, or only gaps remain', () => {
+    expect(
+      autoCheckDue({ ...ok, rows: [row('One', { spotify: 'not-found' })] })
+    ).toBe(false);
+    expect(autoCheckDue({ ...ok, rows: [row('Gap', { gap: true })] })).toBe(
+      false
+    );
+    expect(autoCheckDue({ ...ok, rows: [] })).toBe(false);
   });
 });

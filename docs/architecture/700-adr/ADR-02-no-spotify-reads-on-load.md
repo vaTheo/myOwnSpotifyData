@@ -1,6 +1,6 @@
 # ADR-02 — Never read Spotify playlists on load; sync only from a button
 
-> **Status**: Accepted; amended by [ADR-12](ADR-12-automatic-updates.md) (an automatic sync when the library is older than 12 hours)
+> **Status**: Accepted; amended by [ADR-12](ADR-12-automatic-updates.md) (an automatic sync when the library is older than 12 hours) and by [ADR-13](ADR-13-automatic-mix-check.md) (opening a mix checks it on Spotify)
 > **Date**: 2026-09-04
 
 ## Context
@@ -35,6 +35,7 @@ fresh playlist read.
 - Research: [Spotify platform](../../research/2026-09-04-spotify-platform-research.md)
 - [How the app works](../000-how-it-works.md) §7, §14
 - [ADR-12](ADR-12-automatic-updates.md), which amends this decision
+- [ADR-13](ADR-13-automatic-mix-check.md), which amends it again
 - [ADR index](README.md)
 - [Limits and roadmap](../800-limits-roadmap.md)
 - [Contributing](../../dev-guide/000-contributing.md)
