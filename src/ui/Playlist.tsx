@@ -173,7 +173,9 @@ function playlistColumns(m: Model, matching: boolean): Column<ListedRow>[] {
   return [
     rankColumn(),
     titleColumn((r) => r.row.track.name),
-    artistsColumn((r) => r.row.track.artists),
+    // The Released column (round 005) takes 88 px: the artists give way
+    // so the title stays readable at 1440 (SC-001).
+    artistsColumn((r) => r.row.track.artists, { width: 'minmax(0, 1fr)' }),
     ...(matching
       ? []
       : [
