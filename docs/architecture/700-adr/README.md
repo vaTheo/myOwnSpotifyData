@@ -1,11 +1,12 @@
 # 700 — ADR, the decisions that still hold
 
 > **Status**: Living
-> **Last updated**: 2026-11-05
+> **Last updated**: 2026-11-07
 
 One decision per file, kept when it no longer holds (marked `Superseded by …`). A decision belongs here when it outlives the feature round
 that made it; the round's reasoning stays in its [spec](../../specs/). The first seven were taken during the rounds of 2026-09-04 to
-2026-09-25 and written down on 2026-11-05; ADR-08 was taken on 2026-11-05, ADR-09 and ADR-10 on 2026-11-06.
+2026-09-25 and written down on 2026-11-05; ADR-08 was taken on 2026-11-05, ADR-09, ADR-10 and ADR-11 on 2026-11-06 (ADR-10
+amended the same day by the redesign's Mix review).
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -18,7 +19,8 @@ that made it; the round's reasoning stays in its [spec](../../specs/). The first
 | [ADR-07](ADR-07-play-counts-from-export.md) | Play counts come only from the history export; history views gate on a versioned summary | Accepted |
 | [ADR-08](ADR-08-owner-server-free-tier.md) | One server for the owner on a free tier: stores the app's datasets and a job queue, never computes, never holds a token; workers run on the owner's computer | Accepted |
 | [ADR-09](ADR-09-mix-identification-on-the-owners-computer.md) | Mix identification by audio runs only in the worker on the owner's computer, keyless (Shazam), one probe at a time; the app and the server never touch audio; the result keeps the F15 JSON shape | Accepted |
-| [ADR-10](ADR-10-name-lookup-for-clues.md) | The worker may look a track up by name, only for a clue (comment, chapter, description) without identifier: keyless catalogues, exact equality, marked "from a comment" | Accepted |
+| [ADR-10](ADR-10-name-lookup-for-clues.md) | The worker may look a track up by name, only for a clue (comment, chapter, description) without identifier: keyless catalogues, exact equality, marked "from a comment" | Accepted; amended 2026-11-06 (a candidate joins **Validated only** once validated; **All tracks** includes it) |
+| [ADR-11](ADR-11-web-first-material-3.md) | Web-first adaptive layout on Material Design 3: dark only, chartreuse seed and accent, five destinations, tables and side sheets; the Playwright visual loop as a dev-only check | Accepted |
 
 ## Skeleton
 

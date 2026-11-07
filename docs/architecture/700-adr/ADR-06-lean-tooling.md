@@ -33,5 +33,6 @@ never bump the pinned packages blindly; a new dependency is a decision for the o
 
 - [Contributing](../../dev-guide/000-contributing.md)
 - [How the app works](../000-how-it-works.md) §15
+- [ADR-11](ADR-11-web-first-material-3.md) (the dev-only visual loop, outside `yarn test` and CI)
 - [ADR index](README.md)
 - [Limits and roadmap](../800-limits-roadmap.md)

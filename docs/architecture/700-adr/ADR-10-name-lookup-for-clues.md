@@ -21,8 +21,16 @@ approved on 2026-11-06: "Find a track by its name is ok if it's impossible to do
   test suites); a version the clue does not name is a different title. Scores are ignored.
 - **Always marked.** A track found this way is a candidate: `origin: "clue"`, the clue's text kept, no confidence, shown on the
   Mix screen as "from a comment · not heard". It goes into Create playlist like an identified row (the owner's pick) unless the
-  owner deletes it first.
+  owner deletes it first. *Amended 2026-11-06, see below.*
 - **Bounded**: `WORKER_LOOKUPS` clues a set (100), paced per host (Deezer 0.2 s, MusicBrainz 1.1 s, Discogs 2.5 s).
+
+## Amendment (2026-11-06, the owner's D6, web-first redesign)
+
+The Mix review of the redesign ([ADR-11](ADR-11-web-first-material-3.md), `specs/003-web-first-redesign/` contracts §12) lets the
+owner validate tracks, and Create playlist offers **Validated only** or **All tracks**. A candidate (`origin: "clue"`) starts
+**To review** with its "not heard" badge. **Validated only** leaves it out until the owner validates it; **All tracks** includes
+it, as before. "Goes into Create playlist unless deleted" now holds for All tracks only. The lookup rules above are unchanged.
+Code: `tracksToAdd` in `src/features/mix/createPlaylist.ts`; [How the app works](../000-how-it-works.md) §10.
 
 ## Consequences
 
@@ -37,5 +45,6 @@ with the exact same artist and title would pass; the catalogues' search may chan
 - Spec: `specs/003-fill-scan-gaps/` (research R4, R5, R8)
 - [ADR-04](ADR-04-keyless-sources-by-id.md) (the rule this narrows), [ADR-09](ADR-09-mix-identification-on-the-owners-computer.md)
   (the worker)
+- [ADR-11](ADR-11-web-first-material-3.md) (the redesign whose Mix review amends the Create playlist line, owner's D6)
 - Constitution: `.specify/memory/constitution.md` Principle IV
 - [ADR index](README.md) · [Limits and roadmap](../800-limits-roadmap.md)
