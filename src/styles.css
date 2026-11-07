@@ -1,8 +1,7 @@
 /*
  * Spec 003: every colour, font and ring below reads the Material 3 tokens of
- * ui/theme/tokens.css. The short names are kept as aliases while the screens
- * move to the new components; nothing here holds a raw colour any more,
- * except inside the aliases.
+ * ui/theme/tokens.css, directly or through the short aliases just below;
+ * nothing here holds a raw colour.
  */
 :root {
   --bg: var(--md-sys-color-surface);
@@ -14,7 +13,6 @@
   --danger: var(--md-sys-color-error);
   --warn: var(--app-color-warning);
   --line: var(--md-sys-color-outline-variant);
-  --tab-height: 56px;
 }
 
 * {
@@ -560,12 +558,6 @@ label.file input {
 
 .swatch-low {
   background: var(--md-sys-color-error);
-}
-
-.footer-note {
-  color: var(--muted);
-  font-size: 0.85rem;
-  margin: 10px 0 8px;
 }
 
 .chev {

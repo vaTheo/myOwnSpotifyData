@@ -5,6 +5,7 @@ import { IconButton } from '../components/IconButton';
 import { ESCAPE_RANK, pushEscapeLayer } from './escape';
 import { focusWhenReady } from './focus';
 import { windowClass, type WindowClass } from './windowClass';
+import { lockScroll } from './scrollLock';
 
 export type SheetMode = 'docked' | 'modal' | 'fullscreen';
 
@@ -63,12 +64,7 @@ export function SideSheet(p: {
   useEffect(() => {
     if (!modal) return;
     sheet.current?.focus();
-    const root = document.documentElement;
-    const before = root.style.overflow;
-    root.style.overflow = 'hidden';
-    return () => {
-      root.style.overflow = before;
-    };
+    return lockScroll();
   }, [modal]);
 
   function trap(e: KeyboardEvent): void {
