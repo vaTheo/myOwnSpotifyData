@@ -3,6 +3,25 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-07 — Rarely played
+
+Listening · Crate gains a sixth view, **Rarely played**: the songs of your playlists you played 0, 1, 2 or 3 times (the Never, 1, 2
+and 3 chips, any combination), once per song with the playlists it is in, and a menu to look at one playlist. It sorts and filters
+like the other song tables (BPM, key, year, decade). Play counts come from your history import, so the view asks for it first and
+never calls a song "never played" without one; the counts are as of the last import. Nothing is read from Spotify and nothing is
+stored. Spec: `specs/007-rarely-played-tracks/`.
+
+## 2026-11-07 — BPM and key no longer sits at 0
+
+After the release-year pass arrived, a finished BPM and key run showed `0 / 22,563 tracks` for about ten minutes (the ReccoBeats id
+lookups, uncounted) and then needed one album request per song, about six hours. The id lookups are now a counted pass, and a song
+Spotify already dates (a playlist sync or a Top list) is no longer asked of ReccoBeats; its year still shows, from the album.
+Songs Spotify dates may show the album's year rather than ReccoBeats' earliest one. Playlists downloaded before the years existed
+were never re-read (their snapshot had not changed), so Spotify's dates were missing for most songs: the next Spotify sync now
+downloads each of those playlists once more (the playlist row gains an optional `withYears` marker), after which the year pass has
+little left to ask. That sync runs by itself first on the next start (Server, Spotify, BPM and key, Artist reach, in that order) even
+when the library is under 12 hours old. No `DB_VERSION` bump.
+
 ## 2026-11-07 — Automatic updates
 
 Settings opens on a new **Updates** section: one line per job (Server, Spotify, BPM and key, Artist reach, History, Rekordbox) with

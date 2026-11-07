@@ -112,6 +112,7 @@ describe('parseRoute', () => {
       'classics',
       'year',
       'finish',
+      'rarely-played',
     ]);
     for (const view of CRATE_VIEWS) {
       expect(parseRoute(`#/crate/${view}`)).toEqual({

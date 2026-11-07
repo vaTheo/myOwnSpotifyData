@@ -8,6 +8,7 @@ export const CRATE_TITLE: Record<CrateView, string> = {
   classics: 'All-time classics',
   year: 'By year',
   finish: 'Finish rate',
+  'rarely-played': 'Rarely played',
 };
 
 /**

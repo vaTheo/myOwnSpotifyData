@@ -139,12 +139,12 @@ phone. It is dark, with chartreuse marking what you act on.
   all time. On a wide window, **Compare periods** shows the three periods
   side by side; pointing at a track marks it in the other columns.
 - **Crate** is the "what do I play tonight" tab, built entirely from the
-  imported history. The hub shows five cards with their headline figures and
+  imported history. The hub shows six cards with their headline figures and
   a small chart: _Heavy rotation_ (most plays in the last 1, 3 or 6 months),
   _Forgotten gems_ (10+ lifetime plays, nothing for 6 months, 1 year or 2
   years), _All-time classics_ (played in the most distinct years), _By year_
   (top tracks of a year, a season or a month) and _Finish rate_ (what you
-  play to the end versus what you bail out of). Each view is a table with
+  play to the end versus what you bail out of) and _Rarely played_ (songs in your playlists you played 0, 1, 2 or 3 times: pick the counts and, if you like, one playlist). Each view is a table with
   its own columns and charts: plays per month as small bars, plays per year
   for the classics (a year without plays is a zero mark), the finish rate as
   a meter in its band. **By year** picks its period on a year × month grid:

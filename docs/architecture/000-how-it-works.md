@@ -119,7 +119,7 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 Planner (a pure diff on `snapshot_id`), item mapper, and runner (`runSync`, `src/sync/runner.ts:181`). The runner commits one playlist
 per transaction, persists `locked`/`error` state in meta (`syncState`, `lastSyncAt`, `accountId`), and on a different Spotify account asks
 before wiping (`ACCOUNT_SWITCH_CONFIRM`). Sync never runs on load ([ADR-02](700-adr/ADR-02-no-spotify-reads-on-load.md)) except from the automatic chain (§14,
-[ADR-12](700-adr/ADR-12-automatic-updates.md)), when `lastSyncAt` is older than 12 hours; otherwise only from the Settings button or a
+[ADR-12](700-adr/ADR-12-automatic-updates.md)), when `lastSyncAt` is older than 12 hours or a stored playlist has no `withYears` marker (the one-time album-year backfill); otherwise only from the Settings button or a
 playlist's own button. A sync is refused inside the app's one quota lock-out (§4 `quotaLock.ts`), including one
 Check on Spotify or Create playlist met; a lock the sync meets (its `locked` state, read back on load) joins that lock. The
 playlist item field filter asks `album(name,release_date)` and the Top tracks answer full tracks, so both keep the album's year
@@ -293,6 +293,11 @@ also saves episodes, albums and playlists; a song already liked is never re-save
   prints the same message, and `visibleBanner` suppresses it there.
 - `crate.ts`: the pure Crate computations `heavyRotation`, `forgottenGems`, `classics`, `byYear`, `finishRate`, each one pass over
   `PlayRow[]`, and their thresholds (`src/model/crate.ts:3-10`).
+- `rarelyPlayed.ts` (round 007): `rarelyPlayed(model, counts, playlistId)` lists the playlist songs played 0 to 3 times, once per
+  song with every playlist that holds it. It starts from the playlist entries, not from `model.plays`, because a song never played
+  has no history row; the count is `playsFor` (id, then artist and title), the number the Playlist screen shows. A row built in
+  memory stands in for the missing one; a local file is listed only when the history counted it. Backs the Crate view
+  `#/crate/rarely-played` (`ui/crate/Rarely.tsx`: chips Never, 1, 2, 3, a playlist menu, `CrateTable`).
 - `year.ts` (round 005): `parseYear` (the whole year of a date or number in 1900..next year, else null: every source goes
   through it, so a year is never shown as 0), `yearOf` (a library track's year: ReccoBeats' earliest, else the playlist album
   year, else a Top item's), `decadeOf`, `decadeLabel`; `yearView.ts`: `applyYearView` (stable year sort, undated last, decade
@@ -403,7 +408,12 @@ screen, grouped by role under `src/ui/`.
     decades", each decade present) combines with the review chips; the edited row stays visible (`TracklistTable.tsx`). A
     rename drops the year unless the row is renamed back to the identified track and the year is not Spotify's
     (`editTracklistRow`, S13b N1).
-  - **Activity**: the look-up entry reads "Looking up release years" during `PASS_YEARS` (`ui/jobs.ts`).
+  - **Activity**: the look-up entry reads "Looking up release years" during `PASS_RIDS` and `PASS_YEARS` (`ui/jobs.ts`).
+  - **Backfill** (round 006 fix): `planSync` treats an unchanged playlist without the row's `withYears` marker as changed, so the
+    first sync after this fix downloads it again with `album.release_date`; the marker is then set and the snapshot rule applies.
+  - **Cost** (round 006 fix): the year pass skips a track Spotify already dates (`albumDatedIds`, `model/year.ts`: a synced album
+    year or a Top item's), whose year still shows from the album; ReccoBeats' album list is asked only for the rest. Its ReccoBeats
+    id lookups run first as their own counted pass (`PASS_RIDS`), so the line moves from the start instead of sitting at 0.
 
 ## 14. Jobs and state (`model/state.ts`)
 

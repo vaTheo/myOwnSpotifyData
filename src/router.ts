@@ -5,6 +5,7 @@ export const CRATE_VIEWS = [
   'classics',
   'year',
   'finish',
+  'rarely-played',
 ] as const;
 
 export type CrateView = (typeof CRATE_VIEWS)[number];

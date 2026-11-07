@@ -5,6 +5,7 @@ import { Classics } from './Classics';
 import { CrateEmpty } from './CrateEmpty';
 import { Finish } from './Finish';
 import { Gems } from './Gems';
+import { Rarely } from './Rarely';
 import { Rotation } from './Rotation';
 import { CrateSheet, CrateShell } from './shared';
 
@@ -28,6 +29,8 @@ function Body({
       return <ByYear period={period} detail={detail} />;
     case 'finish':
       return <Finish detail={detail} />;
+    case 'rarely-played':
+      return <Rarely detail={detail} />;
   }
 }
 

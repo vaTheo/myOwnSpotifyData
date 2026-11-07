@@ -13,6 +13,7 @@ import {
   yearSetting,
   yearsWithPlays,
 } from '../../model/crate';
+import { rarelyPlayed } from '../../model/rarelyPlayed';
 import { crateStatus, historySummary, model } from '../../model/state';
 import { routeHref, type CrateView } from '../../router';
 import { Meter } from '../charts/Meter';
@@ -38,6 +39,8 @@ import {
   classicSort,
   finishTab,
   gemMonths,
+  rareCounts,
+  rarePlaylist,
   rotationMonths,
   yearPeriod,
   yearSel,
@@ -67,6 +70,7 @@ const DESCRIPTION: Record<CrateView, string> = {
   classics: 'Tracks you come back to year after year',
   year: 'Your tracks of a year, a season or a month',
   finish: 'What you play to the end, and what you skip',
+  'rarely-played': 'Songs in your playlists you barely played',
 };
 
 const ICON: Record<CrateView, IconName> = {
@@ -75,6 +79,7 @@ const ICON: Record<CrateView, IconName> = {
   classics: 'star',
   year: 'calendar_month',
   finish: 'skip_next',
+  'rarely-played': 'headphones',
 };
 
 function topLine(
@@ -212,7 +217,29 @@ function hubCards(rows: PlayRow[], now: Date): HubCard[] {
         />
       ),
     },
+    rarelyCard(),
   ];
+}
+
+/** Rarely played's card, counted with the view's own setting. */
+function rarelyCard(): HubCard {
+  const m = model.value;
+  const items = m ? rarelyPlayed(m, rareCounts.value, rarePlaylist.value) : [];
+  const counts = [...rareCounts.value].sort();
+  return {
+    view: 'rarely-played',
+    icon: ICON['rarely-played'],
+    description: DESCRIPTION['rarely-played'],
+    top: items[0]
+      ? `First: ${trackLabel(items[0].row).subtitle} — ${trackLabel(items[0].row).title}`
+      : 'Nothing yet',
+    count: items.length,
+    setting:
+      counts.includes(0) && counts.length === 1
+        ? 'never played'
+        : `${counts.join(', ')} plays`,
+    chart: null,
+  };
 }
 
 /** The import status line (spec 003, screens.md §5). */
