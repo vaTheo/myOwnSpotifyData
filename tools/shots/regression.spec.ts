@@ -1667,7 +1667,7 @@ test.describe('R. rounds 003 and 004', () => {
     ).toBe(true);
   });
 
-  test('R07 Sort by Clips heard, then Best score: most first', async ({
+  test('R07 Sort by Clips heard, then Confidence: most first', async ({
     app,
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
@@ -1676,7 +1676,7 @@ test.describe('R. rounds 003 and 004', () => {
     const byHits = await heardFigures(grid);
     expect(byHits).toHaveLength(16);
     expect(nonIncreasing(byHits.map((f) => f.hits))).toBe(true);
-    await app.page.getByLabel('Sort').selectOption({ label: 'Best score' });
+    await app.page.getByLabel('Sort').selectOption({ label: 'Confidence' });
     const byBest = await heardFigures(grid);
     expect(byBest).toHaveLength(16);
     expect(nonIncreasing(byBest.map((f) => f.best))).toBe(true);
@@ -1916,19 +1916,40 @@ test.describe('Y. release year', () => {
     );
   });
 
-  test('Y06 the open mix: Released column, Year sort and a Decade', async ({
+  test('Y06 the open mix: Released column, Released sort and a Decade', async ({
     app,
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
     expect(await headers(grid)).toContain('Released');
-    await app.page.getByLabel('Sort').selectOption('year');
+    await app.page.getByLabel('Sort').selectOption('released');
     expect(yearOrder(await column(grid, 'Released'), 'asc')).toBeNull();
     await app.page.getByLabel('Decade').selectOption({ label: '90s' });
     await expect(app.page.getByText(/^Hidden, not deleted/)).toBeVisible();
     const years = (await column(grid, 'Released')).map(num);
     expect(years.length).toBeGreaterThan(0);
     expect(years.every((y) => y !== null && y >= 1990 && y < 2000)).toBe(true);
+  });
+
+  test('M01 Mix header sort: Confidence highest first, then lowest, the select follows', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    const header = grid
+      .getByRole('columnheader', { name: 'Confidence' })
+      .getByRole('button');
+    await header.click();
+    const high = await heardFigures(grid);
+    expect(high).toHaveLength(16);
+    expect(nonIncreasing(high.map((f) => f.best))).toBe(true);
+    await expect(app.page.getByLabel('Sort')).toHaveValue('confidence');
+    await header.click();
+    const low = await heardFigures(grid);
+    expect(low).toHaveLength(16);
+    expect(nonIncreasing(low.map((f) => -f.best))).toBe(true);
+    await app.page.getByLabel('Sort').selectOption({ label: 'Set order' });
+    expect((await column(grid, 'Time'))[0]).toBe('0:00');
   });
 
   test('Y07 Activity names the release years pass', async ({ app }) => {

@@ -15,7 +15,7 @@ const r = (over: Partial<TracklistRow>): TracklistRow => ({
   ...over,
 });
 
-const ALL = { sort: 'time' as const, decade: null, filter: 'all' as const };
+const ALL = { decade: null, filter: 'all' as const };
 
 describe('tracklistView (S13c review M2)', () => {
   const rows = [
@@ -25,31 +25,21 @@ describe('tracklistView (S13c review M2)', () => {
     r({ year: 1991, hits: 3 }),
   ];
 
-  it('sorts by year, undated last, and keeps one decade', () => {
-    const v = tracklistView(rows, { ...ALL, sort: 'year', decade: 1990 }, null);
+  it('keeps one decade, in set order', () => {
+    const v = tracklistView(rows, { ...ALL, decade: 1990 }, null);
     expect(v.decades).toEqual([1990, 2000]);
-    expect(v.sort).toBe('year');
     expect(v.decade).toBe(1990);
-    expect(v.order).toEqual([3, 1]);
-    expect(tracklistView(rows, { ...ALL, sort: 'year' }, null).order).toEqual([
-      3, 1, 0, 2,
-    ]);
+    expect(v.order).toEqual([1, 3]);
+    expect(tracklistView(rows, ALL, null).order).toEqual([0, 1, 2, 3]);
   });
 
   it('falls back when the rows no longer allow a choice', () => {
     const undated = [r({}), r({})];
-    const v = tracklistView(
-      undated,
-      { ...ALL, sort: 'year', decade: 1990 },
-      null
-    );
-    expect(v.sort).toBe('time');
+    const v = tracklistView(undated, { ...ALL, decade: 1990 }, null);
     expect(v.decade).toBeNull();
     expect(v.decades).toEqual([]);
     expect(v.order).toEqual([0, 1]);
-    const uncounted = tracklistView(undated, { ...ALL, sort: 'clips' }, null);
-    expect(uncounted.counted).toBe(false);
-    expect(uncounted.sort).toBe('time');
+    expect(tracklistView(undated, ALL, null).counted).toBe(false);
     // A decade the rows do not hold is ignored, never an empty list.
     expect(tracklistView(rows, { ...ALL, decade: 1970 }, null).order).toEqual([
       0, 1, 2, 3,

@@ -1,4 +1,3 @@
-import { signal } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { MixRowSource, TracklistRow } from '../../db/schema';
 import { digLinks } from '../../features/mix/digLinks';
@@ -15,7 +14,6 @@ import {
   type ReviewFilter,
 } from '../../features/mix/review';
 import { isIdentified } from '../../features/mix/spotifySearch';
-import type { RowSort } from '../../features/mix/worker';
 import { decadeLabel } from '../../model/year';
 import {
   addMixRow,
@@ -41,8 +39,15 @@ import { Icon, type IconName } from '../icons';
 import { windowClass } from '../layout/windowClass';
 import { yearColumn } from '../table/columns';
 import { DataTable, type Column } from '../table/DataTable';
-import type { SortState } from '../table/sort';
+import { nextSort, type SortState } from '../table/sort';
 import { Clues } from './Clues';
+import {
+  SORT_FIRST,
+  effectiveSort,
+  sortChoices,
+  sortValue,
+  type SortId,
+} from './tracklistSort';
 import { tracklistView } from './tracklistView';
 import { RowMenu, type RowMenuItem } from './RowMenu';
 import {
@@ -64,8 +69,16 @@ interface Line {
   match: MixMatch | null;
 }
 
-/** No header sort: the order is the set's, or the Sort select's (round 004). */
-const NO_SORT = signal<SortState>({ columnId: null, direction: 'asc' });
+/**
+ * A sortable column's sort, from `tracklistSort` (spec 008): the value the
+ * table sorts by and the direction of the first click.
+ */
+function sorts(id: SortId): {
+  sortValue: (l: Line) => ReturnType<typeof sortValue>;
+  firstDirection: 'asc' | 'desc';
+} {
+  return { sortValue: (l) => sortValue(id, l), firstDirection: SORT_FIRST[id] };
+}
 
 const SOURCE_ICON: Record<MixRowSource, IconName> = {
   trackid: 'search',
@@ -249,11 +262,29 @@ function columns(on: {
   edit: (index: number) => void;
   remove: (index: number) => void;
   compact: boolean;
+  /** A row has clip counts: the Clips column is offered. */
+  counted: boolean;
 }): Column<Line>[] {
   const { compact } = on;
+  const clips: Column<Line>[] = on.counted
+    ? [
+        {
+          id: 'clips',
+          header: 'Clips',
+          align: 'end',
+          priority: 3,
+          width: '64px',
+          ...sorts('clips'),
+          cell: (l) =>
+            l.row.hits === undefined ? <NoData /> : <span>{l.row.hits}×</span>,
+          compact: 'hidden',
+        },
+      ]
+    : [];
   return [
     {
       id: 'time',
+      ...sorts('time'),
       header: 'Time',
       align: 'end',
       priority: 1,
@@ -266,6 +297,7 @@ function columns(on: {
     },
     {
       id: 'title',
+      ...sorts('title'),
       header: 'Artist – Title',
       priority: 1,
       width: 'minmax(200px, 1fr)',
@@ -275,6 +307,7 @@ function columns(on: {
     },
     {
       id: 'label',
+      ...sorts('label'),
       header: 'Label',
       priority: 4,
       width: 'minmax(0, 0.4fr)',
@@ -285,6 +318,7 @@ function columns(on: {
     },
     {
       id: 'source',
+      ...sorts('source'),
       header: 'Source',
       priority: 3,
       width: '64px',
@@ -293,6 +327,7 @@ function columns(on: {
     },
     {
       id: 'confidence',
+      ...sorts('confidence'),
       header: 'Confidence',
       align: 'end',
       priority: 3,
@@ -301,8 +336,10 @@ function columns(on: {
       title: (l) => confidenceText(l.row) ?? undefined,
       compact: 'meta',
     },
+    ...clips,
     {
       id: 'library',
+      ...sorts('library'),
       header: 'In your library',
       priority: 2,
       width: '120px',
@@ -314,17 +351,13 @@ function columns(on: {
         ) : null,
       compact: 'meta',
     },
-    // Round 005: the row's own year (the one the year sort uses), its source
-    // in the tooltip. No header sort here: the Sort select orders the rows.
-    yearColumn(
-      (l: Line) => rowYear(l.row),
-      {
-        describe: (l, year) => yearText(l.row, year),
-      },
-      { sortValue: undefined }
-    ),
+    // Round 005: the row's own year, its source in the tooltip.
+    yearColumn((l: Line) => rowYear(l.row), {
+      describe: (l, year) => yearText(l.row, year),
+    }),
     {
       id: 'spotify',
+      ...sorts('spotify'),
       header: 'Spotify',
       priority: 1,
       width: '64px',
@@ -350,6 +383,7 @@ function columns(on: {
     },
     {
       id: 'review',
+      ...sorts('review'),
       header: 'Review',
       priority: 1,
       width: compact ? '48px' : '96px',
@@ -488,8 +522,8 @@ function EditLine(p: {
  */
 function RowView(p: {
   rows: readonly TracklistRow[];
-  sort: RowSort;
-  onSort: (sort: RowSort) => void;
+  sort: SortState;
+  onSort: (sort: SortState) => void;
   filter: ReviewFilter;
   onFilter: (filter: ReviewFilter) => void;
   counted: boolean;
@@ -510,22 +544,47 @@ function RowView(p: {
         value={p.filter}
         onChange={p.onFilter}
       />
-      {(p.counted || dated) && (
-        <label>
-          Sort{' '}
-          <select
-            id="mix-sort"
-            value={p.sort}
-            onChange={(e) =>
-              p.onSort((e.currentTarget as HTMLSelectElement).value as RowSort)
+      {p.rows.length > 0 && (
+        <span class="mix-sort">
+          <label>
+            Sort{' '}
+            <select
+              id="mix-sort"
+              value={p.sort.columnId ?? ''}
+              onChange={(e) => {
+                const id = (e.currentTarget as HTMLSelectElement).value;
+                p.onSort(
+                  id === ''
+                    ? { columnId: null, direction: 'asc' }
+                    : { columnId: id, direction: SORT_FIRST[id as SortId] }
+                );
+              }}
+            >
+              <option value="">Set order</option>
+              {sortChoices(p.rows).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <IconButton
+            icon={p.sort.direction === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+            label={
+              p.sort.direction === 'asc'
+                ? 'Ascending, tap for descending'
+                : 'Descending, tap for ascending'
             }
-          >
-            <option value="time">Time</option>
-            {p.counted && <option value="clips">Clips heard</option>}
-            {p.counted && <option value="score">Best score</option>}
-            {dated && <option value="year">Year, oldest first</option>}
-          </select>
-        </label>
+            disabled={p.sort.columnId === null}
+            onClick={() =>
+              p.onSort(
+                p.sort.columnId === null
+                  ? p.sort
+                  : nextSort(p.sort, p.sort.columnId, {})
+              )
+            }
+          />
+        </span>
       )}
       {dated && (
         <label>
@@ -589,14 +648,17 @@ export function TracklistTable() {
   // The save's own failure, kept apart from `mixError` (which other
   // actions also set) and cleared by the next action on the table.
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [sort, setSortState] = useState<RowSort>('time');
+  const [sortChosen, setSortState] = useState<SortState>({
+    columnId: null,
+    direction: 'asc',
+  });
   const [filter, setFilterState] = useState<ReviewFilter>('all');
   const [decade, setDecadeState] = useState<number | null>(null);
   const setDecade = (v: number | null): void => {
     setSaveError(null);
     setDecadeState(v);
   };
-  const setSort = (v: RowSort): void => {
+  const setSort = (v: SortState): void => {
     setSaveError(null);
     setSortState(v);
   };
@@ -609,9 +671,11 @@ export function TracklistTable() {
     setEditing(i);
   };
   // The Sort, the decade and the chip, with their fallbacks (round 005).
-  const view = tracklistView(rows, { sort, decade, filter }, editing);
+  const view = tracklistView(rows, { decade, filter }, editing);
   const { counted, decades, order } = view;
-  const sortNow = view.sort;
+  // Spec 008: one sort for the headers and the select; a column the rows no
+  // longer allow is the set's order.
+  const sortNow = effectiveSort(sortChosen, rows);
   const decadeNow = view.decade;
   const lines: Line[] = order.map((i) => ({
     row: rows[i],
@@ -656,13 +720,13 @@ export function TracklistTable() {
       />
       <DataTable
         label="Tracklist"
-        columns={columns({ edit, remove, compact })}
+        columns={columns({ edit, remove, compact, counted })}
         rows={lines}
         rowKey={(l) => keyOf(l.index, editing)}
-        sort={NO_SORT.value}
-        onSort={() => undefined}
+        sort={sortNow}
+        onSort={setSort}
         noun="track"
-        resetKey={`${sortNow}-${filter}-${decadeNow ?? ''}`}
+        resetKey={`${filter}-${decadeNow ?? ''}`}
         revealKey={editing === null ? null : keyOf(editing, editing)}
         fullRow={(l) => {
           if (editing === l.index) {

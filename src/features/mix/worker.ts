@@ -619,8 +619,6 @@ export function requestList(
   });
 }
 
-export type RowSort = 'time' | 'clips' | 'score' | 'year';
-
 /**
  * A tracklist row's own year, the one the Released column shows and the
  * year sort and decade use: null for a gap or an undated row (round 005).
@@ -630,21 +628,18 @@ export function rowYear(row: TracklistRow): number | null {
 }
 
 /**
- * Round 004: the order and subset of the tracklist the owner chose to look
- * at, as indexes into `rows` (so Edit and Delete still act on the real row).
- * "Heard once" keeps rows matched by a single clip; it hides, never deletes.
- * Sorting by clips or score puts rows without the number (candidates, gaps,
- * older rows) last, ties in set order. Round 005: the year sort is oldest
- * first, undated rows last, ties in set order; `decade` keeps the rows dated
- * in that decade and combines with "heard once".
+ * The subset of the tracklist the owner chose to look at, as indexes into
+ * `rows` in set order (so Edit and Delete still act on the real row). "Heard
+ * once" keeps rows matched by a single clip; `decade` keeps the rows dated in
+ * that decade (round 005). Both hide, never delete. The order is the table's
+ * own sort (spec 008).
  */
 export function viewRows(
   rows: readonly TracklistRow[],
-  sort: RowSort,
   heardOnce: boolean,
   decade: number | null = null
 ): number[] {
-  const idx = rows
+  return rows
     .map((_, i) => i)
     .filter((i) => !heardOnce || rows[i].hits === 1)
     .filter((i) => {
@@ -652,25 +647,4 @@ export function viewRows(
       const y = rowYear(rows[i]);
       return y !== null && decadeOf(y) === decade;
     });
-  if (sort === 'time') return idx;
-  if (sort === 'year') {
-    return idx.sort((a, b) => {
-      const x = rowYear(rows[a]);
-      const y = rowYear(rows[b]);
-      if (x === null && y === null) return a - b;
-      if (x === null) return 1;
-      if (y === null) return -1;
-      return x - y || a - b;
-    });
-  }
-  const key = (r: TracklistRow): number | null =>
-    sort === 'clips' ? (r.hits ?? null) : (r.confidence ?? null);
-  return idx.sort((a, b) => {
-    const x = key(rows[a]);
-    const y = key(rows[b]);
-    if (x === null && y === null) return a - b;
-    if (x === null) return 1;
-    if (y === null) return -1;
-    return y - x || a - b;
-  });
 }

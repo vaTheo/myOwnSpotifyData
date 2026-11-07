@@ -1738,7 +1738,7 @@ export const PAGES: ShotPage[] = [
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: async (page) => {
       await openGrid(page);
-      await page.getByLabel('Sort').selectOption('year');
+      await page.getByLabel('Sort').selectOption('released');
       await page.getByLabel('Decade').selectOption({ label: '90s' });
     },
     expect: async (page) =>
