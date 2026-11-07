@@ -1,6 +1,6 @@
 # Regression list
 
-> **Status**: Complete for the merge (T111, S14, fix round 1). Started in S13c with main's round 005; S14 added every other feature, rounds 003–004, both
+> **Status**: Complete for the merge (T111, S14, fix round 1); run in full on 2026-11-07 (T114, S15); owner checklist below (T115). Started in S13c with main's round 005; S14 added every other feature, rounds 003–004, both
 > Spotify writes, every old address and every `confirm()`.
 
 One row per feature and old address to exercise before the redesign merges, from `docs/architecture/100-features.md` §1 and §3,
@@ -16,6 +16,50 @@ One row per feature and old address to exercise before the redesign merges, from
 
 Fixtures (fake data only): `tools/shots/fixtures/Streaming_History_Audio_2026_0.json` (8 plays of two made-up tracks, Sept–Oct 2026),
 `tracklist.json` (a Tracklistify file of three made-up tracks), `rekordbox.xml` (one demo track, one stranger).
+
+## Look at these on the contact sheet
+
+Open `shots-output/contact-sheet.html` (built by `yarn shots:sheet` from the S15 run). Four departures to judge; say yes or ask for a change:
+
+1. **Top and the Crate views, large windows**: they draw two-line items beside the docked details sheet (not the table).
+2. **Match**: the playlist pane folds below 1600 px (spec.md FR-015/FR-016 amendment of 2026-11-07, main-sync rulings 17-18).
+3. **Phones**: the "Sort by year" chip sits next to "Sorted by Released".
+4. **Crate**: drops its flag column on the views that have no flag.
+
+## Results of the full run (T114, 2026-11-07, HEAD 9ad9dc4 then dfec28d)
+
+| Command | Browser | Exit | Counts |
+| --- | --- | --- | --- |
+| `yarn typecheck` | n/a | 0 | clean |
+| `yarn lint` | n/a | 0 | clean |
+| `yarn test` | n/a | 0 | 95 files, 1,347 tests passed |
+| `yarn build` | n/a | 0 | built |
+| `SHOTS_BROWSERS=firefox yarn shots` | Chromium at 1440, 1024, 768, 390 px and Firefox at 1440 px | 0 | 769 passed, 66 skipped (by design), `yarn shots:summary`: 769 page runs, 0 findings |
+| `yarn regression` | Chromium | 0 | 71 passed (after the fix below: 71 passed again) |
+| `REGRESSION_BROWSERS=firefox yarn regression` | Firefox | 1, then 0 | first run 68 passed, 3 failed (F03b, F15, R10); after the fix commit dfec28d, 71 passed, F03b 12 of 12 on repeat |
+| `REGRESSION_BROWSERS=webkit yarn regression` | WebKit | 1 | **WebKit not run: needs `sudo apt install libicu74 libjpeg-turbo8` (owner's call)**; the browser does not launch without them |
+| `yarn invariants` | n/a | 0 | "All invariants hold." |
+
+Regressions found and fixed (`fix(regression)`, dfec28d): none in the app. Three tests met Firefox, the app untouched:
+
+- **F03b and F15** (flaky: pass alone, fail in about half the runs): on a second file pick in one page Firefox opens no chooser for a click that is delivered; waiting and clicking again did not help, a bare label-and-input page did 14 of 14. `chooseFile` now sets the file on the input when no chooser opens within 4 s (same `change` event); F03b also waits for the end of the refused import. The cause inside Firefox was not found.
+- **R10** (Firefox only): `allTextContents` over the Mixes list crashes the Firefox page; the queued buttons are now read one at a time.
+
+## Owner checklist (T115): only on the real profile
+
+Run `yarn build && yarn preview --host 127.0.0.1 --port 5173 --strictPort` (or the deployed site), real Spotify account.
+
+- [ ] **Sign-in**: Connect Spotify opens Spotify, returns signed in; Settings shows your account.
+- [ ] **A sync**: Sync now ends with a last-sync time and your playlists listed; nothing reads Spotify before you tap.
+- [ ] **History import**: pick the real `my_spotify_data.zip`; the plays are credited and the Crate lists heavy rotation. A narrower file asks before replacing.
+- [ ] **Like all songs**: on a playlist, the count question names the tracks not yet liked; Yes saves them, No sends nothing (C08).
+- [ ] **Create playlist from mix**: on a mix, choose the tracks; "N tracks will be added" matches; the private playlist appears in Spotify.
+- [ ] **Check on Spotify**: on a real mix, it goes one track at a time, Stop works, answers are kept (F21f).
+- [ ] **Server sync on two devices**: Sync now with server on both; a mix saved on one shows on the other; Remove server data asks first.
+- [ ] **Account switch** (C01): syncing with another Spotify account asks "This is a different Spotify account. Delete all local data for the previous account?".
+- [ ] **Look up again** (C09): on an edited, looked-up mix it asks before replacing the edits.
+- [ ] **Lighthouse (T101)**: the steps in quickstart.md section 12 on four pages; LCP 2.5 s or less, CLS under 0.1, each interaction under 200 ms, no Accessibility failure.
+- [ ] **WebKit / Safari** (only if you want it): `sudo apt install libicu74 libjpeg-turbo8`, then `REGRESSION_BROWSERS=webkit yarn regression`, or open the app in Safari.
 
 ## A · Every address (contracts/routes.md)
 
