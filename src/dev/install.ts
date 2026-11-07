@@ -24,6 +24,7 @@ import {
   serverLinkSent,
   serverSession,
   serverState,
+  spotifyCheckState,
   syncState,
 } from '../model/state';
 import { buildDemo } from './demo';
@@ -59,6 +60,8 @@ const CONTROLLED: Record<string, Signal<unknown>> = {
   serverLinkSent,
   serverSession,
   serverState,
+  /** Check on Spotify mid-run or finished (S08c, T117). */
+  spotifyCheckState,
   /** The Spotify session, to show the missing-scope warning. */
   spotifySession: auth.session,
   syncState,

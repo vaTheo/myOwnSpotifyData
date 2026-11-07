@@ -117,6 +117,28 @@ describe('buildDemo Mix (T128)', () => {
     expect(full.mixes.some((m) => (m.clues?.length ?? 0) > 0)).toBe(true);
   });
 
+  it('seeds the review: runs, validated, checked and removed (S08c)', () => {
+    const rows = full.mixes.flatMap((m) => m.rows);
+    expect(rows.some((r) => r.validated === true)).toBe(true);
+    expect(rows.some((r) => !r.gap && r.validated !== true)).toBe(true);
+    expect(rows.some((r) => typeof r.spotify === 'object')).toBe(true);
+    expect(rows.some((r) => r.spotify === 'not-found')).toBe(true);
+    expect(rows.some((r) => !r.gap && r.spotify === undefined)).toBe(true);
+    expect(full.mixes.some((m) => (m.removed?.length ?? 0) > 0)).toBe(true);
+    const runs = full.mixes.map((m) => m.run).filter((r) => r !== undefined);
+    expect(runs.some((r) => r.secondPass && r.resumed)).toBe(true);
+    expect(runs.some((r) => r.stoppedEarly)).toBe(true);
+    expect(runs.some((r) => (r.warnings?.length ?? 0) > 0)).toBe(true);
+    // A removed track never shows in its mix (T125).
+    for (const m of full.mixes) {
+      for (const t of m.removed ?? []) {
+        expect(
+          m.rows.some((r) => r.artist === t.artist && r.title === t.title)
+        ).toBe(false);
+      }
+    }
+  });
+
   it('holds no external URL as a link: only in clue text, which is plain', () => {
     const texts = [
       ...strings(full.mixes, 'mixes'),
@@ -128,7 +150,9 @@ describe('buildDemo Mix (T128)', () => {
     const inText = texts.filter(
       ({ path, text }) =>
         /https?:\/\//.test(text) &&
-        !/^mixes\[\d+\]\.(url|playlistUrl)$/.test(path)
+        !/^mixes\[\d+\]\.(url|playlistUrl|rows\[\d+\]\.spotify\.url)$/.test(
+          path
+        )
     );
     for (const { path } of inText) expect(path).toMatch(/^mixes\[.*\.text$/);
     expect(inText.length).toBeGreaterThan(0);
