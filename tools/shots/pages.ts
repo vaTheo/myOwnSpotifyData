@@ -79,6 +79,14 @@ async function setState(page: Page, name: string, value: unknown) {
   ] as const);
 }
 
+/** The Overview's last-saved-mix card past its "Reading…" line (D14). */
+async function mixesRead(page: Page): Promise<void> {
+  await page.getByRole('heading', { name: 'Last saved mix' }).waitFor();
+  await page
+    .getByText('Reading your saved mixes…')
+    .waitFor({ state: 'detached' });
+}
+
 /** The demo's scanned mix: the review, the run line, the filters (S08c). */
 const SUNRISE = 'https://www.youtube.com/watch?v=demoSet0001';
 
@@ -1555,7 +1563,35 @@ export const PAGES: ShotPage[] = [
         : ['no column headers beside the pane at 1,100 px'],
   },
 
-  // Screens of later stories
-  { id: 'overview', hash: '#/', since: 'US8' },
-  { id: 'overview-empty', variant: 'empty', hash: '#/', since: 'US8' },
+  // Overview (US8): the home, in every demo that changes a block.
+  { id: 'overview', hash: '#/', setup: mixesRead },
+  { id: 'overview-empty', variant: 'empty', hash: '#/', setup: mixesRead },
+  {
+    id: 'overview-old-import',
+    variant: 'old-import',
+    hash: '#/',
+    setup: mixesRead,
+  },
+  { id: 'overview-locked', variant: 'locked', hash: '#/', setup: mixesRead },
+  {
+    id: 'overview-no-reach',
+    variant: 'no-reach',
+    hash: '#/',
+    setup: mixesRead,
+  },
+  {
+    // A server set up and offline, and the shared quota lock: every
+    // warning the Overview carries at once.
+    id: 'overview-warnings',
+    hash: '#/',
+    setup: async (page) => {
+      await mixesRead(page);
+      await setState(page, 'serverSession', SERVER_SESSION);
+      await setState(page, 'serverState', {
+        status: 'offline',
+        message: 'The server did not answer.',
+      });
+      await setState(page, 'spotifyQuotaLock', DEMO_NOW + 3 * 3_600_000);
+    },
+  },
 ];
