@@ -45,6 +45,7 @@ with the exact same artist and title would pass; the catalogues' search may chan
 - Spec: `specs/003-fill-scan-gaps/` (research R4, R5, R8)
 - [ADR-04](ADR-04-keyless-sources-by-id.md) (the rule this narrows), [ADR-09](ADR-09-mix-identification-on-the-owners-computer.md)
   (the worker)
-- [ADR-11](ADR-11-web-first-material-3.md) (the redesign whose Mix review amends the Create playlist line, owner's D6)
+- [ADR-11](ADR-11-web-first-material-3.md) (the redesign whose Mix review amends the Create playlist line, owner's D6) and its
+  spec, [2026-11-06 — A web-first redesign](../../specs/2026-11-06-web-first-redesign-design.md)
 - Constitution: `.specify/memory/constitution.md` Principle IV
 - [ADR index](README.md) · [Limits and roadmap](../800-limits-roadmap.md)

@@ -20,7 +20,7 @@ phone keeps every feature:
 - **Look**: Material's dark scheme generated from chartreuse `#7FFF00`, chartreuse itself as the accent; Roboto served by the app;
   inline Material Symbols; tokens in `src/ui/theme/tokens.css`, a contrast test on every pair.
 - **Tables**: every track list is a sortable table (any column, both directions, ranks from the full list, missing values last),
-  columns hidden by priority as the window narrows, two-line items on phones, "Showing 100 of 2,431" paging, arrow keys and Enter.
+  columns hidden by priority as the window narrows, two-line items on phones, "Showing the top 100 of 2,431" with Show 100 more, arrow keys and Enter.
 - **Details**: a side sheet with everything the app holds for a track (album, duration, added date, energy, audio source,
   listening time, first and last play, plays per month, outcomes, playlists), `?d=` in the address. Playlists, Artists and Mix
   are list–detail from 840 px.
@@ -51,7 +51,10 @@ phone keeps every feature:
 9. **Delegation** (2026-11-07): from S08d on, the controller rules and approves in the owner's place, except the push and merge to
    `main`.
 
-## Rulings that change behaviour (controller, recorded in the ledger)
+## Rulings that change behaviour (controller)
+
+Recorded with the owner's amendments in the spec's clarifications ("Amendments during the build"); the
+steps are in [`execution.md`](../../specs/003-web-first-redesign/execution.md).
 
 - Tab roots titled after their destination ("Listening", "Library"). No sort headers on phones; Playlist order, Under the radar
   sorts and Mix's Sort select stay usable there.
@@ -67,6 +70,8 @@ phone keeps every feature:
 - One Spotify quota lock-out shared by sync, Check on Spotify, Create playlist and Like all songs, kept across reloads in
   `localStorage`; Disconnect keeps it; Connect's `/me` inside it is a warning banner.
 - Escape in the search field clears it first, closes on the next press. Overview: two columns from 840 px, three from 1200 px.
+- The mix error shows under the open mix's header when the Mixes pane is folded or the window has one column (one copy), and
+  the "Mixes" button carries an error indicator (S08b, constitution VII).
 - The "Found tracks" chip has no count. The CC BY-SA credit sits in the "Well known" heading row.
 
 ## Out of scope (stated so it is not re-litigated)
@@ -81,7 +86,7 @@ No `DB_VERSION` bump: the Mix review adds optional row fields (`validated`, `spo
 `removed`); the Validated only / All tracks pick is session state; the lock-out is one `localStorage` key. Every old address opens the same content in its destination;
 `#/` now lands on the Overview, `#/mix/<key>` opens a saved mix, and any route takes `?d=<id>`. `?demo` exists only on
 `yarn dev`. The spec folder shares its number with `specs/003-fill-scan-gaps/` (round 003 on `main`, written in parallel): both
-stay, told apart by their names, because the redesign's controller, briefs and ledger point at this path until the round ends.
+stay, told apart by their names, because the round's execution plan and its steps point at this path until the round ends.
 
 ## Links
 
