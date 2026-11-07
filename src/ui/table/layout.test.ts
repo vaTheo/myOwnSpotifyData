@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { widestPriority, yearSortOffered } from './layout';
+import {
+  levelOf,
+  widestPriority,
+  widthLevel,
+  yearSortFor,
+  yearSortOn,
+  yearSortOffered,
+} from './layout';
 
 describe('widestPriority', () => {
   it('follows the container queries 720, 960 and 1120 px', () => {
@@ -20,5 +27,29 @@ describe('yearSortOffered', () => {
     expect(yearSortOffered({ twoLine: true, widestPriority: 4 })).toBe(true);
     expect(yearSortOffered({ twoLine: false, widestPriority: 1 })).toBe(true);
     expect(yearSortOffered({ twoLine: false, widestPriority: 2 })).toBe(false);
+  });
+});
+
+describe('widthLevel (S13c review M3)', () => {
+  it('changes only when the level or the compactBelow side changes', () => {
+    expect(widthLevel(721)).toBe(widthLevel(959));
+    expect(widthLevel(719)).not.toBe(widthLevel(720));
+    expect(widthLevel(500, 560)).not.toBe(widthLevel(600, 560));
+    expect(levelOf(widthLevel(500, 560))).toEqual({ widest: 1, narrow: true });
+    expect(levelOf(widthLevel(1200))).toEqual({ widest: 4, narrow: false });
+    expect(levelOf(null)).toEqual({ widest: 4, narrow: null });
+  });
+});
+
+describe('the Sort by year switch (S13c review M2)', () => {
+  it('is on only for Released ascending, and off returns the default order', () => {
+    expect(yearSortOn({ columnId: 'released', direction: 'asc' })).toBe(true);
+    expect(yearSortOn({ columnId: 'released', direction: 'desc' })).toBe(false);
+    expect(yearSortOn({ columnId: 'bpm', direction: 'asc' })).toBe(false);
+    expect(yearSortFor(true)).toEqual({
+      columnId: 'released',
+      direction: 'asc',
+    });
+    expect(yearSortFor(false)).toEqual({ columnId: null, direction: 'asc' });
   });
 });
