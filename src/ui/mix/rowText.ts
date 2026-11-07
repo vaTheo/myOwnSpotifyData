@@ -16,28 +16,49 @@ export function sourceLabel(row: TracklistRow): string {
   return row.detected === null ? 'added' : 'edited';
 }
 
+/** A menu link: `app` links are the Spotify app's own scheme, opened in place. */
+export interface PlayLink {
+  label: string;
+  href: string;
+  app?: true;
+}
+
 /**
  * The direct pages of a row, the ones that open on the track itself, never on
  * a search: Spotify from the Check answer, else from the library match (a
  * local file has no page), then Shazam's page while the row still reads as the
- * scan heard it. Empty when none is known; the caller adds the search pages.
+ * scan heard it. On a phone (`phone`) Play on Spotify is the app's own link
+ * (`spotify:track:…`); on a computer it is the web page, with "Open in Spotify
+ * app" after it. Empty when none is known; the caller adds the search pages.
  */
 export function playLinks(
   row: TracklistRow,
-  libraryTrackId: string | null
-): { label: string; href: string }[] {
-  const links: { label: string; href: string }[] = [];
+  libraryTrackId: string | null,
+  phone = false
+): PlayLink[] {
+  const links: PlayLink[] = [];
+  let id: string | null = null;
   if (typeof row.spotify === 'object') {
-    links.push({ label: 'Play on Spotify', href: row.spotify.url });
+    id = row.spotify.id;
   } else if (
     row.spotify === undefined &&
     libraryTrackId !== null &&
     !libraryTrackId.startsWith('spotify:')
   ) {
-    links.push({
-      label: 'Play on Spotify',
-      href: `https://open.spotify.com/track/${libraryTrackId}`,
-    });
+    id = libraryTrackId;
+  }
+  if (id !== null) {
+    const web =
+      typeof row.spotify === 'object'
+        ? row.spotify.url
+        : `https://open.spotify.com/track/${id}`;
+    const appHref = `spotify:track:${id}`;
+    if (phone) {
+      links.push({ label: 'Play on Spotify', href: appHref, app: true });
+    } else {
+      links.push({ label: 'Play on Spotify', href: web });
+      links.push({ label: 'Open in Spotify app', href: appHref, app: true });
+    }
   }
   if (row.shazamUrl && row.source === 'tracklistify') {
     links.push({ label: 'Shazam', href: row.shazamUrl });

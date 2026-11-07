@@ -289,7 +289,9 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   the bottom; the sort is only how you look at the list and is not saved. Each track's
   **Listen** menu (**Listen…** in the row menu on a phone) opens first the
   pages that go straight to the track: **Play on Spotify** (from Check on
-  Spotify, or from the same song in your library) and **Shazam** when known;
+  Spotify, or from the same song in your library; on a phone it opens the
+  Spotify app, on a computer the web page, with **Open in Spotify app**
+  after it) and **Shazam** when known;
   then store and preview searches (Beatport, Bandcamp, Discogs, SoundCloud,
   YouTube), which are search pages because the app never looks a track up by
   name.

@@ -422,7 +422,7 @@ screen, grouped by role under `src/ui/`.
   same columns, with "Set order" and a direction button, so a phone picks what a header would; `effectiveSort` falls back to the
   set's order when a column no longer applies. `tracklistView` (chip, decade, the edited row) and `viewRows` only filter now;
   `RowSort` is gone. The sort is component state: not saved with the mix, no Spotify read. The Listen menu (`listenItems`) lists
-  `playLinks` (`ui/mix/rowText.ts`: Play on Spotify from the Check answer or the library match, never a local file; Shazam while the
+  `playLinks` (`ui/mix/rowText.ts`: Play on Spotify from the Check answer or the library match, never a local file, as the `spotify:track:` app link on a phone, as the web page plus "Open in Spotify app" on a computer, app links opened in place; Shazam while the
   row is the scan's) before the dig links' search pages; no lookup by name is made for the other platforms (ADR-04).
 
 ## 14. Jobs and state (`model/state.ts`)

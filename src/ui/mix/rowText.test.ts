@@ -216,15 +216,27 @@ describe('the row year (round 005)', () => {
 });
 
 describe('playLinks: the direct pages first', () => {
-  it('Spotify from the Check answer, else from the library match', () => {
-    const found = row({
-      spotify: { id: 'abc', url: 'https://open.spotify.com/track/abc' },
-    });
+  const web = 'https://open.spotify.com/track/abc';
+
+  it('a computer gets the web page, then the Spotify app link', () => {
+    const found = row({ spotify: { id: 'abc', url: web } });
     expect(playLinks(found, 'zzz')).toEqual([
-      { label: 'Play on Spotify', href: 'https://open.spotify.com/track/abc' },
+      { label: 'Play on Spotify', href: web },
+      { label: 'Open in Spotify app', href: 'spotify:track:abc', app: true },
     ]);
-    expect(playLinks(row(), 'zzz')).toEqual([
-      { label: 'Play on Spotify', href: 'https://open.spotify.com/track/zzz' },
+  });
+
+  it('a phone gets one Play on Spotify, the app link', () => {
+    const found = row({ spotify: { id: 'abc', url: web } });
+    expect(playLinks(found, 'zzz', true)).toEqual([
+      { label: 'Play on Spotify', href: 'spotify:track:abc', app: true },
+    ]);
+  });
+
+  it('without a Check answer it uses the library match', () => {
+    expect(playLinks(row(), 'zzz').map((l) => l.href)).toEqual([
+      'https://open.spotify.com/track/zzz',
+      'spotify:track:zzz',
     ]);
   });
 
@@ -237,7 +249,7 @@ describe('playLinks: the direct pages first', () => {
   it('Shazam only for a row still reading as the scan heard it, after Spotify', () => {
     const shazam = 'https://www.shazam.com/track/1/x';
     expect(
-      playLinks(row({ shazamUrl: shazam }), 'zzz').map((l) => l.label)
+      playLinks(row({ shazamUrl: shazam }), 'zzz', true).map((l) => l.label)
     ).toEqual(['Play on Spotify', 'Shazam']);
     expect(
       playLinks(row({ shazamUrl: shazam, source: 'manual' }), null)

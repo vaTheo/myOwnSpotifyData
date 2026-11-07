@@ -5,6 +5,9 @@ by feature, newest first, and name their spec under `docs/specs/`. Entries befor
 
 ## 2026-11-08 — Opening a mix checks it on Spotify
 
+The Listen menu's **Play on Spotify** opens the Spotify app on a phone (the `spotify:track:` link); on a computer it opens the web page and
+a new **Open in Spotify app** entry follows it. Without the app installed, the app link does nothing.
+
 Opening a saved mix now runs **Check on Spotify** by itself for its named tracks never checked, once per mix per page session: only with
 **Automatic updates** on, a Spotify session, no lock-out and no other Spotify job running, and never in the demo; the answers are saved with
 the mix, so it is searched once. A refusal shows nothing; a failure shows inline as before. Decision: ADR-13 (amends ADR-02 and ADR-12;

@@ -120,15 +120,16 @@ function referencesLine(l: Line): string | null {
  * then Shazam's page while the row still reads as the scan heard it. No
  * request is made until one is opened.
  */
-function listenItems(l: Line): RowMenuItem[] {
+function listenItems(l: Line, phone: boolean): RowMenuItem[] {
   const { row } = l;
   if (!isIdentified(row)) return [];
   // The direct pages first, then the search pages (the other platforms have
   // no page the app may find by name, ADR-04).
-  return [
-    ...playLinks(row, l.match?.trackId ?? null),
+  const links: { label: string; href: string; app?: true }[] = [
+    ...playLinks(row, l.match?.trackId ?? null, phone),
     ...digLinks(row.artist, row.title),
-  ].map((x) => ({ label: x.label, href: x.href }));
+  ];
+  return links.map((x) => ({ label: x.label, href: x.href, app: x.app }));
 }
 
 /**
@@ -370,7 +371,7 @@ function columns(on: {
       priority: 2,
       width: '48px',
       cell: (l) => {
-        const items = listenItems(l);
+        const items = listenItems(l, false);
         return items.length === 0 ? null : (
           <RowMenu
             icon="headphones"
@@ -415,7 +416,7 @@ function columns(on: {
         }
         // On a phone one "Listen…" item opens the Listen links in the same
         // list, so More stays short (fix round 1, R3).
-        const listen = compact ? listenItems(l) : [];
+        const listen = compact ? listenItems(l, true) : [];
         if (listen.length > 0) items.push({ label: 'Listen…', items: listen });
         return <RowMenu label={`More for ${nameOf(row)}`} items={items} />;
       },
