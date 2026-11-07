@@ -8,7 +8,7 @@ survives compaction.
 
 ## Resuming after a compaction
 
-1. Read this file, then the ledger, `.superpowers/sdd/<this plan's directory>/progress.md` (run
+1. Read this file, then the ledger, the controller's local working file (not committed), `.superpowers/sdd/<this plan's directory>/progress.md` (run
    `bash ~/.claude/plugins/cache/anthropic-plugin-directory/superpowers/6.4.2-8ca22dba9a94/skills/subagent-driven-development/scripts/sdd-workspace specs/003-web-first-redesign/execution.md`
    to print the directory).
 2. Run `git log --oneline -12`.
@@ -110,7 +110,7 @@ S08 to S08d build on its code and on `contracts/screens.md` §12 "From round 004
 
 1. Add or update the step's pages in `tools/shots/pages.ts`: role and text selectors, `window.__demo.set` for job states, `READY` for
    built stories.
-2. Run `yarn -s shots --reporter=dot > <scratchpad>/shots.log 2>&1; echo $?`. It takes about four minutes. For a quick look while
+2. Run `yarn -s shots --reporter=dot > <scratchpad>/shots.log 2>&1; echo $?`. A full run takes about fifteen to twenty minutes. For a quick look while
    working: `yarn -s shots --reporter=dot --project=1440 -g "<page ids>"`.
 3. Read `yarn -s shots:summary <checks>`. Findings in the screens your step owns must reach 0. Findings left in screens of later
    steps are listed in your report, not fixed.

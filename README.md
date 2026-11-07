@@ -195,6 +195,8 @@ only here.
   keeps what it synced and says when to retry. **One lock-out for every
   Spotify read**: until then Sync, Check on Spotify, Create playlist and Like
   all songs wait, the lock-out survives a reload, and Disconnect keeps it.
+  They also take turns: while one of them reads Spotify, the others' buttons
+  rest and say which one runs.
 - **Listening history → Import** takes `my_spotify_data.zip` from Spotify's
   privacy page (request _Extended streaming history_; it arrives by email):
   pick it, or drop it on the import area on a computer. A play counts once a

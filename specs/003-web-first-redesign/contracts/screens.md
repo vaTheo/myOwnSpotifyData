@@ -395,8 +395,8 @@ aggregate.
 
 **From round 004 and the owner's decisions (2026-11-06, tasks T120–T129)**. `origin/main` (rounds 003 "fill scan gaps" and 004
 "worker progress and queue control") is merged before S08. With the "Owner's additions", this is the complete Mix contract;
-it takes precedence over both lists above where they differ, and **(replaces …)** names the line it changes. Research:
-`.superpowers/sdd/execution/general-dev-mix-findings.md`.
+it takes precedence over both lists above where they differ, and **(replaces …)** names the line it changes. Its research
+findings are folded into the spec's clarifications and tasks T120–T129.
 
 - **Left pane, the Mixes list** (one row per link: a saved mix, a request, or both):
   - **Order (replaces "newest first")**: running requests first; then waiting ones in the order the worker takes them

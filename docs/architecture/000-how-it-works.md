@@ -71,7 +71,10 @@ The API client (`createClient`, `client.ts`): bearer token, 401 refresh-once, 42
   While it holds, Sync now, Sync this playlist, Check on Spotify, Create playlist, Like all songs and the Connect tap's `/me`
   refuse to read Spotify, each with its line naming the held end (`quotaRefusal`: "Spotify quota reached. Sync again / Check again / Try again after …"), and their buttons rest
   disabled. A timer to the lock's end clears it (`lapseDelay`, cleaned up by the signal's `effect`), so the buttons and the warnings
-  come back on time without another render.
+  come back on time without another render. **One reader at a time** (S13): sync, Check on Spotify, Create playlist and Like all
+  songs each refuse to start while another of them runs (`busyRefusal`, read through `spotifyBusyMessage` in `state.ts`: "Check on
+  Spotify is reading Spotify: sync once it ends."), so two never double the request rate toward the lock-out; their buttons rest
+  disabled with that line inline (a sync started some other way says it in a banner, as its lock-out does).
 
 ## 5. `util/`
 
@@ -225,7 +228,8 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 **The review** (spec 003 §12, S08c):
 
 - `spotifyCheck.ts` (**Check on Spotify**, T117): a read on the open mix header's tap only, never on load or open (ADR-02). Gated like
-  Create playlist in `startSpotifyCheck` (`model/state.ts`): a Spotify session, no sync running, no quota lock-out. `runSpotifyCheck`
+  Create playlist in `startSpotifyCheck` (`model/state.ts`): a Spotify session, no other Spotify reader running (§4), no quota
+  lock-out, and no check of another mix. `runSpotifyCheck`
   runs `searchTrack`/`pickMatch` unchanged on each named track not checked yet (`rowsToCheck`: candidates and second-listen rows
   included, gaps and "ID" rows never), one at a time, with "Checked 12 of 40" and Stop; it never throws. Each answer is kept on the row
   as optional fields (`spotify: {id, url} | 'not-found'`, `checkedAt`; no `DB_VERSION` bump) and the mix is saved at the end (its saved
@@ -292,8 +296,10 @@ screen, grouped by role under `src/ui/`.
   on compact), `TopBar.tsx` (the title from `titles.ts`, back on a detail, the screen's actions, the search field, the Activity
   button) and `ScreenTabs.tsx` (Top · Crate, Playlists · Artists). The frame paints before anything is awaited: `main.tsx` calls
   `render` before `completeLogin` and `loadFromDb`, and drives `bootPhase` (`'signin' | 'loading' | 'ready'`, in `app.tsx`).
-  `src/ui/ActivityButton.tsx` reads `activeJobs` (`ui/jobs.ts`, over the job signals of §14, read only) and links to the place that owns
-  each job; it never starts, stops or retries one. Banners sit under the top bar.
+  `src/ui/ActivityButton.tsx` reads `activeJobs` (`ui/jobs.ts`, over the job signals of §14, read only, Check on Spotify included)
+  and links to the place that owns each job (a Mix job to its own mix); it never starts, stops or retries one, and its panel closes
+  with the last job. `ScreenTabs` are navigation links (`nav` named Listening or Library, the current one `aria-current="page"`).
+  A `StatusLine` is a live region (an error `alert`, the rest `status`). Banners sit under the top bar.
 - **Destinations and addresses** (`src/router.ts`): Overview (`#/`, also an empty or unknown address), Listening (`#/top`,
   `#/crate`, `#/crate/<view>`, `#/crate/year/<YYYY-MM>`), Library (`#/playlists`, `#/playlist/<id>`, `#/artists`,
   `#/artist/<key>`), Mix (`#/mix`; `#/mix/<key>` opens a saved mix from this browser, never a network call, and an unknown key
@@ -312,7 +318,9 @@ screen, grouped by role under `src/ui/`.
 - **Details and list–detail**: `layout/SideSheet.tsx` docks the sheet at 400 px on large windows, a modal on medium and
   expanded, full screen on compact; `details/TrackDetails.tsx` with the pure `trackFacts.ts` shows everything the app holds for a
   track. `layout/ListDetail.tsx` puts Playlists, Artists and the Mixes list beside the open item from 840 px; on compact the item
-  opens full screen with back. `layout/escape.ts` closes one layer per Escape by rank (search, Activity, the sheet, a folded
+  opens full screen with back; its list pane shows 100 items at a time, the open one always among them. A modal sheet and the
+  search view hold the page still through one counted `layout/scrollLock.ts`. Screens hand `DataTable` stable columns, rows and
+  `rankOf` (`table/lastCall.ts` or `useMemo`), so it sorts only when they change. `layout/escape.ts` closes one layer per Escape by rank (search, Activity, the sheet, a folded
   pane, the detail pane), and the focus goes back to the row (`data-row-id`, `layout/focus.ts`).
 - **Charts** (`ui/charts/`): inline SVG, no library. `series.ts` (pure: a month outside the history is a gap, zero is drawn as
   zero), `MonthBars.tsx`, `Meter.tsx` (the finish rate in its band), `YearMonthGrid.tsx` (By year's period picker). Every chart
@@ -343,40 +351,44 @@ screen, grouped by role under `src/ui/`.
   drops it (`import.meta.env.DEV`). `tools/shots/` (Playwright with axe-core, outside `yarn test` and CI): `pages.ts` lists every
   page and state; `all.shots.ts` opens each at 1440, 1024, 768 and 390 px with the network blocked outside 127.0.0.1 and the
   clock frozen, runs `checks.ts` (page scroll, clipped text, overlap, column alignment, target size, frame in viewport), the focus
-  check and axe, and saves screenshots; `keyboard.shots.ts` walks every screen with the keyboard; `summary.ts` and
-  `contact-sheet.ts` read the results.
+  check and axe, and saves screenshots; `keyboard.shots.ts` walks every screen with the keyboard; both open pages through
+  `open.ts`, so a `console.error` fails either. The runner always starts this worktree's own server (never reuses one on 5173),
+  and a full run first empties `findings/` and `pages/` (`global-setup.ts`); `summary.ts` and `contact-sheet.ts` read the results.
 
 ## 14. Jobs and state (`model/state.ts`)
 
 | Job               | Wrapper                                                       | Started from                                                   | In `jobsBusy()`                                                                                                                                                       |
 | ----------------- | ------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sync              | `startSync` (`src/model/state.ts:920`)                        | Settings, a playlist's button                                  | yes                                                                                                                                                                   |
-| History import    | `startImport` (`:993`)                                        | `#/import`                                                     | yes                                                                                                                                                                   |
-| ReccoBeats lookup | `startLookup` (`:1051`)                                        | Settings · Audio data                                          | yes                                                                                                                                                                   |
-| Rekordbox import  | `startRekordboxImport` (`:1093`)                               | Settings · Audio data                                          | yes                                                                                                                                                                   |
-| Artist reach      | `startReach` (`:1122`)                                         | Settings · Artist reach                                        | yes                                                                                                                                                                   |
-| Mix lookup        | `startMixLookup` (`:1184`), `startTracklistifyImport` (`:1273`) | `#/mix`                                                        | no                                                                                                                                                                    |
-| Create playlist   | `startCreatePlaylist` (`:1562`)                                | `#/mix`                                                        | no                                                                                                                                                                    |
-| Check on Spotify  | `startSpotifyCheck` (`:1767`), `stopSpotifyCheck` (`:1751`)       | `#/mix`, the open mix's header                                 | no (Spotify reads only, one track at a time; refused while a sync runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
-| Like all songs    | `startLikePlaylist` (`:1902`)                                 | Playlist screen                                                | no                                                                                                                                                                    |
-| Server pull       | `startServerPull` (`:354`)                                    | the open (after the first paint), Settings · Server · Sync now | yes                                                                                                                                                                   |
-| Server push       | `queueServerPush` (`:310`)                                    | the tail of the five library jobs, every mix save or delete    | no                                                                                                                                                                    |
-| Identify request  | `startIdentifyRequest` (`:1471`)                         | `#/mix`, the Identify on my computer button                    | no (one insert, under a second; no `confirm()`; Disconnect keeps it)                                                                                                  |
+| Sync              | `startSync` (`src/model/state.ts:954`)                        | Settings, a playlist's button                                  | yes                                                                                                                                                                   |
+| History import    | `startImport` (`:1034`)                                        | `#/import`                                                     | yes                                                                                                                                                                   |
+| ReccoBeats lookup | `startLookup` (`:1092`)                                        | Settings · Audio data                                          | yes                                                                                                                                                                   |
+| Rekordbox import  | `startRekordboxImport` (`:1134`)                               | Settings · Audio data                                          | yes                                                                                                                                                                   |
+| Artist reach      | `startReach` (`:1163`)                                         | Settings · Artist reach                                        | yes                                                                                                                                                                   |
+| Mix lookup        | `startMixLookup` (`:1225`), `startTracklistifyImport` (`:1314`) | `#/mix`                                                        | no                                                                                                                                                                    |
+| Create playlist   | `startCreatePlaylist` (`:1603`)                                | `#/mix`                                                        | no                                                                                                                                                                    |
+| Check on Spotify  | `startSpotifyCheck` (`:1810`), `stopSpotifyCheck` (`:1794`)       | `#/mix`, the open mix's header                                 | no (Spotify reads only, one track at a time; refused while another Spotify reader runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
+| Like all songs    | `startLikePlaylist` (`:1954`)                                 | Playlist screen                                                | no                                                                                                                                                                    |
+| Server pull       | `startServerPull` (`:356`)                                    | the open (after the first paint), Settings · Server · Sync now | yes                                                                                                                                                                   |
+| Server push       | `queueServerPush` (`:312`)                                    | the tail of the five library jobs, every mix save or delete    | no                                                                                                                                                                    |
+| Identify request  | `startIdentifyRequest` (`:1512`)                         | `#/mix`, the Identify on my computer button                    | no (one insert, under a second; no `confirm()`; Disconnect keeps it)                                                                                                  |
 
-The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:851`). The mix and like
+The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:885`). The mix and like
 jobs write no library store and rebuild no `Model`, so they need no exclusion; each guards its own re-entry on its state's `status`, shows
-every failure inline (never a banner) and is reset by `disconnect` (`:1963`). Every Spotify reader shares one quota lock-out
-(`spotifyQuotaLock`, §4): a quota answer to any of them is remembered for all, across reloads, and `disconnect` keeps it.
+every failure inline (never a banner) and is reset by `disconnect` (`:2015`). Every Spotify reader shares one quota lock-out
+(`spotifyQuotaLock`, §4): a quota answer to any of them is remembered for all, across reloads, and `disconnect` keeps it. The four
+readers (sync, Check on Spotify, Create playlist, Like all songs) also run one at a time (§4). Create playlist's state names its mix
+(`mixUrl`), shows only on that mix and survives Close while it runs; before it saves, it keeps the check answers already stored for the
+mix (`keepStoredAnswers`).
 
 Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
-(`ACCOUNT_SWITCH_CONFIRM`, `:952`), an import that covers less than the stored history (`replaceQuestion`, `:1004`), Remove server data
-(`REMOVE_SERVER_DATA_CONFIRM`, `:437`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:2059`, asked from the request's row in the Mixes list,
-`ui/mix/MixListPane.tsx`) and Stop a running scan (`STOP_REQUEST_CONFIRM`, `:2076`, round 004, asked from the Mixes list row or
+(`ACCOUNT_SWITCH_CONFIRM`, `:993`), an import that covers less than the stored history (`replaceQuestion`, `:1045`), Remove server data
+(`REMOVE_SERVER_DATA_CONFIRM`, `:439`), Cancel a waiting identify request (`CANCEL_REQUEST_CONFIRM`, `:2111`, asked from the request's row in the Mixes list,
+`ui/mix/MixListPane.tsx`) and Stop a running scan (`STOP_REQUEST_CONFIRM`, `:2128`, round 004, asked from the Mixes list row or
 the open mix's header, `ui/mix/RunLine.tsx`; the scan keeps its tracks); Disconnect, asked by its button in
 `ui/settings/DangerZone.tsx` (`:26`); and Remove a saved mix ("Remove this saved mix?"), asked by its row menu in
 `ui/mix/MixListPane.tsx` (`:173`). Non-destructive, in
-`state.ts`: Like all songs' count (`:1925`) and the four "replace the working list" questions of the Mix screen (`:1257`, `:1287`,
-`:1319`, `:1341`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
+`state.ts`: Like all songs' count (`:1977`) and the four "replace the working list" questions of the Mix screen (`:1298`, `:1328`,
+`:1360`, `:1382`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
 old behaviour.
 
 ## 15. Build, CI and deploy
@@ -426,7 +438,7 @@ payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history 
   `hits` (clips matched) beside `confidence` (best score); `viewRows` sorts by time, clips or score and filters "heard once"
   in the view only.
 - Wiring in `model/state.ts`: `serverState` (rendered by the Settings server card), `recordConnectedAccount` (one `/me` on the Connect
-  tap, `:346`), `queueServerPush` (flags `serverPending` first, one push at a time), `startServerPull` (joins `jobsBusy()`, ends in
+  tap, `:450`), `queueServerPush` (flags `serverPending` first, one push at a time), `startServerPull` (joins `jobsBusy()`, ends in
   `loadFromDb()` and `loadSavedMixes()`), `startServerSync` (pending pushes, then the pull: the open, the card's button and `autoSync.ts`),
   `startServerSignOut`, `removeServerData` (the one new `confirm()`). `offline` and `paused` set no banner and keep the pending flags.
 - Four new `meta` names and no `DB_VERSION` bump: `serverStamps`, `serverPending`, `serverLastSync`, `mixDeleted` (written by
