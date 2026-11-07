@@ -6,12 +6,15 @@ import {
   historySummary,
   lastSyncAt,
   loadSavedMixes,
+  loadServerPending,
   mixError,
   mixJobs,
   model,
   rekordboxSummary,
   savedMixes,
   serverLastSyncAt,
+  serverPending,
+  serverPendingError,
   serverState,
   spotifyLockedUntil,
   syncState,
@@ -25,6 +28,7 @@ import { NoData } from '../components/NoData';
 import { StatusLine } from '../components/StatusLine';
 import { rotationMonths } from '../crate/selections';
 import { CHIP_FLAG } from '../mix/MixListPane';
+import { showTopTracksThisMonth } from '../Top';
 import {
   overviewBlocks,
   type OverviewBlock,
@@ -57,6 +61,7 @@ function Item(p: {
   item: OverviewItem;
   chart: boolean;
   chip?: OverviewBlock['chip'];
+  onClick?: () => void;
 }) {
   const { item } = p;
   const body = (
@@ -93,7 +98,7 @@ function Item(p: {
   return (
     <li>
       {item.href ? (
-        <a class="ov-item" href={item.href}>
+        <a class="ov-item" href={item.href} onClick={p.onClick}>
           {body}
         </a>
       ) : (
@@ -111,6 +116,8 @@ function Item(p: {
 function BlockCard({ block }: { block: OverviewBlock }) {
   // The last saved mix leads with its title and chip, then its date.
   const mixFirst = block.id === 'mix';
+  // Top's period is a session setting: the card's links open its 4 weeks.
+  const onClick = block.id === 'top' ? showTopTracksThisMonth : undefined;
   const list = block.items && block.items.length > 0 && (
     <ol class="ov-items">
       {block.items.map((item, i) => (
@@ -119,6 +126,7 @@ function BlockCard({ block }: { block: OverviewBlock }) {
           item={item}
           chart={block.id === 'rotation'}
           chip={block.chip}
+          onClick={onClick}
         />
       ))}
     </ol>
@@ -127,7 +135,7 @@ function BlockCard({ block }: { block: OverviewBlock }) {
     <Card
       class={`ov-card ov-${block.id}`}
       title={
-        <a class="ov-link" href={block.link}>
+        <a class="ov-link" href={block.link} onClick={onClick}>
           <span>{block.title}</span>
           <span aria-hidden="true">›</span>
         </a>
@@ -168,7 +176,9 @@ function BlockCard({ block }: { block: OverviewBlock }) {
 /**
  * The Overview, the home (spec 003, US8, contracts/screens.md §3): a feed
  * of cards, one column on phones, two on medium and expanded windows, three
- * on large ones. It renders from what the signals already hold, read from
+ * on large ones (a ruling: three at 840 px make cards too narrow for their
+ * rows). The costly figures are memoised in `blocks.ts` and `coverage`, so
+ * a job's progress ticks re-render it cheaply. It renders from what the signals already hold, read from
  * IndexedDB at boot; nothing here reads Spotify (Principle II). The saved
  * mixes are read after the first paint (research D14).
  */
@@ -176,6 +186,8 @@ export function Overview() {
   useEffect(
     () =>
       afterPaint(() => {
+        // Two local reads, never a server or Spotify one; neither throws.
+        void loadServerPending();
         void loadSavedMixes().then(() => {
           mixesRead.value = true;
         });
@@ -195,6 +207,8 @@ export function Overview() {
     artistReachSummary: artistReachSummary.value,
     serverState: serverState.value,
     serverLastSyncAt: serverLastSyncAt.value,
+    serverPending: serverPending.value,
+    serverPendingError: serverPendingError.value,
     mixes: mixesRead.value ? savedMixes.value : null,
     mixJobs: mixJobs.value,
     mixError: mixError.value,

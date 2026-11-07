@@ -1,9 +1,12 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import {
   jobsBusy,
+  loadServerPending,
   removeServerData,
   serverLastSyncAt,
   serverLinkSent,
+  serverPending,
+  serverPendingError,
   serverSession,
   serverState,
   startServerLink,
@@ -17,7 +20,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
 import { formatDateTime, plural } from '../format';
-import { usedShare } from './lines';
+import { pendingLine, usedShare } from './lines';
 import { sectionDomId } from './sections';
 
 const DESCRIPTION =
@@ -71,6 +74,13 @@ export function ServerSection() {
   const working =
     jobsBusy() || state.status === 'pushing' || state.status === 'pulling';
   const id = sectionDomId('server');
+  // The changes waiting to send: one local read once the page is up.
+  useEffect(() => {
+    const timer = setTimeout(() => void loadServerPending(), 0);
+    return () => clearTimeout(timer);
+  }, []);
+  const pending = serverPending.value;
+  const pendingError = serverPendingError.value;
   if (state.status === 'unset') {
     return (
       <Card
@@ -118,6 +128,8 @@ export function ServerSection() {
           <StatusLine kind="success">
             Connected as {session.email || 'the owner'}.
           </StatusLine>
+          {pending && <StatusLine>{pendingLine(pending)}</StatusLine>}
+          {pendingError && <StatusLine kind="error">{pendingError}</StatusLine>}
           {state.status === 'connected' && (
             <>
               <StatusLine>

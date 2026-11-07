@@ -5,14 +5,18 @@
  * so the two never differ (SC-009), and nothing here reads Spotify or the
  * database: the caller hands in what the signals already hold.
  */
-import type { MixJobs, MixRow } from '../../db/schema';
+import type { MixJobs, MixRow, PlayRow, ServerPending } from '../../db/schema';
 import { mixListItems, type MixChipKind } from '../../features/mix/mixList';
 import type { ArtistReachSummary } from '../../features/reachRun';
 import type { RekordboxSummary } from '../../features/rekordboxImport';
 import type { ImportSummary } from '../../history/importer';
 import { topTracks, type Model } from '../../model/aggregate';
 import { coverage } from '../../model/coverage';
-import { heavyRotation, lastMonths } from '../../model/crate';
+import {
+  heavyRotation,
+  lastMonths,
+  type RotationItem,
+} from '../../model/crate';
 import { reachCoverage } from '../../model/reach';
 // Type-only: this file never evaluates state.ts under Vitest.
 import type { CrateStatus } from '../../model/state';
@@ -22,6 +26,7 @@ import { activeLock, quotaRefusal } from '../../spotify/quotaLock';
 import type { SyncState } from '../../sync/runner';
 import { monthSeries, type MonthPoint } from '../charts/series';
 import { playLabel, staleMonthKey, yearSpanLabel } from '../crate/labels';
+import { pendingValue } from '../settings/lines';
 import {
   artistNames,
   formatDate,
@@ -103,6 +108,10 @@ export interface OverviewInput {
   artistReachSummary: ArtistReachSummary | null;
   serverState: ServerStatus;
   serverLastSyncAt: number | null;
+  /** The datasets waiting to send to the server; null until read. */
+  serverPending: ServerPending | null;
+  /** Why the pending flags could not be read, or null. */
+  serverPendingError: string | null;
   /** Saved mixes newest first; null until they are read. */
   mixes: MixRow[] | null;
   mixJobs: MixJobs;
@@ -125,6 +134,41 @@ const SYNC: OverviewAction = {
 
 const count = (n: number): string => n.toLocaleString();
 
+let rotationMemo: {
+  plays: PlayRow[];
+  key: string;
+  items: RotationItem[];
+} | null = null;
+
+/**
+ * `heavyRotation` memoised on the play rows, the window's months and its
+ * length: the Overview re-renders on every job's progress tick, and the
+ * list only changes with a new model or a new month.
+ */
+export function rotationOf(
+  plays: PlayRow[],
+  now: Date,
+  months: number
+): RotationItem[] {
+  const key = lastMonths(now, months).join(',');
+  if (rotationMemo?.plays === plays && rotationMemo.key === key) {
+    return rotationMemo.items;
+  }
+  const items = heavyRotation(plays, now, months);
+  rotationMemo = { plays, key, items };
+  return items;
+}
+
+let listeningMemo: { plays: PlayRow[]; ms: number } | null = null;
+
+/** Every play row's listening time, summed once per model. */
+export function listeningMs(plays: PlayRow[]): number {
+  if (listeningMemo?.plays === plays) return listeningMemo.ms;
+  const ms = plays.reduce((sum, row) => sum + row.msPlayed, 0);
+  listeningMemo = { plays, ms };
+  return ms;
+}
+
 function listening(p: OverviewInput): OverviewBlock {
   const base = {
     id: 'listening' as const,
@@ -141,7 +185,7 @@ function listening(p: OverviewInput): OverviewBlock {
       action: IMPORT,
     };
   }
-  const ms = p.model?.plays.reduce((sum, row) => sum + row.msPlayed, 0);
+  const ms = p.model ? listeningMs(p.model.plays) : undefined;
   const stale = staleMonthKey(summary.range, p.now);
   return {
     ...base,
@@ -155,7 +199,11 @@ function listening(p: OverviewInput): OverviewBlock {
       { label: 'Years', value: yearSpanLabel(summary.range) },
       { label: 'Imported', value: formatDate(summary.importedAt) },
     ],
-    caption: historyLine(summary),
+    // Only a version 2 summary knows its zone, as in HistorySection.
+    caption: historyLine(
+      summary,
+      summary.version === 2 ? summary.zone : undefined
+    ),
     ...(stale
       ? {
           warning: `History ends ${monthLabel(stale)}. Import a newer export for recent plays.`,
@@ -190,7 +238,7 @@ function rotation(p: OverviewInput): OverviewBlock {
     };
   }
   const m = p.model;
-  const items = heavyRotation(m.plays, p.now, p.rotationMonths);
+  const items = rotationOf(m.plays, p.now, p.rotationMonths);
   const keys = lastMonths(p.now, p.rotationMonths);
   const range = p.historySummary?.range ?? null;
   return {
@@ -268,8 +316,11 @@ function syncWarning(p: OverviewInput): string | undefined {
   if (shared !== null) {
     return quotaRefusal('sync', shared, at, formatDateTime) ?? undefined;
   }
-  if (s.status === 'error' && s.pending.length > 0) {
-    return `${plural(s.pending.length, 'playlist')} pending. Last error: ${s.message}`;
+  if (s.status === 'error') {
+    // As the Sync card: the error always shows, the pending count with it.
+    return s.pending.length > 0
+      ? `${plural(s.pending.length, 'playlist')} pending. Last error: ${s.message}`
+      : `Last error: ${s.message}`;
   }
   return undefined;
 }
@@ -411,6 +462,7 @@ function server(p: OverviewInput): OverviewBlock {
     id: 'server' as const,
     title: 'Server',
     link: routeHref({ name: 'settings' }),
+    ...(p.serverPendingError ? { error: p.serverPendingError } : {}),
   };
   const s = p.serverState;
   if (s.status === 'unset') return { ...base, state: 'hidden', figures: [] };
@@ -426,7 +478,12 @@ function server(p: OverviewInput): OverviewBlock {
   const last = s.status === 'connected' ? s.lastSyncAt : p.serverLastSyncAt;
   const figures: OverviewFigure[] = [
     { label: 'Last sync', value: last ? formatDateTime(last) : 'never' },
+    {
+      label: 'Waiting to send',
+      value: p.serverPending ? pendingValue(p.serverPending) : null,
+    },
   ];
+  const readError = p.serverPendingError;
   switch (s.status) {
     case 'pushing':
     case 'pulling':
@@ -452,7 +509,12 @@ function server(p: OverviewInput): OverviewBlock {
           'Server paused. Resume it from the Supabase dashboard, then open the app again.',
       };
     case 'error':
-      return { ...base, state: 'ready', figures, error: s.message };
+      return {
+        ...base,
+        state: 'ready',
+        figures,
+        error: readError ? `${s.message} ${readError}` : s.message,
+      };
     case 'connected':
       return {
         ...base,

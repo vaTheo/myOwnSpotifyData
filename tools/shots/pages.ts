@@ -1572,6 +1572,23 @@ export const PAGES: ShotPage[] = [
     hash: '#/',
     setup: mixesRead,
   },
+  {
+    // A connected server with two datasets waiting to send (FR-050).
+    id: 'overview-pending',
+    hash: '#/',
+    setup: async (page) => {
+      await mixesRead(page);
+      await setState(page, 'serverSession', SERVER_SESSION);
+      await setState(page, 'serverState', SERVER_CONNECTED);
+      // The Overview's own read lands first (nothing waits in the demo).
+      await page
+        .getByText('Waiting to send', { exact: true })
+        .locator('..')
+        .getByText('0', { exact: true })
+        .waitFor();
+      await setState(page, 'serverPending', { history: true, mixes: true });
+    },
+  },
   { id: 'overview-locked', variant: 'locked', hash: '#/', setup: mixesRead },
   {
     id: 'overview-no-reach',
