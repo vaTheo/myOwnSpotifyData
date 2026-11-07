@@ -91,13 +91,13 @@ one frame.
 | VII. Every failure is shown; Under the radar rules | Every surface kept | **Pass**: Settings `StatusLine`s, inline Mix and Like errors, `errorBanner`/`warnBanner` banners; listeners and fans in two columns, never summed; `NoData` never shows 0; Well known stays a heading |
 | Tooling: lean, ask before a dependency | No runtime package; the font and the two dev dependencies are approved | **Pass**: the owner approved Roboto and picked Playwright (with axe-core) on 2026-11-06; both are dev-only, outside CI and `yarn test`; icons are copied paths; `material-color-utilities` was run outside the repo |
 | Pins: TypeScript ~6.0.3, Vite explicit | Unchanged | **Pass** |
-| No DOM tests; logic in pure functions | New logic is pure and tested | **Pass**: D17 lists the functions. The Playwright loop is a developer check run by `yarn shots`, outside the suite and CI (D19), and ADR-10 records it |
+| No DOM tests; logic in pure functions | New logic is pure and tested | **Pass**: D17 lists the functions. The Playwright loop is a developer check run by `yarn shots`, outside the suite and CI (D19), and ADR-11 records it |
 | Confirms listed in How it works §14 | None new, none reworded | **Pass** |
 | A new job decides `jobsBusy()`/`disconnect` | No new job | **Pass**: the activity button reads existing states |
 | Round documents | Spec, inventory, how-it-works, README, CHANGELOG, ADR, Limits | **Planned**: delivery step 11 |
 
 **Post-design re-check** (after Phase 1): unchanged. The constitution's preamble ("uses on an Android phone") is wording, not a
-principle. It gets a PATCH amendment (2.0.3) with ADR-10 in step 11, as the spec's Constitution notice says. Complexity Tracking
+principle. It gets a PATCH amendment (2.0.3, made 2.1.1 since `main` reached 2.1.0) with ADR-11 (ADR-10 was taken on `main`) in step 11, as the spec's Constitution notice says. Complexity Tracking
 stays empty.
 
 ## Project Structure
@@ -211,11 +211,11 @@ The "Check" column names the quickstart sections run on top of the loop.
 
 - `docs/specs/2026-11-06-web-first-redesign-design.md`, from the spec and this plan;
 - Contributing and the root `CLAUDE.md` commands: `yarn shots`, `?demo`, and the visual loop as the end of every UI change;
-- `docs/architecture/700-adr/ADR-10-web-first-material-3.md` (web-first adaptive layout, Material 3 dark with chartreuse, five
+- `docs/architecture/700-adr/ADR-11-web-first-material-3.md` (web-first adaptive layout, Material 3 dark with chartreuse, five
   destinations), linked both ways with the ADR index;
-- the constitution PATCH 2.0.3 (preamble wording) and the first line of the root `CLAUDE.md`;
+- the constitution PATCH 2.1.1 (preamble wording) and the first line of the root `CLAUDE.md`;
 - How the app works §13 (`ui/` and routing: frame, destinations, `?d=`, tables, the size-class rules);
-- the feature inventory: row F20, and F4 no longer "default route";
+- the feature inventory: row F21 (F20 is round 005 on `main`), and F4 no longer "default route";
 - `README.md` (the owner's manual: navigation, search, filters, Overview);
 - `CHANGELOG.md`;
 - Limits and roadmap ("light theme: not built, owner's choice");

@@ -173,7 +173,7 @@ The whole card is one link.
 | ----------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | Heavy rotation    | Plays in window · Lifetime · Flag ("New", or "not in a playlist") | `MonthBars` over the window                                            |
 | Forgotten gems    | Plays · Last played (month) · Flag                                | `MonthBars` over the last 24 months                                    |
-| All-time classics | Years played ("6 of 9") · Plays · Flag                            | plays per year across the span (a dash year as a gap)                  |
+| All-time classics | Years played ("6 of 9") · Plays · Flag                            | plays per year across the span (a year with no plays inside the import as a zero tick, FR-026)                  |
 | By year           | Plays in selection · Of year / all time · Flag                    | `MonthBars` over the selected year (Winter adds the previous December) |
 | Finish rate       | `Meter` (% finished) · Finished of outcomes · Skipped · Unclear   | —                                                                      |
 
@@ -458,7 +458,7 @@ it takes precedence over both lists above where they differ, and **(replaces …
   the mix); only new tracks arrive To review. Edited, typed, pasted, TrackId and description rows stay as they are.
 - **Create playlist (owner's D6)**: **Validated only** adds validated tracks, candidates included once validated; **All
   tracks** adds every track not removed, candidates included. Gap rows never; the Heard once chip and the Sort never change
-  what is added. This amends ADR-10 ("candidates go into the playlist unless deleted"), in the docs step.
+  what is added. This amends ADR-10 ("candidates go into the playlist unless deleted"): its Amendment section (S12).
 - **Messages kept, word for word**, all inline in the Mix screen, never a banner:
   - from before: Looking up…, the not-SoundCloud error, "Result rejected — ask again", the create-playlist states and
     failures, "Saved ✓";

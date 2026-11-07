@@ -200,7 +200,7 @@ windows), opened by `/`, by Ctrl+K (⌘K on a Mac) or by the search field in the
   top-list), playlists and saved mixes. It is memoised on the model's identity.
 - A pure `searchAll(index, query, perGroup = 5)` matches with the existing `normalize` (case and accents) and ranks prefix matches
   first, then by plays.
-- Saved mixes are read from this browser when the dialog first opens.
+- Saved mixes are read from this browser each time the search opens (S09), so a mix saved since shows.
 - Choosing a result:
 
 | Result | Opens |
