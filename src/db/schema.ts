@@ -30,6 +30,9 @@ export interface TrackRow {
   isrc: string | null;
   spotifyUrl: string | null;
   isLocal: boolean;
+  /** Round 005: the year of `album.release_date` as the playlist sync
+   *  downloaded it; absent before that round or when Spotify had none. */
+  albumYear?: number;
 }
 
 export interface EntryRow {
@@ -55,6 +58,8 @@ export interface TopTrackItem {
   album: string;
   imageUrl: string | null;
   spotifyUrl: string | null;
+  /** Round 005: the year of the album's release date; absent when unknown. */
+  albumYear?: number;
 }
 
 export interface TopArtistItem {
@@ -107,6 +112,15 @@ export interface FeatureValue {
   energy: number | null;
   /** epoch ms */
   fetchedAt: number;
+  /** Round 005: ReccoBeats' own track id (the album lookup needs it). */
+  rid?: string;
+}
+
+/** Round 005: the earliest album release year ReccoBeats lists for a track;
+ *  `year: null` = asked, none found (asked again after the not-found TTL). */
+export interface ReleaseYearValue {
+  year: number | null;
+  checkedAt: number;
 }
 
 export interface RekordboxValue extends FeatureValue {
@@ -120,6 +134,8 @@ export interface FeatureRow {
   isrc: string | null;
   reccobeats?: FeatureValue | { notFound: true; checkedAt: number };
   rekordbox?: RekordboxValue;
+  /** Round 005: original release year from ReccoBeats' album list. */
+  releaseYear?: ReleaseYearValue;
   updatedAt: number;
 }
 
@@ -242,6 +258,11 @@ export interface TracklistRow {
   hits?: number;
   /** Second-pass speed correction in percent (+4, −4, or 0). */
   speedPercent?: number;
+  /** Round 005: release year (whole year, 1900..now+1) or absent. */
+  year?: number;
+  /** Where `year` came from: Shazam, a catalogue by ISRC (worker), or the
+   *  album of the track Create playlist matched. */
+  yearFrom?: 'shazam' | 'catalogue' | 'spotify';
   /** The clue a candidate came from. */
   clue?: Clue;
   /** Gap rows from the worker: the clues placed around this gap. */

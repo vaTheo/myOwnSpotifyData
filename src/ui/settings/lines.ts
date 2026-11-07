@@ -26,6 +26,24 @@ export function coverageLine(c: Coverage): string {
   ].join(' · ');
 }
 
+/** Round 005: "Release years: 3,120 of 4,980 tracks". */
+export function yearsLine(dated: number, total: number): string {
+  return `Release years: ${dated.toLocaleString()} of ${plural(total, 'track')}`;
+}
+
+/** The look-up's done line: "found 12 · not found 3 · years 40". */
+export function lookupDoneLine(d: {
+  found: number;
+  notFound: number;
+  years: number;
+}): string {
+  return [
+    `found ${d.found.toLocaleString()}`,
+    `not found ${d.notFound.toLocaleString()}`,
+    `years ${d.years.toLocaleString()}`,
+  ].join(' · ');
+}
+
 /** "parsed 1,204 · with BPM 1,190 · with key 1,050 · matched 820 · …" */
 export function rekordboxLine(s: RekordboxSummary): string {
   return [

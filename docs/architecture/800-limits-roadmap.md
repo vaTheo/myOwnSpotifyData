@@ -39,6 +39,11 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 - The server (F18) is a Supabase Free project: it pauses after a week without traffic and only the dashboard resumes it; 500 MB
   of database; no automatic backups; a sign-in link only works in the browser that asked for it, within 10 minutes; the built-in
   email service sends a few links an hour at most.
+- Release years (F20) are only as good as their source: ReccoBeats' earliest album, else the album a playlist or Top list
+  holds (often a remaster or a compilation), else Shazam's or a catalogue's year for the ISRC heard; a year no source has shows
+  as a dash ("no data") and sorts last. The first BPM run with years takes about 45 minutes for a 5,000-track library (one request a second);
+  a playlist synced before 2026-11-07 gets album years only when it changes or is synced again; a set saved before then gets
+  years only when it is identified again (or on Create playlist, from the matched album).
 - Server rows are stored in clear (the owner declined client-side encryption): whoever holds the supabase.com login can read them.
 
 ## 3. Out of scope, decided (not to be re-litigated without the owner)
@@ -61,7 +66,7 @@ Each spec has an "Out of scope" block; the main ones:
 
 ## 4. Roadmap
 
-The worker round shipped on 2026-11-06 (F19). Nothing is decided next; candidates discussed: a column of starts under 30 s on
+Release years shipped on 2026-11-07 (F20, round 005), after the worker round (F19, 2026-11-06). Nothing is decided next; candidates discussed: a column of starts under 30 s on
 track rows or a Crate-only play threshold, Linux/macOS binaries are already built, a second job kind on the same queue. New ideas are discussed with the owner first, get a dated spec under
 [specs](../specs/), and are listed here until they ship.
 

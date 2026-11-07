@@ -65,16 +65,17 @@ claimed 6f1c2d3e · https://soundcloud.com/…
   …
   download · 100 % · 98.0 MB
   download · abc123.m4a · 7260 s · 38.2 s
-  scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 12 s probe every 15 s · 484 probes · cooldown 1.5 s (+0-30 %)
-  probe 1/484 · 00:00:00 · cut 375 KB 0.06 s · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
-  probe 2/484 · 00:00:15 · cut 375 KB 0.05 s · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
-  probe 3/484 · 00:00:30 · cut 375 KB 0.06 s · no match
+  scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 12 s probe every 15 s · 484 probes · cooldown 1.9 s (+0-30 %)
+  probe 1/484 · 00:00:00 · cut 375 KB 0.06 s · shazam 1.1 s · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
+  probe 2/484 · 00:00:15 · cut 375 KB 0.05 s · shazam 0.9 s · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
+  probe 3/484 · 00:00:30 · cut 375 KB 0.06 s · shazam 1.0 s · no match
   …
   second pass · 210 probes found nothing · 104 places heard again (+7 s, speed ×1 then ×0.96 then ×1.04)
-  gap 1/104 · 00:00:37 ×1 · no match
-  gap 1/104 · 00:00:37 ×0.96 · NEW · Someone — Pitched Track · … · 91 %
+  gap 1/104 · 00:00:37 ×1 · shazam 1.2 s · no match
+  gap 1/104 · 00:00:37 ×0.96 · shazam 1.0 s · NEW · Someone — Pitched Track · … · 91 %
   …
   second pass · found 9 in 104 places
+  shazam · 524 answers · median 1.1 s · 31 over 5 s (6 %)
   scan · 48 tracks · 2410.3 s
   clues · 35 read in 3.2 s
   candidate · 00:51:32 · Space Above — Leave Home (Edit Select Remix) · deezer · NLCK41072412
@@ -96,8 +97,11 @@ part on the Mix screen, a tracklist without times shows once above the tracklist
 `Artist – Title` is looked up in Deezer, then MusicBrainz (a Discogs or Deezer link by its id). Every line of a **tracklist**
 (the description's, or a comment listing 3 tracks or more) becomes a row even when no catalogue knows it; a catalogue match only
 adds the ISRC. For a single comment answer, only an exact artist and title in a catalogue
-make a row, marked "from a comment · not heard"; it goes into Create playlist unless you delete it. A refusal during the second
-pass, or comments that cannot be read, never fail the request.
+make a row, marked "from a comment · not heard"; it goes into Create playlist unless you delete it. Last, the **years**: a heard
+track Shazam gave an ISRC but no release year is looked up by that ISRC in Deezer and MusicBrainz, and the earliest year either
+gives is written into the JSON (`release_date`, and `release_date_from` naming the catalogue); a valid year from Shazam is kept as is, an invalid one ("0000") is removed.
+These lookups share the `WORKER_LOOKUPS` cap with the clues (clues first); the log says "years · filled N of M by ISRC". A refusal
+during the second pass, comments that cannot be read, or a catalogue that does not answer never fail the request.
 
 A request that fails (a private link, no track identified, the recognition service refusing) is
 marked failed with that reason, the phone shows it, and the worker moves on. Sets of any length are taken. Ctrl-C during a request puts it back in the
@@ -137,7 +141,7 @@ Only the first two are required.
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit; set a number of seconds to refuse longer sets before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 15 | one probe every N seconds; with 12 s probes, 15 hears 80 % of the set (a 2 h set: 480 probes, about 40 minutes), 12 all of it, 30 or 60 for a quicker scan |
 | `WORKER_PROBE_SECONDS` | 12 | the length of each probe sent to Shazam, 2 to 12 (Shazam fingerprints 12 s at most; 10 s matched 71 % against 94 %) |
-| `WORKER_COOLDOWN_SECONDS` | 1.5 | the pause before every recognition call, plus a random 0–30 % (`WORKER_COOLDOWN_SPREAD_PERCENT`): 1.5 to 1.95 s; a network retry is spread the same; not slowed after a refusal |
+| `WORKER_COOLDOWN_SECONDS` | 1.9 | the pause before every recognition call, plus a random 0–30 % (`WORKER_COOLDOWN_SPREAD_PERCENT`): 1.9 to 2.47 s; a network retry is spread the same; not slowed after a refusal |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 180 | the pause after a "rate limited" answer, the same each time, plus a random 0–40 % (`WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`): 3:00 to 4:12 |
 | `WORKER_REFUSAL_WARN_CALLS` | 150 | two refusals closer than this many calls: warn once (a VPN or a shared network?); 0 = never |
 | `WORKER_RESUME_DAYS` | 7 | Ask again on a stopped set continues it within this many days; 0 = always start over |
@@ -153,12 +157,12 @@ Only the first two are required.
 | `WORKER_SECOND_PASS_SPEEDS` | 0.96,1.04 | speeds tried after normal speed, in order; empty = normal only |
 | `WORKER_CLUES` | 1 | read the description, chapters and comments; 0 = never |
 | `WORKER_CLUE_SECONDS` | 90 | reading them may take this long, then it is dropped |
-| `WORKER_LOOKUPS` | 100 | clues looked up by name per set (Deezer, then MusicBrainz); 0 = none, clues still shown |
+| `WORKER_LOOKUPS` | 100 | catalogue lookups per set (Deezer, then MusicBrainz): clues by name first, then years by ISRC; 0 = none, clues still shown |
 
 ## Where things go, what leaves the computer
 
-- Outbound hosts: your Supabase project, the platform of the link (through yt-dlp), `amp.shazam.com` (ShazamIO), and
-  the proxy if you set one. Never a Spotify host. The audio never leaves the computer; only the tracklist JSON is sent.
+- Outbound hosts: your Supabase project, the platform of the link (through yt-dlp), `amp.shazam.com` (ShazamIO),
+  `api.deezer.com`, `musicbrainz.org` and `api.discogs.com` (clues and years), and the proxy if you set one. Never a Spotify host. The audio never leaves the computer; only the tracklist JSON is sent.
 - On disk: the session file (mode 600), the work folder (emptied after each request), the kept JSON files, the log.
 - Inside the executables: yt-dlp, ShazamIO and a static ffmpeg built by [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)
   under the **GPL v3**, shipped unmodified through the `imageio-ffmpeg` package (BSD-2-Clause). The worker and the app are MIT.
@@ -181,7 +185,7 @@ Only the first two are required.
 - **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address four times before any track was
   found; wait, or raise `WORKER_COOLDOWN_SECONDS`. Once something was found, a refusal no longer fails the request: it is
   **done** with "Stopped early at 47:00 (rate limited); ask again later for the rest".
-- **How the worker waits**: 1.5 s + 0–30 % (1.5 to 1.95 s) between calls, never slowed; after a refusal a 3-minute pause + 0–40 %, then the same
+- **How the worker waits**: 1.9 s + 0–30 % (1.9 to 2.47 s) between calls, never slowed; after a refusal a 3-minute pause + 0–40 %, then the same
   pace, up to 8 times a set (Shazam refused at 1.3 and at 8.8 calls a minute alike, so pacing does not avoid it); a call without
   answer (45 s, or a Shazam server error) tried again after 10 s then 20 s (+ 0–30 %); a send to your server tried again after 30 s,
   1 min and 2 min; Deezer or MusicBrainz busy, after 2 s then 4 s. The Shazam library itself never retries silently. Planned breaks are off by default (`WORKER_BREAK_EVERY_CALLS`).

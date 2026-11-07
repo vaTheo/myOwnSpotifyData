@@ -384,8 +384,10 @@ class Lookups:
         budget: int,
         clock: Callable[[], float] = time.monotonic,
         jitter: Callable[[float], float] = lambda seconds: 0.0,
+        this_year: Callable[[], int] = lambda: time.localtime().tm_year,
     ) -> None:
         self.fetch = fetch
+        self.this_year = this_year
         self.jitter = jitter
         self.sleep = sleep
         self.say = line
@@ -507,6 +509,131 @@ class Lookups:
         if found is None:
             self.say(f"  lookup {self.used}/{self.budget} · {what} · not found as written")
         return found
+
+    def release_year(self, isrc: str) -> tuple[int, str] | None:
+        """Round 005: the earliest valid year Deezer and MusicBrainz give for
+        an ISRC, with the catalogue that gave it; one lookup of the shared
+        budget; None when the budget is spent or no catalogue dates it. An
+        unknown ISRC (Deezer's error answer, MusicBrainz's 404) is no year;
+        any other failure is raised to `fill_years`."""
+        if self.used >= self.budget:
+            return None
+        self.used += 1
+        now = self.this_year()
+        quoted = urllib.parse.quote(isrc, safe="")
+        found: list[tuple[int, str]] = []
+        data = self._get("deezer", f"https://api.deezer.com/track/isrc:{quoted}")
+        if isinstance(data, dict) and not data.get("error") and data.get("id") is not None:
+            same = data.get("isrc")
+            if not isinstance(same, str) or same.upper() == isrc.upper():
+                album = data.get("album") if isinstance(data.get("album"), dict) else {}
+                for text in (data.get("release_date"), album.get("release_date")):
+                    year = valid_year(text, now)
+                    if year is not None:
+                        found.append((year, "deezer"))
+        try:
+            data = self._get("musicbrainz", f"https://musicbrainz.org/ws/2/isrc/{quoted}?inc=releases&fmt=json")
+        except urllib.error.HTTPError as err:
+            if err.code != 404:
+                if found:
+                    raise PartialYear(min(found, key=lambda f: f[0]), err) from err
+                raise
+            data = None
+        except Exception as err:
+            if found:
+                raise PartialYear(min(found, key=lambda f: f[0]), err) from err
+            raise
+        recordings = data.get("recordings") if isinstance(data, dict) else None
+        for rec in recordings if isinstance(recordings, list) else []:
+            for rel in (rec.get("releases") or []) if isinstance(rec, dict) else []:
+                year = valid_year(rel.get("date"), now) if isinstance(rel, dict) else None
+                if year is not None:
+                    found.append((year, "musicbrainz"))
+        # Earliest wins; on a tie Deezer, asked first (min is stable).
+        return min(found, key=lambda f: f[0]) if found else None
+
+
+class PartialYear(Exception):
+    """MusicBrainz failed after Deezer gave a year: the year is kept, then
+    the year step stops on `cause`."""
+
+    def __init__(self, hit: tuple[int, str], cause: Exception) -> None:
+        super().__init__(str(cause))
+        self.hit = hit
+        self.cause = cause
+
+
+def valid_year(text: Any, this_year: int) -> int | None:
+    """The year of "1993", "1993-05" or "1993-05-17" when it lies in
+    1900..`this_year` + 1 (FR-004); None for "0000", garbage or a non-string."""
+    if not isinstance(text, str) or len(text) < 4 or not text[:4].isdigit():
+        return None
+    year = int(text[:4])
+    return year if 1900 <= year <= this_year + 1 else None
+
+
+def _drop_junk_years(tracks: list[dict[str, Any]], this_year: int) -> None:
+    """A `release_date` that is not a valid year ("0000", garbage) is removed:
+    the JSON never carries a junk year (absent, never junk)."""
+    for t in tracks:
+        meta = t.get("metadata")
+        if isinstance(meta, dict) and "release_date" in meta and valid_year(meta["release_date"], this_year) is None:
+            del meta["release_date"]
+            meta.pop("release_date_from", None)
+
+
+def fill_years(tracks: list[dict[str, Any]], lookups: Lookups, line: Callable[[str], None]) -> dict[str, int] | None:
+    """Round 005: a year for every heard track (not a clue candidate) with an
+    ISRC and no valid `release_date`, from the catalogues by ISRC, written as
+    `release_date` "YYYY" and `release_date_from`. Runs after the clues, on
+    the same budget. Never raises: a failure stops the step with one log line
+    and keeps what was filled (Deezer's year when MusicBrainz then fails). A
+    `release_date` still invalid at the end is removed. Returns {"asked", "filled"}, or None when no
+    track needed a year."""
+    now = lookups.this_year()
+    todo = [
+        t for t in tracks
+        if t.get("origin") != "clue"
+        and isinstance(t.get("metadata"), dict)
+        and isinstance(t["metadata"].get("isrc"), str)
+        and t["metadata"]["isrc"]
+        and valid_year(t["metadata"].get("release_date"), now) is None
+    ]
+    if not todo:
+        _drop_junk_years(tracks, now)
+        return None
+    asked = filled = 0
+    known: dict[str, tuple[int, str] | None] = {}
+    stopped: str | None = None
+    for t in todo:
+        isrc = t["metadata"]["isrc"].strip().upper()
+        if isrc not in known:
+            if lookups.used >= lookups.budget:
+                break
+            try:
+                known[isrc] = lookups.release_year(isrc)
+            except PartialYear as err:  # Deezer's year kept, then stop
+                known[isrc] = err.hit
+                stopped = f"{type(err.cause).__name__}: {str(err.cause)[:120]}"
+            except Exception as err:  # a catalogue down never fails the set
+                asked += 1
+                stopped = f"{type(err).__name__}: {str(err)[:120]}"
+                break
+        asked += 1
+        hit = known[isrc]
+        if hit is not None:
+            t["metadata"]["release_date"] = f"{hit[0]:04d}"
+            t["metadata"]["release_date_from"] = hit[1]
+            filled += 1
+        if stopped is not None:
+            break
+    _drop_junk_years(tracks, now)
+    if stopped is not None:
+        line(f"  years · stopped: {stopped} · filled {filled} of {asked} by ISRC")
+    else:
+        left = len(todo) - asked
+        line(f"  years · filled {filled} of {asked} by ISRC" + (f" · {left} not asked (lookup cap)" if left else ""))
+    return {"asked": asked, "filled": filled}
 
 
 def candidate_track(c: Candidate, clue: Clue, hhmmss: Callable[[int], str]) -> dict[str, Any]:

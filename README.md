@@ -110,6 +110,14 @@ phone. It is dark, with chartreuse marking what you act on.
 - **Playlists, Artists and Mix** open the item you pick beside their list on
   a wide window; on a phone the item opens full screen with a back arrow.
 - A value the app does not have shows as a dash ("no data"), never as 0.
+- **Release year** is a column on every song table and a line in a track's
+  details; a song no source dates shows a dash, never a 0. Sort by it like
+  any column (oldest first, undated last; on a phone, _Sort by year_ in the
+  Filters). Years come from the album Spotify lists when you sync (a playlist
+  synced before this feature gets them once it is synced again), from
+  Settings → Audio data's look-up (ReccoBeats' earliest album year: the
+  original release rather than a remaster or a compilation) and, on a mix,
+  from Shazam and your computer.
 
 ### Find and filter
 
@@ -119,8 +127,9 @@ phone. It is dark, with chartreuse marking what you act on.
   choosing one opens it. Escape clears the text, a second Escape closes it.
   It searches only what is stored in this browser.
 - **Filters** sit above every track table: the text filter, a **BPM range**
-  (min and max) and a **key** picker with _Include compatible keys_ (the same
-  relations Match uses: same key, relative, ±1, boost). While a filter is on,
+  (min and max), a **key** picker with _Include compatible keys_ (the same
+  relations Match uses: same key, relative, ±1, boost) and a **decade** (80s,
+  90s, 2000s…, the decades the list holds). While a filter is on,
   tracks without the value are hidden, the line says "Showing N of M", and
   _Clear filters_ removes them all. Keys follow your chosen notation.
 
@@ -210,8 +219,11 @@ only here.
   Collection in xml format_; pick the `.xml` file or drop it), which wins
   wherever it has a value of its own. Neither starts by itself, and both pick
   up where they stopped. The key follows the notation chosen there: Camelot,
-  Open Key or classic names. Audio data via ReccoBeats (Spotify audio
-  features).
+  Open Key or classic names. The same look-up also dates your songs (a third
+  pass asks ReccoBeats which albums each song is on and keeps the earliest
+  year; about 45 minutes the first time for a 5,000-track library, later runs
+  ask only new songs); the section says "Release years: N of M tracks".
+  Audio data via ReccoBeats (Spotify audio features).
 - **Re-import once for the Crate.** An import made before the Crate shipped
   kept no month, start or skip data, so the year, month and finish-rate views
   stay empty until you import the export again; the app says so once and the
@@ -319,6 +331,10 @@ its saved mix, a failed one has Ask again. If a request was already taken or
 finished when you tapped Cancel, Move to top or Stop, the list says so. A new
 result keeps your review: validated tracks stay validated, Spotify answers
 stay, removed tracks stay removed, and only new tracks arrive To review.
+Each track also shows its release year (Shazam's, or the earliest Deezer or
+MusicBrainz give for its ISRC, or the Spotify album Create playlist matched,
+which dates the undated tracks); sort **by year** or keep one **decade**,
+also with Heard once.
 Every identified set stays in this browser and on the server.
 
 Two ways to run it, both in the worker's manual, [`worker/README.md`](worker/README.md):

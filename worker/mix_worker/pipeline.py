@@ -43,6 +43,9 @@ class Deps:
     # Round 004: `scan` takes progress/resume/remember keywords (the real one
     # does; test fakes that take two arguments leave it False).
     scan_hooks: bool = False
+    # Round 005: tracks → {"asked", "filled"} or None; fills `release_date`
+    # by ISRC in place, after the clues (same lookup budget). None = no step.
+    years: Callable[[list[dict[str, Any]]], dict[str, int] | None] | None = None
 
 
 @dataclass
@@ -216,6 +219,15 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
                 extra["clues"] = gathered.clues
         if not tracks:
             return _fail(deps, settings, token, job_id, NO_TRACK_REASON)
+        if deps.years is not None:
+            try:
+                summary = deps.years(tracks)
+            except Exception as err:  # a year is never worth a failed set (FR-003)
+                summary = None
+                if deps.log is not None:
+                    deps.log.line(f"  years · stopped: {type(err).__name__}: {str(err)[:120]}")
+            if summary:
+                extra["years"] = summary
 
         started = deps.now()
         from .scan import write_result

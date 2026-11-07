@@ -1,5 +1,6 @@
 import type { AllRows, MixRow } from '../db/schema';
 import { SC_PLAYER_PREFIX } from '../features/mix/oembed';
+import { parseYear } from '../model/year';
 import type { DatasetName, StoreName } from './datasets';
 
 /**
@@ -115,6 +116,84 @@ function checkRow(store: StoreName, r: Row): string | null {
   }
 }
 
+/** A whole year in 1900..now+1, as `parseYear` accepts it. */
+function isYear(v: unknown): boolean {
+  return typeof v === 'number' && parseYear(v) === v;
+}
+
+/** `row` without `name`, or `row` itself when the field is absent. */
+function without(row: Row, name: string): Row {
+  if (!(name in row)) return row;
+  const copy = { ...row };
+  delete copy[name];
+  return copy;
+}
+
+const RID_MAX = 100;
+const YEAR_FROM = new Set(['shazam', 'catalogue', 'spotify']);
+
+function releaseYearOk(v: unknown): boolean {
+  return obj(v) && finite(v.checkedAt) && (v.year === null || isYear(v.year));
+}
+
+/**
+ * Round 005: the year fields are display data, so a bad one is dropped from
+ * the row instead of refusing the row with its BPM, plays or tracklist. Only
+ * these optional fields are touched; the row is copied, never mutated.
+ */
+function dropBadYears(store: StoreName, r: Row): Row {
+  switch (store) {
+    case 'tracks':
+      return r.albumYear === undefined || isYear(r.albumYear)
+        ? r
+        : without(r, 'albumYear');
+    case 'topItems': {
+      const items = r.items as unknown[];
+      if (
+        !items.some(
+          (i) => obj(i) && i.albumYear !== undefined && !isYear(i.albumYear)
+        )
+      )
+        return r;
+      return {
+        ...r,
+        items: items.map((i) =>
+          obj(i) && i.albumYear !== undefined && !isYear(i.albumYear)
+            ? without(i, 'albumYear')
+            : i
+        ),
+      };
+    }
+    case 'features': {
+      let out = r;
+      if (out.releaseYear !== undefined && !releaseYearOk(out.releaseYear))
+        out = without(out, 'releaseYear');
+      const rb = out.reccobeats;
+      if (
+        obj(rb) &&
+        rb.rid !== undefined &&
+        !(nonEmpty(rb.rid) && rb.rid.length <= RID_MAX)
+      )
+        out = { ...out, reccobeats: without(rb, 'rid') };
+      return out;
+    }
+    default:
+      return r;
+  }
+}
+
+/** A mix row without an invalid `year` or `yearFrom` (round 005). */
+function dropBadMixYear(t: Row): Row {
+  let out = t;
+  if (out.year !== undefined && !isYear(out.year)) out = without(out, 'year');
+  if (
+    out.yearFrom !== undefined &&
+    !(typeof out.yearFrom === 'string' && YEAR_FROM.has(out.yearFrom))
+  )
+    out = without(out, 'yearFrom');
+  return out;
+}
+
 export function validateRow<S extends StoreName>(
   store: S,
   row: unknown
@@ -122,7 +201,7 @@ export function validateRow<S extends StoreName>(
   if (!obj(row)) return fail('not an object');
   const bad = checkRow(store, row);
   if (bad) return fail(`${store}.${bad}`);
-  return { ok: true, row: row as AllRows[S][number] };
+  return { ok: true, row: dropBadYears(store, row) as AllRows[S][number] };
 }
 
 const CLUE_KINDS = new Set(['comment', 'chapter', 'description']);
@@ -193,7 +272,12 @@ export function validateMix(row: unknown): Valid<MixRow> {
   if (row.run !== undefined && !runOk(row.run)) return fail('mixes.run');
   if (row.removed !== undefined && !removedOk(row.removed))
     return fail('mixes.removed');
-  return { ok: true, row: row as unknown as MixRow };
+  const rows = row.rows as Row[];
+  const cleaned = rows.map(dropBadMixYear);
+  const out = cleaned.some((t, i) => t !== rows[i])
+    ? { ...row, rows: cleaned }
+    : row;
+  return { ok: true, row: out as unknown as MixRow };
 }
 
 /** Check on Spotify's answer (T117): 'not-found', or a track id and its

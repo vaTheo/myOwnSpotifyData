@@ -4,7 +4,9 @@ import type { Model } from '../model/aggregate';
 import { storageMessage } from '../util/errors';
 import {
   MAX_IDS,
+  fetchAlbumYear,
   fetchAudioFeatures,
+  fetchTrackRids,
   normalizeIsrc,
   type FeatureBatch,
   type FetchedFeature,
@@ -13,7 +15,7 @@ import {
 /** A "not found" answer is taken as final for ninety days. */
 export const LOOKUP_NOT_FOUND_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
-/** One request per second, counted across both passes. */
+/** One request per second, counted across the three passes. */
 export const LOOKUP_INTERVAL_MS = 1000;
 
 /**
@@ -23,17 +25,29 @@ export const LOOKUP_INTERVAL_MS = 1000;
  */
 export const PASS_BY_ID = 'by track id';
 export const PASS_BY_ISRC = 'retry by ISRC';
+/** Round 005: one album request per found track without a fresh year. */
+export const PASS_YEARS = 'release years';
+
+/** Year rows are written every this many tracks, so an error keeps them. */
+export const YEAR_WRITE_BATCH = 10;
 
 /**
  * `running` reports the pass and the tracks that pass has finished, so its
  * denominator is fixed for the whole pass and the bar never walks backwards.
- * `done.total` counts the tracks looked up in the run and always equals
- * `found + notFound`.
+ * `done.total` counts the tracks looked up for BPM in the run and always
+ * equals `found + notFound`; `done.years` counts the tracks the release-year
+ * pass dated in the run (round 005).
  */
 export type LookupState =
   | { status: 'idle' }
   | { status: 'running'; pass: string; done: number; total: number }
-  | { status: 'done'; found: number; notFound: number; total: number }
+  | {
+      status: 'done';
+      found: number;
+      notFound: number;
+      total: number;
+      years: number;
+    }
   | { status: 'error'; message: string };
 
 export interface Candidate {
@@ -84,6 +98,21 @@ function isFresh(row: FeatureRow | undefined, now: number): boolean {
   return true;
 }
 
+/** True while the row's release year answers (round 005): a year, or a
+ *  "none" checked within the not-found lifetime. */
+function isYearFresh(row: FeatureRow, now: number): boolean {
+  const value = row.releaseYear;
+  if (!value) return false;
+  if (value.year !== null) return true;
+  return now - value.checkedAt < LOOKUP_NOT_FOUND_TTL_MS;
+}
+
+/** The row's ReccoBeats value, or null for a notFound marker or none. */
+function reccobeatsValue(row: FeatureRow | undefined): FeatureValue | null {
+  const value = row?.reccobeats;
+  return value && !('notFound' in value) ? value : null;
+}
+
 function toValue(fetched: FetchedFeature): FeatureValue {
   return {
     bpm: fetched.bpm,
@@ -91,6 +120,7 @@ function toValue(fetched: FetchedFeature): FeatureValue {
     major: fetched.major,
     energy: fetched.energy,
     fetchedAt: fetched.fetchedAt,
+    ...(fetched.rid === undefined ? {} : { rid: fetched.rid }),
   };
 }
 
@@ -114,9 +144,13 @@ function withReccobeats(
 
 /**
  * Pass 1 by Spotify id, pass 2 by ISRC for the misses that have one, then a
- * notFound marker for whatever is still missing. Rows are written per batch,
- * so an error leaves everything fetched so far in place and the next run
- * resumes. Never throws: a failure ends in the error state.
+ * notFound marker for whatever is still missing. Pass 3 (round 005) dates
+ * every candidate with a ReccoBeats value and no fresh release year: its
+ * ReccoBeats id (stored from pass 1, else asked forty at a time), then one
+ * album request, keeping the earliest year. Rows are written per batch, so
+ * an error leaves everything fetched so far in place and the next run
+ * resumes. One request per second across all three passes. Never throws: a
+ * failure ends in the error state.
  */
 export async function runLookup(
   deps: LookupDeps,
@@ -132,15 +166,48 @@ export async function runLookup(
   let total = todo.length;
   let found = 0;
   let notFound = 0;
+  let years = 0;
+  /** Pass-3 rows not yet written; flushed on an error too. */
+  let pendingYears: FeatureRow[] = [];
 
   function running(): void {
     deps.onState({ status: 'running', pass, done, total });
   }
 
-  async function ask(batchIds: string[]): Promise<FeatureBatch> {
+  /** Every ReccoBeats request goes through here: one per second. */
+  async function paced<T>(call: () => Promise<T>): Promise<T> {
     if (requests > 0) await deps.sleep(LOOKUP_INTERVAL_MS);
     requests += 1;
-    return fetchAudioFeatures(batchIds, deps);
+    return call();
+  }
+
+  function ask(batchIds: string[]): Promise<FeatureBatch> {
+    return paced(() => fetchAudioFeatures(batchIds, deps));
+  }
+
+  async function flushYears(): Promise<void> {
+    if (pendingYears.length === 0) return;
+    const batch = pendingYears;
+    pendingYears = [];
+    await putFeatures(batch);
+  }
+
+  /** Keeps the BPM, the Rekordbox value and everything else on the row. */
+  function withYear(
+    row: FeatureRow,
+    value: FeatureValue,
+    rid: string | null,
+    year: number | null,
+    at: number
+  ): FeatureRow {
+    const next: FeatureRow = {
+      ...row,
+      reccobeats: rid === null ? value : { ...value, rid },
+      releaseYear: { year, checkedAt: at },
+      updatedAt: at,
+    };
+    rows.set(row.trackId, next);
+    return next;
   }
 
   /**
@@ -150,6 +217,7 @@ export async function runLookup(
    */
   async function write(writes: FeatureRow[], tracks: number): Promise<void> {
     if (writes.length > 0) await putFeatures(writes);
+    for (const row of writes) rows.set(row.trackId, row);
     done += tracks;
     running();
   }
@@ -224,13 +292,59 @@ export async function runLookup(
       await write(writes, batch.length);
     }
 
+    const dated = candidates
+      .map((c) => rows.get(c.id))
+      .filter(
+        (row): row is FeatureRow =>
+          row !== undefined &&
+          reccobeatsValue(row) !== null &&
+          !isYearFresh(row, startedAt)
+      );
+    if (dated.length > 0) {
+      pass = PASS_YEARS;
+      done = 0;
+      total = dated.length;
+      running();
+    }
+    const rids = new Map<string, string>();
+    const needRid: string[] = [];
+    for (const row of dated) {
+      const rid = reccobeatsValue(row)?.rid;
+      if (rid) rids.set(row.trackId, rid);
+      else needRid.push(row.trackId);
+    }
+    for (const batch of chunk(needRid, MAX_IDS)) {
+      const answer = await paced(() => fetchTrackRids(batch, deps));
+      for (const [id, rid] of answer) rids.set(id, rid);
+    }
+    for (const row of dated) {
+      const value = reccobeatsValue(row) as FeatureValue;
+      const rid = rids.get(row.trackId) ?? null;
+      // ReccoBeats has a value but no id for it: no album to ask.
+      const year =
+        rid === null ? null : await paced(() => fetchAlbumYear(rid, deps));
+      pendingYears.push(withYear(row, value, rid, year, deps.now()));
+      if (year !== null) years += 1;
+      done += 1;
+      if (pendingYears.length >= YEAR_WRITE_BATCH) await flushYears();
+      running();
+    }
+    await flushYears();
+
     deps.onState({
       status: 'done',
       found,
       notFound,
       total: found + notFound,
+      years,
     });
   } catch (err) {
+    // The years found before the failure are kept, as the BPM batches are.
+    try {
+      await flushYears();
+    } catch {
+      // The first error is the one to show.
+    }
     deps.onState({ status: 'error', message: storageMessage(err) });
   }
 }

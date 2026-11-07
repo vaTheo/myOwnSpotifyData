@@ -45,6 +45,7 @@ import { classifyMixInput, isShortLink, requestKey } from '../features/mix/url';
 import { queueFailure, queueNote } from '../features/mix/queue';
 import { requestStatusText } from '../features/mix/worker';
 import {
+  applyYears,
   defaultChoice,
   runCreatePlaylist,
   rowAfterCreate,
@@ -54,6 +55,7 @@ import {
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
   applyAnswers,
+  keepStoredAnswers,
   rowsToCheck,
   runSpotifyCheck,
   type CheckAnswer,
@@ -1678,6 +1680,42 @@ export async function startCreatePlaylist(): Promise<void> {
   // would save an empty or wrong tracklist. `putMix` the captured row directly
   // rather than through `saveMix` (which reads live state), then reflect the
   // link on the open view only if this same mix is still open.
+  // Round 005: the years the matches taught reach the open rows (by identity,
+  // so a row edited meanwhile is left alone) whatever the outcome.
+  const live = mixState.value;
+  if (
+    outcome.years.size > 0 &&
+    live.status === 'ready' &&
+    live.view.url === view.url
+  ) {
+    mixRows.value = applyYears(mixRows.value, outcome.years);
+  }
+  // The search ran on the tracks to add only: the years go onto the whole
+  // working list of the tap (same row objects).
+  const withYears = applyYears(rows, outcome.years);
+  // A failure before the playlist exists still keeps the years on a mix that
+  // was already saved, written the way the success path writes its rows. A
+  // copy the owner saved during the run wins (S13 N1): it is left alone.
+  const savedBefore = savedMixes.value.find((mix) => mix.url === view.url);
+  if (
+    outcome.playlistId === null &&
+    outcome.years.size > 0 &&
+    savedBefore !== undefined &&
+    savedBefore.savedAt < tapAt
+  ) {
+    try {
+      await putMix({
+        ...savedBefore,
+        rows: keepStoredAnswers(withYears, savedBefore.rows),
+        savedAt: Date.now(),
+      });
+      await loadSavedMixes();
+      void queueServerPush(['mixes']);
+    } catch (err) {
+      mixError.value = `Could not save the mix: ${storageMessage(err)}`;
+    }
+  }
+
   if (outcome.playlistId !== null) {
     // The stored copy read again (S13 N1): a review the owner saved during
     // the run wins, Create adding only its playlist; else the rows of the
@@ -1693,7 +1731,7 @@ export async function startCreatePlaylist(): Promise<void> {
       playerSrc: view.playerSrc,
       slug: view.trackid?.slug ?? null,
       sources: view.sources,
-      rows,
+      rows: withYears,
       ...extras,
       savedAt: tapAt,
     };

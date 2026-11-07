@@ -3,6 +3,7 @@ import type { ImportSummary } from '../../history/importer';
 import { formatDate, historyLine } from '../format';
 import {
   coverageLine,
+  lookupDoneLine,
   pausedLine,
   pendingLine,
   pendingValue,
@@ -10,6 +11,7 @@ import {
   reachRunLine,
   rekordboxLine,
   usedShare,
+  yearsLine,
 } from './lines';
 
 const summary: ImportSummary = {
@@ -35,6 +37,17 @@ describe('Settings lines (word for word, FR-049)', () => {
     );
     expect(historyLine({ ...summary, range: null })).toBe(
       `Imported ${formatDate(summary.importedAt)}: 1,200 plays across 1 track.`
+    );
+  });
+
+  it('yearsLine (round 005)', () => {
+    expect(yearsLine(3120, 4980)).toBe('Release years: 3,120 of 4,980 tracks');
+    expect(yearsLine(0, 1)).toBe('Release years: 0 of 1 track');
+  });
+
+  it('lookupDoneLine counts the years pass', () => {
+    expect(lookupDoneLine({ found: 1200, notFound: 3, years: 40 })).toBe(
+      'found 1,200 · not found 3 · years 40'
     );
   });
 

@@ -21,7 +21,8 @@ project reached with plain `fetch`. The server stores and never computes; it nev
 - Every request carries `apikey` and `Authorization: Bearer`; bodies stay under about 1 MB (`batches` of 500 rows).
 - No call to any Spotify host from this folder, ever; the Spotify account id comes from the `accountId` meta.
 - A pull validates every row and summary with `validate.ts` before anything is written or rendered; a failing row is dropped and
-  counted, never fixed up.
+  counted, never fixed up. One exception, deliberate (round 005): an invalid optional year field (`albumYear`, `releaseYear`,
+  `reccobeats.rid`, a mix row's `year`/`yearFrom`) is removed from a copy of the row and the row is kept; nothing else is.
 - Newer wins per dataset by `fetched_at`; mixes per row by `savedAt` with tombstones; nothing is merged within a dataset.
 - The previous generation of a dataset is kept on the server until the next push (one bad push stays recoverable).
 - Sign-in is the magic link in the PKCE flow: the verifier stays in `localStorage` (`server-pkce`), tokens never appear in a URL,

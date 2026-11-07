@@ -275,6 +275,9 @@ function buildLibrary(rand: Rand): Built {
       isrc: `QZDA${String(20 + (n % 7)).padStart(2, '0')}${String(n).padStart(5, '0')}`,
       spotifyUrl: `https://open.spotify.com/track/${id}`,
       isLocal: false,
+      // Round 005: an album year on most tracks, one in nine undated (no
+      // draw from `rand`, so the rest of the demo stays as it was).
+      ...(n % 9 === 4 ? {} : { albumYear: 1978 + ((n * 7) % 48) }),
     });
   }
 
@@ -794,6 +797,14 @@ function buildMixes(
         isrc: t.isrc,
         shazamUrl: null,
         hits: i % 5 === 1 || replay !== null ? 1 : int(rand, 2, 7),
+        // Round 005: Shazam's year on most heard rows, a catalogue's on some.
+        ...(i % 4 === 3
+          ? {}
+          : {
+              year: 1985 + ((i * 3) % 38),
+              yearFrom:
+                i % 4 === 2 ? ('catalogue' as const) : ('shazam' as const),
+            }),
         ...(replay !== null
           ? { origin: 'replay' as const, speedPercent: replay }
           : {}),
