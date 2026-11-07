@@ -493,24 +493,24 @@ leaves only matching rows with "Showing N of M".
 **Independent Test**: `#/` shows the Overview with figures equal to their screens, and the shots network check records no request
 outside `127.0.0.1`; with the `empty` demo each card shows its explanation and one action.
 
-- [ ] T094 [P] [US8] Write the failing test `src/ui/overview/blocks.test.ts` for `overviewBlocks(input)` (data-model §8):
+- [X] T094 [P] [US8] Write the failing test `src/ui/overview/blocks.test.ts` for `overviewBlocks(input)` (data-model §8):
   - each figure equals the screen's own function (`heavyRotation`, `topTracks`, `coverage`, `reachCoverage`, `historyLine`) on the same input;
   - the states `ready`, `empty` and `gated` (the Crate gate on `historySummary.version === 2`, Under the radar on `artistReachSummary.version === 1`) and `hidden` ("`server` is `hidden` when no server is configured");
   - the quota-lock warning.
-- [ ] T095 [P] [US8] Implement `overviewBlocks` in `src/ui/overview/blocks.ts`. If `historyLine` is still local to Settings, move it to `src/ui/format.ts` and import it from both. Make T094 pass.
-- [ ] T096 [US8] Create `src/ui/overview/Overview.tsx` per `contracts/screens.md` §3:
+- [X] T095 [P] [US8] Implement `overviewBlocks` in `src/ui/overview/blocks.ts`. If `historyLine` is still local to Settings, move it to `src/ui/format.ts` and import it from both. Make T094 pass.
+- [X] T096 [US8] Create `src/ui/overview/Overview.tsx` per `contracts/screens.md` §3:
   - a feed of `Card`s in 1, 2 or 3 columns (compact, medium, expanded and up);
   - each card links to its screen, and a gated or empty card shows its reason and one action;
   - the last-saved-mix card calls `loadSavedMixes()` after the first paint (`requestIdleCallback`, falling back to `setTimeout`).
 
   Update the comment on `loadSavedMixes` in `src/model/state.ts` to say why a local read after the first paint is acceptable (research D14).
 
-- [ ] T097 [US8] Make the Overview the home address:
+- [X] T097 [US8] Make the Overview the home address:
   - add `{ name: 'overview' }` to `src/router.ts`; the empty address, `#/` and unknown addresses parse to it, and `destinationOf` returns `overview`;
   - update `src/router.test.ts`, replacing the T028 "still `top`" cases;
   - add Overview first in `src/ui/layout/Nav.tsx` (the `home` icon, five items in the bar);
   - render it from `src/app.tsx`.
-- [ ] T098 [US8] Add pages to `tools/shots/pages.ts`: the Overview in the `full`, `empty`, `old-import` and `locked` demos. Run the visual loop; it fails on any request outside `127.0.0.1`, which checks Principle II. Compare the figures with their screens by hand (SC-009). The owner approves, and these become baselines. Commit.
+- [X] T098 [US8] Add pages to `tools/shots/pages.ts`: the Overview in the `full`, `empty`, `old-import` and `locked` demos. Run the visual loop; it fails on any request outside `127.0.0.1`, which checks Principle II. Compare the figures with their screens by hand (SC-009). The owner approves, and these become baselines. Commit.
 
 ---
 
