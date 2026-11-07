@@ -64,6 +64,13 @@ The API client (`createClient`, `client.ts`): bearer token, 401 refresh-once, 42
 - A `put` answered with an empty body (the save endpoint's 200) resolves `undefined`; an empty GET or POST success still throws, as
   `res.json()` did, so a caller reading `.id` off it fails inside its own try/catch.
 - `types.ts` holds the API types; `errors.ts` the `QuotaError` and friends.
+- `quotaLock.ts` (spec 003 S08d, pure): **one quota lock-out for the whole app**. A `QuotaError` met by any reader (sync, Check on
+  Spotify, Create playlist) is kept as `spotifyQuotaLock` in `model/state.ts` (`noteQuotaLock`: the later end wins) and in localStorage
+  (`spotifyQuotaLock`), so it survives a reload and **Disconnect** (the quota belongs to the app's client id, not to the session).
+  While it holds, Sync now, Sync this playlist, Check on Spotify, Create playlist and Like all songs refuse to read Spotify, each
+  with its line (`quotaRefusal`: "Spotify quota reached. Sync again / Check again / Try again after …"), and their buttons rest
+  disabled. A timer to the lock's end clears it (`lapseDelay`, cleaned up by the signal's `effect`), so the buttons and the warnings
+  come back on time without another render.
 
 ## 5. `util/`
 
@@ -106,7 +113,8 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 Planner (a pure diff on `snapshot_id`), item mapper, and runner (`runSync`, `src/sync/runner.ts:181`). The runner commits one playlist
 per transaction, persists `locked`/`error` state in meta (`syncState`, `lastSyncAt`, `accountId`), and on a different Spotify account asks
 before wiping (`ACCOUNT_SWITCH_CONFIRM`). Sync never runs on load ([ADR-02](700-adr/ADR-02-no-spotify-reads-on-load.md)): only from the
-Settings button or a playlist's own button.
+Settings button or a playlist's own button. A sync is refused inside the app's one quota lock-out (§4 `quotaLock.ts`), including one
+Check on Spotify or Create playlist met; a lock the sync meets (its `locked` state, read back on load) joins that lock.
 
 ## 8. `history/`
 
@@ -172,9 +180,16 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
     version tail (so "Losing It" takes "Losing It (Ted Remix)" but "One" never takes "One More Time", "One (Part 2)" or "One (Reprise)");
   - a title that cleans to empty matches nothing; an equal title anywhere in the up-to-10 results beats an earlier version; an original
     beats a "(Mixed)" compilation copy (`isMixedCopy`).
-- `createPlaylist.ts` (`runCreatePlaylist`, `src/features/mix/createPlaylist.ts:39`): resolve every identified row,
-  `POST /me/playlists` (private), then `POST /playlists/{id}/items` with the matched URIs in batches of ≤100, driving an `onState`
-  callback and never throwing.
+- `createPlaylist.ts` (`runCreatePlaylist`): resolve every identified row it is given, `POST /me/playlists` (private), then
+  `POST /playlists/{id}/items` with the matched URIs in batches of ≤100, driving an `onState` callback and never throwing. A
+  `QuotaError` (a search or a POST) comes back as `quotaUntil` before it becomes text, so the wrapper remembers the app's lock-out
+  (§4) and says "Try again after …" inline; the POST is still never retried.
+- **Validated only / All tracks** (spec 003 T119, T126, owner's D6): `tracksToAdd(rows, choice)` is what is given to the runner.
+  **Validated only** keeps validated tracks, a candidate (`origin: 'clue'`, "not heard", which starts To review) once validated;
+  **All tracks** keeps every track still in the list, candidates included. Gap and "ID" rows never. The filter chips and the Sort are
+  view state and never change it. `defaultChoice`: Validated only once any track is validated, else All tracks; the owner's pick is
+  kept per mix (`createChoice`). The card shows "N tracks will be added, in set order." and rests disabled at zero. The mix is still
+  saved whole with the playlist's link. This amends ADR-10 ("candidates go into the playlist unless deleted").
 - `worker.ts` (pure, worker round): `resultToRows` (the worker's result through `parseTracklistifyJson`, re-checked), `mergeWorkerRows`
   (a new result replaces untouched scan rows only), `jobView` and `requestStatusText` (the one wording of the Identify button and the
   request's state line for every server and request state). `url.ts` gains `requestKey`, the canonical link of a request.
@@ -199,7 +214,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   The check saves the mix when it ends, edits and deletions included, and an unsaved lookup becomes a saved mix (ruling R1, S08c fix
   round 1; Save mix's "Saved ✓" shows it). Answers are put back by the row's place and unchanged artist and title, never object
   identity, so a row validated or a list reopened during the run keeps them; an edited or deleted row's answer is dropped. A quota
-  lock-out the check meets (`spotifyCheckLock`) disables the button with its message, and Create playlist's searches wait for it too.
+  answer joins the app's one lock-out (§4 `quotaLock.ts`), which disables the button with its message until it lapses.
 - `review.ts` (T118, T127): the filter chips All, To review, Validated, Not on Spotify and Heard once (N) (only when a row has `hits`),
   one at a time, gaps under All only; the header line "N tracks · K validated · M on Spotify · L not found". **Validate** is the
   optional `TracklistRow.validated`, saved with Save mix like an edit; **Remove** is `deleteMixRow`.
@@ -268,7 +283,7 @@ One Preact component per screen plus small shared components (`ui/components/`).
 | Artist reach | `startReach` (`:604`) | Settings · Artist reach | yes |
 | Mix lookup | `startMixLookup` (`:665`), `startTracklistifyImport` (`:753`) | `#/mix` | no |
 | Create playlist | `startCreatePlaylist` (`:928`) | `#/mix` | no |
-| Check on Spotify | `startSpotifyCheck`, `stopSpotifyCheck` (spec 003 T117) | `#/mix`, the open mix's header | no (Spotify reads only, one track at a time; refused while a sync runs or the quota is locked; no `confirm()`; reset by `disconnect`) |
+| Check on Spotify | `startSpotifyCheck`, `stopSpotifyCheck` (spec 003 T117) | `#/mix`, the open mix's header | no (Spotify reads only, one track at a time; refused while a sync runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
 | Like all songs | `startLikePlaylist` (`:1389`) | Playlist screen | no |
 | Server pull | `startServerPull` (`:284`) | the open (after the first paint), Settings · Server · Sync now | yes |
 | Server push | `queueServerPush` (`:246`) | the tail of the five library jobs, every mix save or delete | no |
@@ -276,7 +291,8 @@ One Preact component per screen plus small shared components (`ui/components/`).
 
 The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:314`). The mix and like
 jobs write no library store and rebuild no `Model`, so they need no exclusion; each guards its own re-entry on its state's `status`, shows
-every failure inline (never a banner, never touching the sync lock) and is reset by `disconnect` (`:1115`).
+every failure inline (never a banner) and is reset by `disconnect` (`:1115`). Every Spotify reader shares one quota lock-out
+(`spotifyQuotaLock`, §4): a quota answer to any of them is remembered for all, across reloads, and `disconnect` keeps it.
 
 Every `confirm()` the app makes, so the list is in one place. Destructive, in `state.ts`: an account switch during a sync
 (`ACCOUNT_SWITCH_CONFIRM`, `:714`), an import that covers less than the stored history (`replaceQuestion`, `:765`), Remove server data
