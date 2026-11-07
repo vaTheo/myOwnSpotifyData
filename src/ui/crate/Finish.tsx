@@ -1,3 +1,4 @@
+import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import {
   FINISH_MIN_OUTCOMES,
@@ -79,60 +80,66 @@ function Legend() {
 export function Finish({ detail }: { detail?: string }) {
   const rows = useCrateRows();
   const tab = finishTab.value;
-  const items = finishRate(rows, tab);
+  const items = useMemo(() => finishRate(rows, tab), [rows, tab]);
   const opened = items.find((item) => item.row.trackId === detail);
-  const columns = crateColumns<FinishItem>({
-    metrics: [
-      {
-        id: 'rate',
-        header: '% finished',
-        priority: 1,
-        width: '160px',
-        sortValue: percentFinished,
-        firstDirection: 'desc',
-        cell: (item) => <Meter pct={percentFinished(item)} />,
-        compact: 'meta',
-      },
-      {
-        id: 'finished',
-        header: 'Finished',
-        align: 'end',
-        priority: 2,
-        width: '112px',
-        sortValue: (item) => item.row.finished ?? 0,
-        firstDirection: 'desc',
-        cell: (item) => (
-          <span>
-            {(item.row.finished ?? 0).toLocaleString()} of{' '}
-            {item.outcomes.toLocaleString()}
-          </span>
-        ),
-        compact: 'hidden',
-      },
-      countColumn(
-        'skipped',
-        'Skipped',
-        (item) => item.row.skipped ?? null,
-        {},
-        { priority: 3, width: '96px', compact: 'hidden' }
-      ),
-      countColumn(
-        'unclear',
-        'Unclear',
-        (item) => item.unclear,
-        {},
-        {
-          priority: 3,
-          width: '96px',
-          compact: 'hidden',
-        }
-      ),
-    ],
-    flag: (item) =>
-      inNoPlaylist(item.row) ? (
-        <Flag kind="todo">not in a playlist</Flag>
-      ) : null,
-  });
+  // Kept while its inputs stay, so the table's memos hold (S13 A5);
+  // the model comes in by its rows.
+  const columns = useMemo(
+    () =>
+      crateColumns<FinishItem>({
+        metrics: [
+          {
+            id: 'rate',
+            header: '% finished',
+            priority: 1,
+            width: '160px',
+            sortValue: percentFinished,
+            firstDirection: 'desc',
+            cell: (item) => <Meter pct={percentFinished(item)} />,
+            compact: 'meta',
+          },
+          {
+            id: 'finished',
+            header: 'Finished',
+            align: 'end',
+            priority: 2,
+            width: '112px',
+            sortValue: (item) => item.row.finished ?? 0,
+            firstDirection: 'desc',
+            cell: (item) => (
+              <span>
+                {(item.row.finished ?? 0).toLocaleString()} of{' '}
+                {item.outcomes.toLocaleString()}
+              </span>
+            ),
+            compact: 'hidden',
+          },
+          countColumn(
+            'skipped',
+            'Skipped',
+            (item) => item.row.skipped ?? null,
+            {},
+            { priority: 3, width: '96px', compact: 'hidden' }
+          ),
+          countColumn(
+            'unclear',
+            'Unclear',
+            (item) => item.unclear,
+            {},
+            {
+              priority: 3,
+              width: '96px',
+              compact: 'hidden',
+            }
+          ),
+        ],
+        flag: (item) =>
+          inNoPlaylist(item.row) ? (
+            <Flag kind="todo">not in a playlist</Flag>
+          ) : null,
+      }),
+    [rows]
+  );
   // Control, caption and legend render before the data check, so an empty
   // result still leaves the control reachable (spec section 3).
   return (

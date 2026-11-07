@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useMemo } from 'preact/hooks';
 import {
   MONTH_NAMES,
   byYear,
@@ -125,7 +125,10 @@ export function ByYear({
   const thisYear = new Date().getFullYear();
   const year = yearSel.value ?? years[years.length - 1] ?? thisYear;
   const selection = yearPeriod.value;
-  const result = byYear(rows, year, selection);
+  const result = useMemo(
+    () => byYear(rows, year, selection),
+    [rows, year, selection]
+  );
   const label = selectionLabel(year, selection);
   const opened = result.items.find((item) => item.row.trackId === detail);
   const caption =
@@ -135,42 +138,48 @@ export function ByYear({
     yearSel.value = y;
     yearPeriod.value = p;
   };
-  const columns = crateColumns<YearItem>({
-    metrics: [
-      countColumn(
-        'selection',
-        'Plays in selection',
-        (item) => item.selectionPlays,
-        { unit: ['play', 'plays'] },
-        { width: '144px' }
-      ),
-      selection === 'all'
-        ? countColumn(
-            'of',
-            'All time',
-            (item) => item.row.plays,
-            {},
-            { priority: 3, width: '96px', compact: 'hidden' }
-          )
-        : countColumn(
-            'of',
-            `In ${year}`,
-            (item) => item.yearPlays,
-            {},
-            { priority: 3, width: '96px', compact: 'hidden' }
+  // Kept while its inputs stay, so the table's memos hold (S13 A5);
+  // the model comes in by its rows.
+  const columns = useMemo(
+    () =>
+      crateColumns<YearItem>({
+        metrics: [
+          countColumn(
+            'selection',
+            'Plays in selection',
+            (item) => item.selectionPlays,
+            { unit: ['play', 'plays'] },
+            { width: '144px' }
           ),
-    ],
-    chart: chartColumn(
-      'Per month',
-      'Plays per month',
-      (item) => yearSeries(item, year, selection),
-      selection === 'winter' ? 13 : 12
-    ),
-    flag: (item) =>
-      inNoPlaylist(item.row) ? (
-        <Flag kind="todo">not in a playlist</Flag>
-      ) : null,
-  });
+          selection === 'all'
+            ? countColumn(
+                'of',
+                'All time',
+                (item) => item.row.plays,
+                {},
+                { priority: 3, width: '96px', compact: 'hidden' }
+              )
+            : countColumn(
+                'of',
+                `In ${year}`,
+                (item) => item.yearPlays,
+                {},
+                { priority: 3, width: '96px', compact: 'hidden' }
+              ),
+        ],
+        chart: chartColumn(
+          'Per month',
+          'Plays per month',
+          (item) => yearSeries(item, year, selection),
+          selection === 'winter' ? 13 : 12
+        ),
+        flag: (item) =>
+          inNoPlaylist(item.row) ? (
+            <Flag kind="todo">not in a playlist</Flag>
+          ) : null,
+      }),
+    [rows, year, selection]
+  );
   return (
     <>
       {windowClass.value === 'compact' ? (

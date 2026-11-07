@@ -21,6 +21,7 @@ import { DataTable, type Column } from '../table/DataTable';
 import type { SortState } from '../table/sort';
 import { trackFilterView } from '../filters/FilterBar';
 import type { TrackFilter } from '../filters/trackFilter';
+import { lastCall } from '../table/lastCall';
 
 // The details' shared pieces, re-exported for the Crate views.
 export { NoPlaylistNote, OpenMonthLink, monthLabel } from '../details/parts';
@@ -37,9 +38,14 @@ export interface CrateItem {
 export const DEFAULT_SORT: SortState = { columnId: null, direction: 'asc' };
 
 /** Every Crate view works on these rows; older rows are simply absent. */
+const crateRowsOf = lastCall((plays: PlayRow[]) => plays.filter(hasMonthData));
+const NO_ROWS: CrateRowData[] = [];
+
+/** The plays with month data; the same array while the model stays, so the
+ *  views' memos hold (S13 A5). */
 export function useCrateRows(): CrateRowData[] {
   const m = model.value;
-  return m ? m.plays.filter(hasMonthData) : [];
+  return m ? crateRowsOf(m.plays) : NO_ROWS;
 }
 
 /** The import's range, for the charts' gaps (null: every month inside). */

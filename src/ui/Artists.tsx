@@ -1,5 +1,6 @@
 import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
+import { useMemo } from 'preact/hooks';
 import type { ArtistAgg, Model } from '../model/aggregate';
 import { normalize } from '../model/normalize';
 import {
@@ -26,6 +27,7 @@ import {
   titleColumn,
 } from './table/columns';
 import { DataTable, type Column } from './table/DataTable';
+import { lastCall } from './table/lastCall';
 import type { SortState } from './table/sort';
 
 const filter = signal('');
@@ -134,6 +136,15 @@ function savedColumns(
   ];
 }
 
+/* Kept while their inputs stay, so the table's memos hold (S13 A5). */
+const savedColumnsOf = lastCall(savedColumns);
+const filterRows = lastCall(
+  (rows: SavedArtistRow[], query: string): SavedArtistRow[] =>
+    query ? rows.filter((r) => normalize(r.agg.name).includes(query)) : rows
+);
+const rankOfRow = (r: SavedArtistRow): number => r.rank;
+const keyOfRow = (r: SavedArtistRow): string => r.agg.key;
+
 /** Today's ranking and filter, as a table. */
 function SavedTracks(p: { switcher: ComponentChildren }) {
   const m = model.value;
@@ -149,9 +160,7 @@ function SavedTracks(p: { switcher: ComponentChildren }) {
   const rows = savedRows(m, reach);
   const query = normalize(filter.value);
   // Rank comes from the full list, so filtering never renumbers the rows.
-  const list = query
-    ? rows.filter((r) => normalize(r.agg.name).includes(query))
-    : rows;
+  const list = filterRows(rows, query);
   return (
     <>
       <div class="toolbar">
@@ -175,10 +184,10 @@ function SavedTracks(p: { switcher: ComponentChildren }) {
         <DataTable
           label="Artists by saved tracks"
           noun="artist"
-          columns={savedColumns(hasHistory(m), reach)}
+          columns={savedColumnsOf(hasHistory(m), reach)}
           rows={list}
-          rowKey={(r) => r.agg.key}
-          rankOf={(r) => r.rank}
+          rowKey={keyOfRow}
+          rankOf={rankOfRow}
           sort={sort.value}
           onSort={(s) => {
             sort.value = s;
@@ -203,12 +212,26 @@ function ArtistPane(p: { m: Model; selected: string }) {
     artistView.value === 'radar' && artistReachSummary.value?.version === 1;
   const text = radar ? radarFilter : filter;
   const query = normalize(text.value);
-  const aggs = radar
-    ? rankUnderTheRadar(p.m, radarSort.value).map((r) => r.agg)
-    : p.m.artists;
-  const shown = query
-    ? aggs.filter((a) => normalize(a.name).includes(query))
-    : aggs;
+  const order = radarSort.value;
+  // Kept while the model, the view and the filter stay, so a `?d=` change
+  // (the sheet following the arrows in the artist's tracks) redraws none
+  // of the items (S13 A4).
+  const items = useMemo(() => {
+    const aggs = radar
+      ? rankUnderTheRadar(p.m, order).map((r) => r.agg)
+      : p.m.artists;
+    const shown = query
+      ? aggs.filter((a) => normalize(a.name).includes(query))
+      : aggs;
+    return shown.map((a) => ({
+      id: a.key,
+      title: a.name,
+      subtitle: plural(a.trackKeys.size, 'track'),
+      // No artist picture in the model: the slot keeps its place.
+      imageUrl: null,
+      href: routeHref({ name: 'artist', key: a.key }),
+    }));
+  }, [p.m, radar, order, query]);
   return (
     <ListPane
       label={radar ? 'Under the radar' : 'Artists by saved tracks'}
@@ -230,14 +253,7 @@ function ArtistPane(p: { m: Model; selected: string }) {
         />
       }
       selectedId={p.selected}
-      items={shown.map((a) => ({
-        id: a.key,
-        title: a.name,
-        subtitle: plural(a.trackKeys.size, 'track'),
-        // No artist picture in the model: the slot keeps its place.
-        imageUrl: null,
-        href: routeHref({ name: 'artist', key: a.key }),
-      }))}
+      items={items}
     />
   );
 }

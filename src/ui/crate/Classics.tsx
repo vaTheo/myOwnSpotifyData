@@ -1,3 +1,4 @@
+import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import {
   CLASSIC_MIN_PLAYS_PER_YEAR,
@@ -22,6 +23,7 @@ import {
   chartColumn,
   crateColumns,
   inNoPlaylist,
+  historyRange,
   spanYears,
   useCrateRows,
 } from './shared';
@@ -49,50 +51,59 @@ function ClassicExtra(p: { item: ClassicItem; span: number[] }) {
 
 export function Classics({ detail }: { detail?: string }) {
   const rows = useCrateRows();
-  const span = spanYears(rows);
-  const items = classics(rows, classicSort.value);
+  const span = useMemo(() => spanYears(rows), [rows, historyRange()]);
+  const items = useMemo(
+    () => classics(rows, classicSort.value),
+    [rows, classicSort.value]
+  );
   const opened = items.find((item) => item.row.trackId === detail);
   const caption =
     `Played ${CLASSIC_MIN_PLAYS_PER_YEAR}+ times in ` +
     `${CLASSIC_MIN_YEARS}+ of your ${span.length} years · ` +
     plural(items.length, 'track');
-  const columns = crateColumns<ClassicItem>({
-    metrics: [
-      {
-        id: 'years',
-        header: 'Years played',
-        align: 'end',
-        priority: 1,
-        width: '128px',
-        sortValue: (item) => item.yearsActive,
-        firstDirection: 'desc',
-        cell: (item) => (
-          <span>
-            {item.yearsActive} of {span.length}
-            <span class="dt-unit">years</span>
-          </span>
+  // Kept while its inputs stay, so the table's memos hold (S13 A5);
+  // the model comes in by its rows.
+  const columns = useMemo(
+    () =>
+      crateColumns<ClassicItem>({
+        metrics: [
+          {
+            id: 'years',
+            header: 'Years played',
+            align: 'end',
+            priority: 1,
+            width: '128px',
+            sortValue: (item) => item.yearsActive,
+            firstDirection: 'desc',
+            cell: (item) => (
+              <span>
+                {item.yearsActive} of {span.length}
+                <span class="dt-unit">years</span>
+              </span>
+            ),
+            compact: 'meta',
+          },
+          countColumn(
+            'plays',
+            'Plays',
+            (item) => item.row.plays,
+            {},
+            { priority: 3, width: '96px', compact: 'hidden' }
+          ),
+        ],
+        chart: chartColumn(
+          'Per year',
+          'Plays per year',
+          (item) => yearPoints(item.row.months, span),
+          span.length
         ),
-        compact: 'meta',
-      },
-      countColumn(
-        'plays',
-        'Plays',
-        (item) => item.row.plays,
-        {},
-        { priority: 3, width: '96px', compact: 'hidden' }
-      ),
-    ],
-    chart: chartColumn(
-      'Per year',
-      'Plays per year',
-      (item) => yearPoints(item.row.months, span),
-      span.length
-    ),
-    flag: (item) =>
-      inNoPlaylist(item.row) ? (
-        <Flag kind="todo">not in a playlist</Flag>
-      ) : null,
-  });
+        flag: (item) =>
+          inNoPlaylist(item.row) ? (
+            <Flag kind="todo">not in a playlist</Flag>
+          ) : null,
+      }),
+    [rows, span]
+  );
   return (
     <>
       <div class="toolbar">

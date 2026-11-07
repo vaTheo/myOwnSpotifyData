@@ -25,6 +25,7 @@ import {
   titleColumn,
 } from './table/columns';
 import { DataTable, type Column } from './table/DataTable';
+import { lastCall } from './table/lastCall';
 import type { SortState } from './table/sort';
 
 /**
@@ -145,6 +146,16 @@ function radarColumns(history: boolean): Column<UnderRadarRow>[] {
   ];
 }
 
+/* Kept while their inputs stay, so the table's memos hold (S13 A5). */
+const radarColumnsOf = lastCall(radarColumns);
+const filterRows = lastCall(
+  (rows: UnderRadarRow[], query: string): UnderRadarRow[] =>
+    query ? rows.filter((r) => normalize(r.agg.name).includes(query)) : rows
+);
+const rankOfRow = (r: UnderRadarRow): number => r.rank;
+const keyOfRow = (r: UnderRadarRow): string => r.agg.key;
+const groupOfRow = (r: UnderRadarRow) => r.group;
+
 const SORT_OF_COLUMN: Record<string, ReachSort> = {
   plays: 'plays',
   tracks: 'plays',
@@ -204,9 +215,7 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
   const query = normalize(radarFilter.value);
   // Ranks were assigned over the unfiltered list, so nothing renumbers, and a
   // heading whose rows have all been filtered out is not rendered.
-  const shown = query
-    ? rows.filter((r) => normalize(r.agg.name).includes(query))
-    : rows;
+  const shown = filterRows(rows, query);
   const cov = reachCoverage(m);
   const history = hasHistory(m);
   const count = (group: ReachGroup) =>
@@ -267,17 +276,17 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
           <DataTable
             label="Under the radar"
             noun="artist"
-            columns={radarColumns(history)}
+            columns={radarColumnsOf(history)}
             rows={shown}
-            rowKey={(r) => r.agg.key}
-            rankOf={(r) => r.rank}
+            rowKey={keyOfRow}
+            rankOf={rankOfRow}
             presorted
             sort={sort}
             onSort={(s) => {
               const next = s.columnId ? SORT_OF_COLUMN[s.columnId] : undefined;
               if (next) radarSort.value = next;
             }}
-            groupOf={(r) => r.group}
+            groupOf={groupOfRow}
             groupHeading={groupHeading}
             resetKey={`${radarSort.value} ${query}`}
             onOpen={(r) => {

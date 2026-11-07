@@ -289,3 +289,32 @@ export function trackFacts(model: Model, ref: TrackRef): TrackFacts | null {
     playlists,
   };
 }
+
+/** One string per reference, equal for equal references. */
+function refKey(ref: TrackRef): string {
+  if ('trackId' in ref) return `t:${ref.trackId}`;
+  if ('playRowId' in ref) return `h:${ref.playRowId}`;
+  return `p:${ref.playlistId}:${ref.position}`;
+}
+
+/**
+ * `trackFacts` remembering its last answer while the model and the
+ * reference stay (S13 A6): an open sheet re-renders on every keystroke of
+ * the screen under it, and the by-name play count scans every play row.
+ */
+export function factsCache(): (
+  model: Model,
+  ref: TrackRef
+) => TrackFacts | null {
+  let last: { model: Model; key: string; facts: TrackFacts | null } | null =
+    null;
+  return (model, ref) => {
+    const key = refKey(ref);
+    if (last !== null && last.model === model && last.key === key) {
+      return last.facts;
+    }
+    const facts = trackFacts(model, ref);
+    last = { model, key, facts };
+    return facts;
+  };
+}

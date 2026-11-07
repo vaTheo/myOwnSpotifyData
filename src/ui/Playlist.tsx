@@ -9,6 +9,7 @@ import {
 import {
   findSeedRow,
   playlistRanking,
+  type Model,
   type RankedTrack,
   type SeedRef,
 } from '../model/aggregate';
@@ -56,6 +57,7 @@ import {
 import { closeDetail, openDetail } from './details/navigate';
 import { TrackSheet } from './details/TrackDetails';
 import { DataTable, type Column } from './table/DataTable';
+import { lastCall } from './table/lastCall';
 import type { SortState } from './table/sort';
 import { trackFilterView } from './filters/FilterBar';
 import {
@@ -317,6 +319,66 @@ export function PlaylistActions({ id }: { id: string }) {
   );
 }
 
+const playlistColumnsOf = lastCall(playlistColumns);
+const positionOf = (r: ListedRow): string => String(r.row.entry.position);
+
+/**
+ * A playlist's rows as the table lists them: ranked, in playlist order, or
+ * matched from the seed. Kept while the model, the playlist, the order and
+ * the seed stay, so the table's memos hold across other renders (S13 A5).
+ */
+const playlistView = lastCall(
+  (m: Model, id: string, ord: Order, seedRef: SeedRef | undefined) => {
+    const ranked = playlistRanking(m, id);
+    // Match ranks the plays order, so only `order` re-sorts by position.
+    const rows =
+      ord === 'order'
+        ? [...ranked].sort((a, b) => a.entry.position - b.entry.position)
+        : ranked;
+    const featureOfRow = (r: RankedTrack) =>
+      r.track.id ? featureFor(m, r.track.id) : null;
+    // Ranked by position, not by track key: a playlist may hold the same track
+    // twice, and two candidates sharing an id would collapse the second row.
+    const byPosition = new Map(rows.map((r) => [String(r.entry.position), r]));
+    const matching = ord === 'match';
+    const seed = matching ? findSeedRow(rows, seedRef) : undefined;
+    const seedFeature = seed ? featureOfRow(seed) : null;
+    const seedPosition = seed?.entry.position;
+    const listed: ListedRow[] = seedFeature
+      ? rankMatches(
+          seedFeature,
+          // Exclude only the seed's own position (not its track id): the seed
+          // bar already names the seed as "Matching: …", so it must not also
+          // rank as the top result of its own list. A track that appears twice
+          // in the playlist keeps its other row.
+          rows
+            .filter((r) => r.entry.position !== seedPosition)
+            .map((r) => ({
+              id: String(r.entry.position),
+              feature: featureOfRow(r),
+            })),
+          TOLERANCE_PCT
+        ).flatMap((match: MatchResult) => {
+          const row = byPosition.get(match.id);
+          return row
+            ? [
+                {
+                  row,
+                  feature: match.feature,
+                  cells: matchCells(seedFeature, match, TOLERANCE_PCT),
+                },
+              ]
+            : [];
+        })
+      : rows.map((row) => ({
+          row,
+          feature: featureOfRow(row),
+          cells: matchCells(null, null, TOLERANCE_PCT),
+        }));
+    return { ranked, seed, seedFeature, seedPosition, listed };
+  }
+);
+
 /** `detail` is the entry position whose details sheet is open (`?d=`). */
 export function Playlist({ id, detail }: { id: string; detail?: string }) {
   const m = model.value;
@@ -329,52 +391,13 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
       </div>
     );
   }
-  const ranked = playlistRanking(m, id);
-  // Match ranks the plays order, so only `order` re-sorts by position.
-  const rows =
-    order.value === 'order'
-      ? [...ranked].sort((a, b) => a.entry.position - b.entry.position)
-      : ranked;
-  const featureOfRow = (r: RankedTrack) =>
-    r.track.id ? featureFor(m, r.track.id) : null;
-  // Ranked by position, not by track key: a playlist may hold the same track
-  // twice, and two candidates sharing an id would collapse the second row.
-  const byPosition = new Map(rows.map((r) => [String(r.entry.position), r]));
   const matching = order.value === 'match';
-  const seed = matching ? findSeedRow(rows, seeds.value[id]) : undefined;
-  const seedFeature = seed ? featureOfRow(seed) : null;
-  const seedPosition = seed?.entry.position;
-  const listed: ListedRow[] = seedFeature
-    ? rankMatches(
-        seedFeature,
-        // Exclude only the seed's own position (not its track id): the seed
-        // bar already names the seed as "Matching: …", so it must not also
-        // rank as the top result of its own list. A track that appears twice
-        // in the playlist keeps its other row.
-        rows
-          .filter((r) => r.entry.position !== seedPosition)
-          .map((r) => ({
-            id: String(r.entry.position),
-            feature: featureOfRow(r),
-          })),
-        TOLERANCE_PCT
-      ).flatMap((match: MatchResult) => {
-        const row = byPosition.get(match.id);
-        return row
-          ? [
-              {
-                row,
-                feature: match.feature,
-                cells: matchCells(seedFeature, match, TOLERANCE_PCT),
-              },
-            ]
-          : [];
-      })
-    : rows.map((row) => ({
-        row,
-        feature: featureOfRow(row),
-        cells: matchCells(null, null, TOLERANCE_PCT),
-      }));
+  const { ranked, seed, seedFeature, seedPosition, listed } = playlistView(
+    m,
+    id,
+    order.value,
+    seeds.value[id]
+  );
   const filtered = trackFilterView({
     filter,
     rows: listed,
@@ -514,10 +537,10 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
             : 'by plays'
       }`}
       noun="track"
-      columns={playlistColumns(matching && seedFeature !== null)}
+      columns={playlistColumnsOf(matching && seedFeature !== null)}
       rows={listed}
       only={filtered.only}
-      rowKey={(r) => String(r.row.entry.position)}
+      rowKey={positionOf}
       sort={headerSort}
       onSort={(s) => {
         sort.value = s;

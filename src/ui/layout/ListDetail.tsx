@@ -1,6 +1,8 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { PAGE_SIZE } from '../../model/crate';
 import { TrackRow } from '../components/TrackRow';
+import { shownToReveal } from '../table/paging';
 import { moveIndex } from '../table/keyboard';
 import { ESCAPE_RANK, pushEscapeLayer } from './escape';
 import { focusWhenReady } from './focus';
@@ -122,13 +124,19 @@ export function ListPane(p: {
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  // A hundred at a time, like the tables (FR-022), with as many more pages
+  // as the open item needs to be among them (S13 A4).
+  const [more, setMore] = useState(PAGE_SIZE);
+  const open = p.items.findIndex((i) => i.id === p.selectedId);
+  const shown = shownToReveal(open, more, PAGE_SIZE);
+  const visible = p.items.length > shown ? p.items.slice(0, shown) : p.items;
   const has = (id: string | null) =>
-    id !== null && p.items.some((i) => i.id === id);
+    id !== null && visible.some((i) => i.id === id);
   const stopId = has(focusedId)
     ? focusedId
     : has(p.selectedId)
       ? p.selectedId
-      : (p.items[0]?.id ?? null);
+      : (visible[0]?.id ?? null);
 
   useEffect(() => {
     const pane = box.current;
@@ -169,7 +177,7 @@ export function ListPane(p: {
             if (id !== undefined) setFocusedId(id);
           }}
         >
-          {p.items.map((item) => (
+          {visible.map((item) => (
             <TrackRow
               key={item.id}
               imageUrl={item.imageUrl}
@@ -182,6 +190,17 @@ export function ListPane(p: {
             />
           ))}
         </ul>
+      )}
+      {p.items.length > shown && (
+        <div class="dt-footer">
+          <p>
+            Showing {shown.toLocaleString()} of{' '}
+            {p.items.length.toLocaleString()}
+          </p>
+          <button type="button" onClick={() => setMore(shown + PAGE_SIZE)}>
+            Show {PAGE_SIZE.toLocaleString()} more
+          </button>
+        </div>
       )}
     </div>
   );

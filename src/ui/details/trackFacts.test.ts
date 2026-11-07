@@ -9,7 +9,7 @@ import type {
 } from '../../db/schema';
 import { buildModel } from '../../model/aggregate';
 import { featureFor } from '../../model/features';
-import { trackFacts } from './trackFacts';
+import { factsCache, trackFacts } from './trackFacts';
 
 const daft = { id: 'daft', name: 'Daft Punk' };
 const guest = { id: 'guest', name: 'Guest' };
@@ -311,5 +311,25 @@ describe('trackFacts', () => {
     expect(trackFacts(m, { playRowId: 'old-id' })?.playlists).toEqual([
       { id: 'p2', name: 'Peak' },
     ]);
+  });
+});
+
+describe('factsCache (S13 A6)', () => {
+  it('answers the same facts for the same model and an equal reference', () => {
+    const m = buildModel(rows());
+    const facts = factsCache();
+    const first = facts(m, { trackId: 't1' });
+    expect(first?.title).toBe('Song t1');
+    expect(facts(m, { trackId: 't1' })).toBe(first);
+  });
+
+  it('works them out again for another reference or another model', () => {
+    const m = buildModel(rows());
+    const facts = factsCache();
+    const first = facts(m, { playlistId: 'p1', position: 0 });
+    expect(facts(m, { playlistId: 'p1', position: 1 })?.title).toBe('Song t2');
+    const again = facts(buildModel(rows()), { playlistId: 'p1', position: 0 });
+    expect(again).not.toBe(first);
+    expect(again).toEqual(first);
   });
 });

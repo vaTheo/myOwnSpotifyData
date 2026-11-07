@@ -1,3 +1,4 @@
+import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import {
   MIN_ROTATION_PLAYS,
@@ -87,7 +88,12 @@ export function Rotation({ detail }: { detail?: string }) {
   const now = new Date();
   const months = rotationMonths.value;
   const keys = lastMonths(now, months);
-  const items = heavyRotation(rows, now, months);
+  // `now` counts by its day.
+  const today = now.toDateString();
+  const items = useMemo(
+    () => heavyRotation(rows, now, months),
+    [rows, today, months]
+  );
   const caption = [rangeLabel(keys)];
   if (now.getDate() < 8) {
     const current = shortMonth(keys[keys.length - 1]);
@@ -96,27 +102,33 @@ export function Rotation({ detail }: { detail?: string }) {
   caption.push(`${MIN_ROTATION_PLAYS}+ plays`, plural(items.length, 'track'));
   const opened = items.find((item) => item.row.trackId === detail);
   const stale = staleMonthKey(historySummary.value?.range, now);
-  const columns = crateColumns<RotationItem>({
-    metrics: [
-      countColumn('window', 'Plays in window', (item) => item.windowPlays, {
-        unit: ['play', 'plays'],
+  // Kept while its inputs stay, so the table's memos hold (S13 A5);
+  // the model comes in by its rows.
+  const columns = useMemo(
+    () =>
+      crateColumns<RotationItem>({
+        metrics: [
+          countColumn('window', 'Plays in window', (item) => item.windowPlays, {
+            unit: ['play', 'plays'],
+          }),
+          countColumn(
+            'lifetime',
+            'Lifetime',
+            (item) => item.row.plays,
+            {},
+            { priority: 3, width: '96px', compact: 'hidden' }
+          ),
+        ],
+        chart: chartColumn(
+          `Last ${windowLabel(months)}`,
+          'Plays per month',
+          (item) => windowSeries(item, keys),
+          keys.length
+        ),
+        flag: rotationFlag,
       }),
-      countColumn(
-        'lifetime',
-        'Lifetime',
-        (item) => item.row.plays,
-        {},
-        { priority: 3, width: '96px', compact: 'hidden' }
-      ),
-    ],
-    chart: chartColumn(
-      `Last ${windowLabel(months)}`,
-      'Plays per month',
-      (item) => windowSeries(item, keys),
-      keys.length
-    ),
-    flag: rotationFlag,
-  });
+    [rows, today, months]
+  );
   return (
     <>
       <div class="toolbar">

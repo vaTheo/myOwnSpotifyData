@@ -37,6 +37,7 @@ import { TrackSheet } from './details/TrackDetails';
 import { DataTable, type Column } from './table/DataTable';
 import { trackFilterView } from './filters/FilterBar';
 import { EMPTY_FILTER, type TrackFilter } from './filters/trackFilter';
+import { lastCall } from './table/lastCall';
 import type { SortState } from './table/sort';
 
 const sort = signal<SortState>({ columnId: null, direction: 'asc' });
@@ -180,6 +181,10 @@ function trackColumns(m: Model): Column<ArtistTrack>[] {
   ];
 }
 
+/* Kept while their inputs stay, so the table's memos hold (S13 A5). */
+const trackColumnsOf = lastCall(trackColumns);
+const artistTracksOf = lastCall(artistTracks);
+
 /** `detail` is the track key whose details sheet is open (`?d=`). */
 export function Artist({
   artistKey,
@@ -204,7 +209,7 @@ export function Artist({
   }
   const artistId = agg?.id ?? top?.id ?? null;
   const url = artistUrl(artistId);
-  const tracks = agg ? artistTracks(m, artistKey) : [];
+  const tracks = agg ? artistTracksOf(m, artistKey) : [];
   const filtered = trackFilterView({
     filter,
     rows: tracks,
@@ -245,7 +250,7 @@ export function Artist({
               }
               label={`Saved tracks by ${name}`}
               noun="track"
-              columns={trackColumns(m)}
+              columns={trackColumnsOf(m)}
               rows={tracks}
               only={filtered.only}
               rowKey={(t) => t.track.key}
