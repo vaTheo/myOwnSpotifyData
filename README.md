@@ -11,10 +11,11 @@ key lookup sends to ReccoBeats, the artist ids, ISRCs and article titles the
 artist-reach lookup sends to MusicBrainz, ListenBrainz, Deezer, Wikidata and
 Wikimedia, and the SoundCloud link you paste into the Mix tracklist screen,
 which goes to SoundCloud and TrackId.net (and loads the player from
-`w.soundcloud.com`) — and only when you start one of them. The only thing the
-app ever writes back to Spotify is a playlist you explicitly ask for: **Create
-playlist from mix** sends a name and the matched track ids to your own Spotify
-account, on that tap alone. No Spotify token ever leaves the browser. If you
+`w.soundcloud.com`) — and only when you start one of them. The app writes to
+Spotify only when you explicitly ask, on that tap alone: **Create playlist
+from mix** sends a name and the matched track ids to your own account, and
+**Like all songs** saves a synced playlist's songs to your Liked Songs. No
+Spotify token ever leaves the browser. If you
 set up the optional server (below), every dataset the app builds, listening
 history included, is copied to your own Supabase project and nowhere else.
 
@@ -42,6 +43,7 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
 | `yarn lint`      | Lint with ESLint                   |
 | `yarn typecheck` | Type-check without emitting        |
 | `yarn format`    | Format with Prettier               |
+| `yarn shots`     | Screenshot every page on demo data (dev only; see Contributing) |
 
 ## One-time setup
 
@@ -57,56 +59,119 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
    section below).
 3. Push to `main`. CI type-checks, lints, tests, builds and deploys to
    `https://vatheo.github.io/myOwnSpotifyData/`.
-4. On the phone, open that URL in Chrome and use "Add to Home Screen".
+4. Open that URL in your computer's browser. On the phone, open it in
+   Chrome and use "Add to Home Screen".
 
 ## Using it
 
+The app is made for a computer's browser first and works the same on the
+phone. It is dark, with chartreuse marking what you act on.
+
+### Getting around
+
+- **Five places**, in the rail on the left (at the bottom on a phone):
+  **Overview**, **Listening** (tabs _Top_ and _Crate_), **Library** (tabs
+  _Playlists_ and _Artists_), **Mix** and **Settings**. Each place reopens on
+  the tab you last used. Every old address (`#/top`, `#/playlist/…`) still
+  works; opening the app with no address lands on the Overview.
+- **Overview** sums up your data in cards, each one a link to its screen:
+  _Listening_ (history range, plays, listening time, import date, a warning
+  when the import is old), _Heavy rotation_'s top five, _Top this month_,
+  _Library_ (playlists, last sync, a Spotify lock-out or pending playlists),
+  _Coverage_ (how many tracks have BPM and key, how many artists have reach
+  data), the _Last saved mix_ and the _Server_ when you have one. It is built
+  only from what is already stored: opening it never reads Spotify. A card
+  with nothing to show says why and offers the one action that fixes it.
+- **The activity button** in the top bar shows any job running (sync, import,
+  lookups, server sync, Like, Create playlist, a mix lookup) from every
+  screen, with its progress; tapping a job leads to where it lives. It never
+  starts or stops one.
+- **Keyboard**: `/` or Ctrl+K opens the search, Escape closes the topmost
+  pane, sheet or search, Tab moves through every control with a visible ring.
+
+### Tables, sorting and details
+
+- Every track list is a **table**: one column per value (title, artists,
+  plays, BPM, key, and more where the screen has them). **Click a column
+  header to sort** by it, again to reverse. The screen's own ranking is the
+  default; ranks never renumber when you sort or filter, and rows without the
+  value go last. When the window is narrow, the less important columns hide
+  first; title, the main number, BPM and key stay. On a phone each row is two
+  lines and there are no sort headers (the order controls, such as a
+  playlist's order or Under the radar's sorts, stay).
+- Long lists say "Showing 100 of 2,431" and load more as you go. Arrow keys
+  move through a table; Enter opens the row.
+- **Click a track to open its details** beside the list (full screen on a
+  phone): album, length, added date, BPM, key, energy and where they came
+  from, plays, listening time, first and last play, plays per month as a
+  chart, finished and skipped, the playlists that hold it, and its Spotify
+  link. The address carries it, so Back closes it and a bookmark reopens it.
+- **Playlists, Artists and Mix** open the item you pick beside their list on
+  a wide window; on a phone the item opens full screen with a back arrow.
+- A value the app does not have shows as a dash ("no data"), never as 0.
+
+### Find and filter
+
+- **Search** (the field in the top bar, `/` or Ctrl+K) looks through your
+  tracks (library and history), artists, playlists and saved mixes, ignoring
+  case and accents. Results are grouped, five a group with _Show all_;
+  choosing one opens it. Escape clears the text, a second Escape closes it.
+  It searches only what is stored in this browser.
+- **Filters** sit above every track table: the text filter, a **BPM range**
+  (min and max) and a **key** picker with _Include compatible keys_ (the same
+  relations Match uses: same key, relative, ±1, boost). While a filter is on,
+  tracks without the value are hidden, the line says "Showing N of M", and
+  _Clear filters_ removes them all. Keys follow your chosen notation.
+
+### Listening
+
+- **Top** lists your most played tracks or artists for 4 weeks, 6 months or
+  all time. On a wide window, **Compare periods** shows the three periods
+  side by side; pointing at a track marks it in the other columns.
 - **Crate** is the "what do I play tonight" tab, built entirely from the
-  imported history: _Heavy rotation_ (most plays in the last 1, 3 or 6
-  months), _Forgotten gems_ (10+ lifetime plays, nothing for 6 months, 1 year
-  or 2 years), _All-time classics_ (played in the most distinct years), _By
-  year_ (top tracks of a year, with season and month chips) and _Finish rate_
-  (what you play to the end versus what you bail out of). Spotify's Web API
-  has no play counts, so none of this can be filled in by syncing.
-- **Settings → Sync now** fetches your top lists and the playlists you own.
-  Spotify enforces an unpublished daily quota on playlist reads; if it hits,
-  the app keeps what it synced and tells you when to retry.
-- **Import** takes `my_spotify_data.zip` from Spotify's privacy page
-  (request _Extended streaming history_; it arrives by email). A play counts
-  once a track was listened to for at least 30 seconds. Months are bucketed
-  in the phone's time zone at import time, so re-import after moving zones.
-  An import replaces the whole history; if the one you picked covers less than
-  what is stored, the app asks before replacing it.
-- **BPM and key** show as two small pills on every track row, once you have
-  filled them in from the **Audio data** card in Settings.
-  `Look up BPM and key` fetches Spotify's own tempo and key for the tracks
-  ReccoBeats knows, and the `.xml` file input takes a rekordbox collection
-  export (_File > Export Collection in xml format_), which wins wherever it
-  has a value of its own. Neither starts by itself, and both pick up where
-  they stopped. The key pill follows the notation chosen on the same card:
-  Camelot, Open Key or classic names. Audio data via ReccoBeats (Spotify
-  audio features).
-- **Match** is the third control on a playlist. Tap a track and the list
-  re-ranks around it: everything within ±6% BPM first, ordered by key relation
-  (`same key`, `relative`, `+1`, `−1`, `boost`) and then by BPM distance, then
-  the rest of the tracks that have data, then the ones that have none. A seed
-  with a key but no BPM ranks by key relation alone and says so. Each row
-  shows its relation and its ΔBPM against the seed. Tapping another row moves
-  the seed; `Clear`, or leaving Match, drops it — for that playlist only.
-- **Under the radar** is the second view on the Artists tab: the artists in
-  your playlists with the smallest audiences, so you can tell one nobody has
-  heard of from one everybody plays. Fill it in from the **Artist reach** card
-  in Settings — `Look up artists` is one long job, roughly 45 to 50 minutes
-  for 1,000 artists, it never starts by itself, and it picks up where it
-  stopped, so you can stop it and come back. Then sort by `Most played`,
-  `Fewest listeners` or `Fewest fans`; the filter box narrows by name and the
-  ranks never renumber.
+  imported history. The hub shows five cards with their headline figures and
+  a small chart: _Heavy rotation_ (most plays in the last 1, 3 or 6 months),
+  _Forgotten gems_ (10+ lifetime plays, nothing for 6 months, 1 year or 2
+  years), _All-time classics_ (played in the most distinct years), _By year_
+  (top tracks of a year, a season or a month) and _Finish rate_ (what you
+  play to the end versus what you bail out of). Each view is a table with
+  its own columns and charts: plays per month as small bars, plays per year
+  for the classics (a year without plays is a zero mark), the finish rate as
+  a meter in its band. **By year** picks its period on a year × month grid:
+  click a year, a month or a season. Spotify's Web API has no play counts,
+  so none of this can be filled in by syncing.
+
+### Library
+
+- **Playlists** is a table (cover, name, tracks, last synced, pending). A
+  playlist shows its tracks with **Sync this playlist** and **Like all songs**
+  above them, and its order: _By plays_, _Playlist order_ or _Match_. **Like
+  all songs** saves the playlist's synced songs to your Liked Songs after a
+  question that counts them (songs already liked are skipped); its messages
+  stay under the playlist's header.
+- **Match**: pick Match, then click a track and the list re-ranks around it:
+  everything within ±6% BPM first, ordered by key relation (`same key`,
+  `relative`, `+1`, `−1`, `boost`) and then by BPM distance, then the rest of
+  the tracks that have data, then the ones that have none. A seed with a key
+  but no BPM ranks by key relation alone and says so. Two columns show each
+  track's relation and ΔBPM against the seed. Clicking another row moves the
+  seed; `Clear`, or leaving Match, drops it, for that playlist only. A
+  track's details also offer _Match from this track_.
+- **Artists** has two views. _Saved tracks_ ranks artists by how many of
+  their tracks you saved (with plays, listeners and fans as columns once you
+  have them). **Under the radar** shows the artists in your playlists with
+  the smallest audiences, so you can tell one nobody has heard of from one
+  everybody plays. Fill it in from **Settings → Artist reach** — `Look up
+  artists` is one long job, roughly 45 to 50 minutes for 1,000 artists, it
+  never starts by itself, and it picks up where it stopped. Then sort by
+  `Most played`, `Fewest listeners` or `Fewest fans`; the filter narrows by
+  name and the ranks never renumber.
   The two numbers are **ListenBrainz listeners** (how many ListenBrainz users
   have ever played that artist) and **Deezer fans** (how many Deezer users
   pressed follow). They are small platform-specific audiences, **not** Spotify
   monthly listeners, and they disagree often enough that the app shows them
-  side by side and never sums them. A number the app does not have is shown as
-  missing, never as a zero.
+  in two columns and never sums them. A number the app does not have is
+  shown as missing, never as a zero.
   Artists with a Wikipedia article are moved to the bottom under **Well
   known** rather than hidden: the app subtracts the demonstrably famous, it
   does not claim to rank the rest. `N languages` there is Wikidata's article
@@ -115,56 +180,110 @@ yarn dev               # open http://127.0.0.1:5173/myOwnSpotifyData/ (not local
   plays are plays of the tracks you saved, not of everything the artist made.
   Artist data via MusicBrainz and ListenBrainz · Deezer · Wikidata (CC0) ·
   Wikipedia (CC BY-SA).
-- **Mix tracklist** drafts the tracklist of a SoundCloud DJ mix from a link.
-  Open the **Mix** tab, paste a mix's link and tap
-  `Look up`. It reads two free public sources — TrackId.net (a corpus of
-  already-analysed mixes) and the mix's own SoundCloud description — matches
-  each row against your synced library, shows the BPM and key pills and how
-  many of your playlists hold it, and lets you correct any row or add your own.
-  There is also a box to paste a tracklist you found elsewhere (MixesDB, a
-  player comment) and the embedded player with its timed comments. Save a mix
-  to keep the working list; saved mixes live only in this browser.
-  It is a **draft with holes, not the full tracklist.** TrackId identified
-  32.6% of the one real 190-minute mix measured, and a fresh upload is often
-  not in its corpus at all (a three-day-old set came back with nothing); a
-  SoundCloud description carries a tracklist only when the uploader wrote one,
-  which is often not at all. Every stretch nothing
-  was identified shows as an `ID · unidentified` row, and unreleased promos and
-  dubplates are in no database, so expect to fill gaps by hand. The app never
-  listens to the audio — it only shows what public sources already know, so it
-  cannot identify a track no source has named.
-  **To identify every track, ask your computer**: tap **Identify on my
-  computer** under the link box (any set link yt-dlp supports, YouTube and
-  Mixcloud included) and run the worker on your computer when you are back at
-  it; see "Identify a mix from your computer" below (the bottom of the Mix
-  screen shows how to start it on Windows, macOS and Linux). You can also scan a local
-  file with an open-source tool such as SongRec and import its JSON. Or, on
-  the phone, open Shazam and turn on
-  **Sync Shazam Library to Spotify** (Auto Shazam): a "My Shazam Tracks"
-  playlist then appears in Spotify, shows up under Playlists here, and syncs
-  like any other playlist.
-  Once the list is right, **Create playlist from mix** turns it into a private
-  Spotify playlist: it searches Spotify for each identified row, adds the tracks
-  it can match with confidence, and lists the ones it could not under a
-  "N not found" line so you can add them by hand — it never guesses a wrong
-  track onto the playlist. The first time, Spotify needs one more permission:
-  tap the button, then **Connect again → Connect Spotify** to grant it (your
-  saved mixes stay on this phone), reopen the mix and tap the button again. It
-  **never** creates a playlist on its own — only on that tap — and tapping it
-  again makes **another** new playlist rather than editing the last one. A mix
-  that has a playlist shows a **Playlist created · Open in Spotify ›** link when
-  you reopen it.
 
+### Settings
+
+One page of seven sections, with an index beside them on a wide window:
+**Spotify account**, **Spotify sync**, **Listening history**, **Audio
+data**, **Artist reach**, **Server** and **Danger zone**. Each says what it
+is, its state, its action, its progress and its last error. Long jobs start
+only here.
+
+- **Spotify sync → Sync now** fetches your top lists and the playlists you
+  own. Spotify enforces an unpublished daily quota; when it hits, the app
+  keeps what it synced and says when to retry. **One lock-out for every
+  Spotify read**: until then Sync, Check on Spotify, Create playlist and Like
+  all songs wait, the lock-out survives a reload, and Disconnect keeps it.
+- **Listening history → Import** takes `my_spotify_data.zip` from Spotify's
+  privacy page (request _Extended streaming history_; it arrives by email):
+  pick it, or drop it on the import area on a computer. A play counts once a
+  track was listened to for at least 30 seconds. Months are bucketed in this
+  browser's time zone at import time, so re-import after moving zones. An
+  import replaces the whole history; if the one you picked covers less than
+  what is stored, the app asks before replacing it.
+- **Audio data** fills the BPM and key columns. `Look up BPM and key` fetches
+  Spotify's own tempo and key for the tracks ReccoBeats knows, and the
+  **Rekordbox** box takes a rekordbox collection export (_File > Export
+  Collection in xml format_; pick the `.xml` file or drop it), which wins
+  wherever it has a value of its own. Neither starts by itself, and both pick
+  up where they stopped. The key follows the notation chosen there: Camelot,
+  Open Key or classic names. Audio data via ReccoBeats (Spotify audio
+  features).
 - **Re-import once for the Crate.** An import made before the Crate shipped
   kept no month, start or skip data, so the year, month and finish-rate views
   stay empty until you import the export again; the app says so once and the
-  Settings history card links straight to Import. Play counts from the old
-  import keep working everywhere else in the meantime.
-- **Connect again** in Settings signs you out and back in without deleting
-  anything — the way back when a token refresh fails.
-- **Disconnect** in Settings removes the login and all cached data on this
-  browser; server data is kept. So does syncing while a different Spotify
-  account is signed in, which asks first.
+  Listening history section links straight to Import. Play counts from the
+  old import keep working everywhere else in the meantime.
+- **Connect again** (Spotify account) signs you out and back in without
+  deleting anything — the way back when a token refresh fails or a new
+  permission is needed.
+- **Disconnect**, alone in the Danger zone, removes the login and all cached
+  data in this browser; server data is kept. So does syncing while a
+  different Spotify account is signed in, which asks first.
+
+### Mix
+
+The Mix screen is a workspace: the **Mixes** list on the left (the link box,
+Identify on my computer, the JSON import, then every saved mix and every
+request to your computer in one list), the open mix on the right. On a
+narrower window the list folds away while a mix is open; the **Mixes**
+button brings it back. A saved mix has its own address (`#/mix/…`).
+
+- **Look up** drafts the tracklist of a SoundCloud DJ mix from its link. It
+  reads two free public sources — TrackId.net (a corpus of already-analysed
+  mixes) and the mix's own SoundCloud description — matches each row against
+  your synced library, shows BPM, key and how many of your playlists hold it,
+  and lets you correct any row (the row's **More** menu: Edit, Delete) or add
+  your own. There is also a box to paste a tracklist you found elsewhere
+  (MixesDB, a player comment) and the embedded player with its timed
+  comments. **Save mix** keeps the working list in this browser (and on your
+  server when you have one).
+  It is a **draft with holes, not the full tracklist.** TrackId identified
+  32.6% of the one real 190-minute mix measured, and a fresh upload is often
+  not in its corpus at all; a SoundCloud description carries a tracklist only
+  when the uploader wrote one. Every stretch nothing was identified shows as
+  an `ID · unidentified` row, and unreleased promos and dubplates are in no
+  database, so expect to fill gaps by hand. The app never listens to the
+  audio. **To identify every track, ask your computer**: tap **Identify on
+  my computer** (any set link yt-dlp supports, YouTube and Mixcloud
+  included) and run the worker when you are back at it; see "Identify a mix
+  from your computer" below. You can also scan a local file with an
+  open-source tool such as SongRec and import its JSON. Or, on the phone,
+  turn on Shazam's **Sync Shazam Library to Spotify**: a "My Shazam Tracks"
+  playlist then shows up under Playlists and syncs like any other.
+- **The run line** under a mix's title says how the worker's scan went
+  ("Second pass: 41 places · 3 found", "Resumed", "Stopped early at 01:12:00"
+  with **Ask again**, warnings folded), and a running request shows its
+  progress and **Stop** there too.
+- **Review the tracks.** The line above the tracklist counts them ("40
+  tracks · 12 validated · 30 on Spotify · 4 not found"). **Check on
+  Spotify** looks each named track up on Spotify, one at a time ("Checked 12
+  of 40", Stop), and keeps the answer on the row (a Spotify link, or "not
+  found"); it reads Spotify only on that tap, and saves the mix when it ends.
+  **Validate** (✓) marks a track you have checked by ear; **Remove** (✕)
+  takes it out. The chips **All**, **To review**, **Validated**, **Not on
+  Spotify** and **Heard once** (tracks one 12-second clip matched) show one
+  group at a time; they never change what goes into a playlist. Each track's
+  **Listen** menu (**Listen…** in the row menu on a phone) opens store and
+  preview searches (Beatport, Bandcamp, Discogs, SoundCloud, YouTube, and
+  Shazam when known).
+- **Create playlist from mix** turns the list into a private Spotify
+  playlist. Choose **Validated only** (the default once you validated a
+  track) or **All tracks**; the card says how many will be added, in set
+  order. A track found from a comment ("from a comment · not heard") starts
+  _To review_: it joins Validated only once you validate it, and All tracks
+  includes it. The app searches Spotify for each track (or uses the answer
+  Check on Spotify already found), adds the ones it can match with
+  confidence, and lists the others under "N not found" with the same
+  Listen links, so you can add them by hand — it never guesses a wrong track.
+  The first time, Spotify needs one more permission: tap the button, then
+  **Connect again → Connect Spotify** to grant it (your saved mixes stay in
+  this browser), reopen the mix and tap again. It **never** creates a
+  playlist on its own — only on that tap — and tapping it again makes
+  **another** new playlist rather than editing the last one. A mix with a
+  playlist shows **Playlist created · Open in Spotify ›**.
+- Every Mix message (lookup states, errors, Create playlist results, the
+  queue) stays on the Mix screen, inline, never as a banner.
 
 ## Identify a mix from your computer (optional, needs the server)
 
@@ -174,24 +293,30 @@ downloads the set's audio, recognises it twelve seconds at a time with Shazam,
 sends the tracklist back (ISRC and label when Shazam knows them) and deletes
 the audio. The next sync shows the rows on the Mix screen, where you review
 them and tap Create playlist from mix as before. The request's state is shown
-under the button (waiting, running on which computer, done, failed with the
-reason) with Ask again. Where the first listen found nothing, the worker
+on its row of the Mixes list (waiting, running on which computer, done,
+failed with the reason) with Ask again. Where the first listen found nothing, the worker
 listens again (7 s later, then 4 % slower and faster) and reads the set's
 description and comments: they show on those parts of the tracklist, and a
 comment that names a track the free catalogues (Deezer, MusicBrainz) hold
-exactly becomes a row marked "from a comment · not heard", included in Create
-playlist unless you delete it. While a set is analysed, the card shows where it is ("First pass · 47 % · about
+exactly becomes a row marked "from a comment · not heard": it starts To
+review, joins Validated only once you validate it, and All tracks includes it.
+While a set is analysed, its row in the Mixes list shows where it is ("First pass · 47 % · about
 25 min left", "Paused by Shazam until 20:35"); a waiting request has **Move to
 top** and **Cancel**, a running one **Stop** (it keeps the tracks found, and Ask
 again continues it later). Each heard track shows how many 12-second clips
 matched it and its best score ("heard 3× · best 91 %"); sort by them, or show
 only the tracks heard once to judge them; nothing is removed for you. Run the
-worker without a VPN: Shazam refuses far more often on one. The **Requests to your computer** card lists every
-link sent: running first, then waiting in the order the worker takes them, then
-done and failed, each with its state; **Check now** asks the server again, a
-done row opens its saved mix (ready for Create playlist), a failed one has Ask
-again. Every identified set stays under **Saved mixes** (Mix screen, no mix
-open), on this phone and on the server.
+worker without a VPN: Shazam refuses far more often on one. The **Mixes**
+list holds every link sent beside your saved mixes, one row per link with a
+chip (Queued, Identifying, Paused, Stopping…, Found tracks, Failed, Rejected,
+Saved, Playlist made): running first, then waiting in the order the worker
+takes them, then the rest newest first. **Check now** asks the server again
+(it also checks every minute while something waits or runs); a done row opens
+its saved mix, a failed one has Ask again. If a request was already taken or
+finished when you tapped Cancel, Move to top or Stop, the list says so. A new
+result keeps your review: validated tracks stay validated, Spotify answers
+stay, removed tracks stay removed, and only new tracks arrive To review.
+Every identified set stays in this browser and on the server.
 
 Two ways to run it, both in the worker's manual, [`worker/README.md`](worker/README.md):
 
