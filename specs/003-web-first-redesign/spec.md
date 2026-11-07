@@ -66,6 +66,13 @@ list is the record; the steps that made them are in [execution.md](execution.md)
   when the Mixes pane is folded or the window has one column (one copy), and the "Mixes" button carries an error indicator
   (S08b, constitution VII); the "Found tracks" chip carries no count; the CC BY-SA credit sits in the "Well known" heading
   row; Connect's `/me` refused inside the lock-out is a warning banner (Connect is not Mix or Like).
+- **Non-regression rulings (S14)**: `main` for `yarn invariants` is the merge base with `origin/main` (ff6e5a6 at S14); the
+  external hosts are read from the app's code without comments, tests or the dev-only demo (`src/dev/`, never fetched); the router
+  test renamed by T097 (the default route became the Overview) is listed as renamed on purpose; the model outputs compare the
+  demo variants full, old-import and no-reach. The `confirm()` texts are written word for word in how-it-works §14, which
+  `yarn regression` reads. Five questions need the network or a configured server and stay the owner's (T115): account switch,
+  Remove server data, Like all songs' count, Look up again, the description. ListDetail's Escape layer moved to a layout effect,
+  like the sheet's (regression F21e).
 - **Numbering**: the round's ADR is ADR-11 (ADR-10 was taken on `main` by round 003), its inventory row F21 (F20 was taken on
   `main` by round 005), and the constitution PATCH is 2.1.1 (`main` reached 2.1.0). The folder keeps the number 003 beside
   `specs/003-fill-scan-gaps/`: the round's execution plan ([execution.md](execution.md)) and its steps point at this path.
