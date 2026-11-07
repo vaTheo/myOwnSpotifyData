@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runCreatePlaylist } from './createPlaylist';
+import {
+  defaultChoice,
+  runCreatePlaylist,
+  tracksToAdd,
+} from './createPlaylist';
 import type { CreatePlaylistState } from '../../model/state';
 import type { Query, SpotifyClient } from '../../spotify/client';
 import type { ApiPlaylist } from '../../spotify/types';
 import type { TracklistRow } from '../../db/schema';
-import { ApiError } from '../../spotify/errors';
+import { ApiError, QuotaError } from '../../spotify/errors';
 
 const ARTIST = 'Artist';
 const PLAYLIST: ApiPlaylist = {
@@ -312,6 +316,46 @@ describe('runCreatePlaylist', () => {
     ]);
   });
 
+  it('remembers a quota lock-out met by a search; nothing is written', async () => {
+    const rows = ids(2);
+    const { client, post } = makeClient({
+      matchable: rows.map((r) => r.title),
+      getReject: new QuotaError(5_000),
+    });
+    const { states, onState } = record();
+
+    const outcome = await runCreatePlaylist({ client, onState }, input(rows));
+
+    expect(post).not.toHaveBeenCalled();
+    expect(states.at(-1)?.status).toBe('error');
+    expect(outcome).toEqual({ playlistId: null, url: null, quotaUntil: 5_000 });
+  });
+
+  it('remembers a quota lock-out met by an add batch, keeping the link', async () => {
+    const rows = ids(2);
+    const { client, post } = makeClient({
+      matchable: rows.map((r) => r.title),
+    });
+    post.mockImplementation(async (path: string) => {
+      if (path === '/me/playlists') return PLAYLIST;
+      throw new QuotaError(9_000);
+    });
+    const { states, onState } = record();
+
+    const outcome = await runCreatePlaylist({ client, onState }, input(rows));
+
+    const err = states.at(-1);
+    if (err?.status !== 'error') throw new Error('expected error');
+    expect(err.added).toBe(0);
+    expect(err.total).toBe(2);
+    expect(post).toHaveBeenCalledTimes(2); // never retried
+    expect(outcome).toEqual({
+      playlistId: 'PL',
+      url: 'https://open.spotify.com/playlist/PL',
+      quotaUntil: 9_000,
+    });
+  });
+
   it('drives the state sequence resolving*->creating->adding->done', async () => {
     const rows = ids(2);
     const { client } = makeClient({ matchable: rows.map((r) => r.title) });
@@ -327,5 +371,94 @@ describe('runCreatePlaylist', () => {
       'adding',
       'done',
     ]);
+  });
+});
+
+/* ---------- the selection rule (T119, T126, owner's D6) ---------- */
+
+describe('tracksToAdd', () => {
+  const validated: TracklistRow = { ...id('V'), validated: true };
+  const toReview: TracklistRow = { ...id('R') };
+  const candidate: TracklistRow = { ...id('C'), origin: 'clue' };
+  const validCandidate: TracklistRow = {
+    ...id('VC'),
+    origin: 'clue',
+    validated: true,
+  };
+  const heardOnce: TracklistRow = { ...id('H'), hits: 1 };
+  const validGap: TracklistRow = { ...gap, validated: true };
+  const rows = [
+    validated,
+    gap,
+    toReview,
+    candidate,
+    validCandidate,
+    heardOnce,
+    validGap,
+    idRow,
+  ];
+
+  it('Validated only keeps validated tracks, a validated candidate included', () => {
+    expect(tracksToAdd(rows, 'validated')).toEqual([validated, validCandidate]);
+  });
+
+  it('All tracks keeps every track not removed, candidates included', () => {
+    expect(tracksToAdd(rows, 'all')).toEqual([
+      validated,
+      toReview,
+      candidate,
+      validCandidate,
+      heardOnce,
+    ]);
+  });
+
+  it('an unvalidated candidate is out of Validated only and in All tracks', () => {
+    expect(tracksToAdd([candidate], 'validated')).toEqual([]);
+    expect(tracksToAdd([candidate], 'all')).toEqual([candidate]);
+  });
+
+  it('a validated candidate is in both', () => {
+    expect(tracksToAdd([validCandidate], 'validated')).toEqual([
+      validCandidate,
+    ]);
+    expect(tracksToAdd([validCandidate], 'all')).toEqual([validCandidate]);
+  });
+
+  it('a gap row is in neither, even marked validated; nor an ID row', () => {
+    for (const choice of ['validated', 'all'] as const) {
+      expect(tracksToAdd([gap, validGap, idRow], choice)).toEqual([]);
+    }
+  });
+
+  it('keeps set order whatever the rows hold for the chips and the Sort', () => {
+    // The Heard once chip and the Sort are view state: the rule reads only
+    // the working list, so a heard-once row and clip counts change nothing.
+    const a: TracklistRow = { ...id('A'), hits: 5, confidence: 90 };
+    const b: TracklistRow = { ...id('B'), hits: 1, confidence: 99 };
+    expect(tracksToAdd([a, b], 'all')).toEqual([a, b]);
+  });
+
+  it('a candidate starts To review, so Validated only leaves it out', () => {
+    expect(candidate.validated).toBeUndefined();
+    expect(tracksToAdd([validated, candidate], 'validated')).toEqual([
+      validated,
+    ]);
+  });
+});
+
+describe('defaultChoice', () => {
+  it('is Validated only once any track is validated', () => {
+    expect(defaultChoice([id('A'), { ...id('B'), validated: true }])).toBe(
+      'validated'
+    );
+  });
+
+  it('is All tracks while none is', () => {
+    expect(defaultChoice([id('A'), id('B')])).toBe('all');
+    expect(defaultChoice([])).toBe('all');
+  });
+
+  it('ignores a validated gap row', () => {
+    expect(defaultChoice([id('A'), { ...gap, validated: true }])).toBe('all');
   });
 });

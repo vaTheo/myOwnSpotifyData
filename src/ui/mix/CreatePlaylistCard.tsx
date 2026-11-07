@@ -1,20 +1,28 @@
 import { auth } from '../../auth/browser';
-import { digRows } from '../../features/mix/digLinks';
-import { isIdentified } from '../../features/mix/spotifySearch';
 import {
+  tracksToAdd,
+  type CreateChoice,
+} from '../../features/mix/createPlaylist';
+import { digRows } from '../../features/mix/digLinks';
+import {
+  createChoice,
+  createChoiceFor,
   createPlaylistState,
   mixRows,
+  spotifyLockedUntil,
   startCreatePlaylist,
   type MixView,
   type UnmatchedRow,
 } from '../../model/state';
+import { quotaRefusal } from '../../spotify/quotaLock';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { DigLinks } from '../components/DigLinks';
 import { ProgressBar } from '../components/ProgressBar';
 import { SpotifyLink } from '../components/SpotifyLink';
 import { StatusLine } from '../components/StatusLine';
-import { formatClock, plural } from '../format';
+import { SegmentedButtons } from '../components/SegmentedButtons';
+import { formatClock, formatDateTime, plural } from '../format';
 import { Disclosure } from './Disclosure';
 
 /**
@@ -54,37 +62,69 @@ function NotFound(p: { unmatched: UnmatchedRow[] }) {
 }
 
 /**
- * Create a private Spotify playlist from the open mix's identified rows
- * (spec 003 §12, T083; ADR-03). The button shows whenever an identified row
- * exists; the scope is checked on tap inside `startCreatePlaylist`, which
- * reveals the `needScope` prompt. Every state and failure is inline here,
- * never a banner. `S08d` adds the Validated only / All tracks choice above
- * the button.
+ * Create a private Spotify playlist from the open mix (spec 003 §12, T083,
+ * T119; ADR-03). **Validated only** (the default once a track is validated)
+ * or **All tracks** (owner's D6, `tracksToAdd`), with how many will be added;
+ * the filter chips and the Sort never change it. The scope is checked on tap
+ * inside `startCreatePlaylist`, which reveals the `needScope` prompt. Inside
+ * the quota lock-out the button rests disabled with its line. Every state and
+ * failure is inline here, never a banner.
  */
 export function CreatePlaylistCard(p: { view: MixView }) {
   const { view } = p;
   const cs = createPlaylistState.value;
-  // The rows the create job will attempt (N). Also the `total` the error
-  // line needs, which the `error` arm does not carry: an add-batch failure
-  // happens only after every identified row resolved.
-  const identifiedCount = mixRows.value.filter(isIdentified).length;
+  const rows = mixRows.value;
+  const choice = createChoiceFor(view.url, rows);
+  const validatedCount = tracksToAdd(rows, 'validated').length;
+  const allCount = tracksToAdd(rows, 'all').length;
+  const count = choice === 'validated' ? validatedCount : allCount;
   const running =
     cs.status === 'resolving' ||
     cs.status === 'creating' ||
     cs.status === 'adding';
+  // The one Spotify quota lock-out: said here unless the error says it.
+  const lockLine = quotaRefusal(
+    'create',
+    spotifyLockedUntil(),
+    Date.now(),
+    formatDateTime
+  );
   return (
     <Card title="Create playlist" class="mix-create">
-      {identifiedCount > 0 ? (
-        <Button
-          variant="filled"
-          icon="queue_music"
-          disabled={running}
-          onClick={() => void startCreatePlaylist()}
-        >
-          {running ? 'Creating playlist…' : 'Create playlist from mix'}
-        </Button>
+      {allCount > 0 ? (
+        <>
+          <SegmentedButtons<CreateChoice>
+            options={[
+              {
+                value: 'validated',
+                label: `Validated only (${validatedCount})`,
+              },
+              { value: 'all', label: `All tracks (${allCount})` },
+            ]}
+            value={choice}
+            onChange={(c) => {
+              if (!running) createChoice.value = { url: view.url, choice: c };
+            }}
+          />
+          <p class="mix-caption">
+            {count > 0
+              ? `${plural(count, 'track')} will be added, in set order.`
+              : 'No validated track yet: validate tracks with ✓, or choose All tracks.'}
+          </p>
+          <Button
+            variant="filled"
+            icon="queue_music"
+            disabled={running || count === 0 || lockLine !== null}
+            onClick={() => void startCreatePlaylist()}
+          >
+            {running ? 'Creating playlist…' : 'Create playlist from mix'}
+          </Button>
+        </>
       ) : (
         <p class="mix-caption">No identified track to add yet.</p>
+      )}
+      {lockLine !== null && cs.status !== 'error' && !running && (
+        <StatusLine kind="warning">{lockLine}</StatusLine>
       )}
       {cs.status === 'needScope' && (
         <>
@@ -133,7 +173,7 @@ export function CreatePlaylistCard(p: { view: MixView }) {
               show. */}
           {cs.added !== undefined && (
             <p class="mix-caption">
-              Added {cs.added} of {identifiedCount} before the error.
+              Added {cs.added} of {cs.total ?? count} before the error.
             </p>
           )}
         </>

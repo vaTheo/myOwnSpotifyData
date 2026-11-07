@@ -2,6 +2,7 @@ import {
   isSyncBusy,
   lastSyncAt,
   reachState,
+  spotifyLockedUntil,
   startSync,
   syncState,
 } from '../../model/state';
@@ -9,17 +10,27 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
+import { quotaRefusal } from '../../spotify/quotaLock';
 import { formatDateTime, plural } from '../format';
 import { sectionDomId } from './sections';
 
 /**
  * Spotify sync (US5): the one place a playlist read starts, on a tap
- * (ADR-02). The quota lock is a warning until `retryAt`, as before.
+ * (ADR-02). The quota lock is a warning until `retryAt`, as before; a
+ * lock-out another reader met (Check on Spotify, Create playlist) holds the
+ * button too, with its line (S08d).
  */
 export function SyncSection() {
   const state = syncState.value;
   const running = state.status === 'running';
   const locked = state.status === 'locked' && state.retryAt > Date.now();
+  // Re-renders when the shared lock lapses (its timer clears the signal).
+  const shared = spotifyLockedUntil();
+  // Said once: the sync's own line already names the same end.
+  const sharedLine =
+    locked && state.status === 'locked' && state.retryAt >= (shared ?? 0)
+      ? null
+      : quotaRefusal('sync', shared, Date.now(), formatDateTime);
   return (
     <Card
       id={sectionDomId('sync')}
@@ -47,6 +58,9 @@ export function SyncSection() {
             : 'You can retry now.'}
         </StatusLine>
       )}
+      {sharedLine !== null && (
+        <StatusLine kind="warning">{sharedLine}</StatusLine>
+      )}
       {state.status === 'cancelled' && <StatusLine>{state.message}</StatusLine>}
       {state.status === 'error' && (
         <StatusLine kind="error">Last error: {state.message}</StatusLine>
@@ -54,7 +68,11 @@ export function SyncSection() {
       <div class="actions">
         <Button
           variant="filled"
-          disabled={isSyncBusy(state) || reachState.value.status === 'running'}
+          disabled={
+            isSyncBusy(state) ||
+            shared !== null ||
+            reachState.value.status === 'running'
+          }
           onClick={() => void startSync()}
         >
           {running ? 'Syncing…' : 'Sync now'}
