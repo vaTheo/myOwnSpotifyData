@@ -16,6 +16,7 @@ import {
 } from '../../model/state';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { NoData } from '../components/NoData';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
@@ -151,12 +152,20 @@ export function ServerSection() {
                       <tr key={row.name}>
                         <td>{row.name}</td>
                         <td>
-                          {row.localAt ? formatDateTime(row.localAt) : '—'}
+                          {row.localAt ? (
+                            formatDateTime(row.localAt)
+                          ) : (
+                            <NoData />
+                          )}
                         </td>
                         <td>
-                          {row.serverAt ? formatDateTime(row.serverAt) : '—'}
+                          {row.serverAt ? (
+                            formatDateTime(row.serverAt)
+                          ) : (
+                            <NoData />
+                          )}
                         </td>
-                        <td>{row.rows ?? '—'}</td>
+                        <td>{row.rows ?? <NoData />}</td>
                       </tr>
                     ))}
                   </tbody>

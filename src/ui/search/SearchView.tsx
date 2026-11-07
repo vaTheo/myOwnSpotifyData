@@ -17,6 +17,7 @@ import {
   type SearchEntry,
   type SearchKind,
 } from './searchIndex';
+import { lockScroll } from '../layout/scrollLock';
 
 /** Whether the search view is open; the frame and the top bar share it. */
 export const searchOpen = signal(false);
@@ -132,9 +133,7 @@ export function SearchView() {
       }
     });
     const pop = pushEscapeLayer(closeSearch, ESCAPE_RANK.search);
-    const root = document.documentElement;
-    const before = root.style.overflow;
-    root.style.overflow = 'hidden';
+    const unlock = lockScroll();
     // A phone's Back closes the full-screen view and leaves the screen
     // behind where it is: the view has its own history entry.
     const pushed = windowClass.value === 'compact';
@@ -143,7 +142,7 @@ export function SearchView() {
     if (pushed) addEventListener('popstate', onPop);
     return () => {
       pop();
-      root.style.overflow = before;
+      unlock();
       if (pushed) {
         removeEventListener('popstate', onPop);
         const state = history.state as Record<string, unknown> | null;
