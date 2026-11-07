@@ -38,6 +38,10 @@ const model = buildModel({
 
 describe('screenTitle', () => {
   it('names a tab root after its destination, with no way up', () => {
+    expect(screenTitle({ name: 'overview' }, model)).toEqual({
+      title: 'Overview',
+      up: null,
+    });
     expect(screenTitle({ name: 'top' }, model)).toEqual({
       title: 'Listening',
       up: null,

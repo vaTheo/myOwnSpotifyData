@@ -20,6 +20,8 @@ export function screenTitle(
   model: Model | null
 ): { title: string; up: string | null } {
   switch (route.name) {
+    case 'overview':
+      return { title: 'Overview', up: null };
     case 'top':
     case 'crate':
       return { title: 'Listening', up: null };

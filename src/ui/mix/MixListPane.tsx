@@ -182,7 +182,7 @@ function remove(url: string): void {
   })();
 }
 
-const CHIP_FLAG: Record<MixChipKind, FlagKind | undefined> = {
+export const CHIP_FLAG: Record<MixChipKind, FlagKind | undefined> = {
   queued: undefined,
   identifying: 'plays',
   paused: 'pending',

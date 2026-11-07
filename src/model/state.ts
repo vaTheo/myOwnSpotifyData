@@ -1374,7 +1374,13 @@ export function toggleValidated(index: number): void {
   mixRows.value = rows;
 }
 
-/** Reads the saved mixes newest-first; called when the Mix screen mounts. */
+/**
+ * Reads the saved mixes newest-first; called when the Mix screen mounts, and
+ * by the Overview once it has painted (spec 003, research D14). That read on
+ * the home screen is acceptable: it is one local IndexedDB read, never a
+ * Spotify one (ADR-02), it waits for the first paint so the screen never
+ * waits on it, and the mixes stay out of `buildModel` (ADR-05).
+ */
 export async function loadSavedMixes(): Promise<void> {
   mixError.value = null;
   try {
