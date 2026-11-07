@@ -416,7 +416,7 @@ screen, grouped by role under `src/ui/`.
     id lookups run first as their own counted pass (`PASS_RIDS`), so the line moves from the start instead of sitting at 0.
 - **Mix tracklist sort** (spec 009): the table's own `SortState` is the one sort. Every column with a comparable value has a
   `sortValue` and a first direction in `ui/mix/tracklistSort.ts` (`sortValue`, `SORT_FIRST`): Time, Artist – Title, Label, Source,
-  Confidence (highest first), Clips (only when a row has clip counts; most first), In your library (matched first), Released,
+  Confidence (how many clips found the track, then the best %; highest first), Clips (only when a row has clip counts; most first), In your library (matched first), Released,
   Spotify (not found, unchecked, found) and Review (to review first); Listen and More do not sort. `DataTable` sorts: missing values
   last in both directions, ties in set order. The Sort select (all widths, `TracklistTable.tsx`) is built by `sortChoices` from the
   same columns, with "Set order" and a direction button, so a phone picks what a header would; `effectiveSort` falls back to the

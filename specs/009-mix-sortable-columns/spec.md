@@ -99,6 +99,6 @@ On a narrow screen the table shows compact rows without a header, so the owner p
 ## Assumptions
 
 - "Table on MIX" is the open mix's tracklist; other tables already sort by header.
-- Confidence means the Tracklistify match score shown in the Confidence column (0-100); rows from other sources have none.
+- Confidence sorts by how many times the track was found (clips heard), then by the best match score (0-100) shown in the Confidence column, per the owner's ruling; rows from other sources have none.
 - The sort is not remembered between mixes or sessions.
 - Review state sorts in the order of the review chips (needs review first); the plan fixes the exact order.

@@ -280,8 +280,8 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   takes it out. The chips **All**, **To review**, **Validated**, **Not on
   Spotify** and **Heard once** (tracks one 12-second clip matched) show one
   group at a time; they never change what goes into a playlist. Click a
-  column header to **sort** the tracklist by it (**Confidence** puts the best
-  matches first, click again for the weakest first; also Time, Artist –
+  column header to **sort** the tracklist by it (**Confidence** puts the tracks found most often first, then by their %;
+  click again for the least found first; also Time, Artist –
   Title, Label, Source, In your library, Released, Spotify and Review); the
   **Sort** menu beside the chips offers the same choices, with **Set order**
   to go back, and is how a phone sorts. Tracks with no value always stay at

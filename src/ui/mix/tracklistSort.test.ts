@@ -40,6 +40,14 @@ describe('sortValue', () => {
     ).toBeNull();
   });
 
+  it('confidence sorts by times found first, then by the percentage', () => {
+    const v = (hits: number | undefined, confidence: number) =>
+      Number(sortValue('confidence', line(r({ hits, confidence }))));
+    expect(v(3, 60)).toBeGreaterThan(v(2, 99));
+    expect(v(2, 80)).toBeGreaterThan(v(2, 70));
+    expect(v(1, 5)).toBeGreaterThan(v(undefined, 100));
+  });
+
   it('a gap has no value in the columns about a track', () => {
     const gap = line(r({ gap: true, startSec: 60 }));
     for (const id of [
@@ -95,7 +103,9 @@ describe('confidence sort end to end (US1)', () => {
     line(r({ title: 'e', gap: true, confidence: 50 })),
   ];
   const titles = (d: 'asc' | 'desc') =>
-    sortRows(rows, (l) => sortValue('confidence', l), d).map((l) => l.row.title);
+    sortRows(rows, (l) => sortValue('confidence', l), d).map(
+      (l) => l.row.title
+    );
   it('highest first, then lowest first, rows without one last both times', () => {
     expect(titles('desc')).toEqual(['c', 'd', 'a', 'b', 'e']);
     expect(titles('asc')).toEqual(['a', 'd', 'c', 'b', 'e']);

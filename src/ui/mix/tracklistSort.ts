@@ -55,9 +55,11 @@ export function sortValue(id: SortId, l: SortLine): SortValue {
     case 'clips':
       return row.hits ?? null;
     case 'confidence':
-      // Only a row still reading as the scan heard it has a score.
-      return !row.gap && row.source === 'tracklistify'
-        ? (row.confidence ?? null)
+      // Only a row still reading as the scan heard it has a score. Sorted by
+      // how many clips found it, then by the best percentage: a percentage
+      // never reaches 1000, so the count always decides first.
+      return !row.gap && row.source === 'tracklistify' && row.confidence != null
+        ? (row.hits ?? 0) * 1000 + row.confidence
         : null;
   }
   if (row.gap) return null;

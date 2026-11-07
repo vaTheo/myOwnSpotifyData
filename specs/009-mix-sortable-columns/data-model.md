@@ -22,7 +22,7 @@ Spotify, not synced.
 | title | artist – title | gap |
 | label | `label` | empty |
 | source | source label | gap |
-| confidence | `confidence` | source is not Tracklistify, or gap |
+| confidence | `hits × 1000 + confidence` (times found, then %) | source is not Tracklistify, or gap |
 | clips | `hits` | candidate, gap, older row |
 | library | 1 matched, 0 not | gap |
 | released | `rowYear` | gap, undated |

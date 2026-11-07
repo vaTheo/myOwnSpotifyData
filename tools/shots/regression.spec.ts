@@ -1667,7 +1667,7 @@ test.describe('R. rounds 003 and 004', () => {
     ).toBe(true);
   });
 
-  test('R07 Sort by Clips heard, then Confidence: most first', async ({
+  test('R07 Sort by Clips heard, then Confidence (times found, then %): most first', async ({
     app,
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
@@ -1679,7 +1679,7 @@ test.describe('R. rounds 003 and 004', () => {
     await app.page.getByLabel('Sort').selectOption({ label: 'Confidence' });
     const byBest = await heardFigures(grid);
     expect(byBest).toHaveLength(16);
-    expect(nonIncreasing(byBest.map((f) => f.best))).toBe(true);
+    expect(nonIncreasing(byBest.map((f) => f.hits * 1000 + f.best))).toBe(true);
     await app.page.getByLabel('Sort').selectOption({ label: 'Time' });
     const times = await column(grid, 'Time');
     expect(times[0]).toBe('0:00');
@@ -1942,12 +1942,12 @@ test.describe('Y. release year', () => {
     await header.click();
     const high = await heardFigures(grid);
     expect(high).toHaveLength(16);
-    expect(nonIncreasing(high.map((f) => f.best))).toBe(true);
+    expect(nonIncreasing(high.map((f) => f.hits * 1000 + f.best))).toBe(true);
     await expect(app.page.getByLabel('Sort')).toHaveValue('confidence');
     await header.click();
     const low = await heardFigures(grid);
     expect(low).toHaveLength(16);
-    expect(nonIncreasing(low.map((f) => -f.best))).toBe(true);
+    expect(nonIncreasing(low.map((f) => -(f.hits * 1000 + f.best)))).toBe(true);
     await app.page.getByLabel('Sort').selectOption({ label: 'Set order' });
     expect((await column(grid, 'Time'))[0]).toBe('0:00');
   });
