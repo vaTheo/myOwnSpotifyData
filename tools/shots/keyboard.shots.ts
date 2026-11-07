@@ -69,6 +69,8 @@ let lastStops: string[] = [];
 interface Stop {
   label: string;
   ring: boolean;
+  /** The element the sweep started on: the sweep went round. */
+  isFirst: boolean;
   inView: boolean;
   covered: string | null;
 }
@@ -84,21 +86,19 @@ async function stop(page: Page): Promise<Stop | null> {
       (field.labels?.[0]?.textContent || field.placeholder || null) ??
       (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
     const role = el.getAttribute('role') ?? el.tagName.toLowerCase();
-    // The ring may be drawn by a parent (`.hub-card:has(:focus-visible)`).
-    let ringWidth = 0;
-    for (
-      let n: Element | null = el, i = 0;
-      n && i < 4;
-      n = n.parentElement, i += 1
-    ) {
-      const c = getComputedStyle(n);
-      const w = c.outlineStyle === 'none' ? 0 : parseFloat(c.outlineWidth);
-      if (w >= 3 || (n === el && c.boxShadow !== 'none')) {
-        ringWidth = Math.max(ringWidth, w || 3);
-        break;
-      }
-    }
-    const outline = ringWidth;
+    // The ring is the element's own: its outline, or the outline of its
+    // own ::after or ::before box (a card-wide link, `.hub-link`). A parent's
+    // ring or a resting shadow does not count.
+    const width = (c: CSSStyleDeclaration) =>
+      c.outlineStyle === 'none' ? 0 : parseFloat(c.outlineWidth);
+    const outline = Math.max(
+      width(getComputedStyle(el)),
+      width(getComputedStyle(el, '::after')),
+      width(getComputedStyle(el, '::before'))
+    );
+    const w = window as unknown as { __kbdFirst?: Element };
+    const isFirst = w.__kbdFirst === el;
+    w.__kbdFirst ??= el;
     const r = el.getBoundingClientRect();
     const inView =
       r.width > 0 &&
@@ -119,6 +119,7 @@ async function stop(page: Page): Promise<Stop | null> {
     return {
       label: `${role} "${name}"`,
       ring: outline >= 3,
+      isFirst,
       inView,
       covered,
     };
@@ -135,19 +136,27 @@ async function sweep(
   findings: Finding[],
   max = 160
 ): Promise<string[]> {
+  // Blur alone keeps the browser's starting point (a clicked tab): a
+  // focusable mark at the top of the body moves it to the document start.
   await page.evaluate(() => {
-    (document.activeElement as HTMLElement | null)?.blur();
     scrollTo(0, 0);
+    delete (window as unknown as { __kbdFirst?: Element }).__kbdFirst;
+    const mark = document.createElement('span');
+    mark.tabIndex = -1;
+    mark.id = 'kbd-start';
+    document.body.prepend(mark);
+    mark.focus({ preventScroll: true });
   });
   const seen: string[] = [];
   lastStops = seen;
-  let first: string | null = null;
   for (let i = 0; i < max; i += 1) {
     await page.keyboard.press('Tab');
+    if (i === 0) {
+      await page.evaluate(() => document.getElementById('kbd-start')?.remove());
+    }
     const s = await stop(page);
     if (s === null) break;
-    if (s.label === first) break;
-    first ??= s.label;
+    if (s.isFirst) break;
     seen.push(s.label);
     if (!s.ring) {
       findings.push({
@@ -343,7 +352,19 @@ const WALKS: Walk[] = [
       }
       await page.keyboard.type('a');
       await page.waitForTimeout(100);
+      const active = () => field.getAttribute('aria-activedescendant');
+      const atFirst = await active();
       await page.keyboard.press('ArrowDown');
+      const atSecond = await active();
+      if (!atSecond || atSecond === atFirst) {
+        finding(findings, 'ArrowDown', 'does not move the selected result');
+      } else if (
+        (await page
+          .locator(`[id="${atSecond}"]`)
+          .getAttribute('aria-selected')) !== 'true'
+      ) {
+        finding(findings, 'ArrowDown', 'the result it names is not selected');
+      }
       await page.keyboard.press('Escape');
       if (!(await shows(field))) {
         finding(
@@ -367,9 +388,24 @@ const WALKS: Walk[] = [
           `focus went to ${after}, not back to ${before}`
         );
       await page.keyboard.press('Control+k');
-      if (!(await shows(field)))
+      if (!(await shows(field))) {
         finding(findings, 'Ctrl+K', 'does not open the search');
-      await page.keyboard.press('Escape');
+        return;
+      }
+      // Enter opens the selected result: the search closes and the address
+      // names what was opened (a track's details, or a screen).
+      const from = page.url();
+      await page.keyboard.type('a');
+      await page.waitForTimeout(100);
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Enter');
+      if (!(await gone(field))) {
+        finding(findings, 'Enter', 'did not close the search');
+      }
+      await page.waitForTimeout(200);
+      if (page.url() === from) {
+        finding(findings, 'Enter', 'did not open the selected result');
+      }
     },
   },
   {
@@ -457,7 +493,11 @@ const WALKS: Walk[] = [
       await page.keyboard.press('Escape');
       await page.waitForTimeout(100);
       if (!(await gone(panel)))
-        finding(findings, 'Escape', 'did not close Activity');
+        finding(
+          findings,
+          'Escape',
+          `did not close Activity (focus ${await focused(page)})`
+        );
       if (!compact && !page.url().includes('d='))
         finding(findings, 'Escape', 'closed the details with Activity');
       if (!/Running|jobs running/.test(await focused(page))) {

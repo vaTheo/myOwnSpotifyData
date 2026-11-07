@@ -2618,14 +2618,15 @@ a {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: var(--md-sys-shape-corner-medium);
 }
 
+/* The ring is the link's own, drawn by its box over the whole card. */
 .hub-link:focus-visible {
   outline: none;
 }
 
-.hub-card:has(.hub-link:focus-visible) {
+.hub-link:focus-visible::after {
   outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
   outline-offset: 2px;
 }
