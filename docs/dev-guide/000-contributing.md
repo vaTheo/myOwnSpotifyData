@@ -42,8 +42,8 @@ axe-core are dev dependencies, the run is not part of `yarn test` and not run in
    `yarn dev` on port 5173 and never reuses a running one: when the port is taken (a `yarn dev` left open here or in another
    worktree), the run fails at once; stop that server and run again. While working, use the quick per-page form:
    `yarn shots --project=1440 -g "<page ids>"` (about a minute). A full run first empties `shots-output/findings/` and
-   `shots-output/pages/`, so the summary and the sheet read that run alone; a run narrowed by `-g`, `--project` or
-   `--last-failed` keeps them and refreshes only its own pages. `--reporter=dot` replaces the configured reporters, so it does
+   `shots-output/pages/`, so the summary and the sheet read that run alone; any narrowed run (a file or name
+   filter, `-g`, `--project`, `--last-failed`, `--shard`, `--list`) keeps them and refreshes only its own pages. `--reporter=dot` replaces the configured reporters, so it does
    not rewrite `shots-output/report.json` or `playwright-report/`: judge such a run by its exit code and `yarn shots:summary`
    (which reads `findings/`), not by those reports. Judge it by its exit code, never by grepping the output. Other engines on demand:
    `SHOTS_BROWSERS=firefox|webkit|all yarn shots` (WebKit needs libicu74 and libjpeg-turbo8 on Debian). Playwright runs with
