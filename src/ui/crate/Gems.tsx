@@ -30,8 +30,10 @@ import {
   spanYears,
   useCrateRows,
 } from './shared';
+import { EMPTY_FILTER } from '../filters/trackFilter';
 
 const sort = signal(DEFAULT_SORT);
+const filter = signal(EMPTY_FILTER);
 
 /** The chart's reach: two years, so a gem's last busy months show. */
 const CHART_MONTHS = 24;
@@ -161,6 +163,7 @@ export function Gems({ detail }: { detail?: string }) {
           items={items}
           columns={columns}
           sort={sort}
+          filter={filter}
           resetKey={String(months)}
           detail={detail}
         />

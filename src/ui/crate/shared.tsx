@@ -19,6 +19,8 @@ import {
 } from '../table/columns';
 import { DataTable, type Column } from '../table/DataTable';
 import type { SortState } from '../table/sort';
+import { trackFilterView } from '../filters/FilterBar';
+import type { TrackFilter } from '../filters/trackFilter';
 
 // The details' shared pieces, re-exported for the Crate views.
 export { NoPlaylistNote, OpenMonthLink, monthLabel } from '../details/parts';
@@ -171,26 +173,44 @@ export function CrateTable<Item extends CrateItem>(p: {
   items: Item[];
   columns: Column<Item>[];
   sort: Signal<SortState>;
+  /** The view's own filters (FR-052), one signal per view. */
+  filter: Signal<TrackFilter>;
   /** The view's setting: a change goes back to the first page. */
   resetKey: string;
   detail: string | undefined;
 }) {
+  const m = model.value;
+  const filtered = trackFilterView({
+    filter: p.filter,
+    rows: p.items,
+    featureOf: (item) => (m ? featureFor(m, item.row.trackId) : null),
+    textOf: (item) => {
+      const label = trackLabel(item.row);
+      return `${label.title} ${label.subtitle}`;
+    },
+  });
   return (
-    <DataTable
-      label={p.label}
-      noun="track"
-      columns={p.columns}
-      rows={p.items}
-      rowKey={(item) => item.row.trackId}
-      sort={p.sort.value}
-      onSort={(s) => {
-        p.sort.value = s;
-      }}
-      resetKey={p.resetKey}
-      selectedKey={p.detail ?? null}
-      follow={p.detail !== undefined}
-      onOpen={(item) => openDetail(item.row.trackId)}
-    />
+    <>
+      {filtered.bar}
+      {filtered.empty ?? (
+        <DataTable
+          label={p.label}
+          noun="track"
+          columns={p.columns}
+          rows={p.items}
+          only={filtered.only}
+          rowKey={(item) => item.row.trackId}
+          sort={p.sort.value}
+          onSort={(s) => {
+            p.sort.value = s;
+          }}
+          resetKey={p.resetKey}
+          selectedKey={p.detail ?? null}
+          follow={p.detail !== undefined}
+          onOpen={(item) => openDetail(item.row.trackId)}
+        />
+      )}
+    </>
   );
 }
 
@@ -204,9 +224,12 @@ export function CrateSheet(p: {
   extra?: ComponentChildren;
 }) {
   if (!p.detail) return null;
+  // A track the history never played (opened from search) has no play row:
+  // its sheet is the track's own.
+  const row = model.value?.playsById.has(p.detail);
   return (
     <TrackSheet
-      trackRef={{ playRowId: p.detail }}
+      trackRef={row ? { playRowId: p.detail } : { trackId: p.detail }}
       rowId={p.detail}
       extra={p.extra}
     />

@@ -19,10 +19,12 @@ import {
   inNoPlaylist,
   useCrateRows,
 } from './shared';
+import { EMPTY_FILTER } from '../filters/trackFilter';
 
 type Tab = 'finished' | 'skipped';
 
 const sort = signal(DEFAULT_SORT);
+const filter = signal(EMPTY_FILTER);
 
 const TAB_OPTIONS: { value: Tab; label: string }[] = [
   { value: 'finished', label: 'Finished' },
@@ -159,6 +161,7 @@ export function Finish({ detail }: { detail?: string }) {
           items={items}
           columns={columns}
           sort={sort}
+          filter={filter}
           resetKey={tab}
           detail={detail}
         />

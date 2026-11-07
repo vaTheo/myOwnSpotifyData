@@ -35,7 +35,8 @@ import { ProgressBar } from './components/ProgressBar';
 import { SegmentedButtons } from './components/SegmentedButtons';
 import { SpotifyLink } from './components/SpotifyLink';
 import { StatusLine } from './components/StatusLine';
-import { formatBpm, plural } from './format';
+import { artistNames, formatBpm, plural } from './format';
+import { DETAIL_COMPACT_BELOW } from './layout/ListDetail';
 import { windowClass } from './layout/windowClass';
 import { matchCells, type MatchCells } from './playlist/matchCells';
 import {
@@ -55,6 +56,12 @@ import { closeDetail, openDetail } from './details/navigate';
 import { TrackSheet } from './details/TrackDetails';
 import { DataTable, type Column } from './table/DataTable';
 import type { SortState } from './table/sort';
+import { trackFilterView } from './filters/FilterBar';
+import {
+  EMPTY_FILTER,
+  isFiltering,
+  type TrackFilter,
+} from './filters/trackFilter';
 
 type Order = 'plays' | 'order' | 'match';
 
@@ -66,6 +73,14 @@ const DEFAULT_SORT: SortState = { columnId: null, direction: 'asc' };
  */
 const sort = signal<SortState>(DEFAULT_SORT);
 const sortOf = signal<string | null>(null);
+/** The playlist table's filters, kept from one playlist to the next. */
+const filter = signal<TrackFilter>(EMPTY_FILTER);
+/**
+ * Larger windows fold the filters behind a Filters button in the strip, so
+ * a 900 px tall window still holds 15 rows (SC-001); a filter in force
+ * keeps them shown.
+ */
+const filtersShown = signal(false);
 
 /**
  * Spec §5: one seed per playlist, so walking from one playlist to another
@@ -355,7 +370,15 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
         feature: featureOfRow(row),
         cells: matchCells(null, null, TOLERANCE_PCT),
       }));
+  const filtered = trackFilterView({
+    filter,
+    rows: listed,
+    featureOf: (r) => r.feature,
+    textOf: (r) =>
+      `${r.row.track.name} ${r.row.track.album} ${artistNames(r.row.track.artists)}`,
+  });
   const phone = windowClass.value === 'compact';
+  const filtersOpen = phone || filtersShown.value || isFiltering(filter.value);
   const headerSort = sortOf.value === id ? sort.value : DEFAULT_SORT;
 
   const meta = (
@@ -418,6 +441,17 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
       <div class="playlist-strip">
         {meta}
         {noHistory}
+        <Button
+          variant={filtersOpen ? 'tonal' : 'text'}
+          icon="filter_list"
+          aria-expanded={filtersOpen}
+          disabled={isFiltering(filter.value)}
+          onClick={() => {
+            filtersShown.value = !filtersShown.value;
+          }}
+        >
+          Filters
+        </Button>
         {orderControl}
       </div>
       <LikeStatus playlistId={id} />
@@ -459,11 +493,14 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
     </>
   );
 
-  const table = (
+  const beside = windowClass.value === 'expanded' && !matching;
+  const table = filtered.empty ?? (
     <DataTable
-      // Beside the list pane an expanded window leaves a phone's width;
-      // Match folds the pane and keeps the columns (ruling R1).
-      compact={windowClass.value === 'expanded' && !matching ? true : undefined}
+      // Beside the list pane an expanded window may leave a phone's width:
+      // the table follows its own width there (S04 parked fix 1). Match
+      // folds the pane and keeps the columns (ruling R1).
+      compact={beside ? true : undefined}
+      compactBelow={beside ? DETAIL_COMPACT_BELOW : undefined}
       label={`${playlist.name}, ${
         matching
           ? 'matches'
@@ -474,6 +511,7 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
       noun="track"
       columns={playlistColumns(matching && seedFeature !== null)}
       rows={listed}
+      only={filtered.only}
       rowKey={(r) => String(r.row.entry.position)}
       sort={headerSort}
       onSort={(s) => {
@@ -496,17 +534,23 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
   const opened = detail
     ? ranked.find((r) => String(r.entry.position) === detail)
     : undefined;
-  const sheet = opened && (
-    <TrackSheet
-      trackRef={{ playlistId: id, position: opened.entry.position }}
-      rowId={detail!}
-      onMatch={() => {
-        setSeed(id, opened);
-        order.value = 'match';
-        sort.value = DEFAULT_SORT;
-        closeDetail();
-      }}
-    />
+  // A track opened from search that this playlist does not hold.
+  const searched = detail !== undefined && !opened && !/^\d+$/.test(detail);
+  const sheet = searched ? (
+    <TrackSheet trackRef={{ trackId: detail }} rowId={detail} />
+  ) : (
+    opened && (
+      <TrackSheet
+        trackRef={{ playlistId: id, position: opened.entry.position }}
+        rowId={detail!}
+        onMatch={() => {
+          setSeed(id, opened);
+          order.value = 'match';
+          sort.value = DEFAULT_SORT;
+          closeDetail();
+        }}
+      />
+    )
   );
 
   return (
@@ -517,6 +561,7 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
     >
       {head}
       {seedBar}
+      {filtersOpen && filtered.bar}
       {table}
       {sheet}
     </section>

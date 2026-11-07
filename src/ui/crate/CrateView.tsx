@@ -6,7 +6,7 @@ import { CrateEmpty } from './CrateEmpty';
 import { Finish } from './Finish';
 import { Gems } from './Gems';
 import { Rotation } from './Rotation';
-import { CrateShell } from './shared';
+import { CrateSheet, CrateShell } from './shared';
 
 function Body({
   view,
@@ -46,9 +46,13 @@ export function CrateView({
       {crateStatus.value === 'ready' ? (
         <Body view={view} period={period} detail={detail} />
       ) : (
-        <CrateEmpty
-          status={crateStatus.value === 'reimport' ? 'reimport' : 'empty'}
-        />
+        <>
+          <CrateEmpty
+            status={crateStatus.value === 'reimport' ? 'reimport' : 'empty'}
+          />
+          {/* A track opened from search over the gate. */}
+          <CrateSheet detail={detail} />
+        </>
       )}
     </CrateShell>
   );
