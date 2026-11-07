@@ -3473,3 +3473,375 @@ details.mix-clues > summary:focus-visible {
   margin: 4px 0 8px;
   resize: vertical;
 }
+
+/* ---- Find and filter (spec 003, US7) ---- */
+
+/* The filters above a track table: text, BPM range, key, Clear filters. */
+.filter-bar {
+  margin: 0 0 12px;
+}
+
+.filter-bar-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.filter-text {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 220px;
+  max-width: 360px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.filter-text .icon {
+  position: absolute;
+  left: 14px;
+  pointer-events: none;
+}
+
+.filter-text input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--app-target);
+  padding: 0 12px 0 42px;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+  background: transparent;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-full);
+}
+
+.filter-text input:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: calc(var(--app-focus-ring) * -1);
+}
+
+.filter-bpm-range {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.text-field.filter-bpm {
+  width: 96px;
+  min-height: var(--app-target);
+  padding: 0 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-field.filter-bpm[aria-invalid='true'] {
+  border-color: var(--md-sys-color-error);
+  border-width: 2px;
+}
+
+.filter-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font: var(--md-sys-typescale-body-small);
+  color: var(--md-sys-color-error);
+}
+
+.filter-count {
+  margin: 6px 0 0;
+}
+
+.filter-clear,
+.key-picker-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--app-target);
+  padding: 0 12px 0 16px;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-on-surface-variant);
+  background: transparent;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-small);
+  cursor: pointer;
+}
+
+.filter-clear {
+  padding: 0 16px 0 12px;
+}
+
+.key-picker-button.set {
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-color: var(--md-sys-color-secondary-container);
+}
+
+.filter-clear:hover,
+.key-picker-button:hover {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
+    transparent
+  );
+}
+
+.key-picker {
+  position: relative;
+}
+
+.key-menu {
+  position: fixed;
+  z-index: 40;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 12px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  background: var(--md-sys-color-surface-container);
+  box-shadow: var(--md-sys-elevation-2);
+}
+
+.key-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 48px);
+  gap: 4px;
+}
+
+.key-choice.pill {
+  min-width: 48px;
+  min-height: var(--app-target);
+  padding: 0;
+  font: var(--md-sys-typescale-label-large);
+  border-width: 2px;
+  border-radius: var(--md-sys-shape-corner-small);
+  cursor: pointer;
+}
+
+.key-choice.checked {
+  outline: 3px solid var(--md-sys-color-on-surface);
+  outline-offset: 2px;
+}
+
+.key-menu-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--app-target);
+  margin-top: 8px;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+  cursor: pointer;
+}
+
+.key-menu-switch input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--md-sys-color-primary);
+}
+
+.key-menu-any {
+  min-height: var(--app-target);
+  padding: 0 12px;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  cursor: pointer;
+}
+
+.key-menu-any:disabled {
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: default;
+}
+
+/* A phone draws no sort headers: the sort in force, and its reset. */
+.dt-sorted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.dt-sorted button {
+  min-height: var(--app-target);
+  padding: 0 12px;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  cursor: pointer;
+}
+
+/* The top bar's search field (FR-051). */
+.top-bar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 280px;
+  min-width: 0;
+  min-height: var(--app-target);
+  margin: 0 8px;
+  padding: 0 8px 0 16px;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  cursor: text;
+}
+
+.top-bar-search-text {
+  flex: 1;
+  text-align: start;
+}
+
+.top-bar-search kbd {
+  padding: 0 8px;
+  font: var(--md-sys-typescale-label-medium);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+/* The search view: a docked panel, full screen on a phone. */
+.search-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--md-sys-color-scrim);
+}
+
+.search-view {
+  position: fixed;
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+}
+
+/* The top bar's field opens into it: right-aligned under the bar's edge. */
+.search-view.docked {
+  top: 8px;
+  right: 16px;
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  box-shadow: var(--md-sys-elevation-2);
+}
+
+.search-view.fullscreen {
+  inset: 0;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-height: 56px;
+  padding: 4px 8px 4px 16px;
+  color: var(--md-sys-color-on-surface-variant);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.search-view.fullscreen .search-field {
+  padding-left: 4px;
+}
+
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--app-target);
+  padding: 0;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+  background: transparent;
+  border: 0;
+}
+
+.search-field input:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+.search-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 0 12px;
+}
+
+.search-body > .status {
+  margin: 4px 16px;
+}
+
+.search-note {
+  margin: 0;
+  padding: 16px 24px;
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.search-group-title {
+  margin: 8px 0 0;
+  padding: 8px 24px 4px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.search-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 4px 24px;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+}
+
+.search-option.active {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.search-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.search-name,
+.search-context {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.search-name {
+  font: var(--md-sys-typescale-body-large);
+  color: var(--md-sys-color-on-surface);
+}
+
+.search-option.active .search-name {
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.search-context {
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.search-name strong,
+.search-context strong {
+  font-weight: 700;
+}
+
+.search-more {
+  padding-left: 40px;
+  font: var(--md-sys-typescale-label-large);
+  color: var(--md-sys-color-primary);
+}

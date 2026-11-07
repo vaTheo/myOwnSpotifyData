@@ -29,6 +29,7 @@ import {
   monthLabel,
   useCrateRows,
 } from './shared';
+import { EMPTY_FILTER } from '../filters/trackFilter';
 
 const PERIOD_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -40,6 +41,7 @@ const PERIOD_OPTIONS = [
 ];
 
 const sort = signal(DEFAULT_SORT);
+const filter = signal(EMPTY_FILTER);
 
 /**
  * The route's period segment is applied once per mount: arriving from
@@ -206,6 +208,7 @@ export function ByYear({
           items={result.items}
           columns={columns}
           sort={sort}
+          filter={filter}
           resetKey={`${year} ${selection}`}
           detail={detail}
         />

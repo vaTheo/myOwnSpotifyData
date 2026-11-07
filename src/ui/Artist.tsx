@@ -13,8 +13,15 @@ import { routeHref } from '../router';
 import { Card } from './components/Card';
 import { NoData } from './components/NoData';
 import { SpotifyLink } from './components/SpotifyLink';
-import { artistUrl, formatDate, plural, profileLine } from './format';
+import {
+  artistNames,
+  artistUrl,
+  formatDate,
+  plural,
+  profileLine,
+} from './format';
 import { Icon } from './icons';
+import { DETAIL_COMPACT_BELOW } from './layout/ListDetail';
 import { windowClass } from './layout/windowClass';
 import {
   albumColumn,
@@ -28,9 +35,12 @@ import {
 import { openDetail } from './details/navigate';
 import { TrackSheet } from './details/TrackDetails';
 import { DataTable, type Column } from './table/DataTable';
+import { trackFilterView } from './filters/FilterBar';
+import { EMPTY_FILTER, type TrackFilter } from './filters/trackFilter';
 import type { SortState } from './table/sort';
 
 const sort = signal<SortState>({ columnId: null, direction: 'asc' });
+const filter = signal<TrackFilter>(EMPTY_FILTER);
 
 /**
  * Rebuilt from the stored sitelink segment, so it is exact: `wikiTitles`
@@ -195,6 +205,13 @@ export function Artist({
   const artistId = agg?.id ?? top?.id ?? null;
   const url = artistUrl(artistId);
   const tracks = agg ? artistTracks(m, artistKey) : [];
+  const filtered = trackFilterView({
+    filter,
+    rows: tracks,
+    featureOf: (r) => (r.track.id ? featureFor(m, r.track.id) : null),
+    textOf: (r) =>
+      `${r.track.name} ${r.track.album} ${artistNames(r.track.artists)}`,
+  });
   return (
     <section>
       <p class="detail-meta artist-meta">
@@ -214,23 +231,35 @@ export function Artist({
       {tracks.length === 0 ? (
         <p class="empty">No saved tracks from {name} in your playlists.</p>
       ) : (
-        <DataTable
-          // Beside the list pane an expanded window leaves a phone's width.
-          compact={windowClass.value === 'expanded' ? true : undefined}
-          label={`Saved tracks by ${name}`}
-          noun="track"
-          columns={trackColumns(m)}
-          rows={tracks}
-          rowKey={(t) => t.track.key}
-          sort={sort.value}
-          onSort={(s) => {
-            sort.value = s;
-          }}
-          resetKey={artistKey}
-          selectedKey={detail ?? null}
-          follow={detail !== undefined}
-          onOpen={(t) => openDetail(t.track.key)}
-        />
+        <>
+          {filtered.bar}
+          {filtered.empty ?? (
+            <DataTable
+              // Beside the list pane an expanded window may leave a phone's
+              // width: the table follows its own width there (S04 parked fix 1).
+              compact={windowClass.value === 'expanded' ? true : undefined}
+              compactBelow={
+                windowClass.value === 'expanded'
+                  ? DETAIL_COMPACT_BELOW
+                  : undefined
+              }
+              label={`Saved tracks by ${name}`}
+              noun="track"
+              columns={trackColumns(m)}
+              rows={tracks}
+              only={filtered.only}
+              rowKey={(t) => t.track.key}
+              sort={sort.value}
+              onSort={(s) => {
+                sort.value = s;
+              }}
+              resetKey={artistKey}
+              selectedKey={detail ?? null}
+              follow={detail !== undefined}
+              onOpen={(t) => openDetail(t.track.key)}
+            />
+          )}
+        </>
       )}
       {detail && <TrackSheet trackRef={{ trackId: detail }} rowId={detail} />}
     </section>

@@ -31,8 +31,10 @@ import {
   monthLabel,
   useCrateRows,
 } from './shared';
+import { EMPTY_FILTER } from '../filters/trackFilter';
 
 const sort = signal(DEFAULT_SORT);
+const filter = signal(EMPTY_FILTER);
 
 const OPTIONS = ROTATION_WINDOWS.map((n) => ({
   value: String(n),
@@ -162,6 +164,7 @@ export function Rotation({ detail }: { detail?: string }) {
           items={items}
           columns={columns}
           sort={sort}
+          filter={filter}
           resetKey={String(months)}
           detail={detail}
         />

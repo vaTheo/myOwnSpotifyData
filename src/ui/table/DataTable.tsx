@@ -54,6 +54,35 @@ function templates<Row>(columns: Column<Row>[]): Record<string, string> {
   return vars;
 }
 
+/** The element's width while `on`, kept up to date; null until measured. */
+function useWidth(
+  ref: { current: HTMLElement | null },
+  on: boolean
+): number | null {
+  const [width, setWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!on || !el || typeof ResizeObserver === 'undefined') {
+      setWidth(null);
+      return;
+    }
+    let frame = 0;
+    // Read in the next frame: the layout the new width brings (items or
+    // rows) must not land inside the observer's own notification.
+    const observer = new ResizeObserver((entries) => {
+      const next = Math.round(entries[0].contentRect.width);
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setWidth(next));
+    });
+    observer.observe(el);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [on]);
+  return width;
+}
+
 /** How long the focus rests on a row before an open sheet follows it. */
 const FOLLOW_DELAY_MS = 150;
 
@@ -119,8 +148,24 @@ export function DataTable<Row>(p: {
    * pages until that row is in them (Mix: the row Add track just made).
    */
   revealKey?: string | null;
+  /**
+   * The rows a filter keeps (FR-052); null or absent keeps them all. Applied
+   * after the ranks are taken, so a rank travels with its row (FR-049).
+   */
+  only?: ReadonlySet<Row> | null;
+  /**
+   * Two-line items while the table itself is narrower than this many
+   * pixels: a detail beside a list pane follows its own width, not the
+   * window's class (S04 parked fix 1). Overrides `compact` once measured.
+   */
+  compactBelow?: number;
 }) {
-  const compact = p.compact ?? windowClass.value === 'compact';
+  const wrap = useRef<HTMLDivElement>(null);
+  const width = useWidth(wrap, p.compactBelow !== undefined);
+  const compact =
+    p.compactBelow !== undefined && width !== null
+      ? width < p.compactBelow
+      : (p.compact ?? windowClass.value === 'compact');
   const [shown, setShown] = useState(PAGE_SIZE);
   const [active, setActive] = useState<number | null>(null);
   const [announce, setAnnounce] = useState('');
@@ -134,12 +179,17 @@ export function DataTable<Row>(p: {
     return p.rows.map((row, i) => ({ row, rank: rankOf(row, i) }));
   }, [p.rows, p.rankOf]);
   const column = p.columns.find((c) => c.id === p.sort.columnId);
-  const ordered = useMemo(
+  const sorted = useMemo(
     () =>
       column?.sortValue && !p.presorted
         ? sortRows(ranked, (r) => column.sortValue!(r.row), p.sort.direction)
         : ranked,
     [ranked, column, p.sort.direction, p.presorted]
+  );
+  const only = p.only ?? null;
+  const ordered = useMemo(
+    () => (only ? sorted.filter((r) => only.has(r.row)) : sorted),
+    [sorted, only]
   );
 
   useEffect(() => {
@@ -274,8 +324,36 @@ export function DataTable<Row>(p: {
     );
   });
 
+  // Phones draw no sort headers: a sort chosen on a wider window stays
+  // applied, so it is said here and can be reset (S04 parked fix 2).
+  const sortedBy =
+    compact && !p.presorted && p.sort.columnId !== null ? column : undefined;
+
   return (
-    <div class="dt-wrap">
+    <div class="dt-wrap" ref={wrap}>
+      {sortedBy && (
+        <div class="dt-sorted">
+          <Icon
+            name={
+              p.sort.direction === 'asc' ? 'arrow_upward' : 'arrow_downward'
+            }
+            size={18}
+          />
+          <span>
+            Sorted by {sortedBy.header},{' '}
+            {p.sort.direction === 'asc' ? 'ascending' : 'descending'}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              p.onSort({ columnId: null, direction: 'asc' });
+              setAnnounce('Sorted by the default order');
+            }}
+          >
+            Reset
+          </button>
+        </div>
+      )}
       <div
         class={compact ? 'dt compact' : 'dt'}
         role="grid"

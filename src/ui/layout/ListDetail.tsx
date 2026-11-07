@@ -7,6 +7,13 @@ import { focusWhenReady } from './focus';
 import { windowClass, type WindowClass } from './windowClass';
 
 /**
+ * Below this width, a table beside the list pane draws two-line items; at
+ * 1,100–1,199 px a level-1 table fits and keeps its headers and sorting
+ * (S04 parked fix 1).
+ */
+export const DETAIL_COMPACT_BELOW = 560;
+
+/**
  * Where the list goes (contracts/components.md, research D6): beside the
  * detail on expanded and large windows, away on compact and medium ones,
  * where the detail is a full screen with the top bar's back arrow. Without

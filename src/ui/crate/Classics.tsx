@@ -25,8 +25,10 @@ import {
   spanYears,
   useCrateRows,
 } from './shared';
+import { EMPTY_FILTER } from '../filters/trackFilter';
 
 const sort = signal(DEFAULT_SORT);
+const filter = signal(EMPTY_FILTER);
 
 /** The view's figures for the opened track: plays per year, the last play. */
 function ClassicExtra(p: { item: ClassicItem; span: number[] }) {
@@ -117,6 +119,7 @@ export function Classics({ detail }: { detail?: string }) {
           items={items}
           columns={columns}
           sort={sort}
+          filter={filter}
           resetKey={classicSort.value}
           detail={detail}
         />

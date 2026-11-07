@@ -14,7 +14,7 @@ import { Empty } from './components/Empty';
 import { SegmentedButtons } from './components/SegmentedButtons';
 import { openDetail } from './details/navigate';
 import { TrackSheet } from './details/TrackDetails';
-import { TOP_PERIOD_LABEL } from './format';
+import { artistNames, TOP_PERIOD_LABEL } from './format';
 import { windowClass } from './layout/windowClass';
 import {
   artistsColumn,
@@ -31,6 +31,8 @@ import {
 import { DataTable, type Column } from './table/DataTable';
 import type { SortState } from './table/sort';
 import { ComparePeriods } from './top/ComparePeriods';
+import { trackFilterView } from './filters/FilterBar';
+import { EMPTY_FILTER, type TrackFilter } from './filters/trackFilter';
 
 const period = signal<Period>('short_term');
 const kind = signal<'tracks' | 'artists'>('tracks');
@@ -38,6 +40,7 @@ const compare = signal(false);
 const DEFAULT_SORT: SortState = { columnId: null, direction: 'asc' };
 const tracksSort = signal<SortState>(DEFAULT_SORT);
 const artistsSort = signal<SortState>(DEFAULT_SORT);
+const tracksFilter = signal<TrackFilter>(EMPTY_FILTER);
 
 const PERIOD_OPTIONS = (
   ['short_term', 'medium_term', 'long_term'] as const
@@ -85,9 +88,24 @@ const ARTIST_COLUMNS: Column<AnnotatedTopArtist>[] = [
 /** `detail` is the track whose details sheet is open (`?d=`). */
 export function Top({ detail }: { detail?: string }) {
   const m = model.value;
-  if (!m || m.topItems.size === 0) return <Empty what="top lists" />;
+  if (!m || m.topItems.size === 0) {
+    return (
+      <>
+        <Empty what="top lists" />
+        {detail && <TrackSheet trackRef={{ trackId: detail }} rowId={detail} />}
+      </>
+    );
+  }
   const comparing = compare.value && windowClass.value === 'large';
   const hasPlaylists = m.playlists.length > 0;
+  const tracks = topTracks(m, period.value);
+  const featureOf = (r: AnnotatedTopTrack) => featureFor(m, r.item.id);
+  const filtered = trackFilterView({
+    filter: tracksFilter,
+    rows: tracks,
+    featureOf,
+    textOf: (r) => `${r.item.name} ${artistNames(r.item.artists)}`,
+  });
   return (
     <section>
       <div class="toolbar">
@@ -126,22 +144,28 @@ export function Top({ detail }: { detail?: string }) {
       {comparing ? (
         <ComparePeriods kind={kind.value} />
       ) : kind.value === 'tracks' ? (
-        <DataTable
-          label={`Top tracks, ${TOP_PERIOD_LABEL[period.value]}`}
-          noun="track"
-          columns={trackColumns(hasPlaylists, (r) => featureFor(m, r.item.id))}
-          rows={topTracks(m, period.value)}
-          rowKey={(r) => r.item.id}
-          rankOf={(r) => r.item.rank}
-          sort={tracksSort.value}
-          onSort={(s) => {
-            tracksSort.value = s;
-          }}
-          resetKey={period.value}
-          selectedKey={detail ?? null}
-          follow={detail !== undefined}
-          onOpen={(r) => openDetail(r.item.id)}
-        />
+        <>
+          {filtered.bar}
+          {filtered.empty ?? (
+            <DataTable
+              label={`Top tracks, ${TOP_PERIOD_LABEL[period.value]}`}
+              noun="track"
+              columns={trackColumns(hasPlaylists, featureOf)}
+              rows={tracks}
+              only={filtered.only}
+              rowKey={(r) => r.item.id}
+              rankOf={(r) => r.item.rank}
+              sort={tracksSort.value}
+              onSort={(s) => {
+                tracksSort.value = s;
+              }}
+              resetKey={period.value}
+              selectedKey={detail ?? null}
+              follow={detail !== undefined}
+              onOpen={(r) => openDetail(r.item.id)}
+            />
+          )}
+        </>
       ) : (
         <DataTable
           label={`Top artists, ${TOP_PERIOD_LABEL[period.value]}`}
