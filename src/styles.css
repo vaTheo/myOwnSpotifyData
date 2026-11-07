@@ -3257,6 +3257,61 @@ details.mix-clues > summary:focus-visible {
   gap: 4px;
 }
 
+/* The review (T117, T118): the Spotify status, the Listen menu, ✓ and ✕. */
+.mix-spotify {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--app-target);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.mix-spotify.found {
+  color: var(--md-sys-color-primary);
+}
+
+.mix-spotify.notFound,
+.mix-spotify-text.notFound {
+  color: var(--md-sys-color-error);
+}
+
+.mix-spotify-text.found {
+  color: var(--md-sys-color-primary);
+}
+
+.mix-review {
+  display: inline-flex;
+  align-items: center;
+}
+
+.icon-btn.mix-validate.on {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+/* The review line and Check on Spotify, under the open mix's header. */
+.mix-review-head {
+  display: flex;
+  flex-direction: column;
+}
+
+.mix-review-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.mix-review-head .mix-item-progress {
+  padding: 0;
+}
+
+.mix-rowview .segmented {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
 /* A phone: the title has the whole line; the second line wraps. */
 .dt-item .mix-title-cell {
   padding: 0;

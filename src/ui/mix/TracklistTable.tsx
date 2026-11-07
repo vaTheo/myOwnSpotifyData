@@ -1,12 +1,20 @@
 import { signal } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { MixRowSource, TracklistRow } from '../../db/schema';
+import { digLinks } from '../../features/mix/digLinks';
 import {
   libraryTitleIndex,
   matchMixRow,
   type MixMatch,
 } from '../../features/mix/match';
 import { parseClock } from '../../features/mix/parse';
+import {
+  FILTER_CAPTION,
+  inFilter,
+  reviewChips,
+  spotifyStatus,
+  type ReviewFilter,
+} from '../../features/mix/review';
 import { isIdentified } from '../../features/mix/spotifySearch';
 import { viewRows, type RowSort } from '../../features/mix/worker';
 import {
@@ -17,16 +25,19 @@ import {
   mixRows,
   model,
   saveMix,
+  toggleValidated,
 } from '../../model/state';
 import { Button } from '../components/Button';
 import { FeaturePills } from '../components/FeaturePills';
 import { Flag } from '../components/Flag';
 import { IconButton } from '../components/IconButton';
 import { NoData } from '../components/NoData';
+import { SegmentedButtons } from '../components/SegmentedButtons';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
 import { formatClock, plural } from '../format';
 import { Icon, type IconName } from '../icons';
+import { windowClass } from '../layout/windowClass';
 import { DataTable, type Column } from '../table/DataTable';
 import type { SortState } from '../table/sort';
 import { Clues } from './Clues';
@@ -59,9 +70,13 @@ const SOURCE_ICON: Record<MixRowSource, IconName> = {
   tracklistify: 'computer',
 };
 
-/** Spotify search, never a track page: the app holds no id for the mix track. */
+/** Spotify search, for a track the check has not found. */
 function searchUrl(row: TracklistRow): string {
   return `https://open.spotify.com/search/${encodeURIComponent(`${row.artist} ${row.title}`)}`;
+}
+
+function nameOf(row: TracklistRow): string {
+  return `${row.artist} – ${row.title}`;
 }
 
 function sourceTitle(row: TracklistRow): string {
@@ -82,10 +97,27 @@ function referencesLine(l: Line): string | null {
 }
 
 /**
+ * Where to listen to a track (T118): the dig links' plain search pages,
+ * then Shazam's page while the row still reads as the scan heard it. No
+ * request is made until one is opened.
+ */
+function listenItems(row: TracklistRow, prefix: string): RowMenuItem[] {
+  if (!isIdentified(row)) return [];
+  const items: RowMenuItem[] = digLinks(row.artist, row.title).map((l) => ({
+    label: `${prefix}${l.label}`,
+    href: l.href,
+  }));
+  if (row.shazamUrl && row.source === 'tracklistify') {
+    items.push({ label: `${prefix}Shazam`, href: row.shazamUrl });
+  }
+  return items;
+}
+
+/**
  * Artist – Title, and under it what a round-003 row must show in words: the
- * **not heard** badge of a candidate, the origin ("second listen · +4 %",
- * "from a comment by …"), the clue in quotes (plain text, two lines at
- * most), then the references.
+ * **not heard** badge of a candidate (it starts To review, D6), the origin
+ * ("second listen · +4 %", "from a comment by …"), the clue in quotes
+ * (plain text, two lines at most), then the references.
  */
 function TitleCell(p: { line: Line }) {
   const { row } = p.line;
@@ -95,9 +127,7 @@ function TitleCell(p: { line: Line }) {
   const second = row.origin === 'clue' || origin !== null || refs !== null;
   return (
     <span class="mix-title-cell">
-      <span class="dt-text mix-name">
-        {row.artist} – {row.title}
-      </span>
+      <span class="dt-text mix-name">{nameOf(row)}</span>
       {second && (
         <span class="mix-second">
           {row.origin === 'clue' && <Flag kind="todo">not heard</Flag>}
@@ -139,10 +169,83 @@ function ConfidenceCell(p: { row: TracklistRow }) {
   );
 }
 
+const STATUS_TEXT = {
+  unchecked: 'Not checked',
+  found: 'On Spotify',
+  notFound: 'Not found on Spotify',
+} as const;
+
+/**
+ * Spotify (T117, T118): one 48 px icon — the track's link when the check
+ * found it, else Not checked or Not found, each with its words for screen
+ * readers and in the tooltip. On a phone, the words on the meta line (the
+ * link is in the row's More menu).
+ */
+function SpotifyCell(p: { row: TracklistRow; compact: boolean }) {
+  const { row } = p;
+  if (!isIdentified(row)) return null;
+  const status = spotifyStatus(row);
+  if (p.compact) {
+    return status === 'unchecked' ? null : (
+      <span class={`mix-spotify-text ${status}`}>{STATUS_TEXT[status]}</span>
+    );
+  }
+  if (typeof row.spotify === 'object') {
+    return (
+      <IconButton
+        icon="open_in_new"
+        class="mix-spotify found"
+        label={`On Spotify: open ${nameOf(row)}`}
+        href={row.spotify.url}
+        external
+      />
+    );
+  }
+  return (
+    <span class={`mix-spotify ${status}`} title={STATUS_TEXT[status]}>
+      <Icon name={status === 'notFound' ? 'error' : 'schedule'} size={20} />
+      <span class="visually-hidden">{STATUS_TEXT[status]}</span>
+    </span>
+  );
+}
+
+/**
+ * Review (T118): ✓ toggles Validated and To review (pressed when
+ * validated); ✕ removes the track (the same `deleteMixRow` as Delete), for
+ * a track found wrongly. On a phone only ✓; Remove is in More.
+ */
+function ReviewCell(p: { line: Line; compact: boolean; onRemove: () => void }) {
+  const { row, index } = p.line;
+  const validated = row.validated === true;
+  return (
+    <span class="mix-review">
+      <button
+        type="button"
+        class={validated ? 'icon-btn mix-validate on' : 'icon-btn mix-validate'}
+        aria-pressed={validated}
+        aria-label={`Validate ${nameOf(row)}`}
+        title={validated ? 'Validated' : 'To review'}
+        onClick={() => toggleValidated(index)}
+      >
+        <Icon name="check" size={22} />
+      </button>
+      {!p.compact && (
+        <IconButton
+          icon="close"
+          label={`Remove ${nameOf(row)}`}
+          onClick={p.onRemove}
+        />
+      )}
+    </span>
+  );
+}
+
 function columns(on: {
   edit: (index: number) => void;
   remove: (index: number) => void;
+  compact: boolean;
 }): Column<Line>[] {
+  const { compact } = on;
   return [
     {
       id: 'time',
@@ -162,7 +265,7 @@ function columns(on: {
       priority: 1,
       width: 'minmax(200px, 1fr)',
       cell: (l) => <TitleCell line={l} />,
-      title: (l) => `${l.row.artist} – ${l.row.title}`,
+      title: (l) => nameOf(l.row),
       compact: 'title',
     },
     {
@@ -207,6 +310,45 @@ function columns(on: {
       compact: 'meta',
     },
     {
+      id: 'spotify',
+      header: 'Spotify',
+      priority: 1,
+      width: '48px',
+      cell: (l) => <SpotifyCell row={l.row} compact={compact} />,
+      compact: 'meta',
+    },
+    {
+      id: 'listen',
+      header: 'Listen',
+      priority: 2,
+      width: '48px',
+      cell: (l) => {
+        const items = listenItems(l.row, '');
+        return items.length === 0 ? null : (
+          <RowMenu
+            icon="headphones"
+            label={`Listen to ${nameOf(l.row)}`}
+            items={items}
+          />
+        );
+      },
+      compact: 'hidden',
+    },
+    {
+      id: 'review',
+      header: 'Review',
+      priority: 1,
+      width: compact ? '48px' : '96px',
+      cell: (l) => (
+        <ReviewCell
+          line={l}
+          compact={compact}
+          onRemove={() => on.remove(l.index)}
+        />
+      ),
+      compact: 'trail',
+    },
+    {
       id: 'more',
       header: 'More',
       headerHidden: true,
@@ -214,15 +356,21 @@ function columns(on: {
       priority: 1,
       width: '64px',
       cell: (l) => {
-        const name = `${l.row.artist} – ${l.row.title}`;
+        const { row } = l;
         const items: RowMenuItem[] = [
           { label: 'Edit', onSelect: () => on.edit(l.index) },
           { label: 'Delete', onSelect: () => on.remove(l.index) },
         ];
-        if (isIdentified(l.row)) {
-          items.push({ label: 'Search on Spotify', href: searchUrl(l.row) });
+        if (typeof row.spotify === 'object') {
+          // On a phone the Spotify cell is words only: the link is here.
+          if (compact)
+            items.push({ label: 'Open on Spotify', href: row.spotify.url });
+        } else if (isIdentified(row)) {
+          items.push({ label: 'Search on Spotify', href: searchUrl(row) });
         }
-        return <RowMenu label={`More for ${name}`} items={items} />;
+        // On a phone the Listen menu joins this one.
+        if (compact) items.push(...listenItems(row, 'Listen on '));
+        return <RowMenu label={`More for ${nameOf(row)}`} items={items} />;
       },
       compact: 'trail',
     },
@@ -316,47 +464,48 @@ function EditLine(p: {
 }
 
 /**
- * Round 004's view controls, shown only when a row has clip counts (so a
- * mix from before round 004 has no empty control), at every width: phones
- * have no header sort. They hide rows, never delete them.
+ * The review's filter chips (T118, T127): All, To review, Validated, Not
+ * on Spotify with their counts, and Heard once (N) when a row has clip
+ * counts; one at a time. Round 004's Sort select beside them when a row
+ * has clip counts (phones have no header sort). They hide rows, never
+ * delete them.
  */
 function RowView(p: {
   rows: readonly TracklistRow[];
   sort: RowSort;
   onSort: (sort: RowSort) => void;
-  heardOnce: boolean;
-  onHeardOnce: (on: boolean) => void;
+  filter: ReviewFilter;
+  onFilter: (filter: ReviewFilter) => void;
+  counted: boolean;
 }) {
   return (
     <div class="mix-rowview">
-      <label>
-        Sort{' '}
-        <select
-          id="mix-sort"
-          value={p.sort}
-          onChange={(e) =>
-            p.onSort((e.currentTarget as HTMLSelectElement).value as RowSort)
-          }
-        >
-          <option value="time">Time</option>
-          <option value="clips">Clips heard</option>
-          <option value="score">Best score</option>
-        </select>
-      </label>
-      <Button
-        id="mix-heard-once"
-        variant="outlined"
-        icon={p.heardOnce ? 'check' : undefined}
-        aria-pressed={p.heardOnce}
-        onClick={() => p.onHeardOnce(!p.heardOnce)}
-      >
-        Only tracks heard once ({p.rows.filter((r) => r.hits === 1).length})
-      </Button>
-      {p.heardOnce && (
-        <span class="mix-caption">
-          The others are hidden, not deleted; Create playlist uses every row.
-        </span>
+      <SegmentedButtons
+        scroll
+        options={reviewChips(p.rows).map((c) => ({
+          value: c.filter,
+          label: c.label,
+        }))}
+        value={p.filter}
+        onChange={p.onFilter}
+      />
+      {p.counted && (
+        <label>
+          Sort{' '}
+          <select
+            id="mix-sort"
+            value={p.sort}
+            onChange={(e) =>
+              p.onSort((e.currentTarget as HTMLSelectElement).value as RowSort)
+            }
+          >
+            <option value="time">Time</option>
+            <option value="clips">Clips heard</option>
+            <option value="score">Best score</option>
+          </select>
+        </label>
       )}
+      {p.filter !== 'all' && <span class="mix-caption">{FILTER_CAPTION}</span>}
     </div>
   );
 }
@@ -367,41 +516,43 @@ function keyOf(index: number, editing: number | null): string {
 }
 
 /**
- * The open mix's tracklist (spec 003 §12, T082, T120; S08 fix 1 row layout)
- * on `DataTable`. Rows keep their place in `mixRows`, so Edit and Delete act
- * on the real row whatever the Sort. Edit, Delete and the Spotify search sit
- * in each row's More menu; a gap keeps a visible Delete. Library matches are
- * computed here, at render, never stored. Under the table: Add track (the
- * new row is paged in and focused) and Save mix ("Saved ✓" for 2 s; a
- * failure shows `mixError` beside the button, never the tick).
+ * The open mix's tracklist (spec 003 §12, T082, T118, T120, T127; S08 fix
+ * 1 row layout) on `DataTable`. Rows keep their place in `mixRows`, so
+ * Edit, Delete and Review act on the real row whatever the filter or the
+ * Sort. Each row: Spotify status, Listen menu, ✓ / ✕, and More (Edit,
+ * Delete, Search on Spotify). Library matches are computed here, at
+ * render, never stored. Under the table: Add track and Save mix ("Saved ✓"
+ * for 2 s). A save failure shows once: under Save mix, unless `mixError`
+ * already shows the same words elsewhere on the screen.
  */
-export function TracklistTable(p: { showSaveError?: boolean } = {}) {
+export function TracklistTable() {
   const rows = mixRows.value;
   const m = model.value;
   const index = m ? libraryTitleIndex(m) : null;
+  const compact = windowClass.value === 'compact';
   const [editing, setEditing] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
   // The save's own failure, kept apart from `mixError` (which other
   // actions also set) and cleared by the next action on the table.
   const [saveError, setSaveError] = useState<string | null>(null);
   const [sort, setSortState] = useState<RowSort>('time');
-  const [heardOnce, setHeardOnceState] = useState(false);
+  const [filter, setFilterState] = useState<ReviewFilter>('all');
   const setSort = (v: RowSort): void => {
     setSaveError(null);
     setSortState(v);
   };
-  const setHeardOnce = (v: boolean): void => {
+  const setFilter = (v: ReviewFilter): void => {
     setSaveError(null);
-    setHeardOnceState(v);
+    setFilterState(v);
   };
   const edit = (i: number | null): void => {
     setSaveError(null);
     setEditing(i);
   };
   const counted = rows.some((r) => r.hits !== undefined);
-  const order = counted
-    ? viewRows(rows, sort, heardOnce)
-    : rows.map((_, i) => i);
+  const order = (
+    counted ? viewRows(rows, sort, false) : rows.map((_, i) => i)
+  ).filter((i) => i === editing || inFilter(rows[i], filter));
   const lines: Line[] = order.map((i) => ({
     row: rows[i],
     index: i,
@@ -417,7 +568,7 @@ export function TracklistTable(p: { showSaveError?: boolean } = {}) {
       setSaveError(null);
       const ok = await saveMix();
       if (!ok) {
-        // mixError says why, here; never "Saved ✓".
+        // mixError says why; never "Saved ✓".
         setSaveError(mixError.peek());
         return;
       }
@@ -426,26 +577,29 @@ export function TracklistTable(p: { showSaveError?: boolean } = {}) {
     })();
   };
 
+  // `mixError` is always on screen (the Mixes list header, or the open
+  // mix's header): the same words are not repeated here.
+  const showSaveError = saveError !== null && saveError !== mixError.value;
+
   return (
     <div class="mix-tracklist">
-      {counted && (
-        <RowView
-          rows={rows}
-          sort={sort}
-          onSort={setSort}
-          heardOnce={heardOnce}
-          onHeardOnce={setHeardOnce}
-        />
-      )}
+      <RowView
+        rows={rows}
+        sort={sort}
+        onSort={setSort}
+        filter={filter}
+        onFilter={setFilter}
+        counted={counted}
+      />
       <DataTable
         label="Tracklist"
-        columns={columns({ edit, remove })}
+        columns={columns({ edit, remove, compact })}
         rows={lines}
         rowKey={(l) => keyOf(l.index, editing)}
         sort={NO_SORT.value}
         onSort={() => undefined}
         noun="track"
-        resetKey={`${sort}-${heardOnce}`}
+        resetKey={`${sort}-${filter}`}
         revealKey={editing === null ? null : keyOf(editing, editing)}
         fullRow={(l) => {
           if (editing === l.index) {
@@ -471,8 +625,8 @@ export function TracklistTable(p: { showSaveError?: boolean } = {}) {
           icon="add"
           onClick={() => {
             addMixRow();
-            // A new row has no clip count: show it whatever the view.
-            setHeardOnce(false);
+            // A new row is To review and has no clip count: show it.
+            setFilter('all');
             edit(mixRows.value.length - 1);
           }}
         >
@@ -482,9 +636,7 @@ export function TracklistTable(p: { showSaveError?: boolean } = {}) {
           {saved ? 'Saved ✓' : 'Save mix'}
         </Button>
       </div>
-      {saveError !== null && p.showSaveError !== false && (
-        <StatusLine kind="error">{saveError}</StatusLine>
-      )}
+      {showSaveError && <StatusLine kind="error">{saveError}</StatusLine>}
     </div>
   );
 }
