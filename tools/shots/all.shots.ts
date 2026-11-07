@@ -12,9 +12,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEMO_NOW } from '../../src/dev/flag';
 import { layoutChecks, type Finding } from './checks';
-import { PAGES, READY } from './pages';
+import { openDemo } from './open';
+import { PAGES } from './pages';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -54,53 +54,8 @@ async function focusChecks(page: Page): Promise<Finding[]> {
 
 for (const shot of PAGES) {
   test(shot.id, async ({ page }, testInfo) => {
-    test.skip(
-      shot.since !== undefined && !READY.includes(shot.since),
-      `${shot.since} not built yet`
-    );
     const findings: Finding[] = [];
-
-    // 9. Nothing leaves the computer; every error is a finding.
-    await page.route('**/*', (route) => {
-      const url = new URL(route.request().url());
-      if (url.hostname === '127.0.0.1') return route.continue();
-      findings.push({
-        check: 'network',
-        selector: route.request().resourceType(),
-        detail: `blocked ${url.origin}${url.pathname}`,
-      });
-      return route.abort('blockedbyclient');
-    });
-    page.on('console', (msg) => {
-      if (msg.type() !== 'error') return;
-      // The blocked requests above are already findings of their own.
-      if (msg.text().includes('ERR_BLOCKED_BY_CLIENT')) return;
-      findings.push({
-        check: 'console',
-        selector: 'console',
-        detail: msg.text(),
-      });
-    });
-    page.on('pageerror', (err) => {
-      findings.push({
-        check: 'console',
-        selector: 'pageerror',
-        detail: err.message,
-      });
-    });
-
-    await page.clock.setFixedTime(new Date(DEMO_NOW));
-    await page.goto(`?demo=${shot.variant ?? 'full'}#/`);
-    await page.waitForSelector('html[data-demo-ready]', { timeout: 30_000 });
-    const hash =
-      typeof shot.hash === 'string'
-        ? shot.hash
-        : shot.hash(await page.evaluate(() => window.__demo!.ids));
-    await page.evaluate((h) => {
-      location.hash = h;
-    }, hash);
-    await page.waitForLoadState('networkidle');
-    await page.evaluate(() => document.fonts.ready);
+    const hash = await openDemo(page, findings, shot.hash, shot.variant);
     if (shot.setup) await shot.setup(page);
     await page.waitForTimeout(150);
 
