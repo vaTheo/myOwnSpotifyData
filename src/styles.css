@@ -3765,13 +3765,19 @@ details.mix-clues > summary:focus-visible {
   color: var(--md-sys-color-on-surface-variant);
 }
 
-.filter-decades .segmented {
+/* Few decades: the chips wrap rather than scroll, so none hides. */
+.filter-decades .segmented.scroll {
+  flex-wrap: wrap;
+  overflow: visible;
   min-width: 0;
   margin-bottom: 0;
 }
 
-.filter-year-sort {
-  margin-top: 0;
+/* A filter chip that toggles: filled while the table sorts by year. */
+.filter-year-sort[aria-checked='true'] {
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-color: transparent;
 }
 
 .filter-clear,
