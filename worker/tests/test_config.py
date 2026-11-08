@@ -51,7 +51,7 @@ class Defaults(unittest.TestCase):
         self.assertEqual(s.merge_gap_seconds, 180)
         self.assertEqual(s.second_pass_step_seconds, 30)
         self.assertEqual(s.second_pass_offset_seconds, 7)
-        self.assertEqual(s.second_pass_speeds, (0.96, 1.04))
+        self.assertEqual(s.second_pass_speeds, (0.91, 1.09, 1.0))
         self.assertTrue(s.clues)
         self.assertEqual(s.clue_seconds, 90)
         self.assertEqual(s.lookups, 100)
