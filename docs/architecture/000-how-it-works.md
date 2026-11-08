@@ -702,7 +702,7 @@ A Python `uv` project (3.11–3.13; `yt-dlp`, `shazamio`, `imageio-ffmpeg`; test
 and one PyInstaller executable per system built by `.github/workflows/worker-release.yml` and released as `worker-v<version>` on the first push to `main` carrying a new
 version in `worker/pyproject.toml`
 ([ADR-09](700-adr/ADR-09-mix-identification-on-the-owners-computer.md); the round's record under `specs/002-mix-analysis-worker/`;
-the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never calls a Spotify host.
+the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never calls a Spotify host; besides the project, Shazam and the link's platform it reaches `trackid.net` by the exact mix link only ([ADR-17](700-adr/ADR-17-trackid-worker.md)).
 
 - `cli.py`: `check`, `login` (the app's magic link in the PKCE flow, caught on `127.0.0.1:5173/myOwnSpotifyData/` → `session.json`
   at mode 600; `--code` for a typed six-digit code), `logout`, `run --once|--watch`, `--config`, `--version`;
