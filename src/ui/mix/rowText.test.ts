@@ -7,6 +7,7 @@ import {
   yearText,
   confidenceText,
   gapCluesSummary,
+  listenIcons,
   originText,
   playLinks,
   referencesText,
@@ -209,9 +210,6 @@ describe('playLinks: the direct pages first', () => {
     expect(playLinks(found, 'zzz')).toEqual([
       { label: 'Play on Spotify', href: 'spotify:track:abc', app: true },
     ]);
-    expect(
-      playLinks(found, 'zzz').some((l) => l.label === 'Open in Spotify app')
-    ).toBe(false);
   });
 
   it('without a Check answer it uses the library match', () => {
@@ -235,5 +233,32 @@ describe('playLinks: the direct pages first', () => {
     expect(
       playLinks(row({ shazamUrl: shazam, source: 'manual' }), null)
     ).toEqual([]);
+  });
+});
+
+describe('listenIcons: Shazam and SoundCloud beside the Listen menu', () => {
+  const shazam = 'https://www.shazam.com/track/1/x';
+  const sc = 'https://soundcloud.com/search/sounds?q=A+T';
+
+  it('Shazam then the SoundCloud search, named for the track', () => {
+    expect(listenIcons(row({ shazamUrl: shazam }))).toEqual([
+      { site: 'shazam', label: 'Shazam A – T', href: shazam },
+      { site: 'soundcloud', label: 'Search SoundCloud for A – T', href: sc },
+    ]);
+  });
+
+  it('no Shazam without its URL or once the row was edited', () => {
+    const only = [
+      { site: 'soundcloud', label: 'Search SoundCloud for A – T', href: sc },
+    ];
+    expect(listenIcons(row())).toEqual(only);
+    expect(listenIcons(row({ shazamUrl: shazam, source: 'manual' }))).toEqual(
+      only
+    );
+  });
+
+  it('none for a gap or an unnamed row', () => {
+    expect(listenIcons(row({ gap: true, shazamUrl: shazam }))).toEqual([]);
+    expect(listenIcons(row({ artist: 'ID', title: 'ID' }))).toEqual([]);
   });
 });

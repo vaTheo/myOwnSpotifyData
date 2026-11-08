@@ -52,6 +52,7 @@ import {
   confidenceShort,
   confidenceText,
   gapCluesSummary,
+  listenIcons,
   originText,
   playLinks,
   referencesText,
@@ -168,28 +169,38 @@ const STATUS_TEXT = {
 } as const;
 
 /**
- * Spotify (T117, T118): one 48 px icon — the track's link when the check
- * found it, else Not checked or Not found, each with its words for screen
- * readers and in the tooltip. On a phone, the words on the meta line (the
- * link is in the row's More menu).
+ * Spotify (T117, T118, round 010): one 48 px icon — when the check found
+ * the track, the app's own link (`spotify:track:<id>`), opened in place;
+ * else Not checked or Not found, each with its words for screen readers and
+ * in the tooltip. On a phone, the words on the meta line, "On Spotify" being
+ * the same app link.
  */
 function SpotifyCell(p: { row: TracklistRow; compact: boolean }) {
   const { row } = p;
   if (!isIdentified(row)) return null;
   const status = spotifyStatus(row);
+  const app =
+    typeof row.spotify === 'object' ? `spotify:track:${row.spotify.id}` : null;
+  const play = `Play ${nameOf(row)} on Spotify`;
   if (p.compact) {
+    if (app !== null) {
+      return (
+        <a class="mix-spotify-text found" href={app} aria-label={play}>
+          {STATUS_TEXT.found}
+        </a>
+      );
+    }
     return status === 'unchecked' ? null : (
       <span class={`mix-spotify-text ${status}`}>{STATUS_TEXT[status]}</span>
     );
   }
-  if (typeof row.spotify === 'object') {
+  if (app !== null) {
     return (
       <IconButton
         icon="open_in_new"
         class="mix-spotify found"
-        label={`On Spotify: open ${nameOf(row)}`}
-        href={row.spotify.url}
-        external
+        label={play}
+        href={app}
       />
     );
   }
@@ -197,6 +208,28 @@ function SpotifyCell(p: { row: TracklistRow; compact: boolean }) {
     <span class={`mix-spotify ${status}`} title={STATUS_TEXT[status]}>
       <Icon name={status === 'notFound' ? 'error' : 'schedule'} size={20} />
       <span class="visually-hidden">{STATUS_TEXT[status]}</span>
+    </span>
+  );
+}
+
+/**
+ * Shazam and SoundCloud as icon links (round 010), new tab: beside the
+ * Listen menu, and on a phone's meta line.
+ */
+function ListenIcons(p: { row: TracklistRow }) {
+  const icons = listenIcons(p.row);
+  if (icons.length === 0) return null;
+  return (
+    <span class="mix-listen-icons">
+      {icons.map((i) => (
+        <IconButton
+          key={i.site}
+          icon={i.site}
+          label={i.label}
+          href={i.href}
+          external
+        />
+      ))}
     </span>
   );
 }
@@ -287,18 +320,24 @@ function columns(on: {
       id: 'listen',
       header: 'Listen',
       priority: 2,
-      width: '48px',
+      // The Shazam and SoundCloud icons, then the menu: three 48 px targets.
+      width: '144px',
       cell: (l) => {
         const items = listenItems(l);
         return items.length === 0 ? null : (
-          <RowMenu
-            icon="headphones"
-            label={`Listen to ${nameOf(l.row)}`}
-            items={items}
-          />
+          <span class="mix-listen">
+            <ListenIcons row={l.row} />
+            <RowMenu
+              icon="headphones"
+              label={`Listen to ${nameOf(l.row)}`}
+              items={items}
+            />
+          </span>
         );
       },
-      compact: 'hidden',
+      // On a phone the icons join the meta line; the menu is in More.
+      compactCell: (l) => <ListenIcons row={l.row} />,
+      compact: 'meta',
     },
     {
       id: 'review',
@@ -425,9 +464,9 @@ function EditLine(p: {
 /**
  * The review's filter chips (T118, T127, round 010): All, Not on Spotify
  * with their counts, and Heard once (N) when a row has clip counts; one at
- * a time. Round 004's Sort select beside them when a row
- * has clip counts (phones have no header sort). They hide rows, never
- * delete them.
+ * a time. They hide rows, never delete them. Round 004's Sort select and
+ * its direction button beside them whenever there are rows (phones have no
+ * header sort).
  */
 function RowView(p: {
   rows: readonly TracklistRow[];

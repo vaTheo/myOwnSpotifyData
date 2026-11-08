@@ -19,7 +19,7 @@ description: "Task list for the simpler mix tracklist table"
 
 ## Phase 2: Foundational (blocks the stories)
 
-- [ ] T002 [P] Add `shazam` and `soundcloud` glyphs (inline SVG paths, 24px viewBox, same shape as the other entries) to `PATHS` in `src/ui/icons.tsx`
+- [x] T002 [P] Add `shazam` and `soundcloud` glyphs (inline SVG paths, 24px viewBox, same shape as the other entries) to `PATHS` in `src/ui/icons.tsx`
 - [x] T003 Rewrite `playLinks(row, libraryTrackId)` in `src/ui/mix/rowText.ts`: drop the `phone` parameter; Spotify is one `{label: 'Play on Spotify', href: 'spotify:track:<id>', app: true}` (id from `row.spotify.id`, else the library trackId not starting with `spotify:` only when `row.spotify === undefined`); keep Shazam after it (`row.shazamUrl && row.source === 'tracklistify'`); update `src/ui/mix/rowText.test.ts` (one app link on every device, no "Open in Spotify app")
 
 ## Phase 3: User Story 1 - A leaner table (P1) 🎯 MVP
@@ -47,8 +47,8 @@ description: "Task list for the simpler mix tracklist table"
 
 **Independent Test**: a found row's Spotify link href is `spotify:track:<id>`; the Listen menu has no "Open in Spotify app".
 
-- [ ] T014 [US2] In `src/ui/mix/TracklistTable.tsx` `SpotifyCell`, change the found-row `IconButton` to `href={`spotify:track:${row.spotify.id}`}`, no `external`/new tab, label `Play ${nameOf(row)} on Spotify`; compact found text becomes the same link when room allows
-- [ ] T015 [US2] In `src/ui/mix/TracklistTable.tsx` update `listenItems` to the T003 signature (drop the `phone` argument at both call sites)
+- [x] T014 [US2] In `src/ui/mix/TracklistTable.tsx` `SpotifyCell`, change the found-row `IconButton` to `href={`spotify:track:${row.spotify.id}`}`, no `external`/new tab, label `Play ${nameOf(row)} on Spotify`; compact found text becomes the same link when room allows
+- [x] T015 [US2] In `src/ui/mix/TracklistTable.tsx` update `listenItems` to the T003 signature (drop the `phone` argument at both call sites)
 
 **Checkpoint**: found rows open the Spotify app from the cell and the menu.
 
@@ -58,8 +58,8 @@ description: "Task list for the simpler mix tracklist table"
 
 **Independent Test**: a scan row with a Shazam page shows its icon opening it in a new tab; every named row shows the SoundCloud search icon; a manual row shows no Shazam icon.
 
-- [ ] T016 [P] [US3] Add `listenIcons(row)` to `src/ui/mix/rowText.ts` returning `{site: 'shazam' | 'soundcloud'; label; href}[]`: Shazam from `playLinks`' Shazam rule, SoundCloud from `digLinks(row.artist, row.title)` where `site === 'soundcloud'`, none for gap rows; labels "Shazam <track>" and "Search SoundCloud for <track>"; tests in `rowText.test.ts`
-- [ ] T017 [US3] In `src/ui/mix/TracklistTable.tsx` render the icons as `IconButton`s (`external`) in the Listen cell beside the `RowMenu`, and on the compact meta line; widen the Listen column in `src/styles.css`/column `width` so nothing wraps
+- [x] T016 [P] [US3] Add `listenIcons(row)` to `src/ui/mix/rowText.ts` returning `{site: 'shazam' | 'soundcloud'; label; href}[]`: Shazam from `playLinks`' Shazam rule, SoundCloud from `digLinks(row.artist, row.title)` where `site === 'soundcloud'`, none for gap rows; labels "Shazam <track>" and "Search SoundCloud for <track>"; tests in `rowText.test.ts`
+- [x] T017 [US3] In `src/ui/mix/TracklistTable.tsx` render the icons as `IconButton`s (`external`) in the Listen cell beside the `RowMenu`, and on the compact meta line; widen the Listen column in `src/styles.css`/column `width` so nothing wraps
 
 **Checkpoint**: icons open the right pages; no horizontal scroll at phone width.
 

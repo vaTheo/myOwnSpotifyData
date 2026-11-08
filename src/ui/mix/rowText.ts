@@ -1,4 +1,6 @@
 import type { Clue, TracklistRow } from '../../db/schema';
+import { digLinks } from '../../features/mix/digLinks';
+import { isIdentified } from '../../features/mix/spotifySearch';
 import { formatClock, plural } from '../format';
 
 /**
@@ -48,6 +50,44 @@ export function playLinks(
     links.push({ label: 'Shazam', href: row.shazamUrl });
   }
   return links;
+}
+
+/** A row's icon link (round 010): the site's glyph, opened in a new tab. */
+export interface ListenIcon {
+  site: 'shazam' | 'soundcloud';
+  label: string;
+  href: string;
+}
+
+/**
+ * The icon links beside the Listen menu and on a phone's meta line (round
+ * 010): Shazam's page under `playLinks`' rule (the stored URL, while the row
+ * still reads as the scan heard it), then the SoundCloud search page from
+ * `digLinks` (a search, so its name says so; ADR-04). None for a gap or an
+ * unnamed row.
+ */
+export function listenIcons(row: TracklistRow): ListenIcon[] {
+  if (!isIdentified(row)) return [];
+  const track = `${row.artist} – ${row.title}`;
+  const icons: ListenIcon[] = [];
+  if (row.shazamUrl && row.source === 'tracklistify') {
+    icons.push({
+      site: 'shazam',
+      label: `Shazam ${track}`,
+      href: row.shazamUrl,
+    });
+  }
+  const sc = digLinks(row.artist, row.title).find(
+    (l) => l.site === 'soundcloud'
+  );
+  if (sc) {
+    icons.push({
+      site: 'soundcloud',
+      label: `Search SoundCloud for ${track}`,
+      href: sc.href,
+    });
+  }
+  return icons;
 }
 
 /**

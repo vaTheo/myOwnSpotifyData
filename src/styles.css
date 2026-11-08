@@ -3514,15 +3514,21 @@ details.mix-clues > summary:focus-visible {
   color: var(--md-sys-color-primary);
 }
 
-.mix-review {
+.mix-spotify-text.found {
+  text-decoration: none;
+}
+
+.mix-review,
+.mix-listen,
+.mix-listen-icons {
   display: inline-flex;
   align-items: center;
 }
 
-/* The 48 px Listen column and the 48 px Review column hold their 48 px
-   targets edge to edge: no cell padding (Spotify has 64 px for its
-   header's word). */
-.dt-cell:has(> .row-menu, > .mix-review) {
+/* The 144 px Listen column (Shazam, SoundCloud, the menu) and the 48 px
+   Review column hold their 48 px targets edge to edge: no cell padding
+   (Spotify has 64 px for its header's word). */
+.dt-cell:has(> .row-menu, > .mix-review, > .mix-listen) {
   padding-inline: 0;
 }
 
