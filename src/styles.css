@@ -1434,6 +1434,37 @@ a {
     var(--md-sys-color-primary-container);
 }
 
+/* The marked Mix row's second cues (spec 013, FR-007, FR-007b): a 4 px
+   primary edge bar and 2 px primary top and bottom lines as inset shadows
+   (no layout shift), a soft primary halo outside them, painted over the
+   neighbours (z-index); the focus ring is an outline, drawn above. Checked
+   against colour-analysis §2–§6: row and phone item text, muted, found,
+   error, warning and secondary pass on primary-container; the phone "Not
+   found on Spotify" button is error text on a transparent background
+   (5.49); gap, Edit and Link rows are `.dt-full`, never filled, so field
+   outlines stay on the neutral surface (2.94 on the fill); `.mix-rowview`
+   controls sit above the table and the row menu list on its own surface.
+   No pair missed its target. */
+.mix-tracklist .dt-body .dt-row[aria-selected='true'],
+.mix-tracklist .dt-body .dt-item[aria-selected='true'],
+.mix-tracklist .dt-body .dt-full[aria-selected='true'] {
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    inset 4px 0 0 var(--md-sys-color-primary),
+    inset 0 2px 0 var(--md-sys-color-primary),
+    inset 0 -2px 0 var(--md-sys-color-primary),
+    0 0 8px color-mix(in srgb, var(--md-sys-color-primary) 60%, transparent);
+}
+
+/* Shadows are dropped in forced colours: a real outline marks the row. */
+@media (forced-colors: active) {
+  .mix-tracklist .dt-body [aria-selected='true']:not(:focus-visible) {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
 .dt-row:focus-visible,
 .dt-item:focus-visible {
   outline: var(--app-focus-ring) solid var(--md-sys-color-primary);

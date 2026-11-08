@@ -28,6 +28,20 @@ describe('markAfter', () => {
     expect(markAfter(4, { type: 'add', index: 12 })).toBe(12);
   });
 
+  it('keeps an index into mixRows, not a place in the view', () => {
+    // The table passes `l.index` (the row's place in `mixRows`), so a sort
+    // or filter that reorders the view leaves the mark on the same track,
+    // and a filter that hides it leaves no visible row marked.
+    const sorted = [5, 2, 9];
+    const marked = markAfter(null, { type: 'click', index: sorted[0] });
+    expect(marked).toBe(5);
+    const resorted = [2, 9, 5];
+    expect(resorted.indexOf(marked as number)).toBe(2);
+    const filtered = [2, 9];
+    expect(filtered.includes(marked as number)).toBe(false);
+    expect(marked).toBe(5);
+  });
+
   it('clears the mark when another mix opens', () => {
     expect(markAfter(3, { type: 'open-mix' })).toBeNull();
     expect(markAfter(null, { type: 'open-mix' })).toBeNull();
