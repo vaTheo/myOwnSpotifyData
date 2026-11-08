@@ -70,4 +70,8 @@ docs/…                                   ADR-17 (new), ADR-10 note, inventory 
 | A new origin `trackid` | The owner picked it; clear on screen and in data | Reuse `clue`: refused by the pick |
 | App first, then worker | The app's validator rejects an unknown origin today | Ship together: a cached older app would drop the mix on pull |
 
+## Documentation (a standing rule)
+
+Every batch updates the docs of what it touches in the same commit (CLAUDE.md files, how-it-works sections, READMEs, the contracts of this round and of rounds 002 and 003 where a sentence now differs, the inventory, the limits, the CHANGELOG). T020 is the final sweep with a file-to-doc map; the final reviewer checks the docs against the code.
+
 **Release order** (documented in ADR-17, the CHANGELOG and `quickstart.md`): merge the app change and wait for the Pages deploy, hard-reload the app on every device, then release worker 0.7.0. Worker 0.7.0 on an older app: the app refuses the new rows, so the owner updates the app first.
