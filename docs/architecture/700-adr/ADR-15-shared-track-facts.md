@@ -57,6 +57,9 @@ stays partial for everyone; the full run still takes the release-year pass, whic
 and ISRC passes; a test reads the migration so the numbers (BPM range, 200 ids) cannot drift from the client; the free-tier
 storage is shared by the store too.
 
+The 200-id cap applies to reads only: the size of an insert batch is not bounded, so a signed-in user could fill the free tier's
+storage. The owner adds every user, so the trust model accepts it.
+
 ## Links
 
 - Spec: [`specs/014-shared-track-facts/spec.md`](../../../specs/014-shared-track-facts/spec.md) · [plan](../../../specs/014-shared-track-facts/plan.md) · [research](../../../specs/014-shared-track-facts/research.md)

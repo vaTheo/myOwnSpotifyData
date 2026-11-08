@@ -103,6 +103,8 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   - MusicBrainz and Deezer ids are not shared, so the reach shortcut saves only the ListenBrainz and Deezer-fans requests; the
     Deezer-id-by-ISRC step still runs for artists whose fans came from the store.
   - No screen for the store: the owner reads it in the dashboard only.
+  - The 200-id cap is on reads only; an insert batch is not bounded, so a signed-in user could fill the free tier (the owner adds every
+    user, so the trust model accepts it).
   - No backfill: values found before the round are not uploaded; the owner clears the results and runs again (no button for it).
   - The real-project run (`specs/014-shared-track-facts/quickstart.md`, T033) is the owner's and pending.
 
