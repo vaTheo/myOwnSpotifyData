@@ -181,14 +181,10 @@ describe('shareTracks', () => {
     expect(await port.shareTracks(rows)).toEqual({ ok: true, value: 250 });
     expect(fetchFn).toHaveBeenCalledTimes(2);
     const [url, init] = fetchFn.mock.calls[0]!;
-    expect(url).toBe(
-      'https://p.supabase.co/rest/v1/shared_track_facts?on_conflict=track_id'
-    );
-    expect(new Headers(init?.headers).get('Prefer')).toBe(
-      'resolution=ignore-duplicates,return=minimal'
-    );
-    expect(bodyOf(init)).toHaveLength(200);
-    expect(bodyOf(init)[0]).toEqual({
+    expect(url).toBe('https://p.supabase.co/rest/v1/rpc/add_track_facts');
+    expect(init?.method).toBe('POST');
+    expect(bodyOf(init).rows).toHaveLength(200);
+    expect(bodyOf(init).rows[0]).toEqual({
       track_id: id(0),
       bpm: 128,
       key: 5,
@@ -212,7 +208,7 @@ describe('shareTracks', () => {
       ok: true,
       value: 1,
     });
-    expect(bodyOf(fetchFn.mock.calls[0]![1])).toHaveLength(1);
+    expect(bodyOf(fetchFn.mock.calls[0]![1]).rows).toHaveLength(1);
     expect(await port.shareTracks([])).toEqual({ ok: true, value: 0 });
   });
 
@@ -238,7 +234,7 @@ describe('shareTracks', () => {
         ok: true,
         value: 1,
       });
-      expect(bodyOf(fetchFn.mock.calls[0]![1]), label).toEqual([
+      expect(bodyOf(fetchFn.mock.calls[0]![1]).rows, label).toEqual([
         { track_id: id(9), bpm: 128, key: 5, major: false },
       ]);
     }
@@ -312,6 +308,48 @@ describe('shareTracks', () => {
   });
 });
 
+describe('the add functions answer', () => {
+  it('a bare number body (the integer the function returns) is a success', async () => {
+    const { port } = setup((url) => {
+      expect(url).toBe('https://p.supabase.co/rest/v1/rpc/add_track_facts');
+      return ok(1);
+    });
+    expect(
+      await port.shareTracks([
+        { trackId: id(1), bpm: 128, key: 5, major: false },
+      ])
+    ).toEqual({ ok: true, value: 1 });
+  });
+
+  it('the cap error of a function becomes its message, and the run stops at it', async () => {
+    const { port, fetchFn } = setup(() =>
+      ok({ code: '54000', message: 'too many rows' }, 400)
+    );
+    const rows = Array.from({ length: 250 }, (_, i) => ({
+      trackId: id(i),
+      bpm: 128,
+      key: 5,
+      major: false,
+    }));
+    expect(await port.shareTracks(rows)).toEqual({
+      ok: false,
+      message: 'too many rows',
+    });
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('a 403 from the function is a failure, never a throw', async () => {
+    const { port } = setup(() =>
+      ok({ code: '42501', message: 'permission denied for function' }, 403)
+    );
+    expect(
+      await port.shareTracks([
+        { trackId: id(1), bpm: 128, key: 5, major: false },
+      ])
+    ).toMatchObject({ ok: false });
+  });
+});
+
 describe('reach', () => {
   const day = Date.parse('2026-11-05T00:00:00Z');
   const fact = (over = {}) => ({
@@ -363,10 +401,8 @@ describe('reach', () => {
     ];
     expect(await port.shareReach(rows)).toEqual({ ok: true, value: 1 });
     const [url, init] = fetchFn.mock.calls[0]!;
-    expect(url).toBe(
-      'https://p.supabase.co/rest/v1/shared_artist_reach?on_conflict=artist_id%2Csource%2Cmeasured_on'
-    );
-    expect(bodyOf(init)).toEqual([
+    expect(url).toBe('https://p.supabase.co/rest/v1/rpc/add_artist_reach');
+    expect(bodyOf(init).rows).toEqual([
       {
         artist_id: id(1),
         source: 'deezer',
@@ -380,7 +416,7 @@ describe('reach', () => {
 describe('two users, one shared store (SC-001, SC-002)', () => {
   it('B asks ReccoBeats only for what A did not find, and reads nothing beyond four columns', async () => {
     await wipeDb();
-    // The in-memory fake of the two RPCs and the ignore-duplicates insert.
+    // The in-memory fake of the get and add functions (a duplicate is ignored).
     const store = new Map<string, Record<string, unknown>>();
     const tokensSeen = new Set<string>();
     const readAnswers: unknown[] = [];
@@ -394,12 +430,13 @@ describe('two users, one shared store (SC-001, SC-002)', () => {
         readAnswers.push(rows);
         return ok(rows);
       }
-      if (url.includes('/rest/v1/shared_track_facts')) {
-        for (const row of bodyOf(init) as Record<string, unknown>[]) {
+      if (url.endsWith('/rpc/add_track_facts')) {
+        const rows = bodyOf(init).rows as Record<string, unknown>[];
+        for (const row of rows) {
           const t = row.track_id as string;
           if (!store.has(t)) store.set(t, row);
         }
-        return new Response(null, { status: 201 });
+        return ok(rows.length);
       }
       return ok({ message: 'unexpected' }, 404);
     };
@@ -526,8 +563,8 @@ describe('two users, one shared store, artist reach (SC-005)', () => {
   });
 
   it('B makes no ListenBrainz or Deezer fans request for what A measured, and the newest row wins', async () => {
-    // The fake of get_artist_reach (newest row per artist and source) and the
-    // ignore-duplicates insert, keyed like the table.
+    // The fake of get_artist_reach (newest row per artist and source) and
+    // add_artist_reach (a duplicate is ignored), keyed like the table.
     const store = new Map<string, Record<string, unknown>>();
     const respond = (url: string, init?: RequestInit): Response => {
       if (url.endsWith('/rpc/get_artist_reach')) {
@@ -543,12 +580,13 @@ describe('two users, one shared store, artist reach (SC-005)', () => {
         }
         return ok([...newest.values()]);
       }
-      if (url.includes('/rest/v1/shared_artist_reach')) {
-        for (const row of bodyOf(init) as Record<string, unknown>[]) {
+      if (url.endsWith('/rpc/add_artist_reach')) {
+        const rows = bodyOf(init).rows as Record<string, unknown>[];
+        for (const row of rows) {
           const k = `${row.artist_id}|${row.source}|${row.measured_on}`;
           if (!store.has(k)) store.set(k, row);
         }
-        return new Response(null, { status: 201 });
+        return ok(rows.length);
       }
       return ok({ message: 'unexpected' }, 404);
     };

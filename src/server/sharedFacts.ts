@@ -18,7 +18,8 @@ import {
 
 /**
  * The shared track facts port (round 014, ADR-15), over the server client:
- * two by-id reads through the definer functions, two insert-only shares.
+ * two by-id reads through the get_* definer functions, two shares through the
+ * add_* definer functions (the tables take no direct insert: ADR-15 "Revised").
  * Nothing here throws, nothing retries, every call ends within the timeout.
  * Whether a failure switches the port off for the rest of a run is the run's
  * call (`lookup.ts`, `reachRun.ts`): the port keeps no state.
@@ -33,8 +34,6 @@ export const SHARED_TIMEOUT_MS = 10_000;
 export const NOT_SIGNED_IN = 'Not signed in to the server';
 
 const DAY_MS = 86_400_000;
-const TRACK_TABLE = 'shared_track_facts';
-const REACH_TABLE = 'shared_artist_reach';
 
 export interface SharedFactsDeps {
   client: ServerClient;
@@ -112,14 +111,13 @@ export function createSharedFactsPort(deps: SharedFactsDeps): SharedFactsPort {
   }
 
   async function share(
-    table: string,
-    onConflict: string,
+    fn: string,
     bodies: unknown[]
   ): Promise<PortResult<number>> {
     let sent = 0;
     for (const part of chunks(bodies)) {
       const res = await bounded((token) =>
-        deps.client.insertIgnore(table, part, token, onConflict)
+        deps.client.rpc<unknown>(fn, token, { rows: part })
       );
       if (!res.ok) return res;
       sent += part.length;
@@ -146,7 +144,7 @@ export function createSharedFactsPort(deps: SharedFactsDeps): SharedFactsPort {
           key: r.key,
           major: r.major,
         }));
-      return share(TRACK_TABLE, 'track_id', bodies);
+      return share('add_track_facts', bodies);
     },
 
     readReach(ids) {
@@ -177,7 +175,7 @@ export function createSharedFactsPort(deps: SharedFactsDeps): SharedFactsPort {
           measured_on: day(r.measuredAt),
           value: r.value,
         }));
-      return share(REACH_TABLE, 'artist_id,source,measured_on', bodies);
+      return share('add_artist_reach', bodies);
     },
   };
 }

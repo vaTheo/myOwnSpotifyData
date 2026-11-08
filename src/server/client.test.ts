@@ -309,6 +309,16 @@ describe('data calls', () => {
     expect(init?.body).toBe('{"ids":["a","b"]}');
   });
 
+  it('rpc returns a bare number body as the value', async () => {
+    const { c, fetchFn } = client(() => json(3));
+    const res = await c.rpc<number>('add_track_facts', 'tok', { rows: [] });
+    expect(res).toEqual({ ok: true, value: 3 });
+    expect(fetchFn.mock.calls[0]![0]).toBe(
+      `${BASE}/rest/v1/rpc/add_track_facts`
+    );
+    expect(fetchFn.mock.calls[0]![1]?.body).toBe('{"rows":[]}');
+  });
+
   it('insertIgnore posts the rows, ignoring duplicates', async () => {
     const { c, fetchFn } = client(() => new Response(null, { status: 201 }));
     const rows = [{ track_id: 'x', bpm: 120, key: 1, major: true }];
