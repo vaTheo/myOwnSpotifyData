@@ -3514,10 +3514,6 @@ details.mix-clues > summary:focus-visible {
   color: var(--md-sys-color-primary);
 }
 
-.mix-spotify-text.found {
-  text-decoration: none;
-}
-
 .mix-review,
 .mix-listen,
 .mix-listen-icons {

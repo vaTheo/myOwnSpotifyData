@@ -172,8 +172,8 @@ const STATUS_TEXT = {
  * Spotify (T117, T118, round 010): one 48 px icon — when the check found
  * the track, the app's own link (`spotify:track:<id>`), opened in place;
  * else Not checked or Not found, each with its words for screen readers and
- * in the tooltip. On a phone, the words on the meta line, "On Spotify" being
- * the same app link.
+ * in the tooltip. On a phone, the words on the meta line (Play on Spotify
+ * is in More's Listen list).
  */
 function SpotifyCell(p: { row: TracklistRow; compact: boolean }) {
   const { row } = p;
@@ -183,13 +183,6 @@ function SpotifyCell(p: { row: TracklistRow; compact: boolean }) {
     typeof row.spotify === 'object' ? `spotify:track:${row.spotify.id}` : null;
   const play = `Play ${nameOf(row)} on Spotify`;
   if (p.compact) {
-    if (app !== null) {
-      return (
-        <a class="mix-spotify-text found" href={app} aria-label={play}>
-          {STATUS_TEXT.found}
-        </a>
-      );
-    }
     return status === 'unchecked' ? null : (
       <span class={`mix-spotify-text ${status}`}>{STATUS_TEXT[status]}</span>
     );
@@ -197,7 +190,7 @@ function SpotifyCell(p: { row: TracklistRow; compact: boolean }) {
   if (app !== null) {
     return (
       <IconButton
-        icon="open_in_new"
+        icon="play_arrow"
         class="mix-spotify found"
         label={play}
         href={app}
