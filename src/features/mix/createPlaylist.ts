@@ -39,28 +39,15 @@ export interface CreatePlaylistOutcome {
   rows: TracklistRow[];
 }
 
-/** Which tracks Create playlist adds (spec 003 §12, owner's D6). */
-export type CreateChoice = 'validated' | 'all';
-
 /**
- * The rows Create playlist adds, in set order (T119, T126, owner's D6).
- * **Validated only**: validated tracks, a candidate included once validated.
- * **All tracks**: every track still in the list (a removed one is gone from
- * it), candidates included. Gap and "ID" rows never. Only the working list
- * decides: the filter chips and the Sort never change it.
+ * The rows Create playlist adds, in set order (T119, T126, round 010): every
+ * identified track still in the list (Delete is how one is left out),
+ * candidates included. Gap and "ID" rows never. `validated` is never read:
+ * every track is kept. Only the working list decides: the filter chips and
+ * the Sort never change it.
  */
-export function tracksToAdd(
-  rows: readonly TracklistRow[],
-  choice: CreateChoice
-): TracklistRow[] {
-  return rows.filter(
-    (r) => isIdentified(r) && (choice === 'all' || r.validated === true)
-  );
-}
-
-/** Validated only once any track is validated, else All tracks. */
-export function defaultChoice(rows: readonly TracklistRow[]): CreateChoice {
-  return rows.some((r) => !r.gap && r.validated === true) ? 'validated' : 'all';
+export function tracksToAdd(rows: readonly TracklistRow[]): TracklistRow[] {
+  return rows.filter(isIdentified);
 }
 
 function quotaOf(err: unknown): { quotaUntil?: number } {

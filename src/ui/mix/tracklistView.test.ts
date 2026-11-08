@@ -20,7 +20,7 @@ const ALL = { decade: null, filter: 'all' as const };
 describe('tracklistView (S13c review M2)', () => {
   const rows = [
     r({ year: 2004, hits: 2 }),
-    r({ year: 1993, hits: 1, validated: true }),
+    r({ year: 1993, hits: 1 }),
     r({}),
     r({ year: 1991, hits: 3 }),
   ];
@@ -39,7 +39,6 @@ describe('tracklistView (S13c review M2)', () => {
     expect(v.decade).toBeNull();
     expect(v.decades).toEqual([]);
     expect(v.order).toEqual([0, 1]);
-    expect(tracklistView(undated, ALL, null).counted).toBe(false);
     // A decade the rows do not hold is ignored, never an empty list.
     expect(tracklistView(rows, { ...ALL, decade: 1970 }, null).order).toEqual([
       0, 1, 2, 3,
@@ -49,7 +48,7 @@ describe('tracklistView (S13c review M2)', () => {
   it('combines the decade with a review chip', () => {
     const v = tracklistView(
       rows,
-      { ...ALL, decade: 1990, filter: 'validated' },
+      { ...ALL, decade: 1990, filter: 'heardOnce' },
       null
     );
     expect(v.order).toEqual([1]);
@@ -58,7 +57,7 @@ describe('tracklistView (S13c review M2)', () => {
   it('keeps the row being edited visible whatever the view', () => {
     const v = tracklistView(
       rows,
-      { ...ALL, decade: 2000, filter: 'validated' },
+      { ...ALL, decade: 2000, filter: 'heardOnce' },
       2
     );
     expect(v.order).toEqual([2]);

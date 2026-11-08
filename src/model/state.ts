@@ -47,11 +47,9 @@ import { requestStatusText } from '../features/mix/worker';
 import {
   applyYears,
   applyYearsByTrack,
-  defaultChoice,
   runCreatePlaylist,
   rowAfterCreate,
   tracksToAdd,
-  type CreateChoice,
 } from '../features/mix/createPlaylist';
 import { canCreatePlaylists } from '../features/mix/spotifySearch';
 import {
@@ -692,25 +690,6 @@ export function isCreating(s: CreatePlaylistState): boolean {
   return (
     s.status === 'resolving' || s.status === 'creating' || s.status === 'adding'
   );
-}
-
-/** The owner's Validated only / All tracks pick for one mix (T119); none
- *  picked: `defaultChoice`. Keyed by the mix so another mix starts fresh. */
-export const createChoice = signal<{
-  url: string;
-  choice: CreateChoice;
-} | null>(null);
-
-/** What Create playlist adds for this mix: the owner's pick, else the
- *  default (Validated only once a track is validated). */
-export function createChoiceFor(
-  url: string,
-  rows: readonly TracklistRow[]
-): CreateChoice {
-  const picked = createChoice.value;
-  return picked !== null && picked.url === url
-    ? picked.choice
-    : defaultChoice(rows);
 }
 
 /* ---------- the one Spotify quota lock-out (S08d) ---------- */
@@ -1570,15 +1549,6 @@ export function deleteMixRow(index: number): void {
   mixRows.value = mixRows.value.filter((_, i) => i !== index);
 }
 
-/** Validated or back To review (T118); saved with Save mix like an edit. */
-export function toggleValidated(index: number): void {
-  const rows = mixRows.value.slice();
-  const row = rows[index];
-  if (!row || row.gap) return;
-  rows[index] = { ...row, validated: row.validated !== true };
-  mixRows.value = rows;
-}
-
 /**
  * Reads the saved mixes newest-first; called when the Mix screen mounts, and
  * by the Overview once it has painted (spec 003, research D14). That read on
@@ -1750,9 +1720,9 @@ export async function startCreatePlaylist(): Promise<void> {
     createPlaylistState.value = { status: 'error', message: refused, mixUrl };
     return;
   }
-  // Validated only or All tracks (T119, owner's D6); the mix itself is
+  // Every identified track (round 010: all are kept); the mix itself is
   // saved whole below.
-  const toAdd = tracksToAdd(rows, createChoiceFor(view.url, rows));
+  const toAdd = tracksToAdd(rows);
   if (toAdd.length === 0) return;
 
   // Claim the running state synchronously so a second tap cannot double-run,

@@ -527,7 +527,6 @@ describe('the Mix wiring in state.ts (S13, B5)', () => {
     state.savedMixes.value = [];
     state.mixError.value = null;
     state.mixRemoved.value = [];
-    state.createChoice.value = null;
   });
 
   it('Create keeps the check answers already stored for the mix (B3)', async () => {
@@ -552,14 +551,17 @@ describe('the Mix wiring in state.ts (S13, B5)', () => {
     expect(saved.playlistId).toBe('PL');
   });
 
-  it('Validated only adds the validated tracks alone', async () => {
-    state.mixRows.value = [{ ...row('One'), validated: true }, row('Two')];
+  it('adds every identified track, whatever an old validated flag says (round 010)', async () => {
+    state.mixRows.value = [
+      { ...row('One'), validated: true },
+      { ...row('Two'), validated: false },
+    ];
     searchAnswers(['One', 'Two']);
     playlistAnswers();
     await state.startCreatePlaylist();
-    expect(mocks.get).toHaveBeenCalledTimes(1);
+    expect(mocks.get).toHaveBeenCalledTimes(2);
     expect(mocks.post).toHaveBeenCalledWith('/playlists/PL/items', {
-      uris: ['spotify:track:Oneid'],
+      uris: ['spotify:track:Oneid', 'spotify:track:Twoid'],
     });
   });
 
@@ -660,16 +662,15 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
     state.savedMixes.value = [];
     state.mixError.value = null;
     state.mixRemoved.value = [];
-    state.createChoice.value = null;
   });
 
-  it('keeps a validate the owner saved during the run (N1)', async () => {
+  it('keeps an edit the owner saved during the run (N1)', async () => {
     const store = await memoryStore();
     searchAnswers(['One', 'Two']);
     mocks.post.mockImplementation(async (path: string) => {
       if (path === '/me/playlists') {
-        // The owner validates a track and saves while Create runs.
-        state.toggleValidated(1);
+        // The owner edits a track and saves while Create runs.
+        state.editMixRow(1, { artist: 'Artist', title: 'Two', label: 'Warp' });
         await state.saveMix();
         return {
           id: 'PL',
@@ -683,7 +684,7 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
       rows: TracklistRow[];
       playlistId: string;
     };
-    expect(saved.rows[1].validated).toBe(true);
+    expect(saved.rows[1].label).toBe('Warp');
     expect(saved.playlistId).toBe('PL');
   });
 
@@ -722,17 +723,16 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
     return store;
   }
 
-  it('Validated only: the saved mix holds every row, the added one dated (S13b I3a)', async () => {
+  it('the saved mix holds every row, each added one dated (S13b I3a)', async () => {
     const store = await memoryStore();
-    state.mixRows.value = [{ ...row('One'), validated: true }, row('Two')];
+    state.mixRows.value = [row('One'), row('Two')];
     datedSearch({ One: '1993-05-17', Two: '2001' });
     playlistAnswers();
     await state.startCreatePlaylist();
     const saved = store.get(URL) as { rows: TracklistRow[] };
     expect(saved.rows.map((r) => r.title)).toEqual(['One', 'Two']);
     expect(saved.rows[0]).toMatchObject({ year: 1993, yearFrom: 'spotify' });
-    // Two was not added, so never searched: no year.
-    expect(saved.rows[1].year).toBeUndefined();
+    expect(saved.rows[1]).toMatchObject({ year: 2001, yearFrom: 'spotify' });
     expect(state.mixRows.value[0].year).toBe(1993);
   });
 
@@ -755,8 +755,8 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
     mocks.get.mockImplementation(
       async (path: string, query?: { q?: string }) => {
         if (String(query?.q ?? '').includes('Two')) {
-          // The owner validates Two, deletes nothing, and saves mid-run.
-          state.toggleValidated(1);
+          // The owner edits Two, deletes nothing, and saves mid-run.
+          state.editMixRow(1, { artist: 'Artist', title: 'Two', label: 'Warp' });
           await state.saveMix();
         }
         return search(path, query);
@@ -764,7 +764,7 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
     );
     await state.startCreatePlaylist();
     const saved = store.get(URL) as { rows: TracklistRow[] };
-    expect(saved.rows[1].validated).toBe(true);
+    expect(saved.rows[1].label).toBe('Warp');
     expect(saved.rows[0]).toMatchObject({ year: 1993, yearFrom: 'spotify' });
   });
 
@@ -795,7 +795,7 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
     datedSearch({ One: '1993', Two: '2001' });
     mocks.post.mockImplementation(async (path: string) => {
       if (path === '/me/playlists') {
-        state.toggleValidated(0);
+        state.editMixRow(0, { artist: 'Artist', title: 'One', label: 'Warp' });
         await state.saveMix();
         return {
           id: 'PL',
@@ -806,9 +806,9 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
     });
     await state.startCreatePlaylist();
     const saved = store.get(URL) as { rows: TracklistRow[] };
-    expect(saved.rows[0]).toMatchObject({ validated: true, year: 1993 });
+    expect(saved.rows[0]).toMatchObject({ label: 'Warp', year: 1993 });
     expect(saved.rows[1]).toMatchObject({ year: 2001, yearFrom: 'spotify' });
-    // The open rows show the same years (the validated row is a new object).
+    // The open rows show the same years (the edited row is a new object).
     expect(state.mixRows.value.map((r) => r.year)).toEqual([1993, 2001]);
   });
 

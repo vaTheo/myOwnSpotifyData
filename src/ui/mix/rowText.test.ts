@@ -11,7 +11,6 @@ import {
   playLinks,
   referencesText,
   setWideSummary,
-  sourceLabel,
   timeText,
 } from './rowText';
 
@@ -36,19 +35,6 @@ const clue = (over: Partial<Clue> = {}): Clue => ({
   text: 'ID is Foo – Bar https://x.example',
   kind: 'comment',
   ...over,
-});
-
-describe('sourceLabel', () => {
-  it('names each layer, and the owner’s added or edited rows', () => {
-    expect(sourceLabel(row({ source: 'trackid' }))).toBe('TrackId');
-    expect(sourceLabel(row({ source: 'description' }))).toBe('description');
-    expect(sourceLabel(row({ source: 'pasted' }))).toBe('pasted');
-    expect(sourceLabel(row({ source: 'tracklistify' }))).toBe('Tracklistify');
-    expect(sourceLabel(row({ source: 'manual', detected: null }))).toBe(
-      'added'
-    );
-    expect(sourceLabel(row({ source: 'manual' }))).toBe('edited');
-  });
 });
 
 describe('originText', () => {
@@ -115,11 +101,11 @@ describe('confidenceText', () => {
 });
 
 describe('confidenceShort', () => {
-  it('fits the narrow column: clips and score, or the score alone', () => {
+  it('merges Clips into Confidence: times heard then score, or the score alone', () => {
     expect(confidenceShort(row({ confidence: 92.2, hits: 3 }))).toBe(
-      '3× · 92 %'
+      '×3 · 92%'
     );
-    expect(confidenceShort(row({ confidence: 91.6 }))).toBe('92 %');
+    expect(confidenceShort(row({ confidence: 91.6 }))).toBe('92%');
   });
 
   it('is null wherever the long text is null', () => {
@@ -218,25 +204,19 @@ describe('the row year (round 005)', () => {
 describe('playLinks: the direct pages first', () => {
   const web = 'https://open.spotify.com/track/abc';
 
-  it('a computer gets the web page, then the Spotify app link', () => {
+  it('one Play on Spotify, the app link, on every device; no web page', () => {
     const found = row({ spotify: { id: 'abc', url: web } });
     expect(playLinks(found, 'zzz')).toEqual([
-      { label: 'Play on Spotify', href: web },
-      { label: 'Open in Spotify app', href: 'spotify:track:abc', app: true },
-    ]);
-  });
-
-  it('a phone gets one Play on Spotify, the app link', () => {
-    const found = row({ spotify: { id: 'abc', url: web } });
-    expect(playLinks(found, 'zzz', true)).toEqual([
       { label: 'Play on Spotify', href: 'spotify:track:abc', app: true },
     ]);
+    expect(
+      playLinks(found, 'zzz').some((l) => l.label === 'Open in Spotify app')
+    ).toBe(false);
   });
 
   it('without a Check answer it uses the library match', () => {
-    expect(playLinks(row(), 'zzz').map((l) => l.href)).toEqual([
-      'https://open.spotify.com/track/zzz',
-      'spotify:track:zzz',
+    expect(playLinks(row(), 'zzz')).toEqual([
+      { label: 'Play on Spotify', href: 'spotify:track:zzz', app: true },
     ]);
   });
 
@@ -248,9 +228,10 @@ describe('playLinks: the direct pages first', () => {
 
   it('Shazam only for a row still reading as the scan heard it, after Spotify', () => {
     const shazam = 'https://www.shazam.com/track/1/x';
-    expect(
-      playLinks(row({ shazamUrl: shazam }), 'zzz', true).map((l) => l.label)
-    ).toEqual(['Play on Spotify', 'Shazam']);
+    expect(playLinks(row({ shazamUrl: shazam }), 'zzz')).toEqual([
+      { label: 'Play on Spotify', href: 'spotify:track:zzz', app: true },
+      { label: 'Shazam', href: shazam },
+    ]);
     expect(
       playLinks(row({ shazamUrl: shazam, source: 'manual' }), null)
     ).toEqual([]);

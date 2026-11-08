@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   applyYears,
   applyYearsByTrack,
-  defaultChoice,
   rowAfterCreate,
   runCreatePlaylist,
   tracksToAdd,
@@ -388,60 +387,33 @@ describe('runCreatePlaylist', () => {
   });
 });
 
-/* ---------- the selection rule (T119, T126, owner's D6) ---------- */
+/* ---------- the selection rule (T119, T126, round 010) ---------- */
 
 describe('tracksToAdd', () => {
-  const validated: TracklistRow = { ...id('V'), validated: true };
-  const toReview: TracklistRow = { ...id('R') };
+  const old: TracklistRow = { ...id('V'), validated: true };
+  const toReview: TracklistRow = { ...id('R'), validated: false };
+  const plain: TracklistRow = { ...id('P') };
   const candidate: TracklistRow = { ...id('C'), origin: 'clue' };
-  const validCandidate: TracklistRow = {
-    ...id('VC'),
-    origin: 'clue',
-    validated: true,
-  };
   const heardOnce: TracklistRow = { ...id('H'), hits: 1 };
   const validGap: TracklistRow = { ...gap, validated: true };
-  const rows = [
-    validated,
-    gap,
-    toReview,
-    candidate,
-    validCandidate,
-    heardOnce,
-    validGap,
-    idRow,
-  ];
 
-  it('Validated only keeps validated tracks, a validated candidate included', () => {
-    expect(tracksToAdd(rows, 'validated')).toEqual([validated, validCandidate]);
+  it('adds every identified track, whatever an old validated flag says', () => {
+    expect(
+      tracksToAdd([
+        old,
+        gap,
+        toReview,
+        plain,
+        candidate,
+        heardOnce,
+        validGap,
+        idRow,
+      ])
+    ).toEqual([old, toReview, plain, candidate, heardOnce]);
   });
 
-  it('All tracks keeps every track not removed, candidates included', () => {
-    expect(tracksToAdd(rows, 'all')).toEqual([
-      validated,
-      toReview,
-      candidate,
-      validCandidate,
-      heardOnce,
-    ]);
-  });
-
-  it('an unvalidated candidate is out of Validated only and in All tracks', () => {
-    expect(tracksToAdd([candidate], 'validated')).toEqual([]);
-    expect(tracksToAdd([candidate], 'all')).toEqual([candidate]);
-  });
-
-  it('a validated candidate is in both', () => {
-    expect(tracksToAdd([validCandidate], 'validated')).toEqual([
-      validCandidate,
-    ]);
-    expect(tracksToAdd([validCandidate], 'all')).toEqual([validCandidate]);
-  });
-
-  it('a gap row is in neither, even marked validated; nor an ID row', () => {
-    for (const choice of ['validated', 'all'] as const) {
-      expect(tracksToAdd([gap, validGap, idRow], choice)).toEqual([]);
-    }
+  it('never a gap row, even marked validated; nor an ID row', () => {
+    expect(tracksToAdd([gap, validGap, idRow])).toEqual([]);
   });
 
   it('keeps set order whatever the rows hold for the chips and the Sort', () => {
@@ -449,31 +421,7 @@ describe('tracksToAdd', () => {
     // the working list, so a heard-once row and clip counts change nothing.
     const a: TracklistRow = { ...id('A'), hits: 5, confidence: 90 };
     const b: TracklistRow = { ...id('B'), hits: 1, confidence: 99 };
-    expect(tracksToAdd([a, b], 'all')).toEqual([a, b]);
-  });
-
-  it('a candidate starts To review, so Validated only leaves it out', () => {
-    expect(candidate.validated).toBeUndefined();
-    expect(tracksToAdd([validated, candidate], 'validated')).toEqual([
-      validated,
-    ]);
-  });
-});
-
-describe('defaultChoice', () => {
-  it('is Validated only once any track is validated', () => {
-    expect(defaultChoice([id('A'), { ...id('B'), validated: true }])).toBe(
-      'validated'
-    );
-  });
-
-  it('is All tracks while none is', () => {
-    expect(defaultChoice([id('A'), id('B')])).toBe('all');
-    expect(defaultChoice([])).toBe('all');
-  });
-
-  it('ignores a validated gap row', () => {
-    expect(defaultChoice([id('A'), { ...gap, validated: true }])).toBe('all');
+    expect(tracksToAdd([a, b])).toEqual([a, b]);
   });
 });
 

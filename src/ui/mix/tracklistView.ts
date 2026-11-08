@@ -5,8 +5,6 @@ import { decadesPresent } from '../../model/yearView';
 
 /** What the open mix's tracklist shows, and the controls it offers. */
 export interface TracklistView {
-  /** A row has clip counts: Clips heard and Best score are offered. */
-  counted: boolean;
   /** The decades of the dated rows, oldest first; none hides the year controls. */
   decades: number[];
   /** The decade in force: one the rows no longer hold is none. */
@@ -28,7 +26,6 @@ export function tracklistView(
   chosen: { decade: number | null; filter: ReviewFilter },
   editing: number | null
 ): TracklistView {
-  const counted = rows.some((r) => r.hits !== undefined);
   const decades = decadesPresent(rows, rowYear);
   const decade =
     chosen.decade !== null && decades.includes(chosen.decade)
@@ -42,5 +39,5 @@ export function tracklistView(
   const order = kept.filter(
     (i) => i === editing || inFilter(rows[i], chosen.filter)
   );
-  return { counted, decades, decade, order };
+  return { decades, decade, order };
 }

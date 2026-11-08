@@ -189,11 +189,10 @@ describe('mixListItems — chips', () => {
     expect(item).toMatchObject({ saved: true, request: null, line: null });
   });
 
-  it('adds K validated once a track is validated', () => {
-    const [item] = one({}, [
-      mix('a', { rows: [{ validated: true }, {}, { gap: true }] }),
-    ]);
-    expect(item.chip.text).toBe('Saved · 2 tracks · 1 validated');
+  it('never counts validated tracks (round 010)', () => {
+    const old = { gap: false, validated: true };
+    const [item] = one({}, [mix('a', { rows: [old, {}, { gap: true }] })]);
+    expect(item.chip.text).toBe('Saved · 2 tracks');
   });
 
   it('Playlist made once a playlist was created', () => {

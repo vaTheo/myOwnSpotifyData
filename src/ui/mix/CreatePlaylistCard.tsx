@@ -1,12 +1,7 @@
 import { auth } from '../../auth/browser';
-import {
-  tracksToAdd,
-  type CreateChoice,
-} from '../../features/mix/createPlaylist';
+import { tracksToAdd } from '../../features/mix/createPlaylist';
 import { digRows } from '../../features/mix/digLinks';
 import {
-  createChoice,
-  createChoiceFor,
   createPlaylistState,
   isCreating,
   mixRows,
@@ -23,7 +18,6 @@ import { DigLinks } from '../components/DigLinks';
 import { ProgressBar } from '../components/ProgressBar';
 import { SpotifyLink } from '../components/SpotifyLink';
 import { StatusLine } from '../components/StatusLine';
-import { SegmentedButtons } from '../components/SegmentedButtons';
 import { formatClock, formatDateTime, plural } from '../format';
 import { Disclosure } from './Disclosure';
 
@@ -65,9 +59,8 @@ function NotFound(p: { unmatched: UnmatchedRow[] }) {
 
 /**
  * Create a private Spotify playlist from the open mix (spec 003 §12, T083,
- * T119; ADR-03). **Validated only** (the default once a track is validated)
- * or **All tracks** (owner's D6, `tracksToAdd`), with how many will be added;
- * the filter chips and the Sort never change it. The scope is checked on tap
+ * T119; ADR-03). Every identified track is added (round 010, `tracksToAdd`),
+ * with how many; the filter chips and the Sort never change it. The scope is checked on tap
  * inside `startCreatePlaylist`, which reveals the `needScope` prompt. Inside
  * the quota lock-out the button rests disabled with its line. Every state and
  * failure is inline here, never a banner.
@@ -83,10 +76,7 @@ export function CreatePlaylistCard(p: { view: MixView }) {
       : ({ status: 'idle' } as const);
   const elsewhere = isCreating(job) && job.mixUrl !== view.url;
   const rows = mixRows.value;
-  const choice = createChoiceFor(view.url, rows);
-  const validatedCount = tracksToAdd(rows, 'validated').length;
-  const allCount = tracksToAdd(rows, 'all').length;
-  const count = choice === 'validated' ? validatedCount : allCount;
+  const count = tracksToAdd(rows).length;
   const running = isCreating(cs);
   // The one Spotify quota lock-out: said here unless the error says it.
   const lockLine = quotaRefusal(
@@ -101,33 +91,15 @@ export function CreatePlaylistCard(p: { view: MixView }) {
     : spotifyBusyMessage('create');
   return (
     <Card title="Create playlist" class="mix-create">
-      {allCount > 0 ? (
+      {count > 0 ? (
         <>
-          <SegmentedButtons<CreateChoice>
-            options={[
-              {
-                value: 'validated',
-                label: `Validated only (${validatedCount})`,
-              },
-              { value: 'all', label: `All tracks (${allCount})` },
-            ]}
-            value={choice}
-            disabled={running}
-            onChange={(c) => {
-              createChoice.value = { url: view.url, choice: c };
-            }}
-          />
           <p class="mix-caption">
-            {count > 0
-              ? `${plural(count, 'track')} will be added, in set order.`
-              : 'No validated track yet: validate tracks with ✓, or choose All tracks.'}
+            {`${plural(count, 'track')} will be added, in set order.`}
           </p>
           <Button
             variant="filled"
             icon="queue_music"
-            disabled={
-              running || count === 0 || lockLine !== null || busyLine !== null
-            }
+            disabled={running || lockLine !== null || busyLine !== null}
             onClick={() => void startCreatePlaylist()}
           >
             {running ? 'Creating playlist…' : 'Create playlist from mix'}

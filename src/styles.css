@@ -3472,11 +3472,6 @@ details.mix-clues > summary:focus-visible {
   flex: none;
 }
 
-.mix-source-icon {
-  display: inline-flex;
-  color: var(--md-sys-color-on-surface-variant);
-}
-
 .mix-conf {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -3497,14 +3492,7 @@ details.mix-clues > summary:focus-visible {
   clip: auto;
 }
 
-.mix-library {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-}
-
-/* The review (T117, T118): the Spotify status, the Listen menu, ✓ and ✕. */
+/* The review (T117, T118, round 010): the Spotify status, the Listen menu, ✕. */
 .mix-spotify {
   display: inline-flex;
   align-items: center;
@@ -3531,16 +3519,11 @@ details.mix-clues > summary:focus-visible {
   align-items: center;
 }
 
-/* The 48 px Listen column and the 96 px Review column hold their 48 px
+/* The 48 px Listen column and the 48 px Review column hold their 48 px
    targets edge to edge: no cell padding (Spotify has 64 px for its
    header's word). */
 .dt-cell:has(> .row-menu, > .mix-review) {
   padding-inline: 0;
-}
-
-.icon-btn.mix-validate.on {
-  background: var(--md-sys-color-secondary-container);
-  color: var(--md-sys-color-on-secondary-container);
 }
 
 /* The review line and Check on Spotify, under the open mix's header. */
@@ -3673,18 +3656,6 @@ details.mix-clues > summary:focus-visible {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-}
-
-/* Validated only / All tracks: each segment as wide as its words, on one
-   line (equal halves wrapped "Validated only (4)"). */
-.mix-create .segmented {
-  max-width: 100%;
-  margin-bottom: 0;
-}
-
-.mix-create .segmented button {
-  flex: 1 1 auto;
-  white-space: nowrap;
 }
 
 .mix-notfound {

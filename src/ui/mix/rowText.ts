@@ -7,15 +7,6 @@ import { formatClock, plural } from '../format';
  * read the same text. A missing number is `null`, never a zero.
  */
 
-/** Which layer produced the row, or how the owner changed it. */
-export function sourceLabel(row: TracklistRow): string {
-  if (row.source === 'trackid') return 'TrackId';
-  if (row.source === 'description') return 'description';
-  if (row.source === 'pasted') return 'pasted';
-  if (row.source === 'tracklistify') return 'Tracklistify';
-  return row.detected === null ? 'added' : 'edited';
-}
-
 /** A menu link: `app` links are the Spotify app's own scheme, opened in place. */
 export interface PlayLink {
   label: string;
@@ -27,14 +18,13 @@ export interface PlayLink {
  * The direct pages of a row, the ones that open on the track itself, never on
  * a search: Spotify from the Check answer, else from the library match (a
  * local file has no page), then Shazam's page while the row still reads as the
- * scan heard it. On a phone (`phone`) Play on Spotify is the app's own link
- * (`spotify:track:…`); on a computer it is the web page, with "Open in Spotify
- * app" after it. Empty when none is known; the caller adds the search pages.
+ * scan heard it. Play on Spotify is the app's own link (`spotify:track:…`) on
+ * every device, opened in place (round 010). Empty when none is known; the
+ * caller adds the search pages.
  */
 export function playLinks(
   row: TracklistRow,
-  libraryTrackId: string | null,
-  phone = false
+  libraryTrackId: string | null
 ): PlayLink[] {
   const links: PlayLink[] = [];
   let id: string | null = null;
@@ -48,17 +38,11 @@ export function playLinks(
     id = libraryTrackId;
   }
   if (id !== null) {
-    const web =
-      typeof row.spotify === 'object'
-        ? row.spotify.url
-        : `https://open.spotify.com/track/${id}`;
-    const appHref = `spotify:track:${id}`;
-    if (phone) {
-      links.push({ label: 'Play on Spotify', href: appHref, app: true });
-    } else {
-      links.push({ label: 'Play on Spotify', href: web });
-      links.push({ label: 'Open in Spotify app', href: appHref, app: true });
-    }
+    links.push({
+      label: 'Play on Spotify',
+      href: `spotify:track:${id}`,
+      app: true,
+    });
   }
   if (row.shazamUrl && row.source === 'tracklistify') {
     links.push({ label: 'Shazam', href: row.shazamUrl });
@@ -104,14 +88,15 @@ export function confidenceText(row: TracklistRow): string | null {
 }
 
 /**
- * The same figures for the narrow Confidence column: "3× · 92 %", or
- * "92 %" without clip counts; the long text is its tooltip and what a
- * screen reader and a phone read.
+ * The merged Confidence cell (round 010, Clips folded in): times heard, then
+ * the best percentage, "×3 · 92%"; "92%" without clip counts. Null wherever
+ * the long text is null; the long text is its tooltip and what a screen
+ * reader and a phone read.
  */
 export function confidenceShort(row: TracklistRow): string | null {
   if (confidenceText(row) === null || row.confidence == null) return null;
   const best = Math.round(row.confidence);
-  return row.hits !== undefined ? `${row.hits}× · ${best} %` : `${best} %`;
+  return row.hits !== undefined ? `×${row.hits} · ${best}%` : `${best}%`;
 }
 
 /** TrackId's "12 other mixes"; null when the source gave no count. */

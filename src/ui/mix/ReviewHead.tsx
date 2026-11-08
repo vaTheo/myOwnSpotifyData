@@ -15,7 +15,7 @@ import { StatusLine } from '../components/StatusLine';
 
 /**
  * The open mix's review line and **Check on Spotify** (spec 003 §12, T117,
- * T118): "N tracks · K validated · M on Spotify · L not found"; the button
+ * T118, round 010): "N tracks · M on Spotify · L not found"; the button
  * reads Spotify on a tap only (never on load or open, ADR-02), one track at
  * a time, with "Checked 12 of 40", a bar and Stop; a failure inline, never
  * a banner. The button rests disabled when every named track is checked,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { MixRowSource, TracklistRow } from '../../db/schema';
+import type { TracklistRow } from '../../db/schema';
 import { digLinks } from '../../features/mix/digLinks';
 import {
   libraryTitleIndex,
@@ -24,10 +24,8 @@ import {
   mixRows,
   model,
   saveMix,
-  toggleValidated,
 } from '../../model/state';
 import { Button } from '../components/Button';
-import { FeaturePills } from '../components/FeaturePills';
 import { Flag } from '../components/Flag';
 import { IconButton } from '../components/IconButton';
 import { NoData } from '../components/NoData';
@@ -35,7 +33,7 @@ import { SegmentedButtons } from '../components/SegmentedButtons';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
 import { formatClock, plural } from '../format';
-import { Icon, type IconName } from '../icons';
+import { Icon } from '../icons';
 import { windowClass } from '../layout/windowClass';
 import { yearColumn } from '../table/columns';
 import { DataTable, type Column } from '../table/DataTable';
@@ -58,7 +56,6 @@ import {
   playLinks,
   referencesText,
   rowYear,
-  sourceLabel,
   timeText,
   yearText,
 } from './rowText';
@@ -81,14 +78,6 @@ function sorts(id: SortId): {
   return { sortValue: (l) => sortValue(id, l), firstDirection: SORT_FIRST[id] };
 }
 
-const SOURCE_ICON: Record<MixRowSource, IconName> = {
-  trackid: 'search',
-  description: 'info',
-  pasted: 'queue_music',
-  manual: 'edit',
-  tracklistify: 'computer',
-};
-
 /** Spotify search, for a track the check has not found. */
 function searchUrl(row: TracklistRow): string {
   return `https://open.spotify.com/search/${encodeURIComponent(`${row.artist} ${row.title}`)}`;
@@ -96,12 +85,6 @@ function searchUrl(row: TracklistRow): string {
 
 function nameOf(row: TracklistRow): string {
   return `${row.artist} – ${row.title}`;
-}
-
-function sourceTitle(row: TracklistRow): string {
-  const origin = originText(row);
-  const quote = row.origin === 'clue' && row.clue ? `“${row.clue.text}”` : '';
-  return [sourceLabel(row), origin, quote].filter(Boolean).join(' · ');
 }
 
 /** "28 other mixes · in 2 playlists": the references, dropped at zero playlists. */
@@ -120,13 +103,13 @@ function referencesLine(l: Line): string | null {
  * then Shazam's page while the row still reads as the scan heard it. No
  * request is made until one is opened.
  */
-function listenItems(l: Line, phone: boolean): RowMenuItem[] {
+function listenItems(l: Line): RowMenuItem[] {
   const { row } = l;
   if (!isIdentified(row)) return [];
   // The direct pages first, then the search pages (the other platforms have
   // no page the app may find by name, ADR-04).
   const links: { label: string; href: string; app?: true }[] = [
-    ...playLinks(row, l.match?.trackId ?? null, phone),
+    ...playLinks(row, l.match?.trackId ?? null),
     ...digLinks(row.artist, row.title),
   ];
   return links.map((x) => ({ label: x.label, href: x.href, app: x.app }));
@@ -134,7 +117,7 @@ function listenItems(l: Line, phone: boolean): RowMenuItem[] {
 
 /**
  * Artist – Title, and under it what a round-003 row must show in words: the
- * **not heard** badge of a candidate (it starts To review, D6), the origin
+ * **not heard** badge of a candidate, the origin
  * ("second listen · +4 %", "from a comment by …"), the clue in quotes
  * (plain text, two lines at most), then the references.
  */
@@ -159,20 +142,10 @@ function TitleCell(p: { line: Line }) {
   );
 }
 
-/** Source: an icon named by its tooltip and its screen-reader text. */
-function SourceCell(p: { row: TracklistRow }) {
-  const label = sourceLabel(p.row);
-  return (
-    <span class="mix-source-icon" title={sourceTitle(p.row)}>
-      <Icon name={SOURCE_ICON[p.row.source]} size={20} />
-      <span class="visually-hidden">{label}</span>
-    </span>
-  );
-}
-
 /**
- * Confidence: "3× · 92 %" in the narrow column; the full "heard 3× · best
- * 92 %" for a screen reader, in the tooltip, and on a phone's meta line.
+ * Confidence, Clips folded in (round 010): "×3 · 92%" in the column; the
+ * full "heard 3× · best 92 %" for a screen reader, in the tooltip, and on a
+ * phone's meta line.
  */
 function ConfidenceCell(p: { row: TracklistRow }) {
   const short = confidenceShort(p.row);
@@ -229,32 +202,18 @@ function SpotifyCell(p: { row: TracklistRow; compact: boolean }) {
 }
 
 /**
- * Review (T118): ✓ toggles Validated and To review (pressed when
- * validated); ✕ removes the track (the same `deleteMixRow` as Delete), for
- * a track found wrongly. On a phone only ✓; Remove is in More.
+ * Review (T118, round 010): ✕ removes the track (the same `deleteMixRow`
+ * as Delete), for a track found wrongly. Every track is kept otherwise, so
+ * there is no Validate. On a phone the column hides; Delete is in More.
  */
-function ReviewCell(p: { line: Line; compact: boolean; onRemove: () => void }) {
-  const { row, index } = p.line;
-  const validated = row.validated === true;
+function ReviewCell(p: { line: Line; onRemove: () => void }) {
   return (
     <span class="mix-review">
-      <button
-        type="button"
-        class={validated ? 'icon-btn mix-validate on' : 'icon-btn mix-validate'}
-        aria-pressed={validated}
-        aria-label={`Validate ${nameOf(row)}`}
-        title={validated ? 'Validated' : 'To review'}
-        onClick={() => toggleValidated(index)}
-      >
-        <Icon name="check" size={22} />
-      </button>
-      {!p.compact && (
-        <IconButton
-          icon="close"
-          label={`Remove ${nameOf(row)}`}
-          onClick={p.onRemove}
-        />
-      )}
+      <IconButton
+        icon="close"
+        label={`Remove ${nameOf(p.line.row)}`}
+        onClick={p.onRemove}
+      />
     </span>
   );
 }
@@ -263,25 +222,8 @@ function columns(on: {
   edit: (index: number) => void;
   remove: (index: number) => void;
   compact: boolean;
-  /** A row has clip counts: the Clips column is offered. */
-  counted: boolean;
 }): Column<Line>[] {
   const { compact } = on;
-  const clips: Column<Line>[] = on.counted
-    ? [
-        {
-          id: 'clips',
-          header: 'Clips',
-          align: 'end',
-          priority: 3,
-          width: '64px',
-          ...sorts('clips'),
-          cell: (l) =>
-            l.row.hits === undefined ? <NoData /> : <span>{l.row.hits}×</span>,
-          compact: 'hidden',
-        },
-      ]
-    : [];
   return [
     {
       id: 'time',
@@ -318,15 +260,6 @@ function columns(on: {
       compact: 'subtitle',
     },
     {
-      id: 'source',
-      ...sorts('source'),
-      header: 'Source',
-      priority: 3,
-      width: '64px',
-      cell: (l) => <SourceCell row={l.row} />,
-      compact: 'meta',
-    },
-    {
       id: 'confidence',
       ...sorts('confidence'),
       header: 'Confidence',
@@ -335,21 +268,6 @@ function columns(on: {
       width: '112px',
       cell: (l) => <ConfidenceCell row={l.row} />,
       title: (l) => confidenceText(l.row) ?? undefined,
-      compact: 'meta',
-    },
-    ...clips,
-    {
-      id: 'library',
-      ...sorts('library'),
-      header: 'In your library',
-      priority: 2,
-      width: '120px',
-      cell: (l) =>
-        l.match ? (
-          <span class="mix-library">
-            <FeaturePills trackId={l.match.trackId} />
-          </span>
-        ) : null,
       compact: 'meta',
     },
     // Round 005: the row's own year, its source in the tooltip.
@@ -371,7 +289,7 @@ function columns(on: {
       priority: 2,
       width: '48px',
       cell: (l) => {
-        const items = listenItems(l, false);
+        const items = listenItems(l);
         return items.length === 0 ? null : (
           <RowMenu
             icon="headphones"
@@ -384,18 +302,11 @@ function columns(on: {
     },
     {
       id: 'review',
-      ...sorts('review'),
       header: 'Review',
       priority: 1,
-      width: compact ? '48px' : '96px',
-      cell: (l) => (
-        <ReviewCell
-          line={l}
-          compact={compact}
-          onRemove={() => on.remove(l.index)}
-        />
-      ),
-      compact: 'trail',
+      width: '48px',
+      cell: (l) => <ReviewCell line={l} onRemove={() => on.remove(l.index)} />,
+      compact: 'hidden',
     },
     {
       id: 'more',
@@ -416,7 +327,7 @@ function columns(on: {
         }
         // On a phone one "Listen…" item opens the Listen links in the same
         // list, so More stays short (fix round 1, R3).
-        const listen = compact ? listenItems(l, true) : [];
+        const listen = compact ? listenItems(l) : [];
         if (listen.length > 0) items.push({ label: 'Listen…', items: listen });
         return <RowMenu label={`More for ${nameOf(row)}`} items={items} />;
       },
@@ -512,9 +423,9 @@ function EditLine(p: {
 }
 
 /**
- * The review's filter chips (T118, T127): All, To review, Validated, Not
- * on Spotify with their counts, and Heard once (N) when a row has clip
- * counts; one at a time. Round 004's Sort select beside them when a row
+ * The review's filter chips (T118, T127, round 010): All, Not on Spotify
+ * with their counts, and Heard once (N) when a row has clip counts; one at
+ * a time. Round 004's Sort select beside them when a row
  * has clip counts (phones have no header sort). They hide rows, never
  * delete them.
  */
@@ -524,7 +435,6 @@ function RowView(p: {
   onSort: (sort: SortState) => void;
   filter: ReviewFilter;
   onFilter: (filter: ReviewFilter) => void;
-  counted: boolean;
   /** Round 005: the decades of the dated rows; none hides the year controls. */
   decades: readonly number[];
   decade: number | null;
@@ -622,7 +532,7 @@ function keyOf(index: number, editing: number | null): string {
  * The open mix's tracklist (spec 003 §12, T082, T118, T120, T127; S08 fix
  * 1 row layout) on `DataTable`. Rows keep their place in `mixRows`, so
  * Edit, Delete and Review act on the real row whatever the filter or the
- * Sort. Each row: Spotify status, Listen menu, ✓ / ✕, and More (Edit,
+ * Sort. Each row: Spotify status, Listen menu, ✕, and More (Edit,
  * Delete, Search on Spotify). Library matches are computed here, at
  * render, never stored. Under the table: Add track and Save mix ("Saved ✓"
  * for 2 s). A save failure shows once: under Save mix, unless `mixError`
@@ -672,7 +582,7 @@ export function TracklistTable() {
   };
   // The Sort, the decade and the chip, with their fallbacks (round 005).
   const view = tracklistView(rows, { decade, filter }, editing);
-  const { counted, decades, order } = view;
+  const { decades, order } = view;
   // Spec 008: one sort for the headers and the select; a column the rows no
   // longer allow is the set's order.
   const sortNow = effectiveSort(sortChosen, rows);
@@ -713,14 +623,13 @@ export function TracklistTable() {
         onSort={setSort}
         filter={filter}
         onFilter={setFilter}
-        counted={counted}
         decades={decades}
         decade={decadeNow}
         onDecade={setDecade}
       />
       <DataTable
         label="Tracklist"
-        columns={columns({ edit, remove, compact, counted })}
+        columns={columns({ edit, remove, compact })}
         rows={lines}
         rowKey={(l) => keyOf(l.index, editing)}
         sort={sortNow}
@@ -752,7 +661,7 @@ export function TracklistTable() {
           icon="add"
           onClick={() => {
             addMixRow();
-            // A new row is To review and has no clip count: show it.
+            // A new row has no clip count: show it.
             setFilter('all');
             edit(mixRows.value.length - 1);
           }}

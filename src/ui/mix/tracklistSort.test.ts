@@ -22,10 +22,7 @@ const r = (over: Partial<TracklistRow>): TracklistRow => ({
   ...over,
 });
 
-const line = (row: TracklistRow, matched = false) => ({
-  row,
-  match: matched ? ({} as never) : null,
-});
+const line = (row: TracklistRow) => ({ row });
 
 describe('sortValue', () => {
   it('confidence is the Tracklistify score only, never zero when missing', () => {
@@ -50,34 +47,21 @@ describe('sortValue', () => {
 
   it('a gap has no value in the columns about a track', () => {
     const gap = line(r({ gap: true, startSec: 60 }));
-    for (const id of [
-      'title',
-      'source',
-      'library',
-      'spotify',
-      'review',
-      'released',
-    ] as SortId[]) {
+    for (const id of ['title', 'spotify', 'released'] as SortId[]) {
       expect(sortValue(id, gap)).toBeNull();
     }
     expect(sortValue('time', gap)).toBe(60);
   });
 
-  it('spotify puts problems first, review puts to review first', () => {
+  it('spotify puts problems first', () => {
     expect(sortValue('spotify', line(r({ spotify: 'not-found' })))).toBe(0);
     expect(sortValue('spotify', line(r({})))).toBe(1);
     expect(
       sortValue('spotify', line(r({ spotify: { id: 'i', url: 'u' } })))
     ).toBe(2);
-    expect(sortValue('review', line(r({})))).toBe(0);
-    expect(sortValue('review', line(r({ validated: true })))).toBe(1);
   });
 
-  it('library, clips, label, year and time read their field', () => {
-    expect(sortValue('library', line(r({}), true))).toBe(1);
-    expect(sortValue('library', line(r({})))).toBe(0);
-    expect(sortValue('clips', line(r({ hits: 3 })))).toBe(3);
-    expect(sortValue('clips', line(r({})))).toBeNull();
+  it('label, year and time read their field', () => {
     expect(sortValue('label', line(r({ label: 'Warp' })))).toBe('Warp');
     expect(sortValue('label', line(r({})))).toBeNull();
     expect(sortValue('released', line(r({ year: 1999 })))).toBe(1999);
@@ -86,10 +70,8 @@ describe('sortValue', () => {
 });
 
 describe('first directions', () => {
-  it('confidence, clips and library start with the best first', () => {
+  it('confidence starts with the best first', () => {
     expect(SORT_FIRST.confidence).toBe('desc');
-    expect(SORT_FIRST.clips).toBe('desc');
-    expect(SORT_FIRST.library).toBe('desc');
     expect(SORT_FIRST.title).toBe('asc');
   });
 });
@@ -116,28 +98,16 @@ describe('sortChoices and effectiveSort', () => {
   const plain = [r({}), r({})];
   const rich = [r({ confidence: 80, hits: 2, year: 2001 }), r({})];
 
-  it('offers confidence, clips and released only when a row has them', () => {
+  it('offers confidence and released only when a row has them; no source, clips, library or review', () => {
     const ids = (rows: TracklistRow[]) => sortChoices(rows).map((c) => c.id);
-    expect(ids(plain)).toEqual([
-      'time',
-      'title',
-      'label',
-      'source',
-      'library',
-      'spotify',
-      'review',
-    ]);
+    expect(ids(plain)).toEqual(['time', 'title', 'label', 'spotify']);
     expect(ids(rich)).toEqual([
       'time',
       'title',
       'label',
-      'source',
       'confidence',
-      'clips',
-      'library',
       'released',
       'spotify',
-      'review',
     ]);
   });
 
