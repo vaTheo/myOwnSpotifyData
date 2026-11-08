@@ -181,6 +181,7 @@ function audit(raw: string): string[] {
       for (const cmd of cmds) grant(t, cmd);
     }
   }
+  const sharedInserts = new Map<string, number>();
   for (const s of stmts) {
     if (/row level security/.test(s)) {
       const m = new RegExp(
@@ -198,15 +199,30 @@ function audit(raw: string): string[] {
         SHARED_TABLES.includes(t)
           ? c === 'insert' && rule === 'with check (true)'
           : new RegExp(`^${RULE[c]}$`).test(rule);
-      if (m && cmd && ok(m[1]!, cmd, m[3]!)) grant(m[1]!, cmd);
-      else findings.push(`not an owner policy: ${s.slice(0, 60)}`);
+      if (m && cmd && ok(m[1]!, cmd, m[3]!)) {
+        if (SHARED_TABLES.includes(m[1]!)) {
+          sharedInserts.set(m[1]!, (sharedInserts.get(m[1]!) ?? 0) + 1);
+        }
+        grant(m[1]!, cmd);
+      } else findings.push(`not an owner policy: ${s.slice(0, 60)}`);
     }
   }
   for (const t of tables) {
     if (!rls.has(t)) findings.push(`${t}: row level security not enabled`);
     if (SHARED_TABLES.includes(t)) {
-      if (!policies.get(t)?.has('insert'))
-        findings.push(`${t}: no insert policy`);
+      if ((sharedInserts.get(t) ?? 0) !== 1)
+        findings.push(`${t}: not exactly one insert policy`);
+      // Default privileges give authenticated everything on a new table.
+      const revoked = stmts.some(
+        (x) =>
+          /^revoke all on /.test(x) &&
+          new RegExp(`\\b${t}\\b`).test(x) &&
+          /from (?=.*\bauthenticated\b)(?=.*\banon\b)(?=.*\bpublic\b)/.test(x)
+      );
+      if (!revoked)
+        findings.push(
+          `${t}: default privileges not revoked from authenticated`
+        );
       continue;
     }
     for (const cmd of CMDS) {
@@ -502,6 +518,7 @@ begin
   return query select distinct on (r.artist_id, r.source) r.artist_id, r.source, r.measured_on, r.value from public.shared_artist_reach r where r.artist_id = any(ids) order by r.artist_id, r.source, r.measured_on desc;
 end
 $$;
+revoke all on public.shared_track_facts, public.shared_artist_reach from authenticated, anon, public;
 revoke all on function public.get_track_facts(text[]) from public, anon;
 revoke all on function public.get_artist_reach(text[]) from public, anon;
 grant insert on public.shared_track_facts, public.shared_artist_reach to authenticated;
@@ -563,6 +580,32 @@ describe('the shared store (0004_shared_facts.sql)', () => {
     ).toEqual([
       'grant to someone other than authenticated: grant insert on public.shared_track_facts to anon',
     ]);
+  });
+
+  it('a missing revoke from authenticated, or a duplicate insert policy', () => {
+    const revoke =
+      'revoke all on public.shared_track_facts, public.shared_artist_reach from authenticated, anon, public;';
+    expect(WITH_SHARED).toContain(revoke);
+    expect(audit(WITH_SHARED.replace(revoke, ''))).toEqual([
+      'shared_track_facts: default privileges not revoked from authenticated',
+      'shared_artist_reach: default privileges not revoked from authenticated',
+    ]);
+    const half = revoke.replace(
+      'from authenticated, anon, public',
+      'from anon'
+    );
+    expect(audit(WITH_SHARED.replace(revoke, half))).toHaveLength(2);
+    const dup =
+      'create policy shared_track_facts_insert on public.shared_track_facts for insert to authenticated with check (true);';
+    expect(WITH_SHARED).toContain(dup);
+    expect(
+      audit(
+        WITH_SHARED.replace(
+          dup,
+          `${dup}\n${dup.replace('_insert', '_insert2')}`
+        )
+      )
+    ).toEqual(['shared_track_facts: not exactly one insert policy']);
   });
 
   it('a user or owner column on a shared table', () => {

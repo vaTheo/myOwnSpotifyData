@@ -82,9 +82,11 @@ begin
 end
 $$;
 
--- Grants last. anon gets nothing (restated from 0001); authenticated may
--- insert into the two tables and run the two functions, nothing more.
-revoke all on public.shared_track_facts, public.shared_artist_reach from anon;
+-- Grants last. Supabase's default privileges give new public tables to
+-- authenticated (select, update, delete, truncate, ...), so everything is
+-- revoked first, then authenticated gets insert on the two tables and execute
+-- on the two functions, nothing more. anon gets nothing.
+revoke all on public.shared_track_facts, public.shared_artist_reach from authenticated, anon, public;
 revoke all on function public.get_track_facts(text[]) from public, anon;
 revoke all on function public.get_artist_reach(text[]) from public, anon;
 grant insert on public.shared_track_facts, public.shared_artist_reach to authenticated;
