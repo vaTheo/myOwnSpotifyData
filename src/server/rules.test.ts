@@ -560,8 +560,11 @@ describe('the shared store (0004_shared_facts.sql)', () => {
   });
 
   it('a non-open insert policy on a shared table', () => {
+    const from =
+      'for insert to authenticated with check (true);\ncreate policy shared_artist';
+    expect(WITH_SHARED).toContain(from);
     const sql = WITH_SHARED.replace(
-      'for insert to authenticated with check (true);\ncreate policy shared_artist',
+      from,
       'for insert to authenticated with check (auth.uid() is not null);\ncreate policy shared_artist'
     );
     expect(audit(sql)).toHaveLength(2); // the bad policy, and no insert policy left
@@ -622,8 +625,11 @@ describe('the shared store (0004_shared_facts.sql)', () => {
       'user text',
       'owner_id uuid not null default auth.uid() references auth.users (id)',
     ]) {
+      const anchor =
+        'added_at timestamptz not null default now(),\n  check (major';
+      expect(WITH_SHARED).toContain(anchor);
       const sql = WITH_SHARED.replace(
-        'added_at timestamptz not null default now(),\n  check (major',
+        anchor,
         `${col},\n  added_at timestamptz not null default now(),\n  check (major`
       );
       expect(audit(sql), col).toEqual([
@@ -673,11 +679,13 @@ describe('the shared store (0004_shared_facts.sql)', () => {
         `${BASE}\ncreate function public.peek() returns bigint language sql security definer set search_path = '' as $$ select 1; $$;`
       )
     ).toEqual(['peek: security definer']);
+    expect(WITH_SHARED).toContain('from public.shared_track_facts f');
     const other = WITH_SHARED.replace(
       'from public.shared_track_facts f',
       'from public.shared_track_facts f, public.notes n'
     );
     expect(audit(other)).toEqual(['get_track_facts: definer reads notes']);
+    expect(WITH_SHARED).toContain('from public.shared_artist_reach r');
     const swapped = WITH_SHARED.replace(
       'from public.shared_artist_reach r',
       'from public.shared_track_facts r'
@@ -691,6 +699,8 @@ describe('the shared store (0004_shared_facts.sql)', () => {
   });
 
   it('a definer without search_path, without the cap, or not granted', () => {
+    expect(SHARED).toContain("security definer set search_path = ''");
+    expect(SHARED).toContain('> 200');
     expect(
       audit(
         `${BASE}\n${SHARED.replaceAll(
@@ -706,14 +716,44 @@ describe('the shared store (0004_shared_facts.sql)', () => {
       'get_track_facts: no 200 id cap',
       'get_artist_reach: no 200 id cap',
     ]);
-    expect(
-      audit(
-        WITH_SHARED.replace(
-          'grant execute on function public.get_artist_reach(ids text[]) to authenticated;',
-          ''
-        )
-      )
-    ).toEqual(['get_artist_reach: not granted to authenticated']);
+    const exec =
+      'grant execute on function public.get_artist_reach(ids text[]) to authenticated;';
+    expect(WITH_SHARED).toContain(exec);
+    expect(audit(WITH_SHARED.replace(exec, ''))).toEqual([
+      'get_artist_reach: not granted to authenticated',
+    ]);
+  });
+
+  it('a read function granted to anon or public', () => {
+    for (const who of ['anon', 'public']) {
+      const f = audit(
+        `${WITH_SHARED}\ngrant execute on function public.get_track_facts(ids text[]) to ${who};`
+      );
+      expect(f, who).toEqual([
+        `grant to someone other than authenticated: grant execute on function public.get_track_facts(ids text[]) to ${who}`.slice(
+          0,
+          'grant to someone other than authenticated: '.length + 60
+        ),
+      ]);
+    }
+  });
+
+  it('a select policy that lists the table, on each shared table', () => {
+    for (const t of ['shared_track_facts', 'shared_artist_reach']) {
+      const f = audit(
+        `${WITH_SHARED}\ncreate policy list_all on public.${t} for select to authenticated using (true);`
+      );
+      expect(f, t).toHaveLength(1);
+      expect(f[0], t).toMatch(/^not an owner policy: create policy list_all/);
+    }
+  });
+
+  it('a definer function without the cap, each alone', () => {
+    const body =
+      "if cardinality(ids) > 200 then raise exception 'too many ids' using errcode = '54000'; end if;";
+    expect(WITH_SHARED).toContain(body);
+    const once = WITH_SHARED.replace(body, '');
+    expect(audit(once)).toEqual(['get_track_facts: no 200 id cap']);
   });
 
   it('a shared table put in the owner loop', () => {
