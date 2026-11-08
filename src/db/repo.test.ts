@@ -762,6 +762,27 @@ describe('per-user names (ADR-13)', () => {
     expect(names).not.toContain(`spotify-dj-u-${OTHER}`);
   });
 
+  it("a non-claimer starts empty and the claimer's database never holds its rows", async () => {
+    scope(OWNER, true);
+    await wipeDb();
+    await putMeta('accountId', 'owner');
+    await closeDb();
+    scope(OTHER, true);
+    expect((await openDb()).name).toBe(`spotify-dj-u-${OTHER}`);
+    await expect(getMeta('accountId')).resolves.toBeUndefined();
+    expect((await getAllRows()).playlists).toEqual([]);
+    await putMeta('accountId', 'other');
+    await replacePlaylist(playlist('p-other'), [], []);
+    await closeDb();
+    scope(OWNER, true);
+    expect((await openDb()).name).toBe('spotify-dj');
+    await expect(getMeta('accountId')).resolves.toBe('owner');
+    expect((await getAllRows()).playlists).toEqual([]);
+    await closeDb();
+    scope(OTHER, true);
+    await wipeDb();
+  });
+
   it('the claimer keeps every row of an existing version 4 database', async () => {
     await closeDb();
     await wipeDb();
