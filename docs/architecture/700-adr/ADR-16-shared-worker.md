@@ -36,8 +36,15 @@ reaches the queue only through five functions.
 - **A held request is bound to the account.** `claim_any_job` sets `jobs.claimed_by_user`; writes need the same worker name, the
   same account and the status `claimed`. `worker_finish_job` accepts only `status`, `finished_at`, `result` and `error`; the owner
   of the request cannot change.
-- **One request per user in turn.** The claim orders by the owner's most recent claim time (never served first), then `priority`,
-  then `created_at`, in one statement with `for update skip locked`.
+- **One request per user in turn.** The claim orders by the owner's last turn (never served first), then `priority`, then
+  `created_at`, in one statement with `for update skip locked`. The last turn lives in a private table,
+  `shared_worker_turns(owner_id, served_at)` (row security on, no policy, no privilege for anyone), written only by `claim_any_job`
+  after it takes a row. It is not read from `jobs.claimed_at`: the owner of a request can rewrite or delete their own `jobs` rows
+  through the app's policies and would always go first.
+- **Shared mode fetches SoundCloud links only.** The worker accepts an `https` link on `soundcloud.com`, `www.soundcloud.com` or
+  `m.soundcloud.com` (the hosts the app itself creates requests for); anything else is finished as failed, "link not allowed in
+  shared mode", before any download, so a friend's request cannot make the owner's computer fetch an arbitrary address (the owner's
+  cookies, the local network). Personal mode is unchanged.
 - **Both modes stay.** `WORKER_MODE=personal` (default) is today's worker and `claim_job` is untouched; `shared` checks
   `is_shared_worker()` at start and stops with exit code 7 when the account is not on the list.
 
@@ -49,8 +56,8 @@ Still true: the server stores, never computes, never calls Spotify; no secret re
 count or another request; the owner switches a worker off with one deleted row; a test reads the migration so the audit cannot drift.
 
 **Negative / watch for:** a worker account that is not removed from the list after it leaks can take any request until removed; the
-owner's computer carries every user's identification load; a released request clears its claim time, so its owner counts as
-unserved; there is no per-user cap on queued requests, no shared result between two users who asked the same link, and no app
+owner's computer carries every user's identification load; a turn is recorded when a request is taken, so a request released or
+stalled still used its owner's turn; there is no per-user cap on queued requests, no shared result between two users who asked the same link, and no app
 screen for workers (see Limits and roadmap).
 
 ## Links

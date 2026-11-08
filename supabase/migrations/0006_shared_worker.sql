@@ -18,6 +18,15 @@ create table public.shared_workers (
 alter table public.shared_workers enable row level security;
 revoke all on public.shared_workers from authenticated, anon, public;
 
+-- The turns: when each owner's request was last taken by a shared worker.
+-- Written by claim_any_job only; no policy and no privilege for anyone.
+create table public.shared_worker_turns (
+  owner_id uuid primary key references auth.users (id) on delete cascade,
+  served_at timestamptz not null
+);
+alter table public.shared_worker_turns enable row level security;
+revoke all on public.shared_worker_turns from authenticated, anon, public;
+
 -- Which account holds a claimed request: the filter of the three write
 -- functions, so one shared worker cannot touch a request another holds.
 alter table public.jobs add column claimed_by_user uuid references auth.users (id) on delete set null;
@@ -50,9 +59,10 @@ $$;
 
 -- Takes the next request of any user, or a claimed one left longer than
 -- p_stale_seconds. Fair between owners: the owner served least recently comes
--- first (never served first), then priority, then age. Returns only id and
--- payload, zero or one row. `for update skip locked`: two workers never take
--- the same row.
+-- first (never served first), then priority, then age. "Served" is kept in
+-- shared_worker_turns, written here only, so no account can move its own turn
+-- by editing its jobs rows. Returns only id and payload, zero or one row.
+-- `for update skip locked`: two workers never take the same row.
 create function public.claim_any_job(p_worker text, p_stale_seconds integer)
 returns table (id uuid, payload jsonb)
 language plpgsql
@@ -60,9 +70,10 @@ security definer
 set search_path = ''
 as $$
 #variable_conflict use_column
+declare
+  v_owner uuid;
 begin
   perform public.require_shared_worker();
-  return query
   update public.jobs j
   set status = 'claimed', claimed_by = p_worker, claimed_at = now(),
       claimed_by_user = auth.uid(), error = null, progress = null,
@@ -72,12 +83,18 @@ begin
     where c.kind = 'identify-mix'
       and (c.status = 'queued'
         or (c.status = 'claimed' and c.claimed_at < now() - make_interval(secs => p_stale_seconds)))
-    order by (select max(h.claimed_at) from public.jobs h where h.owner_id = c.owner_id) asc nulls first,
+    order by (select t.served_at from public.shared_worker_turns t where t.owner_id = c.owner_id) asc nulls first,
       c.priority desc, c.created_at
     limit 1
     for update skip locked
   )
-  returning j.id, j.payload;
+  returning j.id, j.payload, j.owner_id into id, payload, v_owner;
+  if not found then
+    return;
+  end if;
+  insert into public.shared_worker_turns (owner_id, served_at) values (v_owner, now())
+  on conflict (owner_id) do update set served_at = excluded.served_at;
+  return next;
 end
 $$;
 

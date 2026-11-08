@@ -655,12 +655,12 @@ first row for a key wins; a wrong value stays until the owner fixes it in the da
 
 **Shared worker** (round 015, [ADR-16](700-adr/ADR-16-shared-worker.md); spec `specs/015-shared-worker/`).
 `supabase/migrations/0006_shared_worker.sql` adds the list `shared_workers(user_id, label, added_at)` (row security on, no policy, no
-privilege for `authenticated`, `anon` or `public`; the owner edits it in the SQL editor), `jobs.claimed_by_user` and five
+privilege for `authenticated`, `anon` or `public`; the owner edits it in the SQL editor), the private `shared_worker_turns(owner_id, served_at)` (same rules; written only by the claim), `jobs.claimed_by_user` and five
 `security definer` functions (`search_path = ''`, `execute` for `authenticated` only): `is_shared_worker()` (true or false),
 `claim_any_job(p_worker, p_stale_seconds)`, `worker_set_progress`, `worker_finish_job` and `worker_release_job`; a sixth, internal
 `require_shared_worker()`, has no grant and is called first by the four others, so a row removed from the list stops that account at
 its next call (42501). The worker account has no privilege on any table. The claim returns only `id` and `payload`, orders by the
-owner served least recently (never served first), then `priority`, then `created_at`, and takes the row `for update skip locked`; the
+owner's `shared_worker_turns.served_at`, least recent first (never served first; never read from `jobs.claimed_at`), then `priority`, then `created_at`, takes the row `for update skip locked` and records the owner's turn; the
 three writes need the status `claimed`, the same worker name and `claimed_by_user = auth.uid()`; `worker_finish_job` accepts only
 `status`, `finished_at`, `result` and `error` (22023 otherwise). `claim_job` and every policy on `jobs` are as before. `rules.test.ts`
 reads the migration so the audit cannot drift. The app changes nothing: results still reach the person who asked through the pull.
@@ -711,7 +711,7 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   queue loop) is a `CliDeps` field, so `tests/test_cli.py` runs every command offline.
 - Round 015 (shared mode, `WORKER_MODE=shared`): `cli.make_client` picks `SharedServerClient`, the start asks `is_shared_worker`
   once, and the claim takes the next request of any user in turns. **Move to top** orders a user's own requests only in shared
-  mode: the fair turn between users comes before `priority`. Personal mode and `claim_job` are unchanged.
+  mode: the fair turn between users comes before `priority`. Shared mode fetches only `https` SoundCloud links (`shared_link_allowed` in `cli.py`, checked before `run_one`; any other link is finished failed, "link not allowed in shared mode"). Personal mode and `claim_job` are unchanged.
 - Worker modes (`WORKER_MODE`, read by `config.py`; anything but `personal` or `shared` is a settings error, exit 5). **personal**
   (default): the account that signed in, its own queue, `claim_job` and table reads and writes. **shared**: the account is listed in
   `shared_workers`; `SharedServerClient` replaces `claim`, `finish`, `progress` and `release` with `claim_any_job`,

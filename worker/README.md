@@ -136,7 +136,7 @@ Only the first two are required.
 | `WORKER_FFMPEG` | the packaged ffmpeg | another ffmpeg to use instead |
 | `WORKER_YTDLP_COOKIES` | none | a Netscape cookies file for platforms that need your login |
 | `WORKER_PROXY` | none | an HTTP proxy for the recognition calls |
-| `WORKER_MODE` | personal | `personal` takes your own account's requests; `shared` takes every user's, for an account added to `shared_workers` (exit 7 when it is not) |
+| `WORKER_MODE` | personal | `personal` takes your own account's requests; `shared` takes every user's, for an account added to `shared_workers` (exit 7 when it is not). In shared mode only `https` SoundCloud links (`soundcloud.com`, `www.`, `m.`) are fetched; any other link fails with "link not allowed in shared mode". A stale `claimed_by_user` left after a personal takeover is harmless |
 | `WORKER_STALE_SECONDS` | 21600 | a request left "running" longer than this (a crash, a power cut) is taken again |
 | `WORKER_POLL_SECONDS` | 60 | `--watch`: seconds between two looks at the queue |
 | `WORKER_HEARTBEAT_SECONDS` | 30 | `--watch`: an "alive" line this often while waiting, so you can see it still runs |

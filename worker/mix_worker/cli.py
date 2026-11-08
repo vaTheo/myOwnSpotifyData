@@ -26,7 +26,7 @@ from typing import Any
 
 from . import __version__
 from .config import Settings, SettingsError, load_settings, write_template
-from .pipeline import Deps, Outcome, run_one
+from .pipeline import Deps, Outcome, _fail, run_one
 from .server import Result, ServerClient, SharedServerClient
 from .session import Session, challenge_for, clear, code_from_redirect, ensure_fresh, load, new_verifier, save
 
@@ -59,6 +59,24 @@ def frozen_dir() -> Path | None:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return None
+
+
+SHARED_LINK_REASON = "link not allowed in shared mode"
+SHARED_HOSTS = ("soundcloud.com", "www.soundcloud.com", "m.soundcloud.com")
+
+
+def shared_link_allowed(url: Any) -> bool:
+    """Shared mode fetches only https links on SoundCloud's own hosts (the
+    ones the app creates requests for): a friend's request must never make
+    this computer fetch an arbitrary address."""
+    if not isinstance(url, str):
+        return False
+    try:
+        parts = urllib.parse.urlsplit(url)
+        host, port = parts.hostname, parts.port
+    except ValueError:
+        return False
+    return parts.scheme == "https" and host in SHARED_HOSTS and parts.username is None and parts.password is None and port in (None, 443)
 
 
 def code_for(result: Result) -> int:
@@ -280,7 +298,10 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
             return current.access_token
 
         try:
-            outcome: Outcome = run_one(job, settings, token, deps)
+            if settings.worker_mode == "shared" and not shared_link_allowed(url):
+                outcome: Outcome = _fail(deps, settings, token, job_id, SHARED_LINK_REASON)
+            else:
+                outcome = run_one(job, settings, token, deps)
         except KeyboardInterrupt:
             client.release(token(), job_id, settings.worker_name)
             log.line(f"released {job_id[:8]} · stopped")

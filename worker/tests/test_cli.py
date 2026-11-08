@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from mix_worker import __version__
-from mix_worker.cli import PRESS_ENTER, CliDeps, EXIT_NOT_SHARED, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, code_for, main, make_client, run_queue
+from mix_worker.cli import PRESS_ENTER, SHARED_LINK_REASON, shared_link_allowed, CliDeps, EXIT_NOT_SHARED, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, code_for, main, make_client, run_queue
 from mix_worker.config import Settings, SettingsError
 from mix_worker.pipeline import Deps
 from mix_worker.server import Result, ServerClient, SharedServerClient
@@ -388,7 +388,9 @@ class SharedStart(unittest.TestCase):
 
     def test_shared_asks_once_then_names_the_mode_and_runs_the_personal_loop(self):
         with tempfile.TemporaryDirectory() as tmp:
-            client = QueueClient([Result("ok", a_job()), Result("ok", None)], Result("ok", True, 200))
+            job = a_job()
+            job["payload"]["url"] = "https://soundcloud.com/a/b"  # shared mode fetches SoundCloud links only
+            client = QueueClient([Result("ok", job), Result("ok", None)], Result("ok", True, 200))
             code, lines = queue_run(tmp, client, "shared")
             self.assertEqual(code, EXIT_OK)
             self.assertEqual([c[0] for c in client.calls].count("is_shared_worker"), 1)
@@ -485,3 +487,60 @@ class PersonalUntouched(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SharedLinkRule(unittest.TestCase):
+    def test_accepted_hosts(self):
+        for url in ("https://soundcloud.com/a/b", "https://www.soundcloud.com/a/b", "https://m.soundcloud.com/a/b", "https://SoundCloud.com/a/b"):
+            self.assertTrue(shared_link_allowed(url), url)
+
+    def test_refused(self):
+        for url in (
+            "https://example.com/a", "http://soundcloud.com/a", "file:///etc/passwd", "https://127.0.0.1/a", "https://192.168.1.5/a",
+            "https://soundcloud.com.evil.test/x", "https://evilsoundcloud.com/x", "https://soundcloud.com@evil.test/x",
+            "https://evil.test\\@soundcloud.com/x", "https://user:pw@soundcloud.com/x", "https://soundcloud.com:8443/x",
+            "https://on.soundcloud.com/x", "", "soundcloud.com/x",
+        ):
+            self.assertFalse(shared_link_allowed(url), url)
+        self.assertFalse(shared_link_allowed(None))
+
+
+class SharedLinkRun(unittest.TestCase):
+    def job(self, url):
+        return {"id": "00000000-0000-4000-8000-000000000001", "payload": {"url": url}}
+
+    def run_mode(self, mode, url):
+        downloads = []
+        with tempfile.TemporaryDirectory() as tmp:
+            client = QueueClient([Result("ok", self.job(url), 200), Result("ok", None, 200)], Result("ok", True, 200))
+            bodies = []
+            client.finish = lambda token, job_id, worker, body: bodies.append(body) or Result("ok", "done", 200)
+            settings = queue_settings(tmp, mode)
+            session = Session(email="dj@example.com", access_token="a", refresh_token="r", expires_at=9e12)
+            save(settings.session_file, session)
+
+            def download(u, dest):
+                downloads.append(u)
+                from mix_worker.download import DownloadFailure
+
+                return DownloadFailure("stop here")
+
+            deps = Deps(client=client, download=download, scan=lambda p, d: [], now=lambda: 1_000.0, today=lambda: "2026-11-08", log=RunLog())
+            code = run_queue(settings, deps, session, once=True, interval=1, sleep=lambda s: None)
+            return code, deps.log.lines, downloads, bodies
+
+    def test_shared_refuses_a_foreign_link_before_any_download(self):
+        code, lines, downloads, bodies = self.run_mode("shared", "https://example.com/x")
+        self.assertEqual(code, 0)
+        self.assertEqual(downloads, [])
+        self.assertEqual([(b["status"], b["error"]) for b in bodies], [("failed", "link not allowed in shared mode")])
+        self.assertEqual(SHARED_LINK_REASON, "link not allowed in shared mode")
+        self.assertTrue(any("link not allowed in shared mode" in l for l in lines))
+
+    def test_shared_lets_a_soundcloud_link_reach_the_download(self):
+        _, _, downloads, _ = self.run_mode("shared", "https://soundcloud.com/a/b")
+        self.assertEqual(downloads, ["https://soundcloud.com/a/b"])
+
+    def test_personal_never_applies_the_check(self):
+        _, _, downloads, _ = self.run_mode("personal", "https://example.com/x")
+        self.assertEqual(downloads, ["https://example.com/x"])

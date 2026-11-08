@@ -102,6 +102,10 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   - No app screen for workers: the list is edited in the SQL editor, and a user cannot see which worker took a request.
   - An owner can set `claimed_by_user` on their own request through the app's update policy; the only effect is on that request
     (a shared worker will not write to a row it does not hold, so it is left stalled until the stale limit).
+  - Shared mode fetches SoundCloud links only (`https` on `soundcloud.com`, `www.` or `m.`); a request with any other link fails
+    with "link not allowed in shared mode". Personal mode fetches whatever yt-dlp can.
+  - After a personal worker takes over a stale request, `jobs.claimed_by_user` can still hold the earlier shared worker's id;
+    harmless, since a write also needs the same worker name.
   - A 42501 on a progress write (a worker removed from the list) is only logged, so a disabled worker stops one step later, at its
     next claim or finish.
   - Not verified on the real project until the owner's run (T023).

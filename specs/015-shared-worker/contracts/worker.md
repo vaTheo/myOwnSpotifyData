@@ -21,6 +21,8 @@ Complements `specs/002-mix-analysis-worker/contracts/worker.md`. Personal mode i
 | `progress` | `POST /rest/v1/rpc/worker_set_progress` `{ "p_id", "p_worker", "p_progress" }` | `[{taken, stop}]` → same value shape `{"stop", "taken"}` as the personal client |
 | `release` | `POST /rest/v1/rpc/worker_release_job` `{ "p_id", "p_worker" }` | best effort, 3 s timeout, as today |
 
+Link rule (shared mode only): before any download the worker accepts only `https` links whose host is exactly `soundcloud.com`, `www.soundcloud.com` or `m.soundcloud.com` (no userinfo, port 443 or none). Anything else is finished through `finish` as failed with the reason `link not allowed in shared mode` and logged; nothing is downloaded and no cookie file is read. Personal mode never applies it.
+
 Error mapping: `42501` on any shared call during a run → log "this account is no longer a shared worker", release nothing (it holds nothing it may write), exit **7**. All other mappings are the personal client's.
 
 ## Exit codes
