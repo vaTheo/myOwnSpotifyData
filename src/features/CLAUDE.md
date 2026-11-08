@@ -23,3 +23,5 @@ ListenBrainz, Deezer, Wikidata, Wikipedia), and the `mix/` and `like/` folders (
 - Every reach `fetch` carries `REACH_REQUEST_TIMEOUT_MS` from `../util/` (not from `reachRun.ts`: that would make a module cycle).
 - A job writes as it goes, skips what is stored, and writes its meta summary on every exit path.
 - A new source: a research note, the inventory's "What leaves the browser" table, `README.md`'s first paragraph.
+- The shared store (ADR-15) is asked only by `runLookup` and `runReach`, through the injected port, never on load; a store failure
+  leaves the run as it was; a shared row never overwrites a rekordbox value and a rekordbox value is never shared.

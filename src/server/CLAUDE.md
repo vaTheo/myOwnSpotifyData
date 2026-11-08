@@ -32,3 +32,5 @@ project reached with plain `fetch`. The server stores and never computes (it als
 - A new table or column: `supabase/migrations/` gains a file, `contracts/server-schema.md` the row, the grants block stays last.
 - Per-user scope (ADR-14): the user is the server account; `userScope.ts` (pure) and `scopeBrowser.ts` (the pinned page scope,
   `watchScope`/`watchSession`) name each user's database and Spotify keys; a switch or a sign-out reloads, never asks.
+- Shared track facts (ADR-15): `sharedFacts.ts` is the one client of the shared store, insert-only and read by id, never throws; its
+  ranges must match `0004_shared_facts.sql` (pinned by a test); nothing personal, never a rekordbox value, goes into it.

@@ -17,7 +17,10 @@ from mix** sends a name and the matched track ids to your own account, and
 **Like all songs** saves a synced playlist's songs to your Liked Songs. No
 Spotify token ever leaves the browser. If you
 set up the optional server (below), every dataset the app builds, listening
-history included, is copied to your own Supabase project and nowhere else.
+history included, is copied to your own Supabase project and nowhere else;
+the BPM and key and the artist listener and fan numbers a lookup finds are also
+added to a store the people on your server share (nothing that says whose they
+are, nothing personal).
 
 ## Documentation
 
@@ -444,6 +447,35 @@ device and on the server.
   touch only the signed-in person's data.
 - The 500 MB of the Free project and Spotify's daily read quota are shared by
   everyone: a Spotify lock-out stops every person on that device.
+
+### Shared BPM, key and artist reach
+
+With the server set up, the BPM and key lookup and the artist reach lookup
+first ask your server for what someone else on it already found, and only ask
+ReccoBeats, ListenBrainz and Deezer for the rest. A second person's first
+lookup is much shorter than the first person's.
+
+- **Shared**: a track's BPM, key and major or minor as ReccoBeats answered,
+  and an artist's ListenBrainz listeners and Deezer fans with the date. A row
+  says nothing about who found it. Settings · Audio data and Artist reach say
+  how many came from the store and how many were added, and a notice under
+  the buttons says the numbers are shared.
+- **Never shared**: your rekordbox values (a rekordbox value still wins on
+  your side), play counts, library, playlists, history, saved mixes, release
+  years. The store is never asked when the app opens.
+- **One step, once**: in the Supabase dashboard, SQL Editor, run
+  `supabase/migrations/0004_shared_facts.sql`. Without it the lookups run as
+  before and Settings shows the store's error.
+- **Correct or remove a shared row**: nobody in the app can change or delete
+  one (the first value for a track wins, and a wrong first value stays).
+  Supabase dashboard → Table Editor → `shared_track_facts` or
+  `shared_artist_reach`: edit the row, or delete it so the next lookup adds a
+  good one.
+- **Contributing what you already have**: values found before this update are
+  not uploaded. To add them, clear the BPM and key results (and the artist
+  reach results) held here and on the server, then run the lookup again; what
+  the outside sources answer is then shared. There is no button for it yet.
+- A row with only a BPM or only a key stays that way for everyone.
 
 Keep it safe: turn on MFA for your supabase.com account, never copy the
 `service_role` key anywhere, leave sign-ups off. The app checks every row it

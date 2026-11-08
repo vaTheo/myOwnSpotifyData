@@ -15,7 +15,8 @@ type PortResult<T> = { ok: true; value: T } | { ok: false; message: string }
 Rules of the implementation (`src/server/sharedFacts.ts`, `createSharedFactsPort({ client, getToken, now })`):
 
 - Never throws. Every request has a 10 s timeout. No retry.
-- Reads: chunks of 200 ids; validates each returned row (`validate.ts`), drops rows that are not in the asked set or fail the check; the dropped count joins the message only when above zero.
+- Reads: chunks of 200 ids; validates each returned row (`validate.ts`), drops rows that are not in the asked set or fail the check. (A dropped-row count in the message was planned and not built: the ok result has no message.)
+- Numbers, all agreeing with `0004_shared_facts.sql` and pinned by `sharedFacts.test.ts`: BPM 30 to 300, key 0 to 11, at most 200 ids per call and rows per request, reach value 0 to 10,000,000,000, `measured_on` a week back to a day ahead, a request timeout of 10 s; a shared reach number is used while younger than 90 days (`REACH_TTL_MS`).
 - Shares: drops, before sending, any row outside the SQL ranges (same constants); an empty batch sends nothing; at most 200 rows per request.
 - Reads and shares need a token: no token, no call, `{ ok: false, message: 'Not signed in to the server' }` (the caller never builds the port in that case, this is the guard).
 - `sharedPort()` in `model/state.ts` returns `undefined` without server settings, without a server session, or in the demo.
