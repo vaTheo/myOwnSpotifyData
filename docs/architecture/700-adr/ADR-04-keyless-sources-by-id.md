@@ -39,6 +39,7 @@ so a stopped run resumes. Each source is paced to its published limit; the reach
 - [How the app works](../000-how-it-works.md) §9, §10
 - [ADR-10](ADR-10-name-lookup-for-clues.md): the one narrowed exception, in the worker, for clues without identifier
 - [ADR-12](ADR-12-automatic-updates.md): the BPM and reach runs also start from the automatic chain
+- [ADR-15](ADR-15-shared-track-facts.md): the runs ask a shared store, keyed by Spotify id, before the outside source
 - [ADR index](README.md)
 - [Limits and roadmap](../800-limits-roadmap.md)
 - [Contributing](../../dev-guide/000-contributing.md)

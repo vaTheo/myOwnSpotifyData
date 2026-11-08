@@ -32,6 +32,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
   - [ADR-11 — Web-first adaptive layout on Material Design 3](architecture/700-adr/ADR-11-web-first-material-3.md)
   - [ADR-12 — Automatic updates](architecture/700-adr/ADR-12-automatic-updates.md)
   - [ADR-14 — Users are server accounts](architecture/700-adr/ADR-14-users-by-server-account.md)
+  - [ADR-15 — Shared track and artist facts](architecture/700-adr/ADR-15-shared-track-facts.md)
 - [800 — Limits and roadmap](architecture/800-limits-roadmap.md)
 
 ## Dev guide

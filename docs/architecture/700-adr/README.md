@@ -6,7 +6,7 @@
 One decision per file, kept when it no longer holds (marked `Superseded by …`). A decision belongs here when it outlives the feature round
 that made it; the round's reasoning stays in its [spec](../../specs/). The first seven were taken during the rounds of 2026-09-04 to
 2026-09-25 and written down on 2026-11-05; ADR-08 was taken on 2026-11-05, ADR-09, ADR-10 and ADR-11 on 2026-11-06 (ADR-10
-amended the same day by the redesign's Mix review), ADR-12 on 2026-11-07, ADR-14 on 2026-11-08.
+amended the same day by the redesign's Mix review), ADR-12 on 2026-11-07, ADR-14 and ADR-15 on 2026-11-08.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -23,6 +23,7 @@ amended the same day by the redesign's Mix review), ADR-12 on 2026-11-07, ADR-14
 | [ADR-11](ADR-11-web-first-material-3.md) | Web-first adaptive layout on Material Design 3: dark only, chartreuse seed and accent, five destinations, tables and side sheets; the Playwright visual loop as a dev-only check | Accepted |
 | [ADR-12](ADR-12-automatic-updates.md) | Automatic updates: after the server sync, the Spotify sync (library older than 12 hours, at most once a session), then BPM and key, then Artist reach, one at a time; no wake lock, no banner; a per-device switch | Accepted |
 | [ADR-14](ADR-14-users-by-server-account.md) | Users are server accounts: one local database and one Spotify login per user; the first sign-in on a device claims the existing names; a switch reloads the page; a sign-in screen when nobody is signed in | Accepted |
+| [ADR-15](ADR-15-shared-track-facts.md) | One shared store of public track and artist facts (BPM, key, reach) on the server: no user column, insert-only, checked by the database, read by id (200 at most) through two functions; rekordbox and everything personal stay private | Accepted |
 
 ## Skeleton
 

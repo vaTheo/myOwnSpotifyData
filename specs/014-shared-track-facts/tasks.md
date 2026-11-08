@@ -5,7 +5,7 @@
 
 ## Phase 1: Setup (decision first, docs lead)
 
-- [ ] T001 Write `docs/architecture/700-adr/ADR-15-shared-track-facts.md` (one shared store of public facts beside the per-user tables; insert-only, validated by check constraints, read by id through two definer functions capped at 200 ids; rekordbox and everything personal stay private; options: per-user only, a select-all policy, update policy; fallback chosen for `ON CONFLICT DO NOTHING` recorded at T033); link it from `docs/architecture/700-adr/README.md`, `docs/README.md`, ADR-08 and ADR-04's links
+- [x] T001 Write `docs/architecture/700-adr/ADR-15-shared-track-facts.md` (one shared store of public facts beside the per-user tables; insert-only, validated by check constraints, read by id through two definer functions capped at 200 ids; rekordbox and everything personal stay private; options: per-user only, a select-all policy, update policy; fallback chosen for `ON CONFLICT DO NOTHING` recorded at T033); link it from `docs/architecture/700-adr/README.md`, `docs/README.md`, ADR-08 and ADR-04's links
 - [ ] T002 Amend `docs/architecture/700-adr/ADR-14-users-by-server-account.md`: a short "Amended by ADR-15" note under Decision ("a user never sees or changes another user's data" stays true for every personal table; the shared store is the one named exception) and a row in the ADR README
 - [ ] T003 Amend Principle I in `.specify/memory/constitution.md` (the server also holds one shared store of public facts: no user column, never computes), bump to 2.5.0 with the Sync Impact Report; mirror the line in the non-negotiable rules of `CLAUDE.md` and `src/server/CLAUDE.md`
 
