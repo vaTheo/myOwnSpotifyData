@@ -2,24 +2,26 @@
 
 **Feature Branch**: `016-trackid-worker-clues` | **Created**: 2026-11-08 | **Status**: Draft
 
+**Owner's change (2026-11-08, after the first draft)**: "When TrackId.net has a match we should not search a probe at this place." So no probe at all, not even a confirming one, inside a TrackId.net span: the span is taken as given. Agreement with Shazam can only come free from the probes at the span's edges.
+
 **Input**: Owner: "Could you also add to the worker a way to mix data from https://trackid.net/api, I know sometimes they have good data and it's worth to try, it's already used in the web app: look how it works there, then find a way to use it smartly with the data fetched with the Shazam API." Pick (2026-11-08): both ways: guide the probes, then fill the gaps. Placed as round 016, after round 015 (shared worker), in the same plan.
 
 Today the worker scans a mix with Shazam only (one probe at a time, about one call every 1.9 s) and reads the set's description and comments for clues. The app already asks TrackId.net for a mix when the owner presses Look up (`src/features/mix/trackid.ts`: list by the exact link, accept only a single record whose link is equal, then the spans by slug). TrackId.net has analysed only some mixes (the owner's example `soundcloud.com/sound-metaphors/temple-rat-live` returned no record on 2026-11-08), so every part of this must change nothing when it knows nothing.
 
 ## User Scenarios & Testing
 
-### User Story 1 - A known mix is identified faster and with fewer Shazam calls (P1)
+### User Story 1 - A known mix is identified faster and with far fewer Shazam calls (P1)
 
-As the owner, when I ask the worker to identify a mix that TrackId.net has already analysed, the scan spends its rate-limited Shazam calls where TrackId.net has no answer, and confirms what TrackId.net says with one probe per track instead of a probe every 15 seconds.
+As the owner, when I ask the worker to identify a mix that TrackId.net has already analysed, the scan makes no probe inside a stretch TrackId.net already names, and spends its rate-limited Shazam calls only on the stretches TrackId.net does not cover.
 
 **Why this priority**: Shazam's pace is the scan's bottleneck (a 2-hour set is about 480 probes); skipping the stretches already known is the whole gain.
 
-**Independent Test**: a mix whose TrackId.net record has spans covering most of it: the scan makes one confirming probe inside each span and normal probes in the uncovered stretches; compare the probe count with the same mix scanned without TrackId.net.
+**Independent Test**: a mix whose TrackId.net record has spans covering most of it: the scan makes no probe inside the spans and normal probes elsewhere; compare the probe count with the same mix scanned without TrackId.net.
 
 **Acceptance Scenarios**:
-1. **Given** TrackId.net knows the mix and has a span for a stretch, **When** the scan reaches that stretch, **Then** it makes one probe inside the span; if Shazam names the same track, the row is a heard row flagged as confirmed by TrackId.net and the rest of the span is not probed.
-2. **Given** the confirming probe finds nothing, **Then** the span is not trusted yet and the stretch is probed as today; if nothing is heard there either, the span is used at the end (US2).
-3. **Given** the confirming probe names a different track, **Then** the heard track wins, the span is not added for that stretch, and the log notes the disagreement.
+1. **Given** TrackId.net knows the mix and has a span for a stretch, **When** the scan reaches that stretch, **Then** it makes no probe inside the span (the span shrunk by 10 s at each edge), and the span's track appears in the result as a TrackId.net row, not heard.
+2. **Given** a probe at a span's edge (outside the skipped core) names the same track as the span, **Then** that row is a heard row flagged as confirmed by TrackId.net, and it starts at the span's start.
+3. **Given** the probe at a span's **start** edge names a different track, **Then** the span is not trusted: its stretch is probed normally and no TrackId.net row is made for it; a different track at the **end** edge clips the span's row where that heard track starts.
 4. **Given** TrackId.net does not know the mix, **Then** the scan makes exactly the probes it makes today.
 
 ---
@@ -79,6 +81,7 @@ As the owner, I can turn TrackId.net off in the worker settings and get today's 
 - The mix's length differs from the record's length by more than the tolerance: the record is distrusted (a different cut of the set) and treated as unknown.
 - Overlapping or abutting spans of the same track are merged as the app does (`tidSpansToRows`).
 - A span whose track Shazam also names a few minutes earlier or later: not a confirmation of this span.
+- A TrackId.net timeline offset from the audio by more than the 10 s edge allowance: the edge probes then name a neighbouring track, which withdraws or clips the span (the only guard inside the skipped core is the length check).
 - The owner presses Stop or Ctrl-C during the TrackId.net call: the request is released as today.
 - TrackId.net answers a huge number of spans: bounded to a cap (assumed 500); the rest ignored with one log line.
 - A mix already holding rows from the app's own TrackId.net Look up: the worker's result still merges as today; worker-added rows carry their own origin.
@@ -89,9 +92,9 @@ As the owner, I can turn TrackId.net off in the worker settings and get today's 
 ### Functional Requirements
 
 - **FR-001**: For each identification request the worker MUST ask TrackId.net for the request's link before the first probe, using only the exact link (never a keyword or a name search), and MUST accept a record only when exactly one record answers and its link equals the request's link and its slug matches on the detail call.
-- **FR-002**: When TrackId.net knows the mix, the scan MUST make one confirming probe inside each trusted span and skip the span's remaining regular probes when the probe names the same track as the span; every stretch not covered by a span MUST be probed as today.
-- **FR-003**: A confirming probe that finds nothing MUST leave the span unconfirmed and the stretch probed as today; one that names another track MUST keep the heard track and drop the span for that stretch.
-- **FR-004**: After all passes, a stretch still unidentified that a span covers MUST get a row for the span's track with the origin TrackId.net, no confidence and the clipped times, marked not heard; it MUST NOT be added where a heard row for the same track already stands.
+- **FR-002**: When TrackId.net knows the mix, the scan MUST make no probe inside a trusted span (the span shrunk by 10 s at each edge); every stretch not covered by a span, and each span's edge, MUST be probed as today.
+- **FR-003**: A probe at a span's start edge that names another track MUST withdraw the span (its stretch is probed normally); one at its end edge MUST clip the span's row where the heard track starts. A heard track is never dropped for a span.
+- **FR-004**: Each trusted span MUST give a row for its track (and any other span that overlaps a stretch still unidentified after all passes) with the origin TrackId.net, no confidence, the span's own times (clipped to where a heard row of another track starts) and marked not heard; it MUST NOT be added where a heard row for the same track already stands. A guided span's row is made when the scan ends; a span too short to guide is used the same way only where a stretch stayed unidentified. for the span's track with the origin TrackId.net, no confidence and the clipped times, marked not heard; it MUST NOT be added where a heard row for the same track already stands.
 - **FR-005**: A heard row that a span agrees with MUST carry a flag saying TrackId.net confirmed it.
 - **FR-006**: When TrackId.net does not know the mix, or fails, or is switched off, the scan, its probes, its pacing and its result MUST be identical to today's.
 - **FR-007**: A TrackId.net failure, timeout, malformed answer or odd record MUST never fail, pause or delay a request beyond one bounded wait; it logs one line.
@@ -123,6 +126,6 @@ As the owner, I can turn TrackId.net off in the worker settings and get today's 
 - TrackId.net's public API is used keyless as the app uses it (list by link, detail by slug); terms and rate limits are as the app already respects: one list and one detail call per request, spaced.
 - A track found only by TrackId.net is a candidate in the ADR-10 sense: not heard, unvalidated, included in Create playlist only per the owner's existing "Validated only / All tracks" choice.
 - Shazam heard evidence outranks TrackId.net evidence when they disagree.
-- Spans are trusted only when the record's duration is within a tolerance of the audio's (assumed 5%).
+- Spans are trusted only when the record's duration is within a tolerance of the audio's (assumed 5%); a span is guided (its probes skipped) only when it is still at least 40 s long after being shrunk by 10 s at each edge; shorter spans are only used to fill gaps.
 - This builds on round 015's worker (shared worker mode) but does not depend on it: it works in personal and shared mode alike.
 - Decision to record: ADR-17 (a second identification source in the worker, guiding the probes), amending ADR-10 for the new origin.
