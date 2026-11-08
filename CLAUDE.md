@@ -53,7 +53,7 @@ Details: [Contributing](docs/dev-guide/000-contributing.md).
 ## Non-negotiable rules
 
 - No client secret, no proxy, no token off the browser (ADR-01). The one server is the owner's free-tier database with sign-in (accounts the owner creates, one data set each: ADR-14),
-  declared by a public URL and key beside `VITE_SPOTIFY_CLIENT_ID`; it stores, never computes, never calls Spotify; the app works without it;
+  declared by a public URL and key beside `VITE_SPOTIFY_CLIENT_ID`; it stores (also one shared store of public track and artist facts, insert-only, read by id: ADR-15), never computes, never calls Spotify; the app works without it;
   workers run on the owner's computer (ADR-08).
 - Never open `localhost`: Spotify rejects it as a redirect URI; use `http://127.0.0.1:5173/myOwnSpotifyData/` (ADR-01).
 - Never read Spotify on load outside the automatic chain: it syncs only when the library is older than 12 hours, not while locked, at

@@ -1,7 +1,7 @@
 # Rules for the server layer
 
 Complements the root `CLAUDE.md` for changes under `src/server/`: the browser side of the owner's server (ADR-08), a Supabase
-project reached with plain `fetch`. The server stores and never computes; it never sees a Spotify token; the app works without it.
+project reached with plain `fetch`. The server stores and never computes (it also holds one shared store of public track and artist facts, insert-only, read by id: ADR-15); it never sees a Spotify token; the app works without it.
 
 ## Required inputs
 
