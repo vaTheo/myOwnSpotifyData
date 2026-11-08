@@ -1,6 +1,8 @@
 <!--
 Sync Impact Report
-- Version change: 2.3.0 → 2.4.0 (MINOR: Principle I's server is for the owner and the accounts the owner creates, per ADR-14)
+- Version change: 2.4.0 → 2.5.0 (MINOR: Principle I's server also holds one shared store of public facts, per ADR-15)
+- Modified principles: I
+- Previous: 2.3.0 → 2.4.0 (MINOR: Principle I's server is for the owner and the accounts the owner creates, per ADR-14)
 - Modified principles: I
 - Previous: 2.2.0 → 2.3.0 (MINOR: Principle II also allows the automatic Check on Spotify when a saved mix opens, per ADR-13)
 - Modified principles: II (title and body)
@@ -30,7 +32,8 @@ The app is a static site. Spotify auth is PKCE with a public Client ID in the br
 there MUST NOT be a client secret or a proxy, and no Spotify token ever leaves the browser.
 The settings are `VITE_SPOTIFY_CLIENT_ID` and the public URL and publishable key of the
 owner's server. That server is a hosted database with sign-in on a free tier, for the owner and the accounts the owner creates (ADR-14):
-it stores the app's datasets and a job queue, it never computes, never calls Spotify, and
+it stores the app's datasets and a job queue, plus one shared store of public facts about
+tracks and artists (BPM, key, reach: no user column, insert-only, read by id; ADR-15), it never computes, never calls Spotify, and
 the app MUST work in full without it. Any worker runs outside it, on the owner's computer.
 The working copy stays the browser's IndexedDB. The dev redirect URI is
 `http://127.0.0.1:5173/myOwnSpotifyData/`; `localhost` MUST NOT be used because Spotify
@@ -152,4 +155,4 @@ When the two disagree, the ADR index is corrected first and this file follows.
 - Runtime guidance for agents stays in `CLAUDE.md` and the local `CLAUDE.md` files;
   this file does not duplicate their routing.
 
-**Version**: 2.4.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-08
+**Version**: 2.5.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-08

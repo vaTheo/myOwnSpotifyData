@@ -4,6 +4,7 @@ import {
   afterLink,
   connectSignOutShown,
   gateNotices,
+  sharedPortAllowed,
   signInRequired,
   syncOnOpen,
 } from './gate';
@@ -129,5 +130,25 @@ describe('connectSignOutShown (round 011, final review I1)', () => {
     expect(
       connectSignOutShown({ configured: true, demo: true, signedIn: true })
     ).toBe(false);
+  });
+});
+
+describe('sharedPortAllowed (round 014, FR-007)', () => {
+  const on = { configured: true, demo: false, signedIn: true };
+
+  it('allows a port with settings, a session and no demo', () => {
+    expect(sharedPortAllowed(on)).toBe(true);
+  });
+
+  it('refuses without server settings', () => {
+    expect(sharedPortAllowed({ ...on, configured: false })).toBe(false);
+  });
+
+  it('refuses with no session', () => {
+    expect(sharedPortAllowed({ ...on, signedIn: false })).toBe(false);
+  });
+
+  it('refuses in the demo', () => {
+    expect(sharedPortAllowed({ ...on, demo: true })).toBe(false);
   });
 });

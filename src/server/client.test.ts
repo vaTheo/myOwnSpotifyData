@@ -298,6 +298,48 @@ describe('data calls', () => {
     const [url, init] = fetchFn.mock.calls[0];
     expect(url).toBe(`${BASE}/rest/v1/rpc/storage_used`);
     expect(init?.method).toBe('POST');
+    expect(init?.body).toBe('{}');
+  });
+
+  it('rpc sends the arguments as the JSON body', async () => {
+    const { c, fetchFn } = client(() => json([]));
+    await c.rpc('get_track_facts', 'tok', { ids: ['a', 'b'] });
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe(`${BASE}/rest/v1/rpc/get_track_facts`);
+    expect(init?.body).toBe('{"ids":["a","b"]}');
+  });
+
+  it('insertIgnore posts the rows, ignoring duplicates', async () => {
+    const { c, fetchFn } = client(() => new Response(null, { status: 201 }));
+    const rows = [{ track_id: 'x', bpm: 120, key: 1, major: true }];
+    const res = await c.insertIgnore(
+      'shared_track_facts',
+      rows,
+      'tok',
+      'track_id'
+    );
+    expect(res).toEqual({ ok: true, value: undefined });
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe(`${BASE}/rest/v1/shared_track_facts?on_conflict=track_id`);
+    expect(init?.method).toBe('POST');
+    expect(new Headers(init?.headers).get('Prefer')).toBe(
+      'resolution=ignore-duplicates,return=minimal'
+    );
+    expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer tok');
+    expect(init?.body).toBe(JSON.stringify(rows));
+  });
+
+  it('insertIgnore maps a 400 to the server message', async () => {
+    const { c } = client(() =>
+      json({ message: 'violates check constraint "bpm"' }, 400)
+    );
+    const res = await c.insertIgnore('t', [{}], 'tok', 'id');
+    expect(res).toMatchObject({
+      ok: false,
+      kind: 'error',
+      status: 400,
+      message: 'violates check constraint "bpm"',
+    });
   });
 });
 

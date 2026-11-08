@@ -16,6 +16,18 @@ describe('featuresChanged', () => {
       })
     ).toBe(false);
   });
+  it('is true for a run served only by the shared store', () => {
+    expect(
+      featuresChanged({
+        status: 'done',
+        found: 2,
+        notFound: 0,
+        total: 2,
+        years: 0,
+        shared: { fromStore: 2, sent: 0, error: null },
+      })
+    ).toBe(true);
+  });
   it('is true when tracks were looked up', () => {
     expect(
       featuresChanged({
@@ -62,6 +74,17 @@ describe('reachChanged', () => {
         summary,
         run: { lookedUp: 2, written: 0, unresolved: 2 },
         paused: [],
+      })
+    ).toBe(true);
+  });
+  it('is true for a run whose rows all came from the shared store', () => {
+    expect(
+      reachChanged({
+        status: 'done',
+        summary,
+        run: { lookedUp: 0, written: 4, unresolved: 0 },
+        paused: [],
+        shared: { fromStore: 2, sent: 0, error: null },
       })
     ).toBe(true);
   });

@@ -3,6 +3,8 @@ import {
   validateJobRow,
   validateMix,
   validateRow,
+  validateSharedReachFact,
+  validateSharedTrackFact,
   validateSummary,
 } from './validate';
 
@@ -594,5 +596,125 @@ describe('round 005 years: a bad year is dropped, the row kept', () => {
     expect('yearFrom' in res.row.rows[0]).toBe(false);
     expect(res.row.rows[0].title).toBe('B');
     expect(res.row.rows[1]).toMatchObject({ year: 2010, yearFrom: 'spotify' });
+  });
+});
+
+describe('validateSharedTrackFact', () => {
+  const ID = '0123456789abcdefghijAB';
+  const asked = new Set([ID]);
+  const row = (over: Record<string, unknown> = {}) => ({
+    track_id: ID,
+    bpm: 128.5,
+    key: 5,
+    major: false,
+    ...over,
+  });
+
+  it('accepts bpm with key and major, bpm only, key only', () => {
+    expect(validateSharedTrackFact(row(), asked)).toEqual({
+      ok: true,
+      row: { trackId: ID, bpm: 128.5, key: 5, major: false },
+    });
+    expect(
+      validateSharedTrackFact(row({ key: null, major: null }), asked).ok
+    ).toBe(true);
+    expect(
+      validateSharedTrackFact(row({ bpm: null, major: null }), asked).ok
+    ).toBe(true);
+  });
+
+  it('refuses a bpm outside 30..300 or not a number', () => {
+    for (const bpm of [0, 29.9, 300.1, NaN, Infinity, '120'])
+      expect(validateSharedTrackFact(row({ bpm }), asked).ok, String(bpm)).toBe(
+        false
+      );
+    expect(validateSharedTrackFact(row({ bpm: 30 }), asked).ok).toBe(true);
+    expect(validateSharedTrackFact(row({ bpm: 300 }), asked).ok).toBe(true);
+  });
+
+  it('refuses a key outside 0..11 or fractional', () => {
+    for (const key of [12, -1, 5.5])
+      expect(validateSharedTrackFact(row({ key }), asked).ok, String(key)).toBe(
+        false
+      );
+  });
+
+  it('refuses major without key, and both null', () => {
+    expect(validateSharedTrackFact(row({ key: null }), asked).ok).toBe(false);
+    expect(
+      validateSharedTrackFact(row({ bpm: null, key: null, major: null }), asked)
+        .ok
+    ).toBe(false);
+  });
+
+  it('refuses an id that is not 22 base-62 or not asked', () => {
+    for (const track_id of ['short', `${ID}x`, 'a'.repeat(21) + '-', 5, null])
+      expect(validateSharedTrackFact(row({ track_id }), asked).ok).toBe(false);
+    expect(validateSharedTrackFact(row(), new Set(['x'])).ok).toBe(false);
+    expect(validateSharedTrackFact(null, asked).ok).toBe(false);
+  });
+});
+
+describe('validateSharedReachFact', () => {
+  const ID = '0123456789abcdefghijAB';
+  const asked = new Set([ID]);
+  const NOW = Date.parse('2026-11-08T12:00:00Z');
+  const row = (over: Record<string, unknown> = {}) => ({
+    artist_id: ID,
+    source: 'deezer',
+    measured_on: '2026-11-01',
+    value: 1234,
+    ...over,
+  });
+
+  it('accepts a row and gives the day as epoch ms at 00:00 UTC', () => {
+    expect(validateSharedReachFact(row(), asked, NOW)).toEqual({
+      ok: true,
+      row: {
+        artistId: ID,
+        source: 'deezer',
+        value: 1234,
+        measuredAt: Date.parse('2026-11-01T00:00:00Z'),
+      },
+    });
+    expect(
+      validateSharedReachFact(
+        row({ source: 'listenbrainz', value: 0, measured_on: '2026-11-08' }),
+        asked,
+        NOW
+      ).ok
+    ).toBe(true);
+  });
+
+  it('refuses a bad value', () => {
+    for (const value of [-1, 1.5, 10000000001, NaN, null, '5'])
+      expect(
+        validateSharedReachFact(row({ value }), asked, NOW).ok,
+        String(value)
+      ).toBe(false);
+    expect(
+      validateSharedReachFact(row({ value: 10000000000 }), asked, NOW).ok
+    ).toBe(true);
+  });
+
+  it('refuses a future or malformed date, a bad source, an unasked id', () => {
+    for (const measured_on of [
+      '2026-11-09',
+      '2027-11-08',
+      'x',
+      '2026-13-40',
+      5,
+    ])
+      expect(
+        validateSharedReachFact(row({ measured_on }), asked, NOW).ok,
+        String(measured_on)
+      ).toBe(false);
+    expect(
+      validateSharedReachFact(row({ source: 'wikipedia' }), asked, NOW).ok
+    ).toBe(false);
+    expect(
+      validateSharedReachFact(row({ artist_id: 'nope' }), asked, NOW).ok
+    ).toBe(false);
+    expect(validateSharedReachFact(row(), new Set(['y']), NOW).ok).toBe(false);
   });
 });

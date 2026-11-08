@@ -1,7 +1,7 @@
 # Rules for the server layer
 
 Complements the root `CLAUDE.md` for changes under `src/server/`: the browser side of the owner's server (ADR-08), a Supabase
-project reached with plain `fetch`. The server stores and never computes; it never sees a Spotify token; the app works without it.
+project reached with plain `fetch`. The server stores and never computes (it also holds one shared store of public track and artist facts, insert-only, read by id: ADR-15); it never sees a Spotify token; the app works without it.
 
 ## Required inputs
 
@@ -32,3 +32,5 @@ project reached with plain `fetch`. The server stores and never computes; it nev
 - A new table or column: `supabase/migrations/` gains a file, `contracts/server-schema.md` the row, the grants block stays last.
 - Per-user scope (ADR-14): the user is the server account; `userScope.ts` (pure) and `scopeBrowser.ts` (the pinned page scope,
   `watchScope`/`watchSession`) name each user's database and Spotify keys; a switch or a sign-out reloads, never asks.
+- Shared track facts (ADR-15): `sharedFacts.ts` is the one client of the shared store, insert-only and read by id, never throws; its
+  ranges must match `0004_shared_facts.sql` (pinned by a test); nothing personal, never a rekordbox value, goes into it.

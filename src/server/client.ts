@@ -82,7 +82,18 @@ export interface ServerClient {
     query: Query,
     token: string
   ): Promise<ServerResult<T[]>>;
-  rpc<T>(name: string, token: string): Promise<ServerResult<T>>;
+  /** `POST /rpc/<name>` with the arguments as the JSON body (`{}` when absent). */
+  rpc<T>(name: string, token: string, args?: unknown): Promise<ServerResult<T>>;
+  /**
+   * `POST` rows with `Prefer: resolution=ignore-duplicates,return=minimal` and
+   * `?on_conflict=<columns>`: an existing row stays as it is (ADR-15).
+   */
+  insertIgnore(
+    table: string,
+    rows: unknown[],
+    token: string,
+    onConflict: string
+  ): Promise<ServerResult<void>>;
 }
 
 export const MISSING_TABLE_MESSAGE =
@@ -370,6 +381,19 @@ export function createServerClient(deps: ServerDeps): ServerClient {
       );
     },
 
+    insertIgnore(table, rows, token, onConflict) {
+      return call(
+        url(`/rest/v1/${table}`, { on_conflict: onConflict }),
+        {
+          method: 'POST',
+          token,
+          headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+          body: JSON.stringify(rows),
+        },
+        () => undefined
+      );
+    },
+
     remove(table, query, token) {
       return call(
         url(`/rest/v1/${table}`, query),
@@ -390,10 +414,10 @@ export function createServerClient(deps: ServerDeps): ServerClient {
       );
     },
 
-    rpc<T>(name: string, token: string) {
+    rpc<T>(name: string, token: string, args?: unknown) {
       return call<T>(
         url(`/rest/v1/rpc/${name}`),
-        { method: 'POST', token, body: '{}' },
+        { method: 'POST', token, body: JSON.stringify(args ?? {}) },
         (_res, body) => body as T
       );
     },

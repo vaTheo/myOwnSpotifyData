@@ -156,6 +156,14 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   one request per second across the three passes (about 45 minutes the first time for the ~2,500 tracks ReccoBeats knows of a
   5,000-track library), rows written every 10 tracks and on an error, a "none" asked again after 90 days. The done state counts
   `years`; the Audio data card shows "Release years: N of M tracks".
+- Round 014 (F30, [ADR-15](700-adr/ADR-15-shared-track-facts.md)): `shared.ts` holds the `SharedFactsPort` type (no import from
+  `src/server/`). `runLookup` asks `readTracks` once per 200 ids, before pass 1, for the tracks it would look up; a store row with a BPM
+  or a key is written as an ordinary `reccobeats` result (never over a rekordbox value) and the track is not asked of ReccoBeats; a row
+  with only one of the two is final locally. After the outside passes it hands `shareTracks` only what ReccoBeats answered (never a
+  `rekordbox` field, never a shared row back). `runReach` does the same with `readReach`/`shareReach` for the ListenBrainz and Deezer
+  numbers younger than 90 days (`REACH_TTL_MS`); MusicBrainz and Deezer ids are not shared, so the Deezer-id-by-ISRC step still runs for
+  an artist whose fans came from the store. The first failed call switches the port off for the rest of the run, `shared.error` is set
+  and the run ends `done`; no port means no call and no `shared` field. Release years are not shared.
 - Rekordbox Collection XML import: `rekordbox.ts` scanner, `rekordbox-match.ts` title/artist/duration matching, `rekordbox.worker.ts`,
   `rekordboxImport.ts` (`runRekordboxImport`). A rekordbox value wins wherever it has one.
 
@@ -556,6 +564,11 @@ Their texts, word for word (`<…>` is filled in when asked); `yarn regression` 
 - The description: "Replace your edited tracklist with the one from the description?"
 - Pasted tracks: "Replace your edited tracklist with the pasted tracks?"
 
+Round 014 adds no job and no `confirm()`: the shared store is read and written inside the two existing runs (BPM and key, artist
+reach), `sharedPort()` in `state.ts` hands the port only to `startLookup` and `startReach` (and is `undefined` without server
+settings, a server session or in the demo), so `jobsBusy()` and `disconnect` are unchanged. Remove server data leaves the shared
+facts alone: they belong to nobody.
+
 Switching users and signing out of the server ask nothing (round 011, ADR-14): no question joins this list. `startServerSignOut`
 is refused while `jobsBusy()` with `warnBanner` "Wait for the current job to finish before signing out." and while a server push
 runs (`pushRunning`, which joins no `jobsBusy()`) with "Wait for the current sync to finish before signing out."; a refusal leaves
@@ -627,6 +640,16 @@ payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history 
 - `autoSync.ts` (`installAutoSync`, installed by `main.tsx` after the open's sync; its `sync` also runs the automatic chain, §14): `startServerSync` on return to the app (tab
   visible, `RESUME_GAP_MS` = 60 s since the last), on `online`, and `startServerPull` every `ACTIVE_POLL_MS` (60 s) while visible
   and a request waits or runs (`hasActiveRequest`); only when signed in to both (`serverAutoSyncEnabled`). Never reads Spotify.
+
+**Shared facts** (round 014, [ADR-15](700-adr/ADR-15-shared-track-facts.md); spec `specs/014-shared-track-facts/`).
+`supabase/migrations/0004_shared_facts.sql` adds `shared_track_facts` and `shared_artist_reach` (no user column; an insert policy
+for `authenticated`, no select, update or delete policy or grant, nothing for `anon`; check constraints on every column) and the
+`security definer` functions `get_track_facts(ids)` and `get_artist_reach(ids)` (`search_path = ''`, at most 200 ids, only the asked
+rows; reach returns the newest row per artist and source). `sharedFacts.ts` (`createSharedFactsPort`) is the client: plain `fetch`
+through `client.ts` (an insert with `Prefer: resolution=ignore-duplicates,return=minimal` and `on_conflict`), a 10 s timeout, never
+throws, never retries, validates each returned row with `validate.ts` (BPM 30 to 300, key 0 to 11, id shapes, value range) and
+drops what was not asked or fails, and drops before sending any row the SQL would refuse. Read and share only with a token. The
+first row for a key wins; a wrong value stays until the owner fixes it in the dashboard. `rules.test.ts` audits the migration.
 
 **Users** (round 011, [ADR-14](700-adr/ADR-14-users-by-server-account.md)). The user is the server account; the server's rules
 were already per account (`owner_id = auth.uid()`, no `anon` grant), pinned by `rules.test.ts` (an audit of every migration).

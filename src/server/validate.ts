@@ -2,6 +2,7 @@ import type { AllRows, MixRow } from '../db/schema';
 import { SC_PLAYER_PREFIX } from '../features/mix/oembed';
 import { parseYear } from '../model/year';
 import type { DatasetName, StoreName } from './datasets';
+import type { SharedReachFact, SharedTrackFact } from '../features/shared';
 
 /**
  * Every row that comes back from the server is untrusted input (security
@@ -505,5 +506,100 @@ export function validateJobRow(value: unknown): MixJobRow | null {
       !Number.isNaN(Date.parse(value.stop_requested_at))
         ? value.stop_requested_at
         : null,
+  };
+}
+
+// The shared store (round 014, ADR-15). These numbers are the migration's
+// (0004_shared_facts.sql): `rules.test.ts` fails when the two drift.
+export const SHARED_BPM_MIN = 30;
+export const SHARED_BPM_MAX = 300;
+export const SHARED_KEY_MAX = 11;
+export const SHARED_REACH_MAX = 10_000_000_000;
+/** The id shape the SQL checks (`track_id ~ '^[0-9A-Za-z]{22}$'`). */
+export const SHARED_ID_PATTERN = /^[0-9A-Za-z]{22}$/;
+/** The most ids one read call may carry; the SQL raises above it. */
+export const SHARED_MAX_IDS = 200;
+
+export function sharedBpmOk(v: unknown): v is number {
+  return finite(v) && v >= SHARED_BPM_MIN && v <= SHARED_BPM_MAX;
+}
+
+export function sharedKeyOk(v: unknown): v is number {
+  return (
+    Number.isInteger(v) && (v as number) >= 0 && (v as number) <= SHARED_KEY_MAX
+  );
+}
+
+export function sharedReachValueOk(v: unknown): v is number {
+  return (
+    Number.isSafeInteger(v) &&
+    (v as number) >= 0 &&
+    (v as number) <= SHARED_REACH_MAX
+  );
+}
+
+/** The table rule: bpm and key each in range or null, one at least, major only with a key. */
+export function sharedTrackFactOk(f: {
+  bpm?: unknown;
+  key?: unknown;
+  major?: unknown;
+}): boolean {
+  const bpm = f.bpm === null ? null : sharedBpmOk(f.bpm) ? f.bpm : undefined;
+  const key = f.key === null ? null : sharedKeyOk(f.key) ? f.key : undefined;
+  if (bpm === undefined || key === undefined) return false;
+  if (bpm === null && key === null) return false;
+  if (f.major === null) return true;
+  return typeof f.major === 'boolean' && key !== null;
+}
+
+/** A row of `get_track_facts`, kept only when asked for and inside the ranges. */
+export function validateSharedTrackFact(
+  raw: unknown,
+  asked: ReadonlySet<string>
+): Valid<SharedTrackFact> {
+  if (!obj(raw)) return fail('not an object');
+  const id = raw.track_id;
+  if (typeof id !== 'string' || !SHARED_ID_PATTERN.test(id))
+    return fail('track_id');
+  if (!asked.has(id)) return fail('not asked');
+  if (!sharedTrackFactOk(raw)) return fail('bpm, key or major');
+  return {
+    ok: true,
+    row: {
+      trackId: id,
+      bpm: raw.bpm as number | null,
+      key: raw.key as number | null,
+      major: raw.major as boolean | null,
+    },
+  };
+}
+
+/** `YYYY-MM-DD` as epoch ms at 00:00 UTC, or null when it is not a real date. */
+export function parseDay(v: unknown): number | null {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const at = Date.parse(`${v}T00:00:00Z`);
+  if (!Number.isFinite(at)) return null;
+  return new Date(at).toISOString().slice(0, 10) === v ? at : null;
+}
+
+/** A row of `get_artist_reach`: asked, in range, dated today (UTC) or earlier. */
+export function validateSharedReachFact(
+  raw: unknown,
+  asked: ReadonlySet<string>,
+  now: number
+): Valid<SharedReachFact> {
+  if (!obj(raw)) return fail('not an object');
+  const id = raw.artist_id;
+  if (typeof id !== 'string' || !SHARED_ID_PATTERN.test(id))
+    return fail('artist_id');
+  if (!asked.has(id)) return fail('not asked');
+  if (raw.source !== 'listenbrainz' && raw.source !== 'deezer')
+    return fail('source');
+  if (!sharedReachValueOk(raw.value)) return fail('value');
+  const at = parseDay(raw.measured_on);
+  if (at === null || at > now) return fail('measured_on');
+  return {
+    ok: true,
+    row: { artistId: id, source: raw.source, value: raw.value, measuredAt: at },
   };
 }

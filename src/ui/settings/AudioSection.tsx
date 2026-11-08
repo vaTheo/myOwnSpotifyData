@@ -10,6 +10,7 @@ import {
   model,
   rekordboxState,
   rekordboxSummary,
+  sharedPort,
   setKeyNotation,
   chainView,
   requestJob,
@@ -27,6 +28,8 @@ import {
   coverageLine,
   lookupDoneLine,
   rekordboxLine,
+  SHARED_NOTICE_BPM,
+  sharedRunLine,
   yearsLine,
 } from './lines';
 import { isWaiting, otherStepRuns } from './chain';
@@ -60,6 +63,10 @@ export function AudioSection() {
   // The year scan reads every Top list per track: once per model, not once
   // per progress tick.
   const dated = useMemo(() => (m ? datedCount(m) : 0), [m]);
+  const sharedLine =
+    lookup.status === 'done' ? sharedRunLine(lookup.shared) : null;
+  // The notice shows only with server settings and a session (never the demo).
+  const sharing = sharedPort() !== undefined;
   const blocked = busy || !cov || cov.total === 0;
   // A tap while the chain runs another step is queued (round 006).
   const lookupBlocked =
@@ -96,9 +103,13 @@ export function AudioSection() {
       {lookup.status === 'done' && (lookup.total > 0 || lookup.years > 0) && (
         <StatusLine kind="success">{lookupDoneLine(lookup)}</StatusLine>
       )}
+      {lookup.status === 'done' && sharedLine && (
+        <StatusLine kind={sharedLine.kind}>{sharedLine.text}</StatusLine>
+      )}
       {lookup.status === 'error' && (
         <StatusLine kind="error">Last error: {lookup.message}</StatusLine>
       )}
+      {sharing && <p class="muted settings-credit">{SHARED_NOTICE_BPM}</p>}
       <div class="actions">
         <Button
           variant="filled"

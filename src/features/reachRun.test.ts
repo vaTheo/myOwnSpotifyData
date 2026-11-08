@@ -15,6 +15,7 @@ import type {
 } from '../db/schema';
 import { buildModel } from '../model/aggregate';
 import { isWellKnown } from '../model/reach';
+import type { PortResult, SharedFactsPort, SharedReachFact } from './shared';
 import { DEEZER_API } from './deezer';
 import { LISTENBRAINZ_STATS_URL } from './listenbrainz';
 import { MUSICBRAINZ_URL } from './musicbrainz';
@@ -974,5 +975,383 @@ describe('runReach', () => {
     expect(
       rows.artistReach.find((r) => r.key === 'a1|listenbrainz')?.fetchedAt
     ).toBe(NOW - 1000);
+  });
+});
+
+describe('runReach with a shared store (round 014)', () => {
+  const DAY = 86_400_000;
+  const TODAY = Date.UTC(2026, 8, 5);
+  const known = (artistId: string, mbid: string, deezerId: number) =>
+    identity({
+      artistId,
+      mbid,
+      mbidStatus: 'ok',
+      qid: 'Q9',
+      qidStatus: 'ok',
+      qidCheckedAt: NOW - 1000,
+      deezerArtistId: deezerId,
+      deezerName: artistId,
+      deezerStatus: 'ok',
+      resolvedAt: NOW - 1000,
+    });
+  const identities = [known('a1', 'mb-1', 11), known('a2', 'mb-2', 22)];
+  const stale = (artistId: string, source: 'listenbrainz' | 'deezer') =>
+    reachRow({
+      artistId,
+      source,
+      value: 7,
+      fetchedAt: NOW - 91 * DAY,
+    });
+  const staleRows = [
+    stale('a1', 'listenbrainz'),
+    stale('a1', 'deezer'),
+    stale('a2', 'listenbrainz'),
+    stale('a2', 'deezer'),
+  ];
+  const fresh = (
+    artistId: string,
+    source: 'listenbrainz' | 'deezer',
+    value: number,
+    ageDays: number
+  ): SharedReachFact => ({
+    artistId,
+    source,
+    value,
+    measuredAt: TODAY - ageDays * DAY,
+  });
+
+  function fakePort(
+    answer: (ids: string[]) => PortResult<SharedReachFact[]>,
+    shareAnswer: () => PortResult<number> = () => ({ ok: true, value: 0 })
+  ) {
+    const reads: string[][] = [];
+    const shared: SharedReachFact[][] = [];
+    const port: SharedFactsPort = {
+      readTracks: async () => ({ ok: true, value: [] }),
+      shareTracks: async () => ({ ok: true, value: 0 }),
+      readReach: async (ids) => {
+        reads.push(ids);
+        return answer(ids);
+      },
+      shareReach: async (rows) => {
+        shared.push(rows);
+        const res = shareAnswer();
+        return res.ok ? { ok: true, value: rows.length } : res;
+      },
+    };
+    return { port, reads, shared };
+  }
+
+  const storeFacts = [
+    fresh('a1', 'listenbrainz', 54, 10),
+    fresh('a1', 'deezer', 585, 10),
+    fresh('a2', 'listenbrainz', 5896, 91),
+    fresh('a2', 'deezer', 202_216, 91),
+  ];
+
+  it('uses a fresh shared number, measures a 91-day-old one again and shares only that', async () => {
+    const { port, reads, shared } = fakePort(() => ({
+      ok: true,
+      value: storeFacts,
+    }));
+    const { deps, requests, states } = setup(happy, false);
+    await runReach(
+      { ...deps, shared: port },
+      [HUGO, PEGGY],
+      identities,
+      staleRows
+    );
+
+    expect(reads).toEqual([['a1', 'a2']]);
+    expect(requests).toEqual([
+      `${LISTENBRAINZ_STATS_URL}/mb-2/listeners`,
+      `${DEEZER_API}/artist/22?output=jsonp`,
+    ]);
+    const rows = new Map(
+      (await getAllRows()).artistReach.map((r) => [r.key, r])
+    );
+    expect(rows.get('a1|listenbrainz')).toMatchObject({
+      status: 'ok',
+      value: 54,
+      fetchedAt: TODAY - 10 * DAY,
+    });
+    expect(rows.get('a1|deezer')).toMatchObject({
+      status: 'ok',
+      value: 585,
+      fetchedAt: TODAY - 10 * DAY,
+    });
+    expect(rows.get('a1|deezer')?.sourceUrl).toMatch(/^https:/);
+    expect(rows.get('a1|listenbrainz')?.sourceUrl).toMatch(/^https:/);
+    expect(rows.get('a2|listenbrainz')).toMatchObject({
+      value: 5896,
+      fetchedAt: NOW,
+    });
+    expect(shared).toHaveLength(2);
+    expect(shared.flat()).toEqual([
+      {
+        artistId: 'a2',
+        source: 'listenbrainz',
+        value: 5896,
+        measuredAt: TODAY,
+      },
+      { artistId: 'a2', source: 'deezer', value: 202_216, measuredAt: TODAY },
+    ]);
+    const last = states.at(-1);
+    if (last?.status !== 'done') throw new Error('not done');
+    expect(last.run.lookedUp).toBe(1);
+    expect(last.run.written).toBe(4);
+    expect(last.shared).toEqual({ fromStore: 1, sent: 2, error: null });
+  });
+
+  it('never shares notFound or retryLater rows', async () => {
+    const { port, shared } = fakePort(() => ({ ok: true, value: [] }));
+    const { deps } = setup(
+      {
+        ...happy,
+        lb: () => json(null, 204),
+        deezer: () => ({ error: { code: 800 } }),
+      },
+      false
+    );
+    await runReach(
+      { ...deps, shared: port },
+      [HUGO],
+      [identities[0]!],
+      staleRows
+    );
+    expect(shared.flat()).toEqual([]);
+  });
+
+  it('switches the port off after the first failed read and still ends done', async () => {
+    const { port, reads, shared } = fakePort(() => ({
+      ok: false,
+      message: 'offline',
+    }));
+    const { deps, requests, states } = setup(happy, false);
+    await runReach(
+      { ...deps, shared: port },
+      [HUGO, PEGGY],
+      identities,
+      staleRows
+    );
+    expect(reads).toHaveLength(1);
+    expect(shared).toEqual([]);
+    expect(requests).toContain(`${LISTENBRAINZ_STATS_URL}/mb-1/listeners`);
+    const last = states.at(-1);
+    if (last?.status !== 'done') throw new Error('not done');
+    expect(last.shared).toEqual({ fromStore: 0, sent: 0, error: 'offline' });
+  });
+
+  it('switches the port off after the first failed share', async () => {
+    const { port, shared } = fakePort(
+      () => ({ ok: true, value: [] }),
+      () => ({ ok: false, message: 'denied' })
+    );
+    const { deps, states } = setup(happy, false);
+    await runReach(
+      { ...deps, shared: port },
+      [HUGO, PEGGY],
+      identities,
+      staleRows
+    );
+    expect(shared).toHaveLength(1);
+    const last = states.at(-1);
+    if (last?.status !== 'done') throw new Error('not done');
+    expect(last.shared?.error).toBe('denied');
+    expect(last.shared?.sent).toBe(0);
+  });
+
+  it('a port that throws does not stop the run', async () => {
+    const { deps, states } = setup(happy, false);
+    const port: SharedFactsPort = {
+      readTracks: async () => ({ ok: true, value: [] }),
+      shareTracks: async () => ({ ok: true, value: 0 }),
+      readReach: async () => {
+        throw new Error('boom');
+      },
+      shareReach: async () => ({ ok: true, value: 0 }),
+    };
+    await runReach({ ...deps, shared: port }, [HUGO], [], []);
+    const last = states.at(-1);
+    if (last?.status !== 'done') throw new Error('not done');
+    expect(last.shared?.error).toBe('boom');
+  });
+
+  it('with no port the final state has no shared field and the same rows', async () => {
+    const { deps, states } = setup(happy, false);
+    await runReach(deps, [HUGO], identities, staleRows);
+    const last = states.at(-1);
+    if (last?.status !== 'done') throw new Error('not done');
+    expect('shared' in last).toBe(false);
+  });
+
+  it('refuses a number exactly 90 days old and takes one 89 days old', async () => {
+    const { port } = fakePort(() => ({
+      ok: true,
+      value: [
+        { ...fresh('a1', 'listenbrainz', 11, 0), measuredAt: NOW - 90 * DAY },
+        { ...fresh('a1', 'deezer', 22, 0), measuredAt: NOW - 89 * DAY },
+      ],
+    }));
+    const { deps, requests } = setup(happy, false);
+    await runReach(
+      { ...deps, shared: port },
+      [HUGO],
+      [identities[0]!],
+      [stale('a1', 'listenbrainz'), stale('a1', 'deezer')]
+    );
+    const rows = new Map(
+      (await getAllRows()).artistReach.map((r) => [r.key, r])
+    );
+    // The 90-day-old one is measured again, the 89-day-old one is kept.
+    expect(requests).toEqual([`${LISTENBRAINZ_STATS_URL}/mb-1/listeners`]);
+    expect(rows.get('a1|listenbrainz')?.value).toBe(54);
+    expect(rows.get('a1|deezer')).toMatchObject({
+      value: 22,
+      fetchedAt: NOW - 89 * DAY,
+    });
+  });
+
+  it('takes a measuredAt up to one day ahead and drops one further ahead', async () => {
+    const { port } = fakePort(() => ({
+      ok: true,
+      value: [
+        { ...fresh('a1', 'listenbrainz', 11, 0), measuredAt: NOW + DAY },
+        { ...fresh('a1', 'deezer', 22, 0), measuredAt: NOW + DAY + 1 },
+      ],
+    }));
+    const { deps, requests } = setup(happy, false);
+    await runReach(
+      { ...deps, shared: port },
+      [HUGO],
+      [identities[0]!],
+      [stale('a1', 'listenbrainz'), stale('a1', 'deezer')]
+    );
+    const rows = new Map(
+      (await getAllRows()).artistReach.map((r) => [r.key, r])
+    );
+    expect(rows.get('a1|listenbrainz')?.value).toBe(11);
+    expect(requests).toEqual([`${DEEZER_API}/artist/11?output=jsonp`]);
+    expect(rows.get('a1|deezer')?.value).toBe(585);
+  });
+
+  it('uses the newest of duplicate store rows, in either order', async () => {
+    const older = fresh('a1', 'listenbrainz', 99, 20);
+    const newer = fresh('a1', 'listenbrainz', 10, 5);
+    const deezerFact = fresh('a1', 'deezer', 5, 3);
+    for (const value of [
+      [older, newer, deezerFact],
+      [newer, older, deezerFact],
+    ]) {
+      await wipeDb();
+      const { port } = fakePort(() => ({ ok: true, value }));
+      const { deps, requests } = setup(happy, false);
+      await runReach(
+        { ...deps, shared: port },
+        [HUGO],
+        [identities[0]!],
+        [stale('a1', 'listenbrainz'), stale('a1', 'deezer')]
+      );
+      expect(requests).toEqual([]);
+      const rows = new Map(
+        (await getAllRows()).artistReach.map((r) => [r.key, r])
+      );
+      expect(rows.get('a1|listenbrainz')).toMatchObject({
+        value: 10,
+        fetchedAt: TODAY - 5 * DAY,
+      });
+    }
+  });
+
+  it('does not ask the store about an artist whose local rows are fresh', async () => {
+    const { port, reads } = fakePort(() => ({ ok: true, value: [] }));
+    const { deps } = setup(happy, false);
+    await runReach({ ...deps, shared: port }, [HUGO, PEGGY], identities, [
+      reachRow({ artistId: 'a1', source: 'listenbrainz' }),
+      reachRow({ artistId: 'a1', source: 'deezer' }),
+      stale('a2', 'listenbrainz'),
+      stale('a2', 'deezer'),
+    ]);
+    expect(reads).toEqual([['a2']]);
+  });
+
+  // T027 (FR-007, US5): a missing, failing or offline port changes nothing
+  // but the `shared` note.
+  describe('without a working port', () => {
+    async function runWith(port?: SharedFactsPort) {
+      await wipeDb();
+      const { deps, requests, states } = setup(happy, false);
+      await runReach(
+        port ? { ...deps, shared: port } : deps,
+        [HUGO, PEGGY],
+        identities,
+        staleRows
+      );
+      const last = states.at(-1);
+      if (last?.status !== 'done') throw new Error('not done');
+      const { shared, ...rest } = last as typeof last & { shared?: unknown };
+      return {
+        rows: await getAllRows(),
+        meta: await getMeta(ARTIST_REACH_SUMMARY_META),
+        requests,
+        rest,
+        shared,
+        hasShared: 'shared' in last,
+      };
+    }
+    const failing = (read: PortResult<SharedReachFact[]>) => {
+      const calls: string[] = [];
+      const port: SharedFactsPort = {
+        readTracks: async () => {
+          calls.push('readTracks');
+          return { ok: true, value: [] };
+        },
+        shareTracks: async () => {
+          calls.push('shareTracks');
+          return { ok: true, value: 0 };
+        },
+        readReach: async () => {
+          calls.push('readReach');
+          return read;
+        },
+        shareReach: async () => {
+          calls.push('shareReach');
+          return { ok: true, value: 0 };
+        },
+      };
+      return { port, calls };
+    };
+
+    it('leaves rows, requests and state as a run with no port', async () => {
+      const base = await runWith();
+      expect(base.hasShared).toBe(false);
+      for (const message of ['offline', 'HTTP 500']) {
+        const { port, calls } = failing({ ok: false, message });
+        const run = await runWith(port);
+        expect(run.rows).toEqual(base.rows);
+        expect(run.meta).toEqual(base.meta);
+        expect(run.requests).toEqual(base.requests);
+        expect(run.rest).toEqual(base.rest);
+        expect(run.shared).toEqual({ fromStore: 0, sent: 0, error: message });
+        // One failed read, then the port is not called again.
+        expect(calls).toEqual(['readReach']);
+      }
+    });
+
+    it('survives a port whose read or share throws', async () => {
+      const base = await runWith();
+      for (const which of ['readReach', 'shareReach'] as const) {
+        const { port } = failing({ ok: true, value: [] });
+        port[which] = async () => {
+          throw new Error('boom ' + which);
+        };
+        const run = await runWith(port);
+        expect(run.rows).toEqual(base.rows);
+        expect(run.meta).toEqual(base.meta);
+        expect(run.requests).toEqual(base.requests);
+        expect(run.rest).toEqual(base.rest);
+        expect(run.shared).toMatchObject({ error: 'boom ' + which });
+      }
+    });
   });
 });

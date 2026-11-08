@@ -1,8 +1,10 @@
 import 'fake-indexeddb/auto';
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getFeatures, putFeatures, wipeDb } from '../db/repo';
 import type { FeatureRow, PlayRow, TrackRow } from '../db/schema';
 import { buildModel, type Model } from '../model/aggregate';
+import type { PortResult, SharedFactsPort, SharedTrackFact } from './shared';
 import { MAX_IDS, RECCOBEATS_TRACK_URL, RECCOBEATS_URL } from './reccobeats';
 import {
   LOOKUP_INTERVAL_MS,
@@ -10,6 +12,7 @@ import {
   PASS_BY_ID,
   PASS_BY_ISRC,
   PASS_RIDS,
+  PASS_SHARED,
   PASS_YEARS,
   YEAR_WRITE_BATCH,
   candidateIds,
@@ -670,5 +673,390 @@ describe('runLookup — year pass cost (round 006 fix)', () => {
       (s) => s.status === 'running' && s.pass === PASS_YEARS
     );
     expect(firstYear).toBeGreaterThan(states.indexOf(ridStates.at(-1)!));
+  });
+});
+
+/** A port over an in-memory store; `fail` makes the named call fail. */
+function fakePort(
+  known: SharedTrackFact[],
+  fail: { read?: string; share?: string } = {}
+) {
+  const store = new Map(known.map((f) => [f.trackId, f]));
+  const reads: string[][] = [];
+  const shared: SharedTrackFact[][] = [];
+  const port: SharedFactsPort = {
+    readTracks: vi.fn(
+      async (ids: string[]): Promise<PortResult<SharedTrackFact[]>> => {
+        reads.push(ids);
+        if (fail.read) return { ok: false, message: fail.read };
+        return {
+          ok: true,
+          value: ids.flatMap((i) => (store.has(i) ? [store.get(i)!] : [])),
+        };
+      }
+    ),
+    shareTracks: vi.fn(
+      async (rows: SharedTrackFact[]): Promise<PortResult<number>> => {
+        shared.push(rows);
+        if (fail.share) return { ok: false, message: fail.share };
+        return { ok: true, value: rows.length };
+      }
+    ),
+    readReach: vi.fn(async () => ({ ok: true as const, value: [] })),
+    shareReach: vi.fn(async () => ({ ok: true as const, value: 0 })),
+  };
+  return { port, reads, shared };
+}
+
+const fact = (
+  trackId: string,
+  bpm: number | null,
+  key: number | null,
+  major: boolean | null
+): SharedTrackFact => ({ trackId, bpm, key, major });
+
+describe('runLookup - shared store (round 014)', () => {
+  it('serves store hits without a lookup, counts them, and shows the pass', async () => {
+    const candidates = ['x', 'y', 'z', 'w'].map((id) => ({ id, isrc: null }));
+    const { port, reads } = fakePort([
+      fact('x', 120, 3, false),
+      fact('y', 130, null, null),
+    ]);
+    const { deps, fetchFn, states } = setup([
+      () => json({ content: [feature('z', null, 126)] }),
+    ]);
+    await runLookup({ ...deps, shared: port }, candidates, []);
+    expect(reads).toEqual([['x', 'y', 'z', 'w']]);
+    expect(states).toContainEqual({
+      status: 'running',
+      pass: PASS_SHARED,
+      done: 0,
+      total: 4,
+    });
+    expect(featureCalls(fetchFn)).toEqual([`${RECCOBEATS_URL}?ids=z,w`]);
+    const rows = await getFeatures();
+    expect(rows.find((r) => r.trackId === 'x')?.reccobeats).toEqual({
+      bpm: 120,
+      key: 3,
+      major: false,
+      energy: null,
+      fetchedAt: NOW,
+    });
+    expect(rows.find((r) => r.trackId === 'y')?.reccobeats).toEqual({
+      bpm: 130,
+      key: null,
+      major: null,
+      energy: null,
+      fetchedAt: NOW,
+    });
+    expect(rows.find((r) => r.trackId === 'w')?.reccobeats).toEqual({
+      notFound: true,
+      checkedAt: NOW,
+    });
+    expect(states.at(-1)).toEqual({
+      status: 'done',
+      found: 3,
+      notFound: 1,
+      total: 4,
+      years: 0,
+      shared: { fromStore: 2, sent: 1, error: null },
+    });
+  });
+
+  it('asks the port in batches of 200', async () => {
+    const ids = Array.from({ length: 450 }, (_, i) => `t${i}`);
+    const known = ids.map((id) => fact(id, 100, 1, true));
+    const { port, reads } = fakePort(known);
+    const { deps, fetchFn } = setup([]);
+    await runLookup(
+      { ...deps, shared: port },
+      ids.map((id) => ({ id, isrc: null })),
+      []
+    );
+    expect(reads.map((r) => r.length)).toEqual([200, 200, 50]);
+    expect(featureCalls(fetchFn)).toEqual([]);
+  });
+
+  it('sends what ReccoBeats found after the local write, as partial when partial, never a miss', async () => {
+    const candidates = [
+      { id: 'full', isrc: null },
+      { id: 'part', isrc: null },
+      { id: 'none', isrc: null },
+    ];
+    const { port, shared } = fakePort([]);
+    const { deps } = setup([
+      () =>
+        json({
+          content: [
+            feature('full', null, 124),
+            {
+              href: 'https://open.spotify.com/track/part',
+              tempo: 110,
+              key: -1,
+              mode: -1,
+            },
+          ],
+        }),
+    ]);
+    await runLookup({ ...deps, shared: port }, candidates, []);
+    expect(shared.flat()).toEqual([
+      fact('full', 124, 5, true),
+      fact('part', 110, null, null),
+    ]);
+    expect(JSON.stringify(shared)).not.toContain('none');
+  });
+
+  it('switches the port off after the first failed read, and the run ends as without it', async () => {
+    const ids = Array.from({ length: 250 }, (_, i) => `t${i}`);
+    const { port } = fakePort([], { read: 'boom' });
+    const { deps, states } = setup(
+      Array.from(
+        { length: Math.ceil(250 / MAX_IDS) },
+        (_, b) => () =>
+          json({
+            content: ids
+              .slice(b * MAX_IDS, (b + 1) * MAX_IDS)
+              .map((i) => feature(i, null, 126)),
+          })
+      )
+    );
+    await runLookup(
+      { ...deps, shared: port },
+      ids.map((id) => ({ id, isrc: null })),
+      []
+    );
+    // 250 ids make two read chunks: the second is never asked.
+    expect(port.readTracks).toHaveBeenCalledTimes(1);
+    expect(port.shareTracks).not.toHaveBeenCalled();
+    expect(states.at(-1)).toEqual({
+      status: 'done',
+      found: 250,
+      notFound: 0,
+      total: 250,
+      years: 0,
+      shared: { fromStore: 0, sent: 0, error: 'boom' },
+    });
+  });
+
+  it('switches the port off after the first failed share', async () => {
+    // 250 found tracks: a flush happens at 200, before the end of the run.
+    const ids = Array.from({ length: 250 }, (_, i) => `t${i}`);
+    const { port, shared } = fakePort([], { share: 'nope' });
+    const { deps, states } = setup(
+      Array.from(
+        { length: Math.ceil(250 / MAX_IDS) },
+        (_, b) => () =>
+          json({
+            content: ids
+              .slice(b * MAX_IDS, (b + 1) * MAX_IDS)
+              .map((i) => feature(i, null, 124)),
+          })
+      )
+    );
+    await runLookup(
+      { ...deps, shared: port },
+      ids.map((id) => ({ id, isrc: null })),
+      []
+    );
+    // One failed call of 200, then no second call (not even for the last 50).
+    expect(port.shareTracks).toHaveBeenCalledTimes(1);
+    expect(shared[0]).toHaveLength(200);
+    const last = states.at(-1);
+    expect(last).toMatchObject({ status: 'done', found: 250 });
+    expect(last).toMatchObject({ shared: { sent: 0, error: 'nope' } });
+  });
+
+  it('has no shared field without a port', async () => {
+    const { deps, states } = setup([() => json({ content: [] })]);
+    await runLookup(deps, [{ id: 'q', isrc: null }], []);
+    expect(states.at(-1)).not.toHaveProperty('shared');
+  });
+
+  // T016: a store hit has no rid, so the year pass asks ReccoBeats for the
+  // id then the album, as for any value without one. `energy` is read only
+  // by the audio-feature display paths that already accept null (grep
+  // energy src/ at round 014 found nothing requiring it for a store hit).
+  it('dates a store hit through the id lookup then the album', async () => {
+    const { port } = fakePort([fact('x', 120, 3, false)]);
+    const { deps, fetchFn, states } = setup([], (url) =>
+      url.includes('/album')
+        ? json({ content: [{ releaseDate: '2019-05-01' }] })
+        : json({
+            content: [{ id: 'rb1', href: 'https://open.spotify.com/track/x' }],
+          })
+    );
+    await runLookup({ ...deps, shared: port }, [{ id: 'x', isrc: null }], []);
+    expect(featureCalls(fetchFn)).toEqual([]);
+    const trackCalls = fetchFn.mock.calls
+      .map((c) => c[0])
+      .filter((u) => u.startsWith(RECCOBEATS_TRACK_URL));
+    expect(trackCalls).toHaveLength(2);
+    // The album request carries the rid the id lookup returned.
+    expect(trackCalls[1]).toContain(`${RECCOBEATS_TRACK_URL}/rb1/album`);
+    expect(states.at(-1)).toMatchObject({ status: 'done', years: 1 });
+  });
+});
+
+// T017 (FR-005, SC-005): a rekordbox value has no path to the store.
+describe('runLookup - rekordbox never reaches the store (round 014)', () => {
+  const rb = {
+    bpm: 99,
+    key: 3,
+    major: true,
+    energy: null,
+    fetchedAt: 5,
+    matchedBy: 'title-artist' as const,
+    rbTitle: 'Song',
+    rbArtist: 'Artist',
+  };
+
+  it('sends what ReccoBeats said, not the rekordbox value, and leaves the row alone', async () => {
+    await putFeatures([
+      { trackId: 'r1', isrc: null, rekordbox: rb, updatedAt: 1 },
+    ]);
+    const { port, shared } = fakePort([]);
+    const { deps } = setup([
+      () =>
+        json({
+          content: [{ ...feature('r1', null, 128), key: 5, mode: 0 }],
+        }),
+    ]);
+    await runLookup(
+      { ...deps, shared: port },
+      [{ id: 'r1', isrc: null }],
+      await getFeatures()
+    );
+    expect(shared.flat()).toEqual([fact('r1', 128, 5, false)]);
+    const body = JSON.stringify(shared);
+    expect(body).not.toContain('rekordbox');
+    expect(body).not.toContain('99');
+    const row = (await getFeatures())[0]!;
+    expect(row.rekordbox).toEqual(rb);
+    expect(row.reccobeats).toMatchObject({ bpm: 128, key: 5 });
+  });
+
+  it('sends nothing for a row that holds rekordbox and an older reccobeats value', async () => {
+    const old: FeatureRow = {
+      trackId: 'r2',
+      isrc: null,
+      rekordbox: rb,
+      reccobeats: {
+        bpm: 90,
+        key: 2,
+        major: false,
+        energy: 0.5,
+        fetchedAt: 1,
+        rid: 'rb2',
+      },
+      releaseYear: { year: 2001, checkedAt: NOW },
+      updatedAt: 1,
+    };
+    await putFeatures([old]);
+    const { port, shared } = fakePort([]);
+    const { deps, fetchFn } = setup([]);
+    await runLookup(
+      { ...deps, shared: port },
+      [{ id: 'r2', isrc: null }],
+      await getFeatures()
+    );
+    expect(shared).toEqual([]);
+    expect(port.shareTracks).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect((await getFeatures())[0]).toEqual(old);
+  });
+
+  it('a shared value fills reccobeats and never replaces the rekordbox value', async () => {
+    await putFeatures([
+      { trackId: 'r3', isrc: null, rekordbox: rb, updatedAt: 1 },
+    ]);
+    const { port, shared } = fakePort([fact('r3', 120, 7, false)]);
+    const { deps } = setup([]);
+    await runLookup(
+      { ...deps, shared: port },
+      [{ id: 'r3', isrc: null }],
+      await getFeatures()
+    );
+    const row = (await getFeatures())[0]!;
+    expect(row.rekordbox).toEqual(rb);
+    expect(row.reccobeats).toMatchObject({ bpm: 120, key: 7, major: false });
+    expect(shared).toEqual([]);
+  });
+
+  it('rekordboxImport.ts does not import the shared port', () => {
+    const text = readFileSync(
+      new URL('./rekordboxImport.ts', import.meta.url),
+      'utf8'
+    );
+    expect(text).not.toMatch(/features\/shared|from '\.\/shared'|sharedFacts/);
+  });
+});
+
+// T027 (FR-007, US5): a missing, failing or offline port changes nothing but
+// the `shared` note.
+describe('runLookup - without a working port (round 014)', () => {
+  const ids = Array.from({ length: 45 }, (_, i) => `t${i}`);
+  const candidates = ids.map((id, i) => ({
+    id,
+    isrc: i % 2 === 0 ? `ISRC${i}` : null,
+  }));
+
+  async function runWith(port?: SharedFactsPort) {
+    await wipeDb();
+    // Batch 1 knows its tracks; batch 2 knows none, so notFound markers and
+    // the ISRC pass are part of the run.
+    const { deps, fetchFn, states } = setup([
+      () =>
+        json({
+          content: ids.slice(0, MAX_IDS).map((i) => feature(i, null, 126)),
+        }),
+      () => json({ content: [] }),
+      () => json({ content: [] }),
+    ]);
+    await runLookup(port ? { ...deps, shared: port } : deps, candidates, []);
+    const last = states.at(-1);
+    if (last?.status !== 'done') throw new Error('not done');
+    const { shared, ...rest } = last as typeof last & { shared?: unknown };
+    return {
+      rows: (await getFeatures()).sort((a, b) =>
+        a.trackId.localeCompare(b.trackId)
+      ),
+      calls: fetchFn.mock.calls.map((c) => c[0]),
+      rest,
+      shared,
+      hasShared: 'shared' in last,
+    };
+  }
+
+  it('leaves rows, requests and state as a run with no port', async () => {
+    const base = await runWith();
+    expect(base.hasShared).toBe(false);
+    expect(base.rest.found).toBeGreaterThan(0);
+    for (const message of ['offline', 'HTTP 500']) {
+      const { port } = fakePort([], { read: message });
+      const run = await runWith(port);
+      expect(run.rows).toEqual(base.rows);
+      expect(run.calls).toEqual(base.calls);
+      expect(run.rest).toEqual(base.rest);
+      expect(run.shared).toEqual({ fromStore: 0, sent: 0, error: message });
+      expect(port.readTracks).toHaveBeenCalledTimes(1);
+      expect(port.shareTracks).not.toHaveBeenCalled();
+    }
+  });
+
+  it('treats a port that throws as an offline one', async () => {
+    const base = await runWith();
+    const { port } = fakePort([]);
+    port.readTracks = vi.fn(async () => {
+      throw new Error('network down');
+    });
+    const run = await runWith(port);
+    expect(run.rows).toEqual(base.rows);
+    expect(run.calls).toEqual(base.calls);
+    expect(run.rest).toEqual(base.rest);
+    expect(run.shared).toEqual({
+      fromStore: 0,
+      sent: 0,
+      error: 'network down',
+    });
   });
 });

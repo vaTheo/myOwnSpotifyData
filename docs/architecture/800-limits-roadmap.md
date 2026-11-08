@@ -95,6 +95,18 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
       rows, which is the point); each user's data stays separate and nothing merges. The spec now says so.
     - F13: the key notation and the Automatic updates switch are per device, so a second person inherits them, and the device
       keeps every user's email in clear; the fix would be per-user preferences (a `meta` row each), only if the owner wants it.
+- Shared track and artist facts (F30, round 014, [ADR-15](700-adr/ADR-15-shared-track-facts.md)):
+  - A wrong shared value is fixed in the Supabase dashboard (Table Editor); no user can change or delete a row, and a valid but
+    wrong first value stays for everyone until then. `added_at` is client-writable but harmless.
+  - Partial rows are never completed: a store hit with only a BPM or only a key is final locally and for everyone.
+  - Release years are not shared, so the year pass still costs one request per track; the saving is on the by-id and ISRC passes.
+  - MusicBrainz and Deezer ids are not shared, so the reach shortcut saves only the ListenBrainz and Deezer-fans requests; the
+    Deezer-id-by-ISRC step still runs for artists whose fans came from the store.
+  - No screen for the store: the owner reads it in the dashboard only.
+  - The 200-id cap is on reads only; an insert batch is not bounded, so a signed-in user could fill the free tier (the owner adds every
+    user, so the trust model accepts it).
+  - No backfill: values found before the round are not uploaded; the owner clears the results and runs again (no button for it).
+  - The real-project run (`specs/014-shared-track-facts/quickstart.md`, T033) is the owner's and pending.
 
 ## 3. Out of scope, decided (not to be re-litigated without the owner)
 

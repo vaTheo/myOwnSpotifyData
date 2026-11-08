@@ -3,6 +3,17 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-08 — Shared BPM and key
+
+With the server set up, the BPM and key lookup and the artist reach lookup now ask your server first for what someone else on it
+already found, and ask ReccoBeats, ListenBrainz and Deezer only for the rest, so a second person's first run is much shorter. What
+is shared is a track's BPM, key and major or minor, and an artist's listeners and fans with the date: no row says whose it is, and
+your rekordbox values, plays, library, mixes and release years never leave your data. Settings · Audio data and Artist reach say how
+many numbers came from the store and how many were added. **Once, in the Supabase dashboard: run
+`supabase/migrations/0004_shared_facts.sql`.** Values found before this update are not contributed: to add them, clear the BPM and
+key results (and the reach results) and run the lookup again. Nobody can change or delete a shared row from the app; fix a wrong one
+in the dashboard. Decision: ADR-15 (amends ADR-14). Spec: `specs/014-shared-track-facts/`. No `DB_VERSION` bump.
+
 ## 2026-11-08 — The last Mix row clicked stays marked
 
 Spec: `specs/013-mix-row-last-clicked/`. In the open mix, the last row you click (its title, the Spotify icon that opens the app, a

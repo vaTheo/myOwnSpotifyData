@@ -20,6 +20,7 @@ import {
   wikidataBatches,
   type WikidataHit,
 } from './wikidata';
+import type { SharedFactsPort, SharedReachFact, SharedRunNote } from './shared';
 import { WIKIPEDIA_INTERVAL_MS, fetchPageviews } from './wikipedia';
 
 export const ARTIST_REACH_SUMMARY_META = 'artistReachSummary';
@@ -31,6 +32,15 @@ export const REACH_RETRY_LATER_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Three consecutive failures pause one source for the rest of the run. */
 export const MAX_SOURCE_FAILURES = 3;
+
+/** Round 014: ids per shared-store read (the port's own cap). */
+const SHARED_BATCH = 200;
+const DAY_MS = 86_400_000;
+/** The shared rows carry no MusicBrainz or Deezer id, so no source page. */
+const SHARED_SOURCE_URL = {
+  listenbrainz: 'https://listenbrainz.org/',
+  deezer: 'https://www.deezer.com/',
+} as const;
 
 /**
  * The five phases. `ReachSource` is the subset that produces a stored number
@@ -79,6 +89,8 @@ export type ReachState =
       summary: ArtistReachSummary;
       run: ReachRunCounts;
       paused: ReachStep[];
+      /** Only when the run had a shared store port. */
+      shared?: SharedRunNote;
     }
   | { status: 'error'; message: string; paused: ReachStep[] };
 
@@ -91,6 +103,8 @@ export interface ReachDeps {
   onState: (state: ReachState) => void;
   /** Optional: the run is long enough that the screen must stay awake. */
   acquireWakeLock?: () => Promise<() => Promise<void>>;
+  /** Round 014: absent means no call and no `shared` field in the result. */
+  shared?: SharedFactsPort;
 }
 
 export interface ReachCandidate {
@@ -152,6 +166,104 @@ export async function runReach(
   let done = 0;
   let total = 0;
   let failures = 0;
+  const port = deps.shared;
+  /** The first failed read or share switches the port off for this run. */
+  let sharedOff = false;
+  let sharedError: string | null = null;
+  let fromStore = 0;
+  let sent = 0;
+  /**
+   * Numbers this run measured outside, `ok` rows of the two shared sources
+   * only: a number taken from the store is never given back.
+   */
+  const shareQueue = new Map<string, SharedReachFact>();
+  const measuredOn = Date.parse(
+    `${new Date(startedAt).toISOString().slice(0, 10)}T00:00:00Z`
+  );
+
+  function sharedFailed(message: string): void {
+    sharedOff = true;
+    sharedError = message;
+    shareQueue.clear();
+  }
+
+  function queueShare(row: ArtistReachRow): void {
+    if (!port || sharedOff || row.status !== 'ok' || row.value === null) return;
+    if (row.source !== 'listenbrainz' && row.source !== 'deezer') return;
+    shareQueue.set(row.key, {
+      artistId: row.artistId,
+      source: row.source,
+      value: row.value,
+      measuredAt: measuredOn,
+    });
+  }
+
+  async function flushShare(): Promise<void> {
+    if (!port || sharedOff || shareQueue.size === 0) return;
+    const rows = [...shareQueue.values()];
+    shareQueue.clear();
+    try {
+      const res = await port.shareReach(rows);
+      if (res.ok) sent += res.value;
+      else sharedFailed(res.message);
+    } catch (err) {
+      sharedFailed(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  /** Fresh numbers other people measured become this run's local rows. */
+  async function consultShared(): Promise<void> {
+    if (!port) return;
+    const asked = candidates.filter(
+      (c) =>
+        reachDue(c.artistId, 'listenbrainz') || reachDue(c.artistId, 'deezer')
+    );
+    const taken = new Set<string>();
+    for (let i = 0; i < asked.length && !sharedOff; i += SHARED_BATCH) {
+      const part = asked.slice(i, i + SHARED_BATCH);
+      let res;
+      try {
+        res = await port.readReach(part.map((c) => c.artistId));
+      } catch (err) {
+        res = {
+          ok: false as const,
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+      if (!res.ok) {
+        sharedFailed(res.message);
+        return;
+      }
+      const wanted = new Set(part.map((c) => c.artistId));
+      // Newest row per artist and source; only young ones count.
+      const newest = new Map<string, SharedReachFact>();
+      for (const fact of res.value) {
+        if (!wanted.has(fact.artistId)) continue;
+        if (startedAt - fact.measuredAt >= REACH_TTL_MS) continue;
+        if (fact.measuredAt > startedAt + DAY_MS) continue;
+        const key = reachKey(fact.artistId, fact.source);
+        const prior = newest.get(key);
+        if (!prior || prior.measuredAt < fact.measuredAt) newest.set(key, fact);
+      }
+      for (const [key, fact] of newest) {
+        if (!reachDue(fact.artistId, fact.source)) continue;
+        await writeReach({
+          key,
+          artistId: fact.artistId,
+          source: fact.source,
+          status: 'ok',
+          value: fact.value,
+          fetchedAt: fact.measuredAt,
+          retryAfter: null,
+          sourceUrl: SHARED_SOURCE_URL[fact.source],
+        });
+        taken.add(key);
+      }
+    }
+    fromStore = new Set(
+      [...taken].map((key) => key.slice(0, key.lastIndexOf('|')))
+    ).size;
+  }
 
   function running(): void {
     deps.onState({ status: 'running', step, done, total, paused: [...paused] });
@@ -336,7 +448,7 @@ export async function runReach(
         if (record(false)) return;
         continue;
       }
-      await writeReach({
+      const lbRow: ArtistReachRow = {
         ...base,
         status: result.status,
         value: result.value,
@@ -344,7 +456,9 @@ export async function runReach(
           ? {}
           : { extra: { listens: result.listens } }),
         retryAfter: null,
-      });
+      };
+      await writeReach(lbRow);
+      queueShare(lbRow);
       advance();
       record(true);
     }
@@ -413,7 +527,7 @@ export async function runReach(
       }
       const fans = await fetchDeezerFans(artistId, deps);
       lookedUp.add(candidate.artistId);
-      await writeReach({
+      const dzRow: ArtistReachRow = {
         key: reachKey(candidate.artistId, 'deezer'),
         artistId: candidate.artistId,
         source: 'deezer',
@@ -422,7 +536,9 @@ export async function runReach(
         fetchedAt: startedAt,
         retryAfter: fans.status === 'retryLater' ? retryAt(null) : null,
         sourceUrl: fans.sourceUrl,
-      });
+      };
+      await writeReach(dzRow);
+      queueShare(dzRow);
       advance();
       if (record(fans.status !== 'retryLater')) return;
     }
@@ -612,9 +728,12 @@ export async function runReach(
     ? await deps.acquireWakeLock().catch(() => null)
     : null;
   try {
+    await consultShared();
     await musicbrainzPhase();
     await listenbrainzPhase();
+    await flushShare();
     await deezerPhase();
+    await flushShare();
     await wikidataPhase();
     await wikipediaPhase();
     const summary = await finish();
@@ -627,9 +746,11 @@ export async function runReach(
         unresolved: summary.artists - summary.covered,
       },
       paused: [...paused],
+      ...(port ? { shared: { fromStore, sent, error: sharedError } } : {}),
     });
   } catch (err) {
     const message = storageMessage(err);
+    await flushShare();
     try {
       // The gate is this record: a first run that wrote a few hundred rows
       // and then failed must not leave the pre-run card on screen.

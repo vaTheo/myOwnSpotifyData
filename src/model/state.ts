@@ -116,7 +116,9 @@ import {
 } from '../history/importer';
 import { LINK_BROWSER_MESSAGE, type ServerResult } from '../server/client';
 import { serverAuth, serverClient, serverConfigured } from '../server/browser';
+import type { SharedFactsPort } from '../features/shared';
 import { DATASETS } from '../server/datasets';
+import { createSharedFactsPort } from '../server/sharedFacts';
 import {
   pinnedScope,
   scopeEnabled,
@@ -158,7 +160,11 @@ import {
   type SyncState,
 } from '../sync/runner';
 import { formatDateTime } from '../ui/format';
-import { connectSignOutShown, signInRequired } from '../ui/signin/gate';
+import {
+  connectSignOutShown,
+  signInRequired,
+  sharedPortAllowed,
+} from '../ui/signin/gate';
 import { describeError, storageMessage } from '../util/errors';
 import { buildModel, type Model } from './aggregate';
 import {
@@ -581,6 +587,30 @@ export function connectSignOutVisible(): boolean {
     configured: serverConfigured,
     demo: import.meta.env.DEV && demoVariant() !== null,
     signedIn: serverAuth.session.value !== null,
+  });
+}
+
+/**
+ * The shared track facts port (round 014, ADR-15) for one run, or `undefined`
+ * when the app must not talk to the shared store: no server settings, nobody
+ * signed in to the server, or the demo (which never talks to the server). A
+ * run that gets `undefined` behaves exactly as before the round.
+ *
+ * No new job: a store read and a share happen inside the lookup and reach
+ * runs, so `jobsBusy()` is unchanged. Nothing to reset on `disconnect`: the
+ * port holds no state and reads the session on each call.
+ */
+export function sharedPort(): SharedFactsPort | undefined {
+  const allowed = sharedPortAllowed({
+    configured: serverConfigured,
+    demo: import.meta.env.DEV && demoVariant() !== null,
+    signedIn: serverAuth.session.value !== null,
+  });
+  if (!allowed) return undefined;
+  return createSharedFactsPort({
+    client: serverClient,
+    getToken: () => serverAuth.getAccessToken(),
+    now: Date.now,
   });
 }
 
@@ -1393,6 +1423,7 @@ export async function startLookup(opts: JobOptions = {}): Promise<void> {
       onState: (state) => {
         lookupState.value = state;
       },
+      shared: sharedPort(),
     },
     candidateIds(m),
     [...m.features.values()],
@@ -1470,6 +1501,7 @@ export async function startReach(opts: JobOptions = {}): Promise<void> {
       },
       acquireWakeLock:
         !auto && 'wakeLock' in navigator ? acquireWakeLock : undefined,
+      shared: sharedPort(),
     },
     reachCandidates(m),
     [...m.identities.values()],
