@@ -45,6 +45,8 @@ export interface SessionDeps {
   navigate: (url: string) => void;
   clientId: string;
   redirectUri: () => string;
+  /** Read at each Connect: true when this device knows more than one person. */
+  showDialog?: () => boolean;
 }
 
 export interface SessionStore {
@@ -110,6 +112,7 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
         scope: SCOPES,
         state: record.state,
         codeChallenge: await challengeFor(record.verifier),
+        showDialog: deps.showDialog?.() ?? false,
       })
     );
   }

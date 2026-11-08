@@ -1,6 +1,7 @@
 import { demoVariant, memoryStorage } from '../dev/flag';
 import { CLIENT_ID, redirectUri } from '../env';
-import { scopedView } from '../server/scopeBrowser';
+import { scopeEnabled, scopeStorage, scopedView } from '../server/scopeBrowser';
+import { readDeviceUsers } from '../server/userScope';
 import {
   PKCE_KEY,
   SCOPES,
@@ -35,6 +36,22 @@ function sessionStorageFor(): StorageLike {
   });
 }
 
+/**
+ * True when more than one person has signed in on this device (ADR-13): the
+ * Spotify Connect then asks for Spotify's account screen, so the next person
+ * is never connected to the previous one's still logged in Spotify account.
+ * One person (or no server, or blocked storage): today's URL, unchanged.
+ */
+function sharedDevice(): boolean {
+  const storage = scopeStorage();
+  if (!scopeEnabled() || !storage) return false;
+  try {
+    return readDeviceUsers(storage).length > 1;
+  } catch {
+    return false;
+  }
+}
+
 export const auth = createSessionStore({
   storage: sessionStorageFor(),
   fetchFn: (input, init) => fetch(input, init),
@@ -42,4 +59,5 @@ export const auth = createSessionStore({
   navigate: (url) => location.assign(url),
   clientId: CLIENT_ID,
   redirectUri,
+  showDialog: sharedDevice,
 });

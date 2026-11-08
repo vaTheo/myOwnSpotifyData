@@ -56,6 +56,23 @@ describe('buildAuthorizeUrl', () => {
       code_challenge_method: 'S256',
       code_challenge: 'ch',
     });
+    expect(url.searchParams.has('show_dialog')).toBe(false);
+  });
+
+  it('asks Spotify to show its account screen on a shared device', () => {
+    const base = {
+      clientId: 'cid',
+      redirectUri: 'https://x.test/app/',
+      scope: 's',
+      state: 'st',
+      codeChallenge: 'ch',
+    };
+    const shared = new URL(buildAuthorizeUrl({ ...base, showDialog: true }));
+    expect(shared.searchParams.get('show_dialog')).toBe('true');
+    // One person on this device: today's URL, unchanged.
+    expect(buildAuthorizeUrl({ ...base, showDialog: false })).toBe(
+      buildAuthorizeUrl(base)
+    );
   });
 });
 
