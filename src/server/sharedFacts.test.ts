@@ -1,7 +1,11 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getFeatures, wipeDb } from '../db/repo';
+import type { ArtistIdentityRow } from '../db/schema';
+import { DEEZER_API } from '../features/deezer';
+import { LISTENBRAINZ_STATS_URL } from '../features/listenbrainz';
 import { runLookup, type LookupState } from '../features/lookup';
+import { runReach, type ReachState } from '../features/reachRun';
 import { RECCOBEATS_TRACK_URL, RECCOBEATS_URL } from '../features/reccobeats';
 import type { ServerResult } from './client';
 import { createServerClient } from './client';
@@ -498,5 +502,137 @@ describe('two users, one shared store (SC-001, SC-002)', () => {
         ]);
       }
     }
+  });
+});
+
+describe('two users, one shared store, artist reach (SC-005)', () => {
+  const reachNow = Date.parse('2026-11-08T12:00:00Z');
+  const ids = ['artist000000000000000a', 'artist000000000000000b'];
+  const known = (artistId: string, n: number): ArtistIdentityRow => ({
+    artistId,
+    name: artistId,
+    mbid: `mb-${n}`,
+    mbidStatus: 'ok',
+    qid: 'Q9',
+    qidStatus: 'ok',
+    qidCheckedAt: reachNow,
+    sitelinks: null,
+    wikiTitles: { en: null, fr: null },
+    deezerArtistId: n,
+    deezerName: artistId,
+    deezerStatus: 'ok',
+    resolvedAt: reachNow,
+    retryAfter: null,
+  });
+
+  it('B makes no ListenBrainz or Deezer fans request for what A measured, and the newest row wins', async () => {
+    // The fake of get_artist_reach (newest row per artist and source) and the
+    // ignore-duplicates insert, keyed like the table.
+    const store = new Map<string, Record<string, unknown>>();
+    const respond = (url: string, init?: RequestInit): Response => {
+      if (url.endsWith('/rpc/get_artist_reach')) {
+        const asked = bodyOf(init).ids as string[];
+        const newest = new Map<string, Record<string, unknown>>();
+        for (const row of store.values()) {
+          if (!asked.includes(row.artist_id as string)) continue;
+          const k = `${row.artist_id}|${row.source}`;
+          const prior = newest.get(k);
+          if (!prior || String(prior.measured_on) < String(row.measured_on)) {
+            newest.set(k, row);
+          }
+        }
+        return ok([...newest.values()]);
+      }
+      if (url.includes('/rest/v1/shared_artist_reach')) {
+        for (const row of bodyOf(init) as Record<string, unknown>[]) {
+          const k = `${row.artist_id}|${row.source}|${row.measured_on}`;
+          if (!store.has(k)) store.set(k, row);
+        }
+        return new Response(null, { status: 201 });
+      }
+      return ok({ message: 'unexpected' }, 404);
+    };
+    const client = createServerClient({
+      fetchFn: vi.fn<FetchLike>(async (url, init) =>
+        respond(url, init)
+      ) as unknown as typeof fetch,
+      baseUrl: 'https://p.supabase.co',
+      apiKey: 'k',
+      now: () => reachNow,
+    });
+    const portFor = (token: string) =>
+      createSharedFactsPort({
+        client,
+        getToken: async () => ({ ok: true, value: token }),
+        now: () => reachNow,
+      });
+
+    async function runUser(token: string, artists: string[]) {
+      await wipeDb();
+      const outside: string[] = [];
+      const states: ReachState[] = [];
+      await runReach(
+        {
+          fetchFn: (async (input: string | URL) => {
+            const url = String(input);
+            outside.push(url);
+            if (url.startsWith(LISTENBRAINZ_STATS_URL)) {
+              return ok({
+                payload: {
+                  artist_name: 'x',
+                  total_user_count: 100,
+                  total_listen_count: 1,
+                },
+              });
+            }
+            return ok({ results: { bindings: [] } });
+          }) as unknown as typeof fetch,
+          jsonpFn: async (url: string) => {
+            outside.push(url);
+            return { nb_fan: 500 };
+          },
+          sleep: async () => {},
+          now: () => reachNow,
+          onState: (st) => states.push(st),
+          shared: portFor(token),
+        },
+        artists.map((artistId) => ({ artistId, name: 'x', isrcs: [] })),
+        artists.map((a) => known(a, ids.indexOf(a) + 1)),
+        []
+      );
+      return { outside, last: states.at(-1) };
+    }
+    const measuring = (urls: string[]) =>
+      urls.filter(
+        (u) => u.startsWith(LISTENBRAINZ_STATS_URL) || u.startsWith(DEEZER_API)
+      );
+
+    // A measures both artists outside and gives the numbers.
+    const a = await runUser('tokA', ids);
+    expect(measuring(a.outside)).toHaveLength(4);
+    expect(store.size).toBe(4);
+
+    // B, the same day, asks nothing for them.
+    const b = await runUser('tokB', ids);
+    expect(measuring(b.outside)).toEqual([]);
+    expect(b.last).toMatchObject({
+      status: 'done',
+      shared: { fromStore: 2, sent: 0, error: null },
+    });
+
+    // An older row (an earlier measured_on) never replaces the newer one.
+    store.set(`${ids[0]}|deezer|2026-11-07`, {
+      artist_id: ids[0],
+      source: 'deezer',
+      measured_on: '2026-11-07',
+      value: 777,
+    });
+    const read = await portFor('tokB').readReach([ids[0]!]);
+    expect(
+      read.ok && read.value.find((r) => r.source === 'deezer')
+    ).toMatchObject({
+      value: 500,
+      measuredAt: Date.parse('2026-11-08T00:00:00Z'),
+    });
   });
 });
