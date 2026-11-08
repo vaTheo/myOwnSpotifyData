@@ -108,7 +108,9 @@ import {
 } from '../history/importer';
 import { LINK_BROWSER_MESSAGE, type ServerResult } from '../server/client';
 import { serverAuth, serverClient, serverConfigured } from '../server/browser';
+import type { SharedFactsPort } from '../features/shared';
 import { DATASETS } from '../server/datasets';
+import { createSharedFactsPort } from '../server/sharedFacts';
 import {
   pinnedScope,
   scopeEnabled,
@@ -573,6 +575,27 @@ export function connectSignOutVisible(): boolean {
     configured: serverConfigured,
     demo: import.meta.env.DEV && demoVariant() !== null,
     signedIn: serverAuth.session.value !== null,
+  });
+}
+
+/**
+ * The shared track facts port (round 014, ADR-15) for one run, or `undefined`
+ * when the app must not talk to the shared store: no server settings, nobody
+ * signed in to the server, or the demo (which never talks to the server). A
+ * run that gets `undefined` behaves exactly as before the round.
+ *
+ * No new job: a store read and a share happen inside the lookup and reach
+ * runs, so `jobsBusy()` is unchanged. Nothing to reset on `disconnect`: the
+ * port holds no state and reads the session on each call.
+ */
+export function sharedPort(): SharedFactsPort | undefined {
+  if (!serverConfigured) return undefined;
+  if (!serverAuth.session.value) return undefined;
+  if (import.meta.env.DEV && demoVariant() !== null) return undefined;
+  return createSharedFactsPort({
+    client: serverClient,
+    getToken: () => serverAuth.getAccessToken(),
+    now: Date.now,
   });
 }
 
