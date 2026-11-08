@@ -199,7 +199,8 @@ function SpotifyCell(p: {
       <button
         type="button"
         class="mix-spotify-text notFound mix-link-open"
-        aria-label={link}
+        // The visible words start the name (WCAG 2.5.3, label in name).
+        aria-label={`${STATUS_TEXT.notFound}: link a Spotify track to ${nameOf(row)}`}
         title={link}
         onClick={p.onLink}
       >

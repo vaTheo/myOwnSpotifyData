@@ -308,7 +308,8 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   row (its title, the Spotify play icon, a Shazam or SoundCloud icon, the
   menu) and it keeps the selected colour with a chartreuse bar on its left
   and glowing lines above and below it, so when you come back from Spotify
-  or another tab you see where you were. It follows the track when you sort
+  or another tab you see where you were. With the keyboard, Enter or Space
+  on a row marks it too. It follows the track when you sort
   or filter and stays while you edit or link it. Deleting a row, opening
   another mix, or replacing the whole list (a paste, the description,
   reopening the mix) clears it; it is not saved.

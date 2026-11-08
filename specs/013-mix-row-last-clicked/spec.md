@@ -41,7 +41,7 @@ Everything inside a marked row remains legible and keeps its meaning: text, mute
 1. **Given** a marked row, **When** it is shown, **Then** all text reaches contrast 4.5:1 and all icons, status marks and control outlines 3:1 on the selected background (see colour-analysis.md for each pair).
 2. **Given** a marked row with a not-found mark, **When** shown, **Then** the mark is still red and still distinguishable from a found mark.
 3. **Given** the pointer over a marked row, **When** hovering, **Then** the row stays in the selected colour (hover adds its light layer, it never removes the mark).
-4. **Given** keyboard focus on a marked row, **When** shown, **Then** the focus ring stays visible on the selected background.
+4. **Given** keyboard focus on a marked row, **When** shown, **Then** the focus ring stays visible on the selected background, in a colour other than the bar and lines.
 5. **Given** a marked row, **When** it is shown, **Then** its top line and bottom line glow chartreuse, so the row reads as framed even between two rows of the same shade.
 6. **Given** a marked row, **When** the colour cannot be told apart (high-contrast or forced-colours display, colour-blind owner), **Then** the row is still told apart by a second cue that is not a colour fill.
 
@@ -69,7 +69,7 @@ On a phone the rows are compact items; with the Edit or Link form open the row i
 
 - Gap rows (the "no track heard here" separators) can be marked like any row.
 - A click that starts a text selection (drag) still marks the row.
-- Keyboard users: moving focus to a row does not by itself mark it; pressing Enter or Space on a control in the row counts as a click.
+- Keyboard users: moving focus to a row does not by itself mark it; pressing Enter or Space on a control in the row counts as a click, and so does Enter or Space on the focused row itself.
 - Adding a row (Add track) marks the new row, since the owner is about to type in it.
 - The mark is not saved with the mix and is not synced; reloading clears it.
 
@@ -82,7 +82,7 @@ On a phone the rows are compact items; with the Edit or Link form open the row i
 - **FR-003**: A marked row MUST use the app's existing chartreuse selected colour pair (the same one list–detail rows use), so the app has one selected look.
 - **FR-004**: Every colour used inside a marked row MUST meet the contrast targets in colour-analysis.md: text 4.5:1, icons, marks and control outlines 3:1.
 - **FR-005**: Status colours MUST keep their meaning on a marked row (not found stays red, found stays chartreuse with its icon shape).
-- **FR-006**: Hover MUST NOT remove the selected colour; focus MUST keep a visible ring on it.
+- **FR-006**: Hover MUST NOT remove the selected colour; focus MUST keep a visible ring on it, told from the edge bar and the lines: on a marked row the ring is `on-surface`, drawn inside the bar and lines with a band of the fill between (at least 3:1 on the selected fill and on the neutral form row).
 - **FR-007**: A marked row MUST carry a second cue besides its fill (a chartreuse edge bar), and MUST expose its state to assistive technology as selected.
 - **FR-007b**: The top and bottom lines of a marked row MUST be a glowing chartreuse (bright chartreuse line with a soft glow), on every layout (table row, phone item, open form row), without moving or resizing any row, and without hiding the neighbouring rows' text.
 - **FR-008**: The mark MUST follow the track through sort, filter, edits of the row, window-size changes and layout (computer table, phone compact item, open form).

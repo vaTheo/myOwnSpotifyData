@@ -106,7 +106,11 @@ async function settleRows(page: Page, keep?: string): Promise<void> {
       ...document.querySelectorAll<HTMLElement>(
         'button, a[href], select, input, [role=tab]'
       ),
-    ].filter((el) => !el.closest('header'));
+    ]
+      // The main navigation (rail, bottom bar) is fixed: no scroll moves it,
+      // and its first link straddles the bar's height on the rail, so
+      // counting it left no place clear at computer widths.
+      .filter((el) => !el.closest('header, nav[aria-label="Main"]'));
     // The top bar's own controls (the search field, S09): a target under
     // the bar must not share any of their pixels either.
     const barTargets = [
@@ -151,6 +155,28 @@ async function settleRows(page: Page, keep?: string): Promise<void> {
     }
     window.scrollTo(0, start);
   }, keep);
+}
+
+/** Marks the third track row (a click on its title) and returns it. */
+async function markThirdRow(page: Page) {
+  await openGrid(page);
+  const row = page
+    .getByRole('grid', { name: 'Tracklist' })
+    .locator('[role=row][data-row-id]')
+    .filter({ has: page.getByRole('button', { name: /^More for / }) })
+    .nth(2);
+  await row.getByRole('gridcell').nth(1).click();
+  await page.mouse.move(0, 0);
+  return row;
+}
+
+/** One row of the tracklist marked. */
+async function markedOnce(page: Page): Promise<string[]> {
+  const n = await page
+    .getByRole('grid', { name: 'Tracklist' })
+    .locator('[role=row][aria-selected="true"]')
+    .count();
+  return n === 1 ? [] : [`${n} rows marked, expected 1`];
 }
 
 /**
@@ -1725,6 +1751,42 @@ export const PAGES: ShotPage[] = [
       (await page.getByText(/^Hidden, not deleted/).count())
         ? []
         : ['no caption with a decade on'],
+  },
+  {
+    // The last row clicked stays marked (round 013): the fill, the edge
+    // bar, the glowing top and bottom lines; the pointer moved away.
+    id: 'mix-marked',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await markThirdRow(page);
+      await settleRows(page);
+    },
+    expect: markedOnce,
+  },
+  {
+    // The marked row reached with the keyboard: its focus ring is told
+    // from the bar and the lines (round 013, FR-006).
+    id: 'mix-marked-focus',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await markThirdRow(page);
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('ArrowUp');
+      await settleRows(page);
+    },
+    expect: markedOnce,
+  },
+  {
+    // The marked row's Edit form: the neutral surface, the bar and lines.
+    id: 'mix-marked-edit',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      const row = await markThirdRow(page);
+      await row.getByRole('button', { name: /^More for / }).click();
+      await page.getByRole('menuitem', { name: 'Edit' }).click();
+      await settleRows(page);
+    },
+    expect: markedOnce,
   },
   {
     // The look-up's third pass, seen from the Activity button (§5).

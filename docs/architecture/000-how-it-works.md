@@ -375,7 +375,7 @@ screen, grouped by role under `src/ui/`.
   A list–detail table passes `selectedKey` and `onOpen`; a table may instead mark its last row clicked (round 013, the Mix
   tracklist): `markedKey` (passed, even null, every row says `aria-selected` and the marked one is drawn selected) and `onMark`,
   called from a capture-phase click on every row element (table row, phone item, full row), neither stopped nor prevented, so a
-  link or button inside still acts. Selected beats hover (`styles.css`): hovering a selected row lays a hover layer over its fill.
+  link or button inside still acts; Enter or Space on the focused row element itself calls `onMark` too. Selected beats hover (`styles.css`): hovering a selected row lays a hover layer over its fill.
 - **Details and list–detail**: `layout/SideSheet.tsx` docks the sheet at 400 px on large windows, a modal on medium and
   expanded, full screen on compact; `details/TrackDetails.tsx` with the pure `trackFacts.ts` shows everything the app holds for a
   track. `layout/ListDetail.tsx` puts Playlists, Artists and the Mixes list beside the open item from 840 px; on compact the item
@@ -473,7 +473,8 @@ screen, grouped by role under `src/ui/`.
   Shazam (the stored page, while the row is the scan's) and SoundCloud (the search page for artist and title, every identified
   row; gap and "ID" rows never).
 - **Link a Spotify track** (round 012): a not-found row's red mark (computer: the Spotify column's icon button; phone: the "Not
-  found on Spotify" text as a 48 px button) is labelled "Link a Spotify track to <track>" and opens `ui/mix/LinkForm.tsx` in the
+  found on Spotify" text as a 48 px button, named "Not found on Spotify: link a Spotify track to <track>" so the words it shows start
+  its name) is labelled "Link a Spotify track to <track>" and opens `ui/mix/LinkForm.tsx` in the
   row's place, as Edit does (`fullRow`; `keyOf` gives the linking row its own key): a "Spotify track link" field, Link, Cancel, and
   Remove link when the row is already hand-linked; a refusal shows under the field ("Paste a Spotify track link.", "That is not a
   Spotify track link.", "This row has no track name to link."). On a hand-linked row, More adds **Replace link** (the form opens on the current link) and **Remove
@@ -483,7 +484,8 @@ screen, grouped by role under `src/ui/`.
   saved or synced) through the pure `markAfter` of `ui/mix/rowMark.ts` (§10) and hands `DataTable` `markedKey` (through `keyOf`, so
   the Edit and Link form rows stay marked) and `onMark`. Sort, filter and decade keep it on the same track; a filter that hides it
   marks nothing. Look: §13 Tables and the design guide "One selected look" (fill, `--app-mark-*` bar, lines and glow, hover as a
-  layer, neutral form row, a forced-colours outline); `aria-selected="true"` on the marked row.
+  layer, neutral form row, an `on-surface` focus ring inside the cues, a forced-colours outline); `aria-selected="true"` on the
+  marked row; Enter or Space on a focused row marks it.
 
 ## 14. Jobs and state (`model/state.ts`)
 

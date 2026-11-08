@@ -12,7 +12,10 @@ selected colour (`primary-container`), a chartreuse bar on its left edge and glo
 Add track makes, and clears on Delete, on opening another mix and when a paste, the description, a lookup or reopening the mix replaces
 every row. Fixed on the way: hovering a selected row (the playlist, artist or mix open beside its list) showed the grey hover instead
 of the selected colour; selected now wins and hover is a light layer over it. New size tokens `--app-mark-bar`, `--app-mark-line` and
-`--app-mark-halo`; no stored field, no `DB_VERSION` bump, no request, no new ADR.
+`--app-mark-halo`; no stored field, no `DB_VERSION` bump, no request, no new ADR. Polish: the bottom line now sits at the row's edge
+like the top one (no grey hairline under it), a focused marked row's keyboard ring is light (`on-surface`) inside the chartreuse
+cues so focus is told from the mark, and Enter or Space on a focused row marks it. The phone "Not found on Spotify" button's
+screen-reader name now starts with those words ("Not found on Spotify: link a Spotify track to …", WCAG 2.5.3).
 
 ## 2026-11-08 — Link a Spotify track to a not-found row
 

@@ -157,7 +157,8 @@ export function DataTable<Row>(p: {
   markedKey?: string | null;
   /**
    * Any click inside a row, a cell, link or button alike (capture phase,
-   * neither stopped nor prevented, so the control still acts).
+   * neither stopped nor prevented, so the control still acts), and Enter or
+   * Space on the focused row itself.
    */
   onMark?: (row: Row) => void;
   /** Heading rows between groups (Under the radar); kept in order. */
@@ -306,6 +307,13 @@ export function DataTable<Row>(p: {
     if (e.key === 'Enter' && p.onOpen) {
       e.preventDefault();
       p.onOpen(visible[index].row);
+      return;
+    }
+    // A marking table (Mix): Enter or Space on the focused row marks it,
+    // as a click would. Keys typed in a control of the row never get here.
+    if ((e.key === 'Enter' || e.key === ' ') && p.onMark) {
+      e.preventDefault();
+      p.onMark(visible[index].row);
       return;
     }
     const next = moveIndex(index, e.key, visible.length, 10);

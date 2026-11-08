@@ -1453,12 +1453,29 @@ a {
 .mix-tracklist .dt-body .dt-item[aria-selected='true'],
 .mix-tracklist .dt-body .dt-full[aria-selected='true'] {
   position: relative;
+  /* The bottom line reaches the edge: the row's 1 px border takes the
+     line's colour and the inset shadow draws the rest, so the line is
+     --app-mark-line tall like the top one, with no layout shift. */
+  border-bottom-color: var(--md-sys-color-primary);
   box-shadow:
     inset var(--app-mark-bar) 0 0 var(--md-sys-color-primary),
     inset 0 var(--app-mark-line) 0 var(--md-sys-color-primary),
-    inset 0 calc(-1 * var(--app-mark-line)) 0 var(--md-sys-color-primary),
+    inset 0 calc(1px - var(--app-mark-line)) 0 var(--md-sys-color-primary),
     0 0 var(--app-mark-halo)
       color-mix(in srgb, var(--md-sys-color-primary) 60%, transparent);
+}
+
+/* A focused marked row (FR-006): the ring is `on-surface`, drawn inside
+   the bar and the lines with a band of the row's fill between, so it is
+   told from them (7.24:1 on the selected fill, 12.71:1 on the neutral
+   form row). */
+.mix-tracklist .dt-body .dt-row[aria-selected='true']:focus-visible,
+.mix-tracklist .dt-body .dt-item[aria-selected='true']:focus-visible,
+.mix-tracklist .dt-body .dt-full[aria-selected='true']:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-on-surface);
+  outline-offset: calc(
+    -1 * (var(--app-mark-bar) + var(--app-focus-ring) + var(--app-mark-line))
+  );
 }
 
 /* Shadows are dropped in forced colours: a real outline marks the row. */

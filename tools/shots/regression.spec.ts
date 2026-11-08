@@ -2157,6 +2157,17 @@ test.describe('Y. release year', () => {
     await marked.getByRole('button', { name: 'Cancel' }).click();
     await expect(byId(shazamId)).toHaveAttribute('aria-selected', 'true');
 
+    // Enter on a focused row marks it; then Space marks the next one.
+    await byId(titleId).focus();
+    await page.keyboard.press('Enter');
+    await expect(byId(titleId)).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press(' ');
+    await expect(marked).toHaveCount(1);
+    await expect(byId(titleId)).toHaveAttribute('aria-selected', 'false');
+    await byId(shazamId).getByRole('gridcell').first().click();
+    await expect(byId(shazamId)).toHaveAttribute('aria-selected', 'true');
+
     // Delete clears the mark.
     await byId(shazamId)
       .getByRole('button', { name: /^More for / })
