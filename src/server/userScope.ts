@@ -134,6 +134,27 @@ export function scopeChangedElsewhere(
   return scopeOf(storage, enabled) !== pinned;
 }
 
+/** The server session's key (`session.ts` SESSION_KEY; a test keeps them equal). */
+export const SERVER_SESSION_KEY = 'server-session';
+
+/**
+ * A `storage` event from another tab (`key`, null for a clear; `newValue`)
+ * started or ended the server session: true when this page must reload. A
+ * page on the sign-in screen reloads when a session appears; a signed-in
+ * page reloads when it disappears, even when the scope stays the same (the
+ * claimer signing out elsewhere moves no name, so `scopeChangedElsewhere`
+ * says nothing). A refresh rewriting the session is not a change.
+ */
+export function sessionChangedElsewhere(
+  key: string | null,
+  newValue: string | null,
+  signedInHere: boolean
+): boolean {
+  if (key === null) return signedInHere;
+  if (key !== SERVER_SESSION_KEY) return false;
+  return signedInHere ? newValue === null : newValue !== null;
+}
+
 /** True when the page must reload to leave one user's data for another's. */
 export function reloadNeeded(
   previous: string | null,

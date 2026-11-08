@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect } from 'preact/hooks';
 import {
+  deviceUserCount,
   jobsBusy,
   loadServerPending,
   removeServerData,
   serverLastSyncAt,
-  serverLinkSent,
   serverPending,
   serverPendingError,
   serverSession,
   serverState,
-  startServerLink,
   startServerSignOut,
   startServerSync,
   SERVER_FREE_BYTES,
@@ -19,9 +18,9 @@ import { Card } from '../components/Card';
 import { NoData } from '../components/NoData';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
-import { TextField } from '../components/TextField';
 import { formatDateTime, plural } from '../format';
-import { pendingLine, usedShare } from './lines';
+import { ServerLinkForm } from '../signin/ServerLinkForm';
+import { deviceUsersLine, pendingLine, usedShare } from './lines';
 import { sectionDomId } from './sections';
 
 const DESCRIPTION =
@@ -29,37 +28,13 @@ const DESCRIPTION =
 
 /** The sign-in form of the server section: an email, a magic link (research D3). */
 function ServerSignIn() {
-  const [email, setEmail] = useState('');
-  const sent = serverLinkSent.value;
   return (
     <>
       <StatusLine>
         Sign in to your server with a link sent to your email. Open the link in
         this browser, within 10 minutes.
       </StatusLine>
-      <div class="settings-sign-in">
-        <TextField
-          type="email"
-          placeholder="Email"
-          aria-label="Email"
-          autocomplete="email"
-          value={email}
-          onValue={setEmail}
-        />
-        <Button
-          variant="filled"
-          disabled={email.trim() === ''}
-          onClick={() => void startServerLink(email)}
-        >
-          Send me a link
-        </Button>
-      </div>
-      {sent !== null && (
-        <StatusLine kind="success">
-          If this email has an account, a link was sent to {sent}. Open it in
-          this browser within 10 minutes.
-        </StatusLine>
-      )}
+      <ServerLinkForm />
     </>
   );
 }
@@ -82,6 +57,7 @@ export function ServerSection() {
   }, []);
   const pending = serverPending.value;
   const pendingError = serverPendingError.value;
+  const people = deviceUsersLine(deviceUserCount());
   if (state.status === 'unset') {
     return (
       <Card
@@ -127,8 +103,9 @@ export function ServerSection() {
       ) : (
         <>
           <StatusLine kind="success">
-            Connected as {session.email || 'the owner'}.
+            Signed in as {session.email || 'the owner'}.
           </StatusLine>
+          {people && <StatusLine>{people}.</StatusLine>}
           {pending && <StatusLine>{pendingLine(pending)}</StatusLine>}
           {pendingError && <StatusLine kind="error">{pendingError}</StatusLine>}
           {state.status === 'connected' && (
@@ -217,7 +194,7 @@ export function ServerSection() {
           </div>
           <p class="muted">
             Sign out keeps your data here and on the server. Remove server data
-            deletes everything on the server and keeps this browser's copy.
+            deletes all your data on the server and keeps this browser's copy.
           </p>
         </>
       )}

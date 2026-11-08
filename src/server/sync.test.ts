@@ -802,6 +802,30 @@ describe('runRemoveAll and readUsage', () => {
     expect(state.metas.accountId).toBe('acc');
   });
 
+  it("removes only the signed-in user's rows: the session's token, the owner filter alone (RLS, round 009 T016)", async () => {
+    const fake = seededServer();
+    const seen: [string, Record<string, string>, string][] = [];
+    const remove = fake.client.remove;
+    fake.client.remove = async (table, query, token) => {
+      seen.push([table, query, token]);
+      return remove(table, query, token);
+    };
+    const { repo } = fakeRepo(emptyRows(), { accountId: 'acc' });
+    const res = await runRemoveAll(
+      deps(fake, repo, { token: async () => ({ ok: true, value: 'user-b' }) }).d
+    );
+    expect(res.ok).toBe(true);
+    // Every delete is the caller's: owner_id = auth.uid() (rules.test.ts)
+    // picks the rows; no filter widens or narrows it to a Spotify account.
+    expect(seen).toEqual(
+      ['dataset_rows', 'datasets', 'mixes', 'jobs'].map((t) => [
+        t,
+        { owner_id: 'not.is.null' },
+        'user-b',
+      ])
+    );
+  });
+
   it('a failure on one table stops and names it; the metas are kept', async () => {
     const fake = seededServer();
     const failing = fake.client.remove;

@@ -1,6 +1,12 @@
 import type { StorageLike } from '../auth/session';
 import { SUPABASE_KEY, SUPABASE_URL } from '../env';
-import { dbNameIn, keyIn, scopeChangedElsewhere, scopeOf } from './userScope';
+import {
+  dbNameIn,
+  keyIn,
+  scopeChangedElsewhere,
+  scopeOf,
+  sessionChangedElsewhere,
+} from './userScope';
 
 /**
  * The browser side of `userScope` (ADR-13): which user's names this page
@@ -89,7 +95,7 @@ export function scopedView(
 interface StorageEventTarget {
   addEventListener(
     type: 'storage',
-    listener: (e: { key: string | null }) => void
+    listener: (e: { key: string | null; newValue?: string | null }) => void
   ): void;
 }
 
@@ -112,6 +118,27 @@ export function watchScope(
       if (scopeChangedElsewhere(e.key, storage, enabled, mine)) reload();
     } catch {
       // Storage became unreadable: keep the page as it is.
+    }
+  });
+}
+
+/**
+ * Reloads the page when another tab signs in to the server (this page shows
+ * the sign-in screen) or signs out of it (this page is signed in). Installed
+ * once from boot, beside `watchScope`. `signedIn` reads this page's session
+ * at event time; the server client stays out of this module.
+ */
+export function watchSession(
+  signedIn: () => boolean,
+  target: StorageEventTarget | undefined = typeof window === 'undefined'
+    ? undefined
+    : window,
+  reload: () => void = () => location.reload()
+): void {
+  if (!target) return;
+  target.addEventListener('storage', (e) => {
+    if (sessionChangedElsewhere(e.key, e.newValue ?? null, signedIn())) {
+      reload();
     }
   });
 }

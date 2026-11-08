@@ -783,6 +783,21 @@ describe('per-user names (ADR-13)', () => {
     await wipeDb();
   });
 
+  it("Disconnect's wipeDb for a non-claimer deletes only that user's database (T016)", async () => {
+    scope(OWNER, true);
+    await wipeDb();
+    await putMeta('accountId', 'owner');
+    await closeDb();
+    scope(OTHER, true);
+    await putMeta('accountId', 'other');
+    await wipeDb();
+    const names = (await indexedDB.databases()).map((d) => d.name);
+    expect(names).not.toContain(`spotify-dj-u-${OTHER}`);
+    expect(names).toContain('spotify-dj');
+    scope(OWNER, true);
+    await expect(getMeta('accountId')).resolves.toBe('owner');
+  });
+
   it('the claimer keeps every row of an existing version 4 database', async () => {
     await closeDb();
     await wipeDb();

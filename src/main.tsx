@@ -16,7 +16,8 @@ import {
   startServerSync,
 } from './model/state';
 import { installAutoSync } from './server/autoSync';
-import { watchScope } from './server/scopeBrowser';
+import { watchScope, watchSession } from './server/scopeBrowser';
+import { serverAuth } from './server/browser';
 import { LINK_MARKER } from './server/session';
 import { parseRoute } from './router';
 import { AuthError } from './spotify/errors';
@@ -43,8 +44,11 @@ async function boot(): Promise<void> {
     location.reload();
     return;
   }
-  // Another tab signing in or out as someone else reloads this one (FR-002).
+  // Another tab signing in or out as someone else reloads this one (FR-002);
+  // so does a sign-in elsewhere while this page shows the sign-in screen, and
+  // a sign-out elsewhere while this one is signed in, whatever the scope.
   watchScope();
+  watchSession(() => serverAuth.session.value !== null);
   // A server is set up and nobody is signed in to it (or the stored session
   // was just refused): only the sign-in screen, and nothing is read, synced
   // or started (round 009, FR-002).

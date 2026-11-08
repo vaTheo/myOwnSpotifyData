@@ -1,6 +1,7 @@
-import { disconnect, jobsBusy } from '../../model/state';
+import { disconnect, jobsBusy, serverState } from '../../model/state';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { dangerDescription } from './lines';
 import { sectionDomId } from './sections';
 
 /**
@@ -14,7 +15,7 @@ export function DangerZone() {
       id={sectionDomId('danger')}
       class="settings-section settings-danger"
       title="Danger zone"
-      description="Removes the Spotify login and deletes every cached playlist and play count from this browser. Server data is kept."
+      description={dangerDescription(serverState.value.status !== 'unset')}
     >
       <div class="actions">
         <Button

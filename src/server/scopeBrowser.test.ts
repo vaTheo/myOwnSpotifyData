@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { StorageLike } from '../auth/session';
+import {
+  PKCE_KEY,
+  SESSION_KEY,
+  createSessionStore,
+  type StorageLike,
+} from '../auth/session';
 import {
   pinnedScope,
   scopedDbName,
@@ -7,6 +12,7 @@ import {
   scopedView,
   setScopeForTests,
   watchScope,
+  watchSession,
 } from './scopeBrowser';
 import { activate, writeActive } from './userScope';
 
@@ -73,5 +79,57 @@ describe('scopeBrowser', () => {
 
   it('watchScope is a no-op without a window', () => {
     expect(() => watchScope(undefined)).not.toThrow();
+  });
+
+  it('watchSession reloads the sign-in screen on a sign-in elsewhere, a signed-in page on a sign-out', () => {
+    type L = (e: { key: string | null; newValue?: string | null }) => void;
+    let listener: L | null = null;
+    const reload = vi.fn();
+    let signedIn = false;
+    watchSession(
+      () => signedIn,
+      { addEventListener: (_t, l) => void (listener = l) },
+      reload
+    );
+    listener!({ key: 'server-session', newValue: null });
+    expect(reload).not.toHaveBeenCalled();
+    listener!({ key: 'server-session', newValue: '{"accessToken":"t"}' });
+    expect(reload).toHaveBeenCalledTimes(1);
+    signedIn = true;
+    listener!({ key: 'server-session', newValue: '{"accessToken":"u"}' });
+    expect(reload).toHaveBeenCalledTimes(1);
+    listener!({ key: 'server-session', newValue: null });
+    expect(reload).toHaveBeenCalledTimes(2);
+  });
+
+  it('watchSession is a no-op without a window', () => {
+    expect(() => watchSession(() => false, undefined)).not.toThrow();
+  });
+
+  it("Disconnect's clearAll for a non-claimer leaves the claimer's Spotify keys (T016)", () => {
+    const s = mem();
+    activate(s, { userId: A, email: '' }, true);
+    activate(s, { userId: B, email: '' }, true);
+    s.setItem(SESSION_KEY, '{"accessToken":"owner"}');
+    s.setItem(PKCE_KEY, '{"verifier":"owner"}');
+    s.setItem(`${SESSION_KEY}:${B}`, '{"accessToken":"b"}');
+    s.setItem(`${PKCE_KEY}:${B}`, '{"verifier":"b"}');
+    setScopeForTests({ storage: s, enabled: true });
+    const auth = createSessionStore({
+      storage: scopedView(s, [SESSION_KEY, PKCE_KEY]),
+      fetchFn: (() => {
+        throw new Error('no network');
+      }) as unknown as typeof fetch,
+      now: () => 0,
+      navigate: () => undefined,
+      clientId: 'cid',
+      redirectUri: () => 'https://x.test/app/',
+    });
+    expect(auth.session.value?.accessToken).toBe('b');
+    auth.clearAll();
+    expect(s.map.has(`${SESSION_KEY}:${B}`)).toBe(false);
+    expect(s.map.has(`${PKCE_KEY}:${B}`)).toBe(false);
+    expect(s.map.get(SESSION_KEY)).toBe('{"accessToken":"owner"}');
+    expect(s.map.get(PKCE_KEY)).toBe('{"verifier":"owner"}');
   });
 });

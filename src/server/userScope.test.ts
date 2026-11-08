@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SESSION_KEY } from './session';
 import {
   ACTIVE_KEY,
   DEVICE_OWNER_KEY,
@@ -6,7 +7,9 @@ import {
   claim,
   dbNameIn,
   keyIn,
+  SERVER_SESSION_KEY,
   scopeChangedElsewhere,
+  sessionChangedElsewhere,
   scopeOf,
   dbNameFor,
   isUserId,
@@ -279,5 +282,30 @@ describe('scopeChangedElsewhere', () => {
     writeActive(s, { userId: B, email: '' });
     expect(scopeChangedElsewhere('quotaLock', s, true, '')).toBe(false);
     expect(scopeChangedElsewhere(ACTIVE_KEY, s, false, '')).toBe(false);
+  });
+});
+
+describe('sessionChangedElsewhere (round 009 T015)', () => {
+  const SESSION = JSON.stringify({ accessToken: 't' });
+
+  it('names the server session key', () => {
+    expect(SERVER_SESSION_KEY).toBe(SESSION_KEY);
+  });
+
+  it('a tab showing the sign-in screen reloads when another tab signs in', () => {
+    expect(sessionChangedElsewhere(SESSION_KEY, SESSION, false)).toBe(true);
+  });
+
+  it('a signed-in tab reloads when another tab signs out, whatever the scope', () => {
+    expect(sessionChangedElsewhere(SESSION_KEY, null, true)).toBe(true);
+    expect(sessionChangedElsewhere(null, null, true)).toBe(true);
+  });
+
+  it('a refresh elsewhere, a clear on the sign-in screen and other keys do nothing', () => {
+    expect(sessionChangedElsewhere(SESSION_KEY, SESSION, true)).toBe(false);
+    expect(sessionChangedElsewhere(SESSION_KEY, null, false)).toBe(false);
+    expect(sessionChangedElsewhere(null, null, false)).toBe(false);
+    expect(sessionChangedElsewhere('session', SESSION, false)).toBe(false);
+    expect(sessionChangedElsewhere(ACTIVE_KEY, null, true)).toBe(false);
   });
 });

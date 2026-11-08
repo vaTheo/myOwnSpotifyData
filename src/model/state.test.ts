@@ -951,6 +951,35 @@ describe('activateServerUser', () => {
     expect(scope.readActive(storage)).toBeNull();
   });
 
+  it('a storage that fails half way through clears the pointer it wrote (never a user without a session)', async () => {
+    session.value = { userId: OTHER, email: 'b@x.y' };
+    setScopeForTests({
+      storage: {
+        ...storage,
+        setItem: (k: string, v: string) => {
+          if (k === scope.DEVICE_USERS_KEY) {
+            throw new DOMException('full', 'QuotaExceededError');
+          }
+          map.set(k, v);
+        },
+      },
+      enabled: true,
+    });
+    expect(state.activateServerUser()).toBe('invalid');
+    expect(scope.readActive(storage)).toBeNull();
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('a refused session clears a pointer left by an earlier user', () => {
+    scope.activate(storage, { userId: OWNER, email: 'me@x.y' }, true);
+    session.value = { userId: null, email: 'me@x.y' };
+    expect(state.activateServerUser()).toBe('invalid');
+    expect(scope.readActive(storage)).toBeNull();
+    // The claim and the people of this device stay.
+    expect(map.has(scope.DEVICE_OWNER_KEY)).toBe(true);
+    expect(scope.readDeviceUsers(storage)).toHaveLength(1);
+  });
+
   it('is none without a server', () => {
     mocks.serverConfigured = false;
     session.value = { userId: OWNER, email: 'me@x.y' };
@@ -999,5 +1028,100 @@ describe('the sign-in gate (round 009, FR-002)', () => {
       status: 'offline',
       message: 'Still no network.',
     });
+  });
+});
+
+describe('startServerSignOut (round 009 T014)', () => {
+  const OWNER = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
+  const OTHER = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
+  const map = new Map<string, string>();
+  const storage = {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, v),
+    removeItem: (k: string) => void map.delete(k),
+  };
+  const session = serverAuth.session as unknown as {
+    value: { userId: string | null; email: string } | null;
+  };
+  const reload = vi.fn();
+  const ask = vi.fn(() => true);
+
+  beforeEach(async () => {
+    map.clear();
+    mocks.serverConfigured = true;
+    scope.activate(storage, { userId: OWNER, email: 'me@x.y' }, true);
+    scope.activate(storage, { userId: OTHER, email: 'b@x.y' }, true);
+    map.set('session', 'owner spotify');
+    map.set(`session:${OTHER}`, 'other spotify');
+    setScopeForTests({ storage, enabled: true });
+    session.value = { userId: OTHER, email: 'b@x.y' };
+    reload.mockClear();
+    ask.mockClear();
+    vi.stubGlobal('location', { reload });
+    vi.stubGlobal('confirm', ask);
+    vi.mocked(serverAuth.signOut).mockReset();
+    vi.mocked(serverAuth.signOut).mockImplementation(async () => {
+      session.value = null;
+    });
+    const repo = await import('../db/repo');
+    vi.mocked(repo.wipeDb).mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    mocks.serverConfigured = false;
+    setScopeForTests(null);
+    session.value = null;
+    state.syncState.value = { status: 'idle' };
+    state.serverState.value = { status: 'unset' };
+  });
+
+  it('signs out, clears the pointer and reloads; removes nothing else, asks nothing', async () => {
+    const repo = await import('../db/repo');
+    await state.startServerSignOut();
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+    expect(scope.readActive(storage)).toBeNull();
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(ask).not.toHaveBeenCalled();
+    expect(repo.wipeDb).not.toHaveBeenCalled();
+    expect(auth.clearAll).not.toHaveBeenCalled();
+    // The device's claim, its people and every user's Spotify keys stay.
+    expect(map.has(scope.DEVICE_OWNER_KEY)).toBe(true);
+    expect(scope.readDeviceUsers(storage)).toHaveLength(2);
+    expect(map.get('session')).toBe('owner spotify');
+    expect(map.get(`session:${OTHER}`)).toBe('other spotify');
+  });
+
+  it('is refused with a warning while a job runs: nothing signed out, no reload', async () => {
+    state.syncState.value = {
+      status: 'running',
+    } as unknown as typeof state.syncState.value;
+    await state.startServerSignOut();
+    expect(state.banner.value).toEqual(
+      expect.objectContaining({
+        text: 'Wait for the current job to finish before signing out.',
+      })
+    );
+    expect(serverAuth.signOut).not.toHaveBeenCalled();
+    expect(scope.readActive(storage)?.userId).toBe(OTHER);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('a storage that refuses the pointer shows why on the card, no reload', async () => {
+    setScopeForTests({
+      storage: {
+        ...storage,
+        removeItem: () => {
+          throw new DOMException('denied', 'SecurityError');
+        },
+      },
+      enabled: true,
+    });
+    await state.startServerSignOut();
+    expect(state.serverState.value).toMatchObject({ status: 'error' });
+    expect((state.serverState.value as { message: string }).message).toMatch(
+      /^Could not sign out on this device: /
+    );
+    expect(reload).not.toHaveBeenCalled();
   });
 });

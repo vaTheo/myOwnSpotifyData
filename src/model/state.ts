@@ -114,7 +114,13 @@ import {
   scopeEnabled,
   scopeStorage,
 } from '../server/scopeBrowser';
-import { activate, scopeOf, type Activation } from '../server/userScope';
+import {
+  activate,
+  readDeviceUsers,
+  scopeOf,
+  writeActive,
+  type Activation,
+} from '../server/userScope';
 import {
   JOB_HISTORY_MAX,
   UPDATE_APP_MESSAGE,
@@ -427,19 +433,48 @@ export async function startServerSync(): Promise<void> {
   await startServerPull();
 }
 
+/** How many people have signed in on this device (ADR-13); 0 when unreadable. */
+export function deviceUserCount(): number {
+  const storage = scopeStorage();
+  if (!serverConfigured || !storage) return 0;
+  try {
+    return readDeviceUsers(storage).length;
+  } catch {
+    return 0; // storage blocked: the line is simply not shown
+  }
+}
+
+export const SIGN_OUT_BUSY_MESSAGE =
+  'Wait for the current job to finish before signing out.';
+
 /**
- * Signs out of the server on this browser; local and server data stay. The
- * request states are the server's knowledge, so they leave with the session.
+ * Signs out of the server on this browser (round 009, FR-006): the server
+ * session and the `activeUser` pointer go, then the page loads again, which
+ * drops every signal so the next person sees nothing of this user (FR-002).
+ * Nothing else is removed (data, Spotify keys, the claim, the device's
+ * people) and nothing is asked. Refused while a job runs, like Disconnect:
+ * the reload would cut it half way. The session goes first: clearing the
+ * pointer first would let another tab, still holding the session, activate
+ * it again.
  */
 export async function startServerSignOut(): Promise<void> {
-  await serverAuth.signOut();
-  serverState.value = serverBaseState();
-  mixJobs.value = {};
-  try {
-    await deleteMeta(MIX_JOBS_META);
-  } catch {
-    // Nothing to show: the next pull rewrites it.
+  autoChain.stop();
+  if (jobsBusy()) {
+    banner.value = warnBanner(SIGN_OUT_BUSY_MESSAGE);
+    return;
   }
+  try {
+    await serverAuth.signOut();
+    const storage = scopeStorage();
+    if (storage) writeActive(storage, null);
+  } catch (err) {
+    serverState.value = {
+      status: 'error',
+      message: `Could not sign out on this device: ${storageMessage(err)}`,
+    };
+    return;
+  }
+  location.reload();
 }
 
 /**
@@ -563,6 +598,13 @@ function activateStored(): { status: Activated; signedOut: Promise<void> } {
   }
   if (result.ok) {
     return { status: result.reload ? 'reload' : 'ok', signedOut: done };
+  }
+  // Never a pointer naming a user whose session is signed out: a write
+  // that failed half way, or a pointer left by an earlier user, goes.
+  try {
+    writeActive(storage, null);
+  } catch {
+    // Storage refuses even this: nobody is signed in, the gate shows.
   }
   const refused: ServerStatus = { status: 'error', message };
   serverState.value = refused;
