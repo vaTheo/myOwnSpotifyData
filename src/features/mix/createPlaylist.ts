@@ -77,7 +77,7 @@ export function applyYears(
  * carries no year takes the year of a searched row naming the same track
  * (`sameTrack` on artist and title only: an ISRC kept from a rejected
  * identification never decides). For the copy the owner saved, or the open
- * rows, during the run (a validated row is a new object). A row now naming
+ * rows, during the run (a row whose label was edited is a new object). A row now naming
  * another track, or already dated, is left alone.
  */
 export function applyYearsByTrack(
@@ -217,7 +217,7 @@ export async function runCreatePlaylist(
 
 /**
  * The mix Create playlist saves when it ends (S13 N1). A copy the owner
- * saved after the tap wins whole (validates, edits, removed tracks): Create
+ * saved after the tap wins whole (edits, removed tracks): Create
  * adds only its playlist. Otherwise the rows of the tap, with the check
  * answers already stored put back (`keepStoredAnswers`).
  */

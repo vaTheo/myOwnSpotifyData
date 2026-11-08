@@ -72,7 +72,7 @@ export function storedUri(row: TracklistRow): string | null {
 
 /**
  * One answer of a check, keyed by where its row stood and what it read
- * when the check started, never by object identity: a row validated,
+ * when the check started, never by object identity: a row edited,
  * reloaded or reopened during the run is a new object but the same track.
  */
 export interface CheckAnswer {
@@ -121,8 +121,8 @@ function reads(row: TracklistRow | undefined, a: CheckAnswer): boolean {
  * reads the same artist and title; else the one unchecked row in the list
  * that reads them (a row above was deleted); else the answer is dropped
  * (the row was edited or deleted: its new text was never checked). A row
- * takes one answer at most. Everything else on the row (Validate, a new
- * label) is kept.
+ * takes one answer at most. Everything else on the row (a new label) is
+ * kept.
  */
 export function applyAnswers(
   rows: readonly TracklistRow[],

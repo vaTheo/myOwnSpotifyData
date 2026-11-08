@@ -87,7 +87,7 @@ async function openGrid(page: Page): Promise<void> {
   await page.getByRole('grid', { name: 'Tracklist' }).waitFor();
 }
 
-/** The demo's TrackId mix: nothing validated, so All tracks by default. */
+/** The demo's TrackId mix. */
 const HARBOUR = 'https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour';
 
 /**
@@ -676,9 +676,10 @@ export const PAGES: ShotPage[] = [
     hash: `#/mix/${enc('https://www.youtube.com/watch?v=demoSet0001')}`,
   },
   {
-    // The review (S08c, T117, T118): Spotify status per row (found, not
-    // found, not checked), Validate on, the filter chips, the run line
-    // with its warning collapsed, the review line and Check on Spotify.
+    // The review (S08c, T117, T118, round 010): Spotify status per row
+    // (found, not found, not checked), the Shazam and SoundCloud icons,
+    // Delete, the filter chips, the run line with its warning collapsed,
+    // the review line and Check on Spotify.
     id: 'mix-review',
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: openGrid,
@@ -773,8 +774,6 @@ export const PAGES: ShotPage[] = [
   },
   ...(
     [
-      ['mix-filter-review', /^To review/],
-      ['mix-filter-validated', /^Validated \(/],
       ['mix-filter-notfound', /^Not on Spotify/],
       ['mix-filter-heard', /^Heard once/],
     ] as const
@@ -825,7 +824,7 @@ export const PAGES: ShotPage[] = [
   {
     // A result asked again after a stop (T124, T125): stopped early with
     // Ask again, the review kept on the earlier tracks, the removed one
-    // left out, the new ones To review. The server is connected.
+    // left out, the new ones added. The server is connected.
     id: 'mix-reresult',
     hash: `#/mix/${enc('https://soundcloud.com/demo-dj/closing-set-at-the-dock')}`,
     setup: async (page) => {
@@ -921,40 +920,21 @@ export const PAGES: ShotPage[] = [
     },
   },
   {
-    // The Sort select on Clips heard (round 004): most heard first.
-    id: 'mix-sort-clips',
+    // The Sort select on Confidence (round 010: clips merged into it):
+    // most heard first, then the best percent.
+    id: 'mix-sort-confidence',
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: async (page) => {
       await openGrid(page);
-      await page.getByLabel('Sort').selectOption('clips');
+      await page.getByLabel('Sort').selectOption('confidence');
     },
   },
   {
-    // Create playlist on Validated only, the default once a track is
-    // validated (T119, D6): the unvalidated candidate is left out.
-    id: 'mix-create-validated',
+    // Create playlist (round 010): every identified track, the candidate
+    // included; no Validated only / All tracks choice.
+    id: 'mix-create',
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: (page) => createCard(page),
-  },
-  {
-    // The same mix on All tracks: every track, the candidate included.
-    id: 'mix-create-all',
-    hash: `#/mix/${enc(SUNRISE)}`,
-    setup: async (page) => {
-      await createCard(page);
-      await page.getByRole('tab', { name: /^All tracks/ }).click();
-      await settleRows(page, 'Create playlist');
-    },
-  },
-  {
-    // Validated only with nothing validated: the button rests, and why.
-    id: 'mix-create-none',
-    hash: `#/mix/${enc(HARBOUR)}`,
-    setup: async (page) => {
-      await createCard(page);
-      await page.getByRole('tab', { name: /^Validated only/ }).click();
-      await settleRows(page, 'Create playlist');
-    },
   },
   {
     // Matching tracks: the bar, the button busy.

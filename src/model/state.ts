@@ -1776,7 +1776,7 @@ export async function startCreatePlaylist(): Promise<void> {
   // rather than through `saveMix` (which reads live state), then reflect the
   // link on the open view only if this same mix is still open.
   // Round 005: the years the matches taught reach the open rows whatever the
-  // outcome: by track (S13b M2), so a row validated meanwhile (a new object)
+  // outcome: by track (S13b M2), so a row edited meanwhile (a new object)
   // is dated and a row now naming another track is left alone.
   const live = mixState.value;
   if (

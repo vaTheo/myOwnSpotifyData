@@ -117,10 +117,12 @@ describe('buildDemo Mix (T128)', () => {
     expect(full.mixes.some((m) => (m.clues?.length ?? 0) > 0)).toBe(true);
   });
 
-  it('seeds the review: runs, validated, checked and removed (S08c)', () => {
+  it('seeds the review: runs, checked and removed (S08c)', () => {
     const rows = full.mixes.flatMap((m) => m.rows);
-    expect(rows.some((r) => r.validated === true)).toBe(true);
-    expect(rows.some((r) => !r.gap && r.validated !== true)).toBe(true);
+    // Round 010: nothing sets `validated` any more.
+    expect(rows.some((r) => r.validated !== undefined)).toBe(false);
+    // Some scan rows carry a Shazam page, for the row's Shazam icon.
+    expect(rows.some((r) => typeof r.shazamUrl === 'string')).toBe(true);
     expect(rows.some((r) => typeof r.spotify === 'object')).toBe(true);
     expect(rows.some((r) => r.spotify === 'not-found')).toBe(true);
     expect(rows.some((r) => !r.gap && r.spotify === undefined)).toBe(true);
@@ -145,12 +147,13 @@ describe('buildDemo Mix (T128)', () => {
       ...strings(full.mixJobs, 'jobs'),
     ];
     for (const { text } of texts) expect(text).not.toMatch(/<a\b|href=/i);
-    // A mix's own link fields hold URLs by design; a request's link is its
+    // A mix's own link fields (its url, playlist, a row's Spotify and Shazam
+    // pages) hold URLs by design; a request's link is its
     // map key, not a value, so no request string may hold one.
     const inText = texts.filter(
       ({ path, text }) =>
         /https?:\/\//.test(text) &&
-        !/^mixes\[\d+\]\.(url|playlistUrl|rows\[\d+\]\.spotify\.url)$/.test(
+        !/^mixes\[\d+\]\.(url|playlistUrl|rows\[\d+\]\.(spotify\.url|shazamUrl))$/.test(
           path
         )
     );
