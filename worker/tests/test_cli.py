@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from mix_worker import __version__
-from mix_worker.cli import CliDeps, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, main
+from mix_worker.cli import PRESS_ENTER, CliDeps, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, main
 from mix_worker.config import SettingsError
 from mix_worker.server import Result
 from mix_worker.session import Session, load, save
@@ -225,6 +225,74 @@ class NoCommand(unittest.TestCase):
             self.assertIn(str(written), h.text())
             self.assertEqual(h.ran, [])
 
+
+
+class DoubleClickConsole(unittest.TestCase):
+    """The Windows executable started with a double-click keeps its window open on a problem."""
+
+    def run_main(self, argv, *, platform="win32", frozen=Path("C:/w"), code=EXIT_SETTINGS, boom=False, read_raises=None):
+        out, reads = [], []
+
+        def read(prompt):
+            reads.append(prompt)
+            if read_raises:
+                raise read_raises
+            return ""
+
+        deps = CliDeps(env={}, platform=platform, frozen_dir=frozen, read=read, out=out.append)
+        import mix_worker.cli as cli
+
+        original = cli._main
+
+        def fake(argv, deps):
+            if boom:
+                raise RuntimeError("boom")
+            return code
+
+        cli._main = fake
+        try:
+            result = main(argv, deps=deps)
+        finally:
+            cli._main = original
+        return result, out, reads
+
+    def test_waits_after_a_problem(self):
+        code, out, reads = self.run_main([])
+        self.assertEqual(code, EXIT_SETTINGS)
+        self.assertIn(PRESS_ENTER, out)
+        self.assertEqual(len(reads), 1)
+
+    def test_waits_after_the_first_start_wrote_the_template(self):
+        code, out, reads = self.run_main([], code=EXIT_TEMPLATE)
+        self.assertEqual(code, EXIT_TEMPLATE)
+        self.assertEqual(len(reads), 1)
+
+    def test_does_not_wait_after_a_clean_exit(self):
+        _, out, reads = self.run_main([], code=EXIT_OK)
+        self.assertEqual(reads, [])
+
+    def test_does_not_wait_with_arguments(self):
+        _, out, reads = self.run_main(["check"])
+        self.assertEqual(reads, [])
+
+    def test_does_not_wait_off_windows_or_unpackaged(self):
+        self.assertEqual(self.run_main([], platform="linux")[2], [])
+        self.assertEqual(self.run_main([], frozen=None)[2], [])
+
+    def test_prints_a_crash_and_waits(self):
+        code, out, reads = self.run_main([], boom=True)
+        self.assertEqual(code, 1)
+        self.assertTrue(any("boom" in line for line in out))
+        self.assertEqual(len(reads), 1)
+
+    def test_an_unreadable_console_does_not_fail(self):
+        code, _, reads = self.run_main([], read_raises=EOFError())
+        self.assertEqual(code, EXIT_SETTINGS)
+        self.assertEqual(len(reads), 1)
+
+    def test_a_crash_off_the_double_click_still_raises(self):
+        with self.assertRaises(RuntimeError):
+            self.run_main(["check"], boom=True)
 
 if __name__ == "__main__":
     unittest.main()

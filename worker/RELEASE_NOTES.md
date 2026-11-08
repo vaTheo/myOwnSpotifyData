@@ -12,7 +12,9 @@ Deno on the computer; other platforms need nothing else.
 ## What changed
 
 - 0.5.2: the second pass tries the speeds of `WORKER_SECOND_PASS_SPEEDS` in the order listed (the default and the packaged
-  `mix-worker.env` template now match `worker/.env.example`). 0.5.1 shipped the older template and order.
+  `mix-worker.env` template now match `worker/.env.example`). 0.5.1 shipped the older template and order. A double-clicked Windows
+  executable that stops on a problem (bad or missing setting, first-start template, any crash) keeps its window open: it prints the
+  message and waits for Enter.
 - 0.5.1: every probe line says how long Shazam took to answer (`· shazam 6.8 s`), and the scan ends with a summary
   (`shazam · 712 answers · median 1.1 s · 140 over 5 s (20 %)`). On 2026-11-06 a call took 3 s in some hours and 9 s in others,
   with the clip cut unchanged: this tells a slow Shazam from our own pace.

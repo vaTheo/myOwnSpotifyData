@@ -36,7 +36,7 @@ Download the file for your system from the [latest release](https://github.com/v
 
 The first start writes `mix-worker.env` beside the executable and exits. Fill `SUPABASE_URL` and `SUPABASE_KEY`, start
 again: it asks for your email, you open the mail on that computer and click its link (a tab says "mix-worker is signed in"),
-it keeps the session in that folder (`session.json`, next to it), then polls until you close the window. The same commands work from a terminal: `mix-worker-windows-x64.exe check`, `… run --once`.
+it keeps the session in that folder (`session.json`, next to it), then polls until you close the window. When a double-clicked Windows `.exe` stops because of a problem (a missing or wrong setting, the first-start template, a failed sign-in), the window stays open with the message and "Press Enter to close this window." The same commands work from a terminal: `mix-worker-windows-x64.exe check`, `… run --once`.
 
 Only **YouTube** links need one more thing: a JavaScript runtime on the computer, [Node](https://nodejs.org) or
 [Deno](https://deno.com) (`check` says whether one is found). SoundCloud, Mixcloud and the rest need nothing.

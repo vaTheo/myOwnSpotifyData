@@ -8,7 +8,8 @@ by feature, newest first, and name their spec under `docs/specs/`. Entries befor
 The `worker-v0.5.1` executables (6 November) predate two worker changes: the second pass tries `WORKER_SECOND_PASS_SPEEDS` in the order
 listed, and the packaged `mix-worker.env` template follows `worker/.env.example`. `worker-v0.5.2` ships both. **Download the new
 executable** from the latest release; an existing `mix-worker.env` is kept as it is, so set `WORKER_SECOND_PASS_SPEEDS=0.91,1.09,1`
-there if you want that order. No `DB_VERSION` bump, no migration.
+there if you want that order. Also: a double-clicked Windows executable that stops on a problem (a wrong or missing setting, the
+first-start template, a crash) no longer closes at once; it prints the message and waits for Enter. No `DB_VERSION` bump, no migration.
 
 ## 2026-11-08 — Sync skips the playlist "Liked Songs"
 
