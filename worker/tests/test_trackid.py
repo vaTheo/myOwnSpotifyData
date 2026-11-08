@@ -328,7 +328,9 @@ class Guides(unittest.TestCase):
         o = {"artist": "Other", "song_name": "Else", "confidence": 90.0}
         self.assertEqual(check_of(sp, [o, e]), {"outcome": "agrees"})
         self.assertEqual(check_of(sp, [e, o])["outcome"], "agrees")
-        self.assertEqual(check_of(sp, [o, dict(o, confidence=10.0)]), {"outcome": "differs", "artist": "Other", "song_name": "Else", "confidence": 90.0})
+        self.assertEqual(check_of(sp, [o, dict(o, confidence=10.0)]), {"outcome": "differs", "artist": "Other", "song_name": "Else", "confidence": 0.9})
+        self.assertEqual(check_of(sp, [dict(o, confidence=250.0)])["confidence"], 1.0)
+        self.assertEqual(check_of(sp, [dict(o, confidence=33.3333)])["confidence"], 0.333)
         self.assertEqual(check_of(sp, [], probed=True), {"outcome": "no_match"})
         self.assertEqual(check_of(sp, []), {"outcome": "not_asked"})
 
@@ -356,7 +358,7 @@ class Rows(unittest.TestCase):
 
     def test_a_differing_check_keeps_only_its_four_keys(self):
         span = Span(0, 100, "A", "T")
-        check = check_of(span, [{"artist": "Other", "song_name": "Track", "confidence": 0.7}])
+        check = check_of(span, [{"artist": "Other", "song_name": "Track", "confidence": 70.0}])
         row = span_rows([span], {0: check}, "s")[0]
         self.assertEqual(row["shazam_check"], {"outcome": "differs", "artist": "Other", "song_name": "Track", "confidence": 0.7})
         self.assertEqual((row["artist"], row["song_name"]), ("A", "T"))

@@ -14,6 +14,8 @@ shows the new rows and the step name "TrackId.net"; the Mix screen validates the
 for the Pages deploy and hard-reload the app (an old app refuses the new rows); (2) then download worker 0.7.0, or run it from the
 source. `WORKER_TRACKID` (default `on`) is new; an existing `mix-worker.env` is kept, so add the line by hand if you want it.
 
+TrackId.net's answer is bounded (no redirect, 2 MB, 10 s in total); a Shazam hit naming a span's own track is never a second row, a different track's hit counts inside a span only when the middle of its probe is there (a neighbour's tail at a boundary may still show); the confirming probe works at any probe step; the check's confidence goes out as 0..1.
+
 ## 2026-11-08 — One worker for every user (worker 0.6.0)
 
 A friend's **Identify on my computer** was recorded but never taken, because the worker served only the account that signed it in. The

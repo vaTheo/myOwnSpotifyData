@@ -18,7 +18,8 @@ List by the exact link; accept only `rowCount === 1` with one record whose `url`
 
 - A span is **guided** when, shrunk by `TRACKID_EDGE_SECONDS = 10` at each edge, it still holds at least `TRACKID_MIN_CORE_SECONDS = 40`. Inside a guided core the first-pass probes are skipped except **one confirming probe** with its 12 s window **centered on the span's middle** (`t = (start + end) / 2 − probe_seconds / 2`, which is also the middle of the core since the core is symmetric; cut with the same `cut(t)`; the Shazam pacing, errors and progress are the ordinary ones).
 - Skipped probes are neither hits nor misses: they never open a gap and never feed the second pass. They count as done in progress. The confirming probe is an ordinary probe whose answer goes to the span's check instead of the hits list when it falls inside a core.
-- Edge probes and probes outside every core are ordinary. A Shazam hit whose time falls inside a span's times (unshrunk) is **absorbed** into that span's check and does not become a row; hits outside every span stay rows.
+- Edge probes and probes outside every core are ordinary. A Shazam hit is **absorbed** into a span's check and does not become a row: a hit naming the span's own track is absorbed when the probe window `[t, t + probe_seconds]` overlaps the span's `[start, end)`, a hit naming another track only when the window's center `t + probe_seconds / 2` lies in `[start, end)` (half-open, so abutting spans never both absorb one hit). A hit absorbed by no span stays a row; the cost is that a neighbour's tail heard at a boundary may still be a row beside the span.
+- The confirming probe is independent of the grid: before each grid probe at `t`, every unconfirmed guide with `confirm_at < t + step` is confirmed in order of `confirm_at` (so any step, nested and overlapping spans work), the rest after the loop. A confirm that was undecodable is not remembered.
 - A span whose core is below 40 s is not guided: probed normally; its check comes from the ordinary hits inside its times (same track ⇒ `agrees`, only other tracks ⇒ `differs`, none ⇒ `no_match`).
 - **TrackId.net is the source of truth** (owner): the row of a trusted span is TrackId.net's whatever the check says; no Shazam answer replaces, clips or removes it.
 - The one guard on the record as a whole: its `duration` within 5 % of the audio's, else the record is not trusted (a different cut of the set).
@@ -32,7 +33,7 @@ List by the exact link; accept only `rowCount === 1` with one record whose `url`
 
 ## D5 Failure and pacing
 
-Two calls, each with a 10 s timeout, 250 ms apart, no retry, `User-Agent: mix-worker/<version>`. Any failure, odd answer or timeout is one log line and "unknown". It runs once, before the first probe, so the Shazam pacing, cooldown, breaks and refusal rules are untouched. A Stop during the two calls is checked before and after them.
+Two calls, each with a 10 s total deadline (connect and reads together), 250 ms apart, no retry, no redirect followed (a 3xx is "unknown"), a body over 2 MB refused, `User-Agent: mix-worker/<version>`. Any failure, odd answer or timeout is one log line and "unknown". It runs once, before the first probe, so the Shazam pacing, cooldown, breaks and refusal rules are untouched. A Stop during the two calls is checked before and after them.
 
 ## D6 App side
 

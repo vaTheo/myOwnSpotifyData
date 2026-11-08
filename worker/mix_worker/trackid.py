@@ -234,7 +234,13 @@ def check_of(span: Span, entries: list[dict[str, Any]], probed: bool = False) ->
             return {"outcome": "agrees"}
     if entries:
         best = max(entries, key=lambda e: e.get("confidence") or 0)
-        return {"outcome": "differs", "artist": best.get("artist"), "song_name": best.get("song_name"), "confidence": best.get("confidence")}
+        # The worker's confidence is 0..100; the result shape and the app take 0..1.
+        confidence = best.get("confidence")
+        if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
+            confidence = round(min(max(confidence / 100, 0.0), 1.0), 3)
+        else:
+            confidence = None
+        return {"outcome": "differs", "artist": best.get("artist"), "song_name": best.get("song_name"), "confidence": confidence}
     return {"outcome": "no_match" if probed else "not_asked"}
 
 

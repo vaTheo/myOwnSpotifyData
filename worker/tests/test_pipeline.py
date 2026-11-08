@@ -553,10 +553,22 @@ class Round016Pipeline(unittest.TestCase):
             self.assertEqual(len(calls[0]["guides"]), 1)
             self.assertIn("  trackid · A set · 1 spans · 1 guided", log.lines)
             self.assertIn("  trackid · 1 agree · 0 differ · 0 no match", log.lines)
+            self.assertFalse([l for l in log.lines if "probes skipped" in l])  # guided is None here: nothing logged
             tracks = self.sent(deps)["result"]["tracks"]
             self.assertEqual([t["origin"] if "origin" in t else "heard" for t in tracks], ["heard", "trackid"])
             self.assertEqual(tracks[1]["trackid"], {"slug": "the-slug", "span_start": 100, "span_end": 400, "references": 3})
             self.assertEqual(self.sent(deps)["result"]["mix_info"]["track_count"], 2)
+
+    def test_the_skipped_probe_count_is_logged_after_the_scan_when_guided(self):
+        from mix_worker.scan import ScanOutput
+
+        out = ScanOutput(rows=[TRACK], guided={"spans": 1, "skipped_probes": 19}, span_checks={0: {"outcome": "agrees"}})
+        with tempfile.TemporaryDirectory() as tmp:
+            outcome, calls, deps, log = self.run_with(tmp, lambda link: self.record(), scan=lambda p, d, **e: out)
+        self.assertEqual(outcome.status, "done")
+        lines = [l for l in log.lines if l.startswith("  trackid")]
+        self.assertEqual(lines[-1], "  trackid · 19 probes skipped")
+        self.assertEqual(lines[-2], "  trackid · 1 agree · 0 differ · 0 no match")
 
     def test_not_known_a_failing_layer_and_off_leave_the_calls_as_today(self):
         results = []

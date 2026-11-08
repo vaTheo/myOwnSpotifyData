@@ -94,18 +94,46 @@ def make_client(settings: Settings) -> Any:
     return cls(settings.supabase_url, settings.supabase_key)
 
 
-def http_get(url: str, headers: dict[str, str], timeout: float) -> tuple[int, bytes]:
-    """The real TrackId.net seam: one GET; an HTTP error status comes back as
-    `(status, body)`, a network error or timeout raises (the client turns it into "unknown")."""
+HTTP_MAX_BYTES = 2 * 1024 * 1024  # round 016: a TrackId.net answer is a few KB; more is refused
+
+
+def http_get(
+    url: str, headers: dict[str, str], timeout: float, clock: Callable[[], float] = time.monotonic
+) -> tuple[int, bytes]:
+    """The real TrackId.net seam: one GET; an HTTP error status (a redirect
+    included: it is never followed) comes back as `(status, body)`. A network
+    error, a body over `HTTP_MAX_BYTES` or an answer slower than `timeout` in
+    total (connect and reads together) raises; the client turns it into "unknown"."""
     import urllib.error
     import urllib.request
 
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+            return None
+
+    deadline = clock() + timeout
+
+    def body_of(res: Any) -> bytes:
+        chunks: list[bytes] = []
+        size = 0
+        while True:
+            if clock() > deadline:
+                raise TimeoutError("trackid answer too slow")
+            chunk = res.read(65536)
+            if not chunk:
+                return b"".join(chunks)
+            size += len(chunk)
+            if size > HTTP_MAX_BYTES:
+                raise OSError("trackid answer too large")
+            chunks.append(chunk)
+
     req = urllib.request.Request(url, headers={**headers, "User-Agent": f"mix-worker/{__version__}"})
+    opener = urllib.request.build_opener(NoRedirect)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as res:  # noqa: S310 - the fixed https host
-            return res.status, res.read()
+        with opener.open(req, timeout=timeout) as res:  # noqa: S310 - the fixed https host
+            return res.status, body_of(res)
     except urllib.error.HTTPError as err:
-        return err.code, err.read()
+        return err.code, body_of(err)
 
 
 def build_deps(settings: Settings) -> Deps:

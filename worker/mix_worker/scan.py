@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from .match import artist_matches, title_matches
 from .trackid import check_of
 
 PROBE_SECONDS = 12
@@ -318,6 +319,7 @@ async def scan(
     remember: Callable[[str, str, dict[str, Any] | None], None] | None = None,
     guides: list[Any] | None = None,
     spans: list[Any] | None = None,
+    probe_seconds: int = 12,
 ) -> list[dict[str, Any]]:
     """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
     (+ `jitter(cooldown)`) before each. A `rate_limited` error doubles the
@@ -336,12 +338,17 @@ async def scan(
     `second_pass` (`{places, found, stopped}`) and `gaps` (the stretches still
     without a track, `[(start, end)]` in seconds).
 
-    Round 016: with `spans` (TrackId.net's) every hit of any probe whose time
-    lies inside a span is absorbed into that span's check, never a row, and a
-    first-pass miss inside one is covered (no second-pass probe, no gap). With
-    `guides` the first pass skips the grid probes inside each guided core and
-    makes its one confirming probe (`resume["confirm"]` replays it). Both
-    default to None, and then nothing here changes."""
+    Round 016: with `spans` (TrackId.net's) a hit is absorbed into a span's
+    check, never a row: a hit naming the span's own track when the probe window
+    `[t, t + probe_seconds]` overlaps the span's `[start, end)`, a hit naming
+    another track only when the window's center lies in `[start, end)` (so
+    abutting spans never both absorb one hit); a first-pass miss whose window
+    center lies in a span is covered (no second-pass probe, no gap). With
+    `guides` the first pass skips the grid probes inside each guided core; each
+    guide's one confirming probe is made, in order of its time, before the first
+    grid probe `t` with `confirm_at < t + step` (the rest after the loop), and
+    `resume["confirm"]` replays it. Both default to None, and then nothing here
+    changes."""
     hits: list[Hit] = []
     misses: list[int] = []
     seen: set[str] = set()
@@ -409,24 +416,53 @@ async def scan(
     skipped_probes = 0
     confirmed: set[int] = set()
 
-    def spans_at(t: float) -> list[int]:
-        return [i for i, sp in enumerate(span_list) if sp.start <= t <= sp.end]
-
     def absorb(t: float, entry: dict[str, Any] | None, answered_ok: bool) -> bool:
-        """True when `t` is inside some span: the answer goes to its check."""
-        inside = spans_at(t)
-        for i in inside:
+        """True when the probe at `t` belongs to some span: the answer goes to its check."""
+        centre = t + probe_seconds / 2
+        taken = False
+        for i, sp in enumerate(span_list):
+            if entry is not None and artist_matches(sp.artist, str(entry.get("artist", ""))) and title_matches(sp.title, str(entry.get("song_name", ""))):
+                inside = t < sp.end and t + probe_seconds > sp.start
+            else:
+                inside = sp.start <= centre < sp.end
+            if not inside:
+                continue
+            taken = True
             if answered_ok:
                 probed.add(i)
             if entry is not None:
                 absorbed.setdefault(i, []).append(entry)
-        return bool(inside)
+        return taken
 
-    def guide_for(t: int) -> Any | None:
-        for g in guide_list:
-            if g.core_start <= t and t + step <= g.core_end:
-                return g
-        return None
+    def in_core(t: int) -> bool:
+        return any(g.core_start <= t and t + step <= g.core_end for g in guide_list)
+
+    async def confirm_due(limit: float) -> None:
+        """The confirming probe of every guide not yet confirmed with `confirm_at < limit`."""
+        for guide in sorted(guide_list, key=lambda g: g.confirm_at):
+            if guide.span_index in confirmed or guide.confirm_at >= limit:
+                continue
+            confirmed.add(guide.span_index)
+            ckey = str(guide.span_index)
+            if ckey in confirm_done:
+                old = confirm_done[ckey]
+                absorb(guide.confirm_at, dict(old) if old is not None else None, True)
+                continue
+            data = cut(guide.confirm_at)
+            if len(data) < MIN_PROBE_BYTES:
+                continue
+            where = f"trackid confirm · span {guide.span_index + 1} · {hhmmss(guide.confirm_at)}"
+            response = await ask(data, where)
+            if response is not None:
+                where = answered(where)
+            entry = track_entry(response, hhmmss(guide.confirm_at)) if response is not None else None
+            absorb(guide.confirm_at, entry, response is not None)
+            if entry is not None:
+                say(f"  {where} · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
+            elif response is not None:
+                say(f"  {where} · no match")
+            if remember is not None and response is not None:  # an undecodable probe is asked again on a resume
+                remember("confirm", ckey, dict(entry) if entry is not None else None)
 
     kept = 0
     first_done: dict[int, Any] = {}
@@ -551,29 +587,9 @@ async def scan(
                 t = times[index]
             else:
                 t = index * step
-            guide = guide_for(t) if guide_list else None
-            if guide is not None:
-                if guide.span_index not in confirmed:
-                    confirmed.add(guide.span_index)
-                    ckey = str(guide.span_index)
-                    if ckey in confirm_done:
-                        old = confirm_done[ckey]
-                        absorb(guide.confirm_at, dict(old) if old is not None else None, True)
-                    else:
-                        data = cut(guide.confirm_at)
-                        if len(data) >= MIN_PROBE_BYTES:
-                            where = f"trackid confirm · span {guide.span_index + 1} · {hhmmss(guide.confirm_at)}"
-                            response = await ask(data, where)
-                            if response is not None:
-                                where = answered(where)
-                            entry = track_entry(response, hhmmss(guide.confirm_at)) if response is not None else None
-                            absorb(guide.confirm_at, entry, response is not None)
-                            if entry is not None:
-                                say(f"  {where} · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
-                            elif response is not None:
-                                say(f"  {where} · no match")
-                            if remember is not None:
-                                remember("confirm", ckey, dict(entry) if entry is not None else None)
+            if guide_list:
+                await confirm_due(t + step)
+            if guide_list and in_core(t):
                 # Inside the core: not cut, not asked, not slept; done, neither a hit nor a miss.
                 skipped_probes += 1
                 index += 1
@@ -623,6 +639,8 @@ async def scan(
             index += 1
             prog["done"] = index
             publish()
+        if guide_list:
+            await confirm_due(float("inf"))
     except StopRequested:
         if not hits and not span_list:
             raise  # with spans the rows come from the record (round 016)
@@ -974,6 +992,7 @@ def run_scan(
                 remember=remember,
                 guides=guides,
                 spans=spans,
+                probe_seconds=settings.probe_seconds,
                 warn_calls=getattr(settings, "refusal_warn_calls", 0),
             )
         finally:

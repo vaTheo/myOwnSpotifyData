@@ -560,6 +560,64 @@ class GuidedScan(unittest.TestCase):
         })
 
 
+    def test_k_same_track_probe_overlapping_the_span_is_absorbed(self):
+        span = Span(69, 230, "Gloria Gaynor", "I Will Survive")  # the probe at 60 covers 60-72: 9 s before the span
+        hits = []
+        rows, rep = self.go(lambda t: CASSETTE if t == 60 else NO_MATCH, spans=[span], hits_out=hits)
+        self.assertEqual(hits, [])
+        self.assertEqual([r for r in rows if r["origin"] != "trackid"], [])
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+
+    def test_k_another_track_is_absorbed_only_when_the_window_center_is_inside(self):
+        hits = []
+        # probe 60 covers 60-72, center 66: outside [75, 230) -> a neighbour's tail stays a row
+        self.go(lambda t: OTHER if t == 60 else NO_MATCH, spans=[Span(75, 230, "Gloria Gaynor", "I Will Survive")], hits_out=hits)
+        self.assertEqual([h.time for h in hits], [60])
+        self.setUp()
+        hits = []
+        self.go(lambda t: OTHER if t == 60 else NO_MATCH, spans=[Span(66, 230, "Gloria Gaynor", "I Will Survive")], hits_out=hits)
+        self.assertEqual(hits, [])
+
+    def test_k_abutting_spans_never_both_absorb_one_hit(self):
+        a, b = Span(60, 120, "Gloria Gaynor", "I Will Survive"), Span(120, 180, "Gloria Gaynor", "I Will Survive")
+        hits = []
+        # step 6: the probe at 114 covers 114-126, center 120: half-open spans, so B only
+        _, rep = self.go(lambda t: OTHER if t == 114 else NO_MATCH, step=6, spans=[a, b], guided=False, hits_out=hits)
+        self.assertEqual(hits, [])
+        self.assertEqual(rep["span_checks"][0], {"outcome": "no_match"})
+        self.assertEqual(rep["span_checks"][1]["outcome"], "differs")
+
+    def test_l_the_confirm_comes_even_when_the_step_is_wide(self):
+        for step in (30, 60):
+            self.setUp()
+            _, rep = self.go(lambda t: CASSETTE if t == 84 else NO_MATCH, step=step, spans=[Span(60, 120, "Gloria Gaynor", "I Will Survive")], guided=True, **{})
+            self.assertEqual(self.cuts.count(84), 1, step)
+            self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"}, step)
+
+    def test_l_two_overlapping_spans_both_get_their_confirm_at_step_60(self):
+        a = Span(60, 200, "Gloria Gaynor", "I Will Survive")
+        b = Span(100, 240, "Gloria Gaynor", "I Will Survive")
+        _, rep = self.go(lambda t: OTHER if t in (124, 164) else NO_MATCH, step=60, spans=[a, b])
+        self.assertEqual((self.cuts.count(124), self.cuts.count(164)), (1, 1))
+        self.assertLess(self.cuts.index(124), self.cuts.index(164))
+        self.assertEqual(rep["span_checks"][0]["outcome"], "differs")
+
+    def test_l_a_confirm_for_the_end_of_the_loop_is_still_made(self):
+        # the only grid probe after the confirm time is past the audio: the remaining guide is confirmed after the loop
+        _, rep = self.go(lambda t: CASSETTE if t == 84 else NO_MATCH, duration=61, step=60, spans=[Span(60, 120, "Gloria Gaynor", "I Will Survive")])
+        self.assertEqual(self.cuts.count(84), 1)
+
+    def test_m_an_undecodable_confirm_is_not_remembered(self):
+        remembered = []
+        _, rep = self.go(SignatureError("silence"), remember=lambda k, key, e: remembered.append(k))
+        self.assertNotIn("confirm", remembered)
+        self.assertEqual(rep["span_checks"][0], {"outcome": "not_asked"})
+        self.setUp()
+        remembered = []
+        self.go(NO_MATCH, remember=lambda k, key, e: remembered.append(k))
+        self.assertIn("confirm", remembered)  # an answered "no match" is remembered
+
+
 if __name__ == "__main__":
     unittest.main()
 

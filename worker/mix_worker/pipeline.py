@@ -237,6 +237,9 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
                 deps.log.line(
                     f"  trackid · {tally.count('agrees')} agree · {tally.count('differs')} differ · {tally.count('no_match')} no match"
                 )
+                guided = out.guided if isinstance(out, ScanOutput) else None
+                if guided:
+                    deps.log.line(f"  trackid · {guided['skipped_probes']} probes skipped")
             gaps = uncovered(gaps, covering)
         if recorder is not None and stopped is None:
             recorder.clear()  # a complete run: the next Ask again is a fresh scan

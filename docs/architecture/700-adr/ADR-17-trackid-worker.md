@@ -34,7 +34,7 @@ being the source of truth. Release order: the app first, then worker 0.7.0.
   ordinary. Shazam's pacing, one probe at a time and the refusal rules are untouched.
 - **TrackId.net is the source of truth.** A trusted span becomes a row with origin `trackid`, starting at the span's start, with no
   confidence. A Shazam answer never replaces, clips or removes it: it is attached as `shazam_check` (`agrees`, `differs` with the
-  track Shazam named, `no_match`, `not_asked`). A Shazam hit inside a span's times is absorbed, not a row.
+  track Shazam named, `no_match`, `not_asked`). A Shazam hit that names the span's track while its probe overlaps the span, or names another track while the probe's middle is inside the span, is absorbed, not a row.
 - **A candidate like a clue.** A `trackid` row is not heard and unvalidated, shown "from TrackId.net · not heard"
   ([ADR-10](ADR-10-name-lookup-for-clues.md) amended). It goes into Create playlist unless the owner deletes it.
 - **The app first.** `src/server/validate.ts` accepts the new origin and its bounded fields before worker 0.7.0 sends them; an old

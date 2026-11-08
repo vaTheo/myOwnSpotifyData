@@ -25,7 +25,7 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 - TrackId.net with the Shazam probes (round 016, [ADR-17](700-adr/ADR-17-trackid-worker.md)): coverage is partial (a mix TrackId.net does not know is scanned as before); a
   wrong TrackId.net timeline is shown as `differs` on the row, never corrected; the keyword endpoint is not used (a mix is found by its exact link only); a record
   is fetched once per request, no per-run cache; an old app refuses the new rows (update and hard-reload the app first); the Shazam check of a span with no
-  confirming probe is `not_asked`; a refusal, a Stop or an unreachable first pass with only absorbed hits sends the TrackId.net rows instead of failing; the worker
+  confirming probe is `not_asked`; a neighbour's tail heard at a span boundary and naming another track may still be a row beside the span (such a hit is absorbed only when its probe window's center is inside the span); a refusal, a Stop or an unreachable first pass with only absorbed hits sends the TrackId.net rows instead of failing; the worker
   reports a progress step `trackid`.
 - Artist reach covers only artists with a Spotify id who appear in a synced playlist; plays shown are plays of saved tracks.
 - `N languages` (Wikidata sitelinks) is a floor, not an exact count.
