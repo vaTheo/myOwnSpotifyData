@@ -31,7 +31,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
     redesign's Mix review)
   - [ADR-11 — Web-first adaptive layout on Material Design 3](architecture/700-adr/ADR-11-web-first-material-3.md)
   - [ADR-12 — Automatic updates](architecture/700-adr/ADR-12-automatic-updates.md)
-  - [ADR-13 — Users are server accounts](architecture/700-adr/ADR-13-users-by-server-account.md)
+  - [ADR-14 — Users are server accounts](architecture/700-adr/ADR-14-users-by-server-account.md)
 - [800 — Limits and roadmap](architecture/800-limits-roadmap.md)
 
 ## Dev guide
@@ -45,7 +45,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 One design document per feature round, dated. The first one is the base model; later ones build on it.
 
-- 2026-11-08 — Multi-user data (round 009): [`specs/009-multi-user-data/`](../specs/009-multi-user-data/spec.md), decision [ADR-13](architecture/700-adr/ADR-13-users-by-server-account.md)
+- 2026-11-08 — Multi-user data (round 011): [`specs/011-multi-user-data/`](../specs/011-multi-user-data/spec.md), decision [ADR-14](architecture/700-adr/ADR-14-users-by-server-account.md)
 - 2026-11-07 — Automatic updates (round 006): [`specs/006-automatic-updates/`](../specs/006-automatic-updates/spec.md), decision [ADR-12](architecture/700-adr/ADR-12-automatic-updates.md)
 - [2026-11-06 — A web-first redesign of every screen](specs/2026-11-06-web-first-redesign-design.md) (full round under [`specs/003-web-first-redesign/`](../specs/003-web-first-redesign/spec.md); not to be confused with `specs/003-fill-scan-gaps/`, round 003 of the worker, recorded in the CHANGELOG)
 - [2026-11-06 — Identify a mix on my computer (the worker)](specs/2026-11-06-mix-analysis-worker-design.md) (full round under [`specs/002-mix-analysis-worker/`](../specs/002-mix-analysis-worker/spec.md); the worker's manual: [`worker/README.md`](../worker/README.md))

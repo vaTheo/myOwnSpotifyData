@@ -1,4 +1,4 @@
-# ADR-13 — Users are server accounts: one local database and one Spotify login per user, the first sign-in claims what exists
+# ADR-14 — Users are server accounts: one local database and one Spotify login per user, the first sign-in claims what exists
 
 > **Status**: Accepted
 > **Date**: 2026-11-08
@@ -47,8 +47,8 @@ is readable with devtools on a shared browser profile, no stronger than today.
 
 ## Links
 
-- Spec: [`specs/009-multi-user-data/spec.md`](../../../specs/009-multi-user-data/spec.md)
+- Spec: [`specs/011-multi-user-data/spec.md`](../../../specs/011-multi-user-data/spec.md)
 - Amends [ADR-08](ADR-08-owner-server-free-tier.md) ("for the owner alone"); keeps [ADR-05](ADR-05-additive-indexeddb.md)
 - Constitution Principle I
-- [How the app works](../000-how-it-works.md) §6, §13, §14, §16 "Users" · [Feature inventory](../100-features.md) F24 · [Limits and roadmap](../800-limits-roadmap.md) §2
+- [How the app works](../000-how-it-works.md) §6, §13, §14, §16 "Users" · [Feature inventory](../100-features.md) F27 · [Limits and roadmap](../800-limits-roadmap.md) §2
 - [ADR index](README.md)

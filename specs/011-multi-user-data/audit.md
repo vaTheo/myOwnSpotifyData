@@ -1,4 +1,4 @@
-# Audit: user data and sync (round 009)
+# Audit: user data and sync (round 011)
 
 T022, read-only audit at HEAD f4b7288 (branch `task/general-dev`). Every row below says "per user, because ..." or points to a
 finding. A path was marked safe only after reading it; what needs a browser, a real Supabase project or a second Spotify account
@@ -41,7 +41,7 @@ server session (`server-session`, one per device): see Findings 2 and 4.
 | `autoUpdates` | `state.ts:976-1061` | per device | a choice: user A switching it off turns it off for B on that browser. Acceptable, recorded; per user would need a meta, not a key |
 | `deviceOwner` | `userScope.ts:11,81` | per device | yes, the claim; Finding 8 |
 | `activeUser` | `userScope.ts:12,67` | per device | yes, the pointer; read at load only (pinned), cleared on sign-out |
-| `deviceUsers` | `userScope.ts:13,177` | per device | yes; holds every user's email in clear, only the count is shown (ADR-13 "localStorage readable with devtools") |
+| `deviceUsers` | `userScope.ts:13,177` | per device | yes; holds every user's email in clear, only the count is shown (ADR-14 "localStorage readable with devtools") |
 | other keys | none | n/a | `dev/flag.ts` `memoryStorage` is in memory (demo) |
 
 ## 3. Server layer: user switch, sign-out, sign-in as another user, in-flight work, offline
@@ -279,7 +279,7 @@ other accounts; no code needed for isolation.
 Scenario: storage full or write-refused: opening a magic link throws inside `save`; `boot()` is `void boot()` so the rejection is
 unhandled and the page stays on "Signing you in..." (`bootPhase = 'linking'`) with no message; **Send me a link** with a refused
 `setItem` rejects silently. Blocked storage (private mode with storage denied) fails at module evaluation before `scopeBrowser`'s
-guards matter. The first is a round 009 path (a pointer write is guarded in `activateStored`, the session write is not); the
+guards matter. The first is a round 011 path (a pointer write is guarded in `activateStored`, the session write is not); the
 module-load throw is pre-existing. Fix: wrap `save`/`requestLink` writes in try/catch and return `{ok:false}` with
 `storageMessage(err)` into `serverState`; guard the `localStorage` read in `server/browser.ts` and `auth/browser.ts`.
 
@@ -315,7 +315,7 @@ Acceptable for invited users; recorded. Smallest change if it ever matters: sum 
 
 ### Finding 12 (Minor): the spec's "the app says so" for a Spotify account another user already uses is not implemented
 
-`specs/009-multi-user-data/spec.md` edge case 1. The app cannot know it (RLS hides other users' rows, which is the point), so the
+`specs/011-multi-user-data/spec.md` edge case 1. The app cannot know it (RLS hides other users' rows, which is the point), so the
 sentence cannot be met without breaking isolation. Fix: reword the spec: each user's data stays separate and nothing is said.
 
 ### Finding 13 (Minor): two device-wide preferences and a per-device email list

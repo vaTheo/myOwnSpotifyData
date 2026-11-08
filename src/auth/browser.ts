@@ -18,7 +18,7 @@ import {
  */
 function sessionStorageFor(): StorageLike {
   if (!import.meta.env.DEV || demoVariant() === null) {
-    // One Spotify login per server user (ADR-13): the device's claimer keeps
+    // One Spotify login per server user (ADR-14): the device's claimer keeps
     // `session` and `pkce`, any other user `session:<id>` and `pkce:<id>`.
     // The scope is pinned at page load (scopeBrowser), so another tab's
     // sign-in never moves this page onto another user's keys.
@@ -37,7 +37,7 @@ function sessionStorageFor(): StorageLike {
 }
 
 /**
- * True when more than one person has signed in on this device (ADR-13): the
+ * True when more than one person has signed in on this device (ADR-14): the
  * Spotify Connect then asks for Spotify's account screen, so the next person
  * is never connected to the previous one's still logged in Spotify account.
  * One person (or no server, or blocked storage): today's URL, unchanged.

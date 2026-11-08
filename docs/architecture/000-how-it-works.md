@@ -113,7 +113,7 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 - One connection per tab, and it hands over: `openDb` closes its connection when a newer version opens in another tab (`blocking`) and
   reports a blocked upgrade (`blocked`) through `setDbEvents`; `state.ts` turns both into banners. Without this a version bump hangs on
   "Loading your library…" while an old tab lives. A database that has not opened after eight seconds says so.
-- One database per server user (round 009, [ADR-13](700-adr/ADR-13-users-by-server-account.md)): `dbName()` (`repo.ts`) keeps the
+- One database per server user (round 011, [ADR-14](700-adr/ADR-14-users-by-server-account.md)): `dbName()` (`repo.ts`) keeps the
   demo rule first, then asks `scopedDbName(DB_NAME)` (`server/scopeBrowser.ts`): `spotify-dj` for the device's claimer, for nobody
   signed in and without server settings; `spotify-dj-u-<userId>` for any other user. `wipeDb` deletes that same name. Same stores,
   `DB_VERSION` still 4, nothing copied or renamed (§16 "Users").
@@ -373,7 +373,7 @@ screen, grouped by role under `src/ui/`.
   `artistReachSummary.version === 1`; **Well known** is a heading at the bottom, never a filter; listeners and fans in two
   columns), `Artist.tsx`, `settings/` (`SettingsPage.tsx`, the seven sections of `sections.ts` with an index on large windows;
   long jobs start only here; Disconnect alone in `DangerZone.tsx`), `Import.tsx` (a `FileDrop`) and `Connect.tsx`.
-- **Sign-in screen** (round 009, `ui/signin/`): with server settings and no server session, `App` renders only `SignInGate.tsx`
+- **Sign-in screen** (round 011, `ui/signin/`): with server settings and no server session, `App` renders only `SignInGate.tsx`
   (`serverSignInRequired()`, live, so a session that ends mid-use brings it back; `bootPhase` `'signedout'`, or `'linking'` with
   "Signing you in…" while a magic link is exchanged); boot then reads, syncs and starts nothing, and `main.tsx` starts
   neither the automatic chain nor auto-sync while signed out (`runChain` and the `installAutoSync` `enabled` checks). Never in the demo, never without the settings. It shows the link errors kept
@@ -503,7 +503,7 @@ Their texts, word for word (`<…>` is filled in when asked); `yarn regression` 
 - The description: "Replace your edited tracklist with the one from the description?"
 - Pasted tracks: "Replace your edited tracklist with the pasted tracks?"
 
-Switching users and signing out of the server ask nothing (round 009, ADR-13): no question joins this list. `startServerSignOut`
+Switching users and signing out of the server ask nothing (round 011, ADR-14): no question joins this list. `startServerSignOut`
 is refused while `jobsBusy()` with `warnBanner` "Wait for the current job to finish before signing out." and while a server push
 runs (`pushRunning`, which joins no `jobsBusy()`) with "Wait for the current sync to finish before signing out."; a refusal leaves
 the automatic chain alone. Otherwise it stops the chain, signs the server session out, clears the `activeUser` pointer (session
@@ -520,9 +520,9 @@ to GitHub Pages on pushes to `main`. Commands: [Contributing](../dev-guide/000-c
 
 ## 16. `server/`: the owner's server
 
-One Supabase Free project, for the owner and the accounts the owner adds (round 009), that stores every dataset the app builds and
-never computes ([ADR-08](700-adr/ADR-08-owner-server-free-tier.md), [ADR-13](700-adr/ADR-13-users-by-server-account.md); the
-round's full record is under `specs/001-backend-data-sync/`, the users round under `specs/009-multi-user-data/`). Local rules:
+One Supabase Free project, for the owner and the accounts the owner adds (round 011), that stores every dataset the app builds and
+never computes ([ADR-08](700-adr/ADR-08-owner-server-free-tier.md), [ADR-14](700-adr/ADR-14-users-by-server-account.md); the
+round's full record is under `specs/001-backend-data-sync/`, the users round under `specs/011-multi-user-data/`). Local rules:
 `src/server/CLAUDE.md`. Without `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY` the module is inert and the app is the browser-only app.
 
 - `client.ts` (`createServerClient`): plain `fetch` against PostgREST (`/rest/v1/<table>`, filters in the query, `Range` paging,
@@ -575,7 +575,7 @@ payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history 
   visible, `RESUME_GAP_MS` = 60 s since the last), on `online`, and `startServerPull` every `ACTIVE_POLL_MS` (60 s) while visible
   and a request waits or runs (`hasActiveRequest`); only when signed in to both (`serverAutoSyncEnabled`). Never reads Spotify.
 
-**Users** (round 009, [ADR-13](700-adr/ADR-13-users-by-server-account.md)). The user is the server account; the server's rules
+**Users** (round 011, [ADR-14](700-adr/ADR-14-users-by-server-account.md)). The user is the server account; the server's rules
 were already per account (`owner_id = auth.uid()`, no `anon` grant), pinned by `rules.test.ts` (an audit of every migration).
 
 - `session.ts`: `ServerSession.userId`, the token's `sub` (`userIdFromToken`), stamped on read, save and refresh, so a session

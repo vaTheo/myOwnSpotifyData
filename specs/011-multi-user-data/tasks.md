@@ -1,12 +1,12 @@
 # Tasks: Multi-user data
 
-**Input**: `specs/009-multi-user-data/` (plan.md, spec.md, research.md, data-model.md, contracts/ui.md, quickstart.md)
+**Input**: `specs/011-multi-user-data/` (plan.md, spec.md, research.md, data-model.md, contracts/ui.md, quickstart.md)
 **Tests**: test-first, pure functions and `fake-indexeddb` (project rule); no DOM tests.
 
 ## Phase 1: Setup (decision first, docs lead)
 
-- [x] T001 Write `docs/architecture/700-adr/ADR-13-users-by-server-account.md` (user = server account, claim by first sign-in, per-user database and Spotify keys, reload on switch; amends ADR-08 "owner alone"); link it from `docs/architecture/700-adr/README.md`, `docs/README.md` and ADR-08
-- [x] T002 Amend Principle I in `.specify/memory/constitution.md` ("for the owner and the accounts the owner creates"), bump to 2.3.0 with the Sync Impact Report; mirror the line in `CLAUDE.md` (root) non-negotiable rules
+- [x] T001 Write `docs/architecture/700-adr/ADR-14-users-by-server-account.md` (user = server account, claim by first sign-in, per-user database and Spotify keys, reload on switch; amends ADR-08 "owner alone"); link it from `docs/architecture/700-adr/README.md`, `docs/README.md` and ADR-08
+- [x] T002 Amend Principle I in `.specify/memory/constitution.md` ("for the owner and the accounts the owner creates"), bump to 2.4.0 with the Sync Impact Report; mirror the line in `CLAUDE.md` (root) non-negotiable rules
 
 ## Phase 2: Foundational (blocks every story)
 
@@ -53,9 +53,9 @@
 
 ## Phase 8: Full review of everything that touches user data and sync (last, before the manual run)
 
-- [X] T022 Audit, written to `specs/009-multi-user-data/audit.md`: list every path that reads or writes user data and prove it is per user. At least: every `openDb`/`getAllRows`/`wipeDb` caller and every `localStorage`/`sessionStorage` key in `src/` (Spotify session, `server-session`, `quota lock`, `keyNotation`, `autoUpdates`, `deviceOwner`, `activeUser`, `deviceUsers`, and any other) with its scope (per user, per device, per app) and why; the server layer end to end (`runPush`, `runPull`, `planMixes`, `runRemoveAll`, `readUsage`, `pullJobs`, `requestIdentify`, queued jobs, `serverPending`, `serverStamps`, `serverLastSync`, `mixDeleted` metas) for a user switch, a sign-out and a sign-in as another user, with in-flight pushes and pulls; the automatic chain and `autoSync` while signed out, while signing out, and across two tabs; `disconnect`, `removeServerData`, the account-switch question, `startServerSignOut`; the worker's queue and a result applied to the right user; every `signal` in `model/state.ts` that holds user rows and when it is reset; the demo and `VITE_DEMO_FAKE_SERVER` modes; a token refresh that fails mid-session; two tabs, two users, one device; the SQL rules against a second real user. Each item ends "per user, because …" or a numbered finding with a failure scenario.
+- [X] T022 Audit, written to `specs/011-multi-user-data/audit.md`: list every path that reads or writes user data and prove it is per user. At least: every `openDb`/`getAllRows`/`wipeDb` caller and every `localStorage`/`sessionStorage` key in `src/` (Spotify session, `server-session`, `quota lock`, `keyNotation`, `autoUpdates`, `deviceOwner`, `activeUser`, `deviceUsers`, and any other) with its scope (per user, per device, per app) and why; the server layer end to end (`runPush`, `runPull`, `planMixes`, `runRemoveAll`, `readUsage`, `pullJobs`, `requestIdentify`, queued jobs, `serverPending`, `serverStamps`, `serverLastSync`, `mixDeleted` metas) for a user switch, a sign-out and a sign-in as another user, with in-flight pushes and pulls; the automatic chain and `autoSync` while signed out, while signing out, and across two tabs; `disconnect`, `removeServerData`, the account-switch question, `startServerSignOut`; the worker's queue and a result applied to the right user; every `signal` in `model/state.ts` that holds user rows and when it is reset; the demo and `VITE_DEMO_FAKE_SERVER` modes; a token refresh that fails mid-session; two tabs, two users, one device; the SQL rules against a second real user. Each item ends "per user, because …" or a numbered finding with a failure scenario.
 - [X] T023 Fix every Critical and Important finding of T022 with a test each (one fix dispatch, one scoped re-review); minors go to Limits and roadmap.
-- [x] T024 Final whole-branch review of round 009 (most capable model), then the three gates by exit code, before T021.
+- [x] T024 Final whole-branch review of round 011 (most capable model), then the three gates by exit code, before T021.
   I1 fixed in 4db1ca3 (Connect shows who is signed in and Sign out; docs in the next commit).
 
 ## Dependencies

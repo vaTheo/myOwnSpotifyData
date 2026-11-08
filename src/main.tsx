@@ -36,7 +36,7 @@ async function boot(): Promise<void> {
   // `?code=`; the `link=server` marker is what tells them apart (S2).
   const serverLink = params.get('link') === LINK_MARKER;
   const returning = !serverLink && (params.has('code') || params.has('error'));
-  // A server session stored on this device is the active user (ADR-13); the
+  // A server session stored on this device is the active user (ADR-14); the
   // owner's session from before this round claims today's names here, with
   // no reload. A magic link activates its own account below instead.
   const activated = serverLink ? 'none' : activateServerUser();
@@ -51,7 +51,7 @@ async function boot(): Promise<void> {
   watchSession(() => serverAuth.session.value !== null);
   // A server is set up and nobody is signed in to it (or the stored session
   // was just refused): only the sign-in screen, and nothing is read, synced
-  // or started (round 009, FR-002).
+  // or started (round 011, FR-002).
   const signedOut =
     !serverLink && (activated === 'invalid' || serverSignInRequired());
   if (serverLink) bootPhase.value = 'linking';
@@ -79,7 +79,7 @@ async function boot(): Promise<void> {
     if (afterLink(linked) === 'navigate') {
       // Drop the code from the URL and land on Settings. The navigation
       // loads the page again: under the new user's names when the account
-      // differs (ADR-13), never `location.reload()`, which would replay the
+      // differs (ADR-14), never `location.reload()`, which would replay the
       // spent code. Nothing more runs on this page.
       location.replace(location.pathname + '#/settings');
       return;

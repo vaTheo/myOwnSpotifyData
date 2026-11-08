@@ -5,7 +5,7 @@ import { gateNotices } from './gate';
 import { ServerLinkForm } from './ServerLinkForm';
 
 /**
- * The sign-in screen (round 009, contracts/ui.md): with a server set up and
+ * The sign-in screen (round 011, contracts/ui.md): with a server set up and
  * nobody signed in, the whole app is this card. Nothing of any user is
  * rendered behind it (FR-002) and no account is created from it (FR-003):
  * the notice after sending never says whether the address has an account.

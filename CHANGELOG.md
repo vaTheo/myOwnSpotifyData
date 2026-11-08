@@ -18,7 +18,7 @@ A new sign-in needs the network. Three fixes from the round's user-data audit: o
 left open never takes over the session of a person who signed in in another tab (it asks for a reload instead); and **Sign out**
 signs out of this browser only, so your other devices and the worker on your computer stay signed in (`mix-worker logout` likewise),
 and is also on the Connect screen, which says who is signed in, so a person who never connected Spotify can still hand over the device.
-Decision: ADR-13 (amends ADR-08; constitution 2.3.0). Spec: `specs/009-multi-user-data/`. No
+Decision: ADR-14 (amends ADR-08; constitution 2.4.0). Spec: `specs/011-multi-user-data/`. No
 `DB_VERSION` bump: other users get a database of their own beside yours; no server change.
 
 ## 2026-11-07 — Lists keep loading as you scroll

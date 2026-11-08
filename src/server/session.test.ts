@@ -123,7 +123,7 @@ describe('completeLink', () => {
       refreshToken: 'r1',
       expiresAt: 10_000_000,
       email: 'me@example.com',
-      // 'a1' is not a JWT: no `sub`, so no id (ADR-13).
+      // 'a1' is not a JWT: no `sub`, so no id (ADR-14).
       userId: null,
     });
     expect(storage.getItem(PKCE_KEY)).toBeNull();
@@ -333,7 +333,7 @@ describe('signOut', () => {
   });
 });
 
-describe('userId (ADR-13)', () => {
+describe('userId (ADR-14)', () => {
   const ID = 'aaaaaaaa-1111-4111-8111-bbbbbbbbbbbb';
   const token = `x.${btoa(JSON.stringify({ sub: ID }))}.y`;
 

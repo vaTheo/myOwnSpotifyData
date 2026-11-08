@@ -433,7 +433,7 @@ export async function startServerSync(): Promise<void> {
   await startServerPull();
 }
 
-/** How many people have signed in on this device (ADR-13); 0 when unreadable. */
+/** How many people have signed in on this device (ADR-14); 0 when unreadable. */
 export function deviceUserCount(): number {
   const storage = scopeStorage();
   if (!serverConfigured || !storage) return 0;
@@ -450,7 +450,7 @@ export const SIGN_OUT_PUSH_MESSAGE =
   'Wait for the current sync to finish before signing out.';
 
 /**
- * Signs out of the server on this browser (round 009, FR-006): the server
+ * Signs out of the server on this browser (round 011, FR-006): the server
  * session and the `activeUser` pointer go, then the page loads again, which
  * drops every signal so the next person sees nothing of this user (FR-002).
  * Nothing else is removed (data, Spotify keys, the claim, the device's
@@ -551,7 +551,7 @@ export async function startServerLink(email: string): Promise<void> {
 }
 
 /**
- * The sign-in gate (round 009, FR-002): a server is set up and nobody is
+ * The sign-in gate (round 011, FR-002): a server is set up and nobody is
  * signed in to it, so the app shows only the sign-in screen and runs nothing.
  * Never in the demo, which never talks to the server; never without server
  * settings (FR-008). Reads the session signal, so a render follows it.
@@ -636,7 +636,7 @@ function activateStored(): { status: Activated; signedOut: Promise<void> } {
 }
 
 /**
- * Makes the stored server session the device's active user (ADR-13): the
+ * Makes the stored server session the device's active user (ADR-14): the
  * first sign-in claims today's names, so the owner with a session from before
  * this round is activated on the first load, with no new link and no reload.
  * `'reload'` means the page holds another user's names and must load again;

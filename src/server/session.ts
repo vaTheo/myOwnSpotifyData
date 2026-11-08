@@ -29,7 +29,7 @@ export interface ServerSession {
   /** epoch ms */
   expiresAt: number;
   email: string;
-  /** The account's id (the token's `sub`); null when the token carries none. ADR-13. */
+  /** The account's id (the token's `sub`); null when the token carries none. ADR-14. */
   userId: string | null;
 }
 
@@ -56,7 +56,7 @@ interface PkceRecord {
   verifier: string;
 }
 
-/** Adds the user id: a session stored before ADR-13 has none, the token says it. */
+/** Adds the user id: a session stored before ADR-14 has none, the token says it. */
 function stamped(
   s: (Omit<ServerSession, 'userId'> & { userId?: string | null }) | null
 ): ServerSession | null {
@@ -84,7 +84,7 @@ export function createServerSessionStore(
   const lastError = signal<string | null>(null);
   let refreshing: Promise<ServerResult<string>> | null = null;
   /**
-   * The person this page belongs to (ADR-13): the session it loaded with, or
+   * The person this page belongs to (ADR-14): the session it loaded with, or
    * the one it signed in. A refresh never adopts a stored session of anyone
    * else (audit Finding 2): another tab's sign-in reloads this page instead.
    */

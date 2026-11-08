@@ -50,7 +50,7 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   the newer dataset wins; a step that failed waits for the next open or its button; Spotify's lock-out is known per device only, so
   another device's chain may try one sync during a lock (then it is locked too) ([ADR-12](700-adr/ADR-12-automatic-updates.md)).
 - Server rows are stored in clear (the owner declined client-side encryption): whoever holds the supabase.com login can read them.
-- Several people, one app (F24, round 009, [ADR-13](700-adr/ADR-13-users-by-server-account.md)):
+- Several people, one app (F27, round 011, [ADR-14](700-adr/ADR-14-users-by-server-account.md)):
   - No "remove this person from this device" button: every user's copy stays on a shared device until the browser's data is
     cleared (the spec's out of scope for now).
   - The Free project's storage and Spotify's daily read quota belong to the app and are shared by every user; the lock-out on a
@@ -64,7 +64,7 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   - `scopedStorage` in `src/server/userScope.ts` is used by its tests only (the app uses `scopedView`, `scopeBrowser.ts`).
   - The server rules audit (`src/server/rules.test.ts`) does not see a `create table` inside a `do` body (dollar-quoted bodies are
     set aside), and reads a function declared `returns table (…)` as an unrecognised table statement (a false alarm, never a miss).
-  - The user-data audit (`specs/009-multi-user-data/audit.md`, T022) left ten Minor findings open; its three Important ones are
+  - The user-data audit (`specs/011-multi-user-data/audit.md`, T022) left ten Minor findings open; its three Important ones are
     fixed (T023). Each with the fix it would take:
     - F4: a refresh that finishes after another tab signed someone else in writes the old person's rotated tokens over the new
       session (one round trip wide); the fix would be to re-read storage before saving and save only if the refreshed token is

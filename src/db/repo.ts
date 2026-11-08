@@ -55,7 +55,7 @@ export function setDbEvents(next: DbEvents): void {
  */
 function dbName(): string {
   if (import.meta.env.DEV && demoVariant() !== null) return DEMO_DB_NAME;
-  // One database per server user (ADR-13): the device's claimer, nobody, or
+  // One database per server user (ADR-14): the device's claimer, nobody, or
   // no server keeps `spotify-dj`; any other user `spotify-dj-u-<id>`.
   return scopedDbName(DB_NAME);
 }

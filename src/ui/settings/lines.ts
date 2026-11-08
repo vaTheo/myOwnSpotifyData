@@ -131,7 +131,7 @@ export function pendingLine(pending: ServerPending): string {
   return `Changes waiting to send: ${pendingValue(pending)}`;
 }
 
-/** Round 009: "3 people use this device", or null for one person or none. */
+/** round 011: "3 people use this device", or null for one person or none. */
 export function deviceUsersLine(n: number): string | null {
   return n > 1 ? `${n.toLocaleString()} people use this device` : null;
 }

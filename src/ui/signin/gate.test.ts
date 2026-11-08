@@ -8,7 +8,7 @@ import {
   syncOnOpen,
 } from './gate';
 
-describe('signInRequired (round 009, FR-002, FR-008)', () => {
+describe('signInRequired (round 011, FR-002, FR-008)', () => {
   it('gates a configured server with nobody signed in', () => {
     expect(
       signInRequired({ configured: true, demo: false, signedIn: false })
@@ -106,7 +106,7 @@ describe('syncOnOpen', () => {
   });
 });
 
-describe('connectSignOutShown (round 009, final review I1)', () => {
+describe('connectSignOutShown (round 011, final review I1)', () => {
   it('shows Sign out on Connect with a server and a session', () => {
     expect(
       connectSignOutShown({ configured: true, demo: false, signedIn: true })

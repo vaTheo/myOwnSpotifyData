@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 /**
- * The server rules audit (round 009, T013, FR-002): the database is the
+ * The server rules audit (round 011, T013, FR-002): the database is the
  * only wall between two users who share the public key, so every table the
  * migrations create must keep each row to its owner, and `anon` must get
  * nothing. `audit` reads SQL and returns what breaks that, one finding per

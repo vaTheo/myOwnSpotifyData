@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-- Version change: 2.2.0 → 2.3.0 (MINOR: Principle I's server is for the owner and the accounts the owner creates, per ADR-13)
+- Version change: 2.2.0 → 2.4.0 (MINOR: Principle I's server is for the owner and the accounts the owner creates, per ADR-14)
 - Modified principles: I
 - Previous: 2.1.1 → 2.2.0 (MINOR: Principle II allows one gated automatic sync; Principle IV's long jobs also start from
   the automatic chain, per ADR-12)
@@ -17,7 +17,7 @@ Sync Impact Report
 Browser-first Preact app the owner (a DJ) uses mainly in a web browser on a computer, and
 on an Android phone, to read their Spotify listening data and prepare sets. One owner, one
 `main` branch, deployed to GitHub Pages, with one optional server of the owner's holding
-the data. The owner may add other people, each with data of their own (ADR-13).
+the data. The owner may add other people, each with data of their own (ADR-14).
 This constitution restates the decisions that outlive any feature round; the reasoning
 behind each lives in its ADR under `docs/architecture/700-adr/`.
 
@@ -28,7 +28,7 @@ behind each lives in its ADR under `docs/architecture/700-adr/`.
 The app is a static site. Spotify auth is PKCE with a public Client ID in the browser;
 there MUST NOT be a client secret or a proxy, and no Spotify token ever leaves the browser.
 The settings are `VITE_SPOTIFY_CLIENT_ID` and the public URL and publishable key of the
-owner's server. That server is a hosted database with sign-in on a free tier, for the owner and the accounts the owner creates (ADR-13):
+owner's server. That server is a hosted database with sign-in on a free tier, for the owner and the accounts the owner creates (ADR-14):
 it stores the app's datasets and a job queue, it never computes, never calls Spotify, and
 the app MUST work in full without it. Any worker runs outside it, on the owner's computer.
 The working copy stays the browser's IndexedDB. The dev redirect URI is
@@ -150,4 +150,4 @@ When the two disagree, the ADR index is corrected first and this file follows.
 - Runtime guidance for agents stays in `CLAUDE.md` and the local `CLAUDE.md` files;
   this file does not duplicate their routing.
 
-**Version**: 2.3.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-08
+**Version**: 2.4.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-08

@@ -834,7 +834,7 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
   });
 });
 
-/* ---------- ADR-13: the stored server session is the active user ---------- */
+/* ---------- ADR-14: the stored server session is the active user ---------- */
 
 describe('activateServerUser', () => {
   const OWNER = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
@@ -988,7 +988,7 @@ describe('activateServerUser', () => {
   });
 });
 
-describe('the sign-in gate (round 009, FR-002)', () => {
+describe('the sign-in gate (round 011, FR-002)', () => {
   const session = serverAuth.session as unknown as {
     value: { userId: string | null; email: string } | null;
   };
@@ -1031,7 +1031,7 @@ describe('the sign-in gate (round 009, FR-002)', () => {
   });
 });
 
-describe('startServerSignOut (round 009 T014)', () => {
+describe('startServerSignOut (round 011 T014)', () => {
   const OWNER = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
   const OTHER = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
   const map = new Map<string, string>();

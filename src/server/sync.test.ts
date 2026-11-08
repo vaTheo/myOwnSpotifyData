@@ -802,7 +802,7 @@ describe('runRemoveAll and readUsage', () => {
     expect(state.metas.accountId).toBe('acc');
   });
 
-  it("removes only the signed-in user's rows: the session's token, the owner filter alone (RLS, round 009 T016)", async () => {
+  it("removes only the signed-in user's rows: the session's token, the owner filter alone (RLS, round 011 T016)", async () => {
     const fake = seededServer();
     const seen: [string, Record<string, string>, string][] = [];
     const remove = fake.client.remove;

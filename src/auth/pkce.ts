@@ -37,7 +37,7 @@ export interface AuthorizeParams {
    * Make Spotify show its account screen even when the browser is already
    * logged in and the app approved: on a device several people use, the
    * next person would otherwise be connected to the previous one's Spotify
-   * account without a screen (round 009 audit, Finding 1).
+   * account without a screen (round 011 audit, Finding 1).
    */
   showDialog?: boolean;
 }

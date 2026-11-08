@@ -24,7 +24,7 @@ export const route = signal<Route>(parseRoute(location.hash));
  * shell before it loads anything, so it sets the phase before the first
  * render and again as each step finishes. `linking`: a server magic link is
  * being exchanged; `signedout`: a server is set up and nobody is signed in
- * to it, so boot stopped before any read (round 009, FR-002).
+ * to it, so boot stopped before any read (round 011, FR-002).
  */
 export const bootPhase = signal<
   'signin' | 'linking' | 'signedout' | 'loading' | 'ready'

@@ -9,7 +9,7 @@ import {
 } from './userScope';
 
 /**
- * The browser side of `userScope` (ADR-13): which user's names this page
+ * The browser side of `userScope` (ADR-14): which user's names this page
  * uses. The scope is resolved once, on first use, and kept for the page's
  * life: another tab changing the pointer must never move this page onto
  * another user's database or Spotify keys (FR-002); `watchScope` reloads the

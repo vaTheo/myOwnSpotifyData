@@ -715,7 +715,7 @@ describe('worker round additions (no DB_VERSION bump)', () => {
   });
 });
 
-describe('per-user names (ADR-13)', () => {
+describe('per-user names (ADR-14)', () => {
   const OWNER = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
   const OTHER = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
 

@@ -1,7 +1,7 @@
 import type { ServerStatus } from '../../server/types';
 
 /**
- * The sign-in gate (round 009, ADR-13): with a server set up, the server
+ * The sign-in gate (round 011, ADR-14): with a server set up, the server
  * account is the user, so nobody signed in means nothing of anyone is shown.
  * Pure: `model/state.ts` and `main.tsx` feed it the live values.
  */
@@ -17,7 +17,7 @@ export function signInRequired(p: {
 }
 
 /**
- * The Connect screen offers Sign out (round 009, final review I1): someone
+ * The Connect screen offers Sign out (round 011, final review I1): someone
  * signed in to the server who has not connected Spotify (new, or after
  * Disconnect) sees only Connect, so it must say whose space this is and let
  * them leave it, or the next person would connect into it (FR-002, FR-006).

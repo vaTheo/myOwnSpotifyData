@@ -1,7 +1,7 @@
 import type { StorageLike } from '../auth/session';
 
 /**
- * Who owns the data on this device (ADR-13). The server account is the user.
+ * Who owns the data on this device (ADR-14). The server account is the user.
  * The first user to sign in on a device claims today's names (the database
  * `spotify-dj`, the Spotify keys `session` and `pkce`); every other user gets
  * the same names with their id added. Nothing is copied or renamed, which is
@@ -203,7 +203,7 @@ export type Activation = { ok: true; reload: boolean } | { ok: false };
  * claims today's names, the pointer is written, the user is remembered. A
  * reload is needed when the user changed, or when the names the page opened
  * with are not the new user's (someone else signing in while nobody was
- * active): no in-memory singleton may keep another user's data (ADR-13).
+ * active): no in-memory singleton may keep another user's data (ADR-14).
  * An id that is not a uuid is refused and nothing is written.
  */
 export function activate(

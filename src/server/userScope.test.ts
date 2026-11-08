@@ -285,7 +285,7 @@ describe('scopeChangedElsewhere', () => {
   });
 });
 
-describe('sessionChangedElsewhere (round 009 T015)', () => {
+describe('sessionChangedElsewhere (round 011 T015)', () => {
   const SESSION = JSON.stringify({ accessToken: 't' });
 
   it('names the server session key', () => {

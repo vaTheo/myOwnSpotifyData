@@ -129,7 +129,7 @@ describe('Settings lines (word for word, FR-049)', () => {
   });
 });
 
-describe('several people, one device (round 009 T017)', () => {
+describe('several people, one device (round 011 T017)', () => {
   it('says how many people use this device only when more than one', () => {
     expect(deviceUsersLine(0)).toBeNull();
     expect(deviceUsersLine(1)).toBeNull();

@@ -1,6 +1,6 @@
 # Implementation Plan: Multi-user data
 
-**Branch**: `009-multi-user-data` (work on `task/general-dev`) | **Date**: 2026-11-08 | **Spec**: [spec.md](spec.md)
+**Branch**: `011-multi-user-data` (work on `task/general-dev`) | **Date**: 2026-11-08 | **Spec**: [spec.md](spec.md)
 
 ## Summary
 
@@ -28,7 +28,7 @@ changes (the claimed names are the unscoped ones).
 
 | Principle | Status |
 |---|---|
-| I. Browser-first, one owner's server | **Amend**: "for the owner alone" becomes "for the owner and the accounts the owner creates". No secret, no proxy, no new setting. ADR-13 and a constitution MINOR bump (2.3.0). |
+| I. Browser-first, one owner's server | **Amend**: "for the owner alone" becomes "for the owner and the accounts the owner creates". No secret, no proxy, no new setting. ADR-14 and a constitution MINOR bump (2.4.0). |
 | II. No Spotify reads on load | Pass: the gate and the switch read only local state and the server session; the chain is unchanged and runs for the signed-in user only. |
 | III. Writes on a tap | Pass: unchanged. |
 | IV. External sources keyless | Pass: unchanged. |
@@ -36,14 +36,14 @@ changes (the claimed names are the unscoped ones).
 | VI. Play counts from the export | Pass: unchanged, per user. |
 | VII. Every failure shown | Pass: the sign-in screen shows link errors; an unreadable pointer falls back to the sign-in screen with a message. |
 
-Re-checked after design: only Principle I changes, and it changes in ADR-13 first (Governance: the ADR index leads).
+Re-checked after design: only Principle I changes, and it changes in ADR-14 first (Governance: the ADR index leads).
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/009-multi-user-data/
+specs/011-multi-user-data/
 ├── plan.md  research.md  data-model.md  quickstart.md
 ├── contracts/ui.md
 └── spec.md, checklists/requirements.md
@@ -62,8 +62,8 @@ src/model/state.ts               completeServerLink activates (claim, pointer, r
 src/main.tsx                     boot: server configured and nobody signed in -> bootPhase 'signedout'
 src/app.tsx, src/ui/signin/SignInGate.tsx   NEW  email field, "link sent" notice, errors; no data rendered
 src/ui/settings/…                the server card shows the signed-in email and "N people use this device"
-docs/architecture/700-adr/ADR-13-users-by-server-account.md   NEW
-.specify/memory/constitution.md  Principle I amended, version 2.3.0
+docs/architecture/700-adr/ADR-14-users-by-server-account.md   NEW
+.specify/memory/constitution.md  Principle I amended, version 2.4.0
 ```
 
 **Structure Decision**: scope lives in one small pure module that the db, auth and state layers import; nothing else learns about users.
