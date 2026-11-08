@@ -990,3 +990,73 @@ describe('runLookup - rekordbox never reaches the store (round 014)', () => {
     expect(text).not.toMatch(/features\/shared|from '\.\/shared'|sharedFacts/);
   });
 });
+
+// T027 (FR-007, US5): a missing, failing or offline port changes nothing but
+// the `shared` note.
+describe('runLookup - without a working port (round 014)', () => {
+  const ids = Array.from({ length: 45 }, (_, i) => `t${i}`);
+  const candidates = ids.map((id, i) => ({
+    id,
+    isrc: i % 2 === 0 ? `ISRC${i}` : null,
+  }));
+
+  async function runWith(port?: SharedFactsPort) {
+    await wipeDb();
+    // Batch 1 knows its tracks; batch 2 knows none, so notFound markers and
+    // the ISRC pass are part of the run.
+    const { deps, fetchFn, states } = setup([
+      () =>
+        json({
+          content: ids.slice(0, MAX_IDS).map((i) => feature(i, null, 126)),
+        }),
+      () => json({ content: [] }),
+      () => json({ content: [] }),
+    ]);
+    await runLookup(port ? { ...deps, shared: port } : deps, candidates, []);
+    const last = states.at(-1);
+    if (last?.status !== 'done') throw new Error('not done');
+    const { shared, ...rest } = last as typeof last & { shared?: unknown };
+    return {
+      rows: (await getFeatures()).sort((a, b) =>
+        a.trackId.localeCompare(b.trackId)
+      ),
+      calls: fetchFn.mock.calls.map((c) => c[0]),
+      rest,
+      shared,
+      hasShared: 'shared' in last,
+    };
+  }
+
+  it('leaves rows, requests and state as a run with no port', async () => {
+    const base = await runWith();
+    expect(base.hasShared).toBe(false);
+    expect(base.rest.found).toBeGreaterThan(0);
+    for (const message of ['offline', 'HTTP 500']) {
+      const { port } = fakePort([], { read: message });
+      const run = await runWith(port);
+      expect(run.rows).toEqual(base.rows);
+      expect(run.calls).toEqual(base.calls);
+      expect(run.rest).toEqual(base.rest);
+      expect(run.shared).toEqual({ fromStore: 0, sent: 0, error: message });
+      expect(port.readTracks).toHaveBeenCalledTimes(1);
+      expect(port.shareTracks).not.toHaveBeenCalled();
+    }
+  });
+
+  it('treats a port that throws as an offline one', async () => {
+    const base = await runWith();
+    const { port } = fakePort([]);
+    port.readTracks = vi.fn(async () => {
+      throw new Error('network down');
+    });
+    const run = await runWith(port);
+    expect(run.rows).toEqual(base.rows);
+    expect(run.calls).toEqual(base.calls);
+    expect(run.rest).toEqual(base.rest);
+    expect(run.shared).toEqual({
+      fromStore: 0,
+      sent: 0,
+      error: 'network down',
+    });
+  });
+});
