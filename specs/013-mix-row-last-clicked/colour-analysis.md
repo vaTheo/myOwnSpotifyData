@@ -48,13 +48,13 @@ Same selected rule applies (`.dt-item[aria-selected='true']`). The compact item'
 
 - A 4 px left edge bar in `primary` #7fff00 (12.6:1 against the normal row, 7.20 against the fill), drawn with an inset box-shadow (no layout shift).
 - `aria-selected="true"` on the row so screen readers say "selected".
-- In forced-colours mode the system highlight replaces the fills: the bar and `aria-selected` stay, and a `forced-colors` rule gives the row a visible outline.
+- In forced-colours mode the system drops the fills and the shadows (bar, lines, halo): `aria-selected` stays, and a `forced-colors` rule gives the row a visible `outline: 2px solid Highlight` in their place.
 
 ## 5b. Glowing top and bottom lines (owner request)
 
 - **Line**: 2 px `primary` #7fff00 on the row's top and bottom edges: 12.6:1 against the normal row, 7.20:1 against the selected fill, so it passes the 3:1 UI target on both sides and is the strongest cue of the row.
 - **Glow**: a soft `primary` halo, `0 0 8px` at about 60% `primary` (colour-mix, no new token), drawn outward from each line. It is decorative (the line carries the information); against the neighbouring rows' fill the halo lowers the contrast of nothing, because it is a background-side light over `surface-container` (#1a2214) and never behind text of a marked row; the 4 px edge-to-edge halo can reach the first 4 px of the next row's border area only, so the row above/below keeps text contrast above 9:1 (their text sits at least 8 px inside).
-- **Painting**: lines and glow are inset/outset box-shadows on the row (no border-width change, no layout shift); the row gets `position: relative; z-index: 1` so its glow paints over the neighbours' backgrounds instead of under them; the table wrapper does not clip (`.dt-wrap` has no `overflow`), so top glow on the first row and bottom glow on the last row show; the scroll container's own overflow may clip the halo at the far left and right edges, which is accepted (lines and bar stay).
+- **Painting**: lines and glow are inset/outset box-shadows on the row (no border-width change, no layout shift); the row gets `position: relative`, lifted above its neighbours so its glow paints over their backgrounds instead of under them, no z-index so no stacking context (an open More menu, a child of the row, stays above banners and bars); the table wrapper does not clip (`.dt-wrap` has no `overflow`), so top glow on the first row and bottom glow on the last row show; the scroll container's own overflow may clip the halo at the far left and right edges, which is accepted (lines and bar stay).
 - **Motion**: static, no animation (nothing to reduce); no pulse.
 - **Adjacent marked rows**: only one row is marked, so lines never double.
 - **Form row**: lines and halo apply to the neutral form row too (they do not touch field contrast), with the edge bar.

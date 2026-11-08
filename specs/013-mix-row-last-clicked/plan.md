@@ -77,7 +77,7 @@ src/
 │   │   ├── rowMark.test.ts          # NEW
 │   │   └── TracklistTable.tsx       # marked state, pass markedKey/onMark, clear on delete and mix change, mark an added row
 │   └── theme/contrast.test.ts       # the section-2 pairs on primary-container
-└── styles.css                       # selected beats hover; hover layer over selected; edge bar; form row neutral + bar; forced-colors outline
+└── styles.css                       # selected beats hover; hover layer over selected; edge bar and glowing lines (row lifted above its neighbours, no z-index so no stacking context); form row neutral + bar; forced-colors outline
 tools/shots/regression.spec.ts       # row M04
 ```
 

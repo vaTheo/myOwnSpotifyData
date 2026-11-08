@@ -1438,8 +1438,10 @@ a {
 /* The marked Mix row's second cues (spec 013, FR-007, FR-007b): an edge bar
    (--app-mark-bar) and top and bottom lines (--app-mark-line) in primary,
    inset shadows (no layout shift), a soft primary halo (--app-mark-halo)
-   outside them, painted over the
-   neighbours (z-index); the focus ring is an outline, drawn above. Checked
+   outside them. The row is positioned, so it paints above its
+   non-positioned neighbours; no z-index, so no stacking context traps its
+   open More menu under banners and bars. The focus ring is an outline,
+   drawn above. Checked
    against colour-analysis §2–§6: row and phone item text, muted, found,
    error, warning and secondary pass on primary-container; the phone "Not
    found on Spotify" button is error text on a transparent background
@@ -1451,7 +1453,6 @@ a {
 .mix-tracklist .dt-body .dt-item[aria-selected='true'],
 .mix-tracklist .dt-body .dt-full[aria-selected='true'] {
   position: relative;
-  z-index: 1;
   box-shadow:
     inset var(--app-mark-bar) 0 0 var(--md-sys-color-primary),
     inset 0 var(--app-mark-line) 0 var(--md-sys-color-primary),
