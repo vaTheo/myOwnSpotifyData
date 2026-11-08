@@ -120,7 +120,7 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 
 ## 7. `sync/`
 
-Planner (a pure diff on `snapshot_id`), item mapper, and runner (`runSync`, `src/sync/runner.ts:181`). The runner commits one playlist
+Planner (a pure diff on `snapshot_id`; `selectOwned` keeps the owner's playlists and skips the one named exactly `Liked Songs`, so a stored copy is deleted by the next sync), item mapper, and runner (`runSync`, `src/sync/runner.ts:181`). The runner commits one playlist
 per transaction, persists `locked`/`error` state in meta (`syncState`, `lastSyncAt`, `accountId`), and on a different Spotify account asks
 before wiping (`ACCOUNT_SWITCH_CONFIRM`). Sync never runs on load ([ADR-02](700-adr/ADR-02-no-spotify-reads-on-load.md)) except from the automatic chain (§14,
 [ADR-12](700-adr/ADR-12-automatic-updates.md)), when `lastSyncAt` is older than 12 hours or a stored playlist has no `withYears` marker (the one-time album-year backfill); otherwise only from the Settings button or a
