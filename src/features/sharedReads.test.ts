@@ -4,6 +4,10 @@ import { describe, expect, it } from 'vitest';
 // FR-009, ADR-02: nothing asks the shared store except the two runs, and no
 // code of the app opens a port on load or from sync. A text check over
 // `src/`, test files left out.
+//
+// These lists are deliberately exact. If one of them fails because you added a
+// legitimate new user of the port, update the list here (and say why in the
+// round's spec); if the new use reads on load or from sync, it is a bug.
 const SRC = new URL('../', import.meta.url);
 
 function sources(dir: URL, out: { path: string; text: string }[] = []) {
@@ -35,22 +39,23 @@ describe('the shared store is read only by the two runs (FR-009)', () => {
   it('calls the read methods only in lookup.ts and reachRun.ts', () => {
     // A call is `.readTracks(` / `.readReach(` on a port; the definitions
     // (`shared.ts` type, `server/sharedFacts.ts` implementation) have no dot.
-    expect(filesWith(/\.(readTracks|readReach)\(/)).toEqual([
-      'features/lookup.ts',
-      'features/reachRun.ts',
-    ]);
+    expect(
+      filesWith(/\.(readTracks|readReach)\(/),
+      'a new file reads the shared store: if legitimate, update this list'
+    ).toEqual(['features/lookup.ts', 'features/reachRun.ts']);
   });
 
   it('calls the share methods only in lookup.ts and reachRun.ts', () => {
-    expect(filesWith(/\.(shareTracks|shareReach)\(/)).toEqual([
-      'features/lookup.ts',
-      'features/reachRun.ts',
-    ]);
+    expect(
+      filesWith(/\.(shareTracks|shareReach)\(/),
+      'a new file writes the shared store: if legitimate, update this list'
+    ).toEqual(['features/lookup.ts', 'features/reachRun.ts']);
   });
 
   it('names the port methods nowhere else than the type, the implementation and the runs', () => {
     expect(
-      filesWith(/\b(readTracks|readReach|shareTracks|shareReach)\b/)
+      filesWith(/\b(readTracks|readReach|shareTracks|shareReach)\b/),
+      'a new file names the port methods: if legitimate, update this list'
     ).toEqual([
       'features/lookup.ts',
       'features/reachRun.ts',
@@ -60,9 +65,10 @@ describe('the shared store is read only by the two runs (FR-009)', () => {
   });
 
   it('builds the port in state.ts only, and hands it to the two run starters', () => {
-    expect(filesWith(/createSharedFactsPort\(/)).toEqual(
-      ['server/sharedFacts.ts'].concat(['model/state.ts']).sort()
-    );
+    expect(
+      filesWith(/createSharedFactsPort\(/),
+      'createSharedFactsPort is called from a new file: if legitimate, update this list'
+    ).toEqual(['model/state.ts', 'server/sharedFacts.ts']);
     const state = files.find((f) => f.path === 'model/state.ts')!.text;
     const lines = state.split('\n');
     const uses = lines
@@ -98,7 +104,10 @@ describe('the shared store is read only by the two runs (FR-009)', () => {
   it('keeps the sync and server push code away from the port', () => {
     const touching = filesWith(/sharedPort|SharedFactsPort|sharedFacts/);
     // The runs, the type, the implementation, the wiring, the two screens.
-    expect(touching).toEqual([
+    expect(
+      touching,
+      'a new file touches the port: if legitimate, update this list'
+    ).toEqual([
       'features/lookup.ts',
       'features/reachRun.ts',
       'features/shared.ts',

@@ -1337,5 +1337,21 @@ describe('runReach with a shared store (round 014)', () => {
         expect(calls).toEqual(['readReach']);
       }
     });
+
+    it('survives a port whose read or share throws', async () => {
+      const base = await runWith();
+      for (const which of ['readReach', 'shareReach'] as const) {
+        const { port } = failing({ ok: true, value: [] });
+        port[which] = async () => {
+          throw new Error('boom ' + which);
+        };
+        const run = await runWith(port);
+        expect(run.rows).toEqual(base.rows);
+        expect(run.meta).toEqual(base.meta);
+        expect(run.requests).toEqual(base.requests);
+        expect(run.rest).toEqual(base.rest);
+        expect(run.shared).toMatchObject({ error: 'boom ' + which });
+      }
+    });
   });
 });
