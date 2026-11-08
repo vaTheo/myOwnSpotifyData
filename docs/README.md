@@ -34,6 +34,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
   - [ADR-13 — Opening a mix checks it on Spotify](architecture/700-adr/ADR-13-automatic-mix-check.md)
   - [ADR-14 — Users are server accounts](architecture/700-adr/ADR-14-users-by-server-account.md)
   - [ADR-15 — Shared track and artist facts](architecture/700-adr/ADR-15-shared-track-facts.md)
+  - [ADR-16 — One worker for every user](architecture/700-adr/ADR-16-shared-worker.md)
 - [800 — Limits and roadmap](architecture/800-limits-roadmap.md)
 
 ## Dev guide
@@ -47,6 +48,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 One design document per feature round, dated. The first one is the base model; later ones build on it.
 
+- 2026-11-08 — One worker for every user (round 015): [`specs/015-shared-worker/`](../specs/015-shared-worker/spec.md), decision [ADR-16](architecture/700-adr/ADR-16-shared-worker.md)
 - 2026-11-08 — Shared BPM, key and artist reach (round 014): [`specs/014-shared-track-facts/`](../specs/014-shared-track-facts/spec.md), decision [ADR-15](architecture/700-adr/ADR-15-shared-track-facts.md)
 - 2026-11-08 — The last Mix row clicked stays marked (round 013): [`specs/013-mix-row-last-clicked/`](../specs/013-mix-row-last-clicked/spec.md)
 - 2026-11-08 — Link a Spotify track to a not-found row (round 012): [`specs/012-mix-manual-spotify-link/`](../specs/012-mix-manual-spotify-link/spec.md)

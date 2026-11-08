@@ -5,9 +5,9 @@
 
 ## Phase 1: Setup (decision first, docs lead)
 
-- [ ] T001 Write `docs/architecture/700-adr/ADR-16-shared-worker.md` (a named worker role serves every user's identification request through five definer functions; no table privilege; the list `shared_workers` is edited only by the owner; one request per user in turn; personal mode kept; options refused: service key, table policies on `jobs`, worker per user, a token claim; consequences and limits from `research.md` D1 to D8)
-- [ ] T002 Amend `docs/architecture/700-adr/ADR-14-users-by-server-account.md` and `ADR-08-owner-server-free-tier.md` with a short "Amended by ADR-16" note each (ADR-14: "the worker reads its signed-in user's queue" holds for personal mode; a shared worker is the one named exception; ADR-08: the worker may serve every user), add the row to `docs/architecture/700-adr/README.md` and the page to `docs/README.md`
-- [ ] T003 Amend Principle I in `.specify/memory/constitution.md` (the server also lets a named worker role take any user's identification request through functions; still stores, never computes, no secret in the app), bump to 2.6.0 with the Sync Impact Report
+- [x] T001 Write `docs/architecture/700-adr/ADR-16-shared-worker.md` (a named worker role serves every user's identification request through five definer functions; no table privilege; the list `shared_workers` is edited only by the owner; one request per user in turn; personal mode kept; options refused: service key, table policies on `jobs`, worker per user, a token claim; consequences and limits from `research.md` D1 to D8)
+- [x] T002 Amend `docs/architecture/700-adr/ADR-14-users-by-server-account.md` and `ADR-08-owner-server-free-tier.md` with a short "Amended by ADR-16" note each (ADR-14: "the worker reads its signed-in user's queue" holds for personal mode; a shared worker is the one named exception; ADR-08: the worker may serve every user), add the row to `docs/architecture/700-adr/README.md` and the page to `docs/README.md`
+- [x] T003 Amend Principle I in `.specify/memory/constitution.md` (the server also lets a named worker role take any user's identification request through functions; still stores, never computes, no secret in the app), bump to 2.6.0 with the Sync Impact Report
 
 ## Phase 2: Foundational (blocks every story)
 

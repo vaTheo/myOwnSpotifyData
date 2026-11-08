@@ -40,6 +40,10 @@ signs in with their email, then connects their own Spotify account (the owner al
 personal table. The shared store of public track and artist facts (BPM, key, reach) is the one named exception: it has no user
 column, is insert-only and read by id.
 
+**Amended by [ADR-16](ADR-16-shared-worker.md).** "The worker reads its signed-in user's queue" holds for a personal worker. A shared
+worker, a named account the owner lists, is the one exception: it takes any user's identification request through five functions
+and has no privilege on any table.
+
 ## Consequences
 
 **Positive:** the owner's data stays where it is; a second person starts empty; isolation is by database name and by the server's row rules.
@@ -54,6 +58,7 @@ is readable with devtools on a shared browser profile, no stronger than today.
 - Spec: [`specs/011-multi-user-data/spec.md`](../../../specs/011-multi-user-data/spec.md)
 - Amends [ADR-08](ADR-08-owner-server-free-tier.md) ("for the owner alone"); keeps [ADR-05](ADR-05-additive-indexeddb.md)
 - Amended by [ADR-15](ADR-15-shared-track-facts.md): one shared store of public facts
+- Amended by [ADR-16](ADR-16-shared-worker.md): a shared worker serves every user's identification requests
 - Constitution Principle I
 - [How the app works](../000-how-it-works.md) §6, §13, §14, §16 "Users" · [Feature inventory](../100-features.md) F27 · [Limits and roadmap](../800-limits-roadmap.md) §2
 - [ADR index](README.md)
