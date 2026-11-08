@@ -1191,3 +1191,42 @@ describe('startServerSignOut (round 011 T014)', () => {
     expect(reload).not.toHaveBeenCalled();
   });
 });
+
+describe('mixRowsReplaced (spec 013: the marked row clears)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    state.savedMixes.value = [];
+  });
+
+  it('counts a paste, the description and a saved mix reopened; not an edit', () => {
+    vi.stubGlobal('confirm', () => true);
+    const start = state.mixRowsReplaced.value;
+    state.editMixRow(0, { artist: 'A', title: 'B', label: '' });
+    expect(state.mixRowsReplaced.value).toBe(start);
+    expect(state.applyPastedTracklist('X - One\nY - Two')).toBe('added');
+    expect(state.mixRowsReplaced.value).toBe(start + 1);
+    const s = state.mixState.value as { view: { descriptionRows: unknown } };
+    s.view.descriptionRows = [row('Three')];
+    state.applyDescriptionTracklist();
+    expect(state.mixRowsReplaced.value).toBe(start + 2);
+    state.savedMixes.value = [
+      {
+        url: URL,
+        title: 'Set',
+        author: null,
+        slug: null,
+        sources: { trackid: false, description: false, tracklistify: false },
+        rows: [row('One')],
+      },
+    ] as unknown as typeof state.savedMixes.value;
+    state.openMix(URL);
+    expect(state.mixRowsReplaced.value).toBe(start + 3);
+  });
+
+  it('is not counted when the replace is refused', () => {
+    vi.stubGlobal('confirm', () => false);
+    const start = state.mixRowsReplaced.value;
+    state.applyPastedTracklist('X - One\nY - Two');
+    expect(state.mixRowsReplaced.value).toBe(start);
+  });
+});

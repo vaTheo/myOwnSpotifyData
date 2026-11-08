@@ -126,6 +126,10 @@
   --app-list-pane: 360px;
   --app-side-sheet: 400px;
   --app-focus-ring: 3px;
+  /* The marked Mix row (spec 013): edge bar, top and bottom lines, halo. */
+  --app-mark-bar: 4px;
+  --app-mark-line: 2px;
+  --app-mark-halo: 8px;
   --app-margin: 16px;
   --app-gap: 24px;
   --app-prose: 80ch;

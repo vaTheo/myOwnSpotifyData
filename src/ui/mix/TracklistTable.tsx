@@ -23,6 +23,7 @@ import {
   mixCheckSaved,
   mixError,
   mixRows,
+  mixRowsReplaced,
   mixState,
   model,
   saveMix,
@@ -640,6 +641,8 @@ export function TracklistTable() {
   const ms = mixState.value;
   const mixUrl = ms.status === 'ready' ? ms.view.url : null;
   useEffect(() => mark({ type: 'open-mix' }), [mixUrl]);
+  const replaced = mixRowsReplaced.value;
+  useEffect(() => mark({ type: 'rows-replaced' }), [replaced]);
   const [saved, setSaved] = useState(false);
   // Check on Spotify saves the mix when it ends (ruling R1): the same
   // "Saved ✓" as Save mix says so.

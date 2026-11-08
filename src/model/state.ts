@@ -729,6 +729,12 @@ export const mixState = signal<MixState>({ status: 'idle' });
 /** The one working, editable tracklist; its own signal so an edit re-renders. */
 export const mixRows = signal<TracklistRow[]>([]);
 /**
+ * Counts the times the whole working list was replaced (a lookup, an import,
+ * a paste, the description, a saved mix opened), so the tracklist's marked
+ * row (spec 013) clears: its index would land on another track.
+ */
+export const mixRowsReplaced = signal(0);
+/**
  * The open mix's removed scan tracks (T125), saved with it as
  * `MixRow.removed` so a later worker result does not bring them back.
  */
@@ -1574,6 +1580,7 @@ export async function startMixLookup(pastedUrl: string): Promise<void> {
     trackid.status === 'ok' && trackid.rows.length > 0
       ? trackid.rows
       : descriptionRows;
+  mixRowsReplaced.value += 1;
 }
 
 /**
@@ -1622,6 +1629,7 @@ export async function startTracklistifyImport(file: File): Promise<void> {
   mixState.value = { status: 'ready', view };
   mixRemoved.value = removedOf(view.url);
   mixRows.value = parsed.rows;
+  mixRowsReplaced.value += 1;
 }
 
 /** Replaces the working list with the description's rows (spec §4/§5.2). */
@@ -1633,6 +1641,7 @@ export function applyDescriptionTracklist(): void {
   if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_DESCRIPTION))
     return;
   mixRows.value = state.view.descriptionRows;
+  mixRowsReplaced.value += 1;
 }
 
 /**
@@ -1656,6 +1665,7 @@ export function applyPastedTracklist(
     return 'added';
   }
   mixRows.value = parsed.rows;
+  mixRowsReplaced.value += 1;
   mixState.value = {
     status: 'ready',
     view: { ...state.view, sources: { ...state.view.sources, pasted: true } },
@@ -2094,6 +2104,7 @@ export function openMix(url: string): void {
   if (!row) return;
   mixError.value = null;
   mixRows.value = row.rows;
+  mixRowsReplaced.value += 1;
   mixRemoved.value = row.removed ?? [];
   const count = row.rows.filter((r) => !r.gap).length;
   const view: MixView = {

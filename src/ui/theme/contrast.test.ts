@@ -76,7 +76,8 @@ const PAIRS: [string, string, number][] = [
     '--md-sys-color-primary-container',
     4.5,
   ],
-  ['--md-sys-color-error', '--md-sys-color-primary-container', 3],
+  // Text too: the phone "Not found on Spotify" button (5.49:1).
+  ['--md-sys-color-error', '--md-sys-color-primary-container', 4.5],
   ['--app-color-warning', '--md-sys-color-primary-container', 4.5],
   ['--md-sys-color-secondary', '--md-sys-color-primary-container', 4.5],
   // The found mark, the edge bar and the glow lines.

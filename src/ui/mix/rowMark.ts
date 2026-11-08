@@ -7,7 +7,8 @@ export type RowMarkEvent =
   | { type: 'click'; index: number }
   | { type: 'delete'; index: number }
   | { type: 'add'; index: number }
-  | { type: 'open-mix' };
+  | { type: 'open-mix' }
+  | { type: 'rows-replaced' };
 
 /** The marked row after `event`. */
 export function markAfter(
@@ -19,9 +20,11 @@ export function markAfter(
     case 'add':
       return event.index;
     // A delete shifts the rows after it: any mark would point at another
-    // track, so none stays.
+    // track, so none stays. A paste, the description or a saved mix
+    // reopened replaces every row without changing the mix: same reason.
     case 'delete':
     case 'open-mix':
+    case 'rows-replaced':
       return null;
   }
 }

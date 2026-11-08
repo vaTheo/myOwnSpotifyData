@@ -46,4 +46,11 @@ describe('markAfter', () => {
     expect(markAfter(3, { type: 'open-mix' })).toBeNull();
     expect(markAfter(null, { type: 'open-mix' })).toBeNull();
   });
+
+  it('clears the mark when every row is replaced in the same mix', () => {
+    // A paste, Replace with description, or the same saved mix reopened:
+    // index 3 would now be another track.
+    expect(markAfter(3, { type: 'rows-replaced' })).toBeNull();
+    expect(markAfter(null, { type: 'rows-replaced' })).toBeNull();
+  });
 });

@@ -2041,6 +2041,130 @@ test.describe('Y. release year', () => {
     expect(await counts()).toEqual(before);
   });
 
+  test('M04 Mix: the last row clicked stays marked, links included; hover and Edit keep it; Delete clears it', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const page = app.page;
+    const grid = await openGrid(page);
+    // A link still acts (its default is not prevented by the mark): record
+    // it, then stop it here, since every request leaving 127.0.0.1 fails.
+    await page.evaluate(() => {
+      const w = window as unknown as { __opened: string[] };
+      w.__opened = [];
+      document.addEventListener('click', (e) => {
+        const a = (e.target as Element).closest('a');
+        if (!a) return;
+        if (!e.defaultPrevented) w.__opened.push(a.getAttribute('href') ?? '');
+        e.preventDefault();
+      });
+    });
+    const opened = () =>
+      page.evaluate(
+        () => (window as unknown as { __opened: string[] }).__opened
+      );
+    const rows = grid
+      .locator('[role=rowgroup]')
+      .nth(1)
+      .locator('[role=row][data-row-id]');
+    const byId = (id: string) =>
+      grid.locator(`[role=row][data-row-id="${id}"]`);
+    const marked = grid.locator('[role=row][aria-selected="true"]');
+    const play = /^Play .+ on Spotify$/;
+    const playId =
+      (await rows
+        .filter({ has: page.getByRole('link', { name: play }) })
+        .first()
+        .getAttribute('data-row-id')) ?? '';
+    const ids = await rows.evaluateAll((rs) =>
+      rs.map((r) => r.getAttribute('data-row-id') ?? '')
+    );
+    const titleId = ids.find((id) => id !== playId) ?? '';
+    expect(playId).not.toBe('');
+    expect(titleId).not.toBe('');
+    await expect(marked).toHaveCount(0);
+
+    // A click on a title marks its row.
+    await byId(titleId).getByRole('gridcell').nth(1).click();
+    await expect(byId(titleId)).toHaveAttribute('aria-selected', 'true');
+    await expect(marked).toHaveCount(1);
+
+    // The Spotify icon of another row: that row is marked, the link opens.
+    await byId(playId).getByRole('link', { name: play }).click();
+    await expect(byId(playId)).toHaveAttribute('aria-selected', 'true');
+    await expect(byId(titleId)).toHaveAttribute('aria-selected', 'false');
+    await expect(marked).toHaveCount(1);
+    expect(await opened()).toContainEqual(
+      expect.stringMatching(/^spotify:track:\w+$/)
+    );
+
+    // A Shazam icon (new tab): its row is marked, and stays marked when
+    // the owner comes back to the window.
+    const shazamRow = rows
+      .filter({ has: page.getByRole('link', { name: /^Shazam / }) })
+      .first();
+    const shazamId = (await shazamRow.getAttribute('data-row-id')) ?? '';
+    await shazamRow.getByRole('link', { name: /^Shazam / }).click();
+    await expect(byId(shazamId)).toHaveAttribute('aria-selected', 'true');
+    expect(await opened()).toContainEqual(
+      expect.stringMatching(/^https:\/\/www\.shazam\.com\/track\//)
+    );
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('blur'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+    });
+    await expect(byId(shazamId)).toHaveAttribute('aria-selected', 'true');
+    await expect(marked).toHaveCount(1);
+
+    // Hover keeps the selected fill (a layer over it, not the hover grey),
+    // and the glowing lines stay.
+    const fill = await page.evaluate(() => {
+      const probe = document.createElement('div');
+      probe.style.color = 'var(--md-sys-color-primary-container)';
+      document.body.append(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    });
+    const look = () =>
+      byId(shazamId).evaluate((r) => {
+        const s = getComputedStyle(r);
+        return {
+          color: s.backgroundColor,
+          image: s.backgroundImage,
+          shadow: s.boxShadow,
+        };
+      });
+    await page.mouse.move(0, 0);
+    await expect.poll(async () => (await look()).color).toBe(fill);
+    expect((await look()).image).toBe('none');
+    expect((await look()).shadow).not.toBe('none');
+    await byId(shazamId).getByRole('gridcell').first().hover();
+    await expect.poll(async () => (await look()).color).toBe(fill);
+    expect((await look()).image).toMatch(/gradient/);
+    expect((await look()).shadow).not.toBe('none');
+
+    // Edit on it: the form row is the marked one; Cancel keeps it.
+    await byId(shazamId)
+      .getByRole('button', { name: /^More for / })
+      .click();
+    await page.getByRole('menuitem', { name: 'Edit' }).click();
+    await expect(marked).toHaveCount(1);
+    await expect(
+      marked.getByRole('textbox', { name: /^Artist/ })
+    ).toBeVisible();
+    await marked.getByRole('button', { name: 'Cancel' }).click();
+    await expect(byId(shazamId)).toHaveAttribute('aria-selected', 'true');
+
+    // Delete clears the mark.
+    await byId(shazamId)
+      .getByRole('button', { name: /^More for / })
+      .click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
+    await expect(marked).toHaveCount(0);
+  });
+
   test('Y07 Activity names the release years pass', async ({ app }) => {
     await app.open('#/top');
     await app.set('lookupState', {
