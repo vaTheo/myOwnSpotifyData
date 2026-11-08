@@ -212,6 +212,88 @@ describe('shareTracks', () => {
     expect(await port.shareTracks([])).toEqual({ ok: true, value: 0 });
   });
 
+  it('refuses each bad row before sending, so one never costs the batch', async () => {
+    const bad = [
+      ['bpm 0', fact(1, { bpm: 0 })],
+      ['bpm 301', fact(2, { bpm: 301 })],
+      ['key 12', fact(3, { key: 12 })],
+      ['21-character id', fact(4, { trackId: 'x'.repeat(21) })],
+      ['major without key', fact(5, { key: null, major: true })],
+    ] as const;
+    for (const [label, row] of bad) {
+      const { port, fetchFn } = setup(
+        () => new Response(null, { status: 201 })
+      );
+      // Alone: nothing is sent. Beside a good row: only the good row goes.
+      expect(await port.shareTracks([row]), label).toEqual({
+        ok: true,
+        value: 0,
+      });
+      expect(fetchFn, label).not.toHaveBeenCalled();
+      expect(await port.shareTracks([row, fact(9)]), label).toEqual({
+        ok: true,
+        value: 1,
+      });
+      expect(bodyOf(fetchFn.mock.calls[0]![1]), label).toEqual([
+        { track_id: id(9), bpm: 128, key: 5, major: false },
+      ]);
+    }
+  });
+
+  it('refuses a reach row a year ahead before sending', async () => {
+    const { port, fetchFn } = setup(() => new Response(null, { status: 201 }));
+    const row = {
+      artistId: id(1),
+      source: 'deezer' as const,
+      value: 5,
+      measuredAt: NOW + 366 * 86_400_000,
+    };
+    expect(await port.shareReach([row])).toEqual({ ok: true, value: 0 });
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('a 400 fails the share but the run keeps its own results', async () => {
+    await wipeDb();
+    const { port } = setup(() =>
+      ok({ message: 'violates check constraint "bpm_check"' }, 400)
+    );
+    const states: LookupState[] = [];
+    const fetchFn = vi.fn<FetchLike>(async (url) => {
+      if (url.startsWith(RECCOBEATS_TRACK_URL)) return ok({ content: [] });
+      if (url.startsWith(RECCOBEATS_URL)) {
+        return ok({
+          content: [
+            {
+              href: `https://open.spotify.com/track/${id(1)}`,
+              tempo: 120,
+              key: 2,
+              mode: 1,
+              energy: 0.5,
+            },
+          ],
+        });
+      }
+      throw new Error(url);
+    });
+    await runLookup(
+      {
+        fetchFn: fetchFn as unknown as typeof fetch,
+        sleep: async () => {},
+        now: () => NOW,
+        onState: (st) => states.push(st),
+        shared: { ...port, readTracks: async () => ({ ok: true, value: [] }) },
+      },
+      [{ id: id(1), isrc: null }],
+      []
+    );
+    expect(states.at(-1)).toMatchObject({
+      status: 'done',
+      found: 1,
+      shared: { sent: 0, error: 'violates check constraint "bpm_check"' },
+    });
+    expect((await getFeatures())[0]?.reccobeats).toMatchObject({ bpm: 120 });
+  });
+
   it('a 400 becomes the constraint text', async () => {
     const { port } = setup(() =>
       ok(

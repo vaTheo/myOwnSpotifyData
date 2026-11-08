@@ -13,3 +13,21 @@ Prerequisites: the three gates green; a real Supabase project with `0004_shared_
 9. **Server down**: switch the network off, or break the key, in the middle of a run: the run ends `done`, the card gives the reason, the results equal a run without the server.
 10. **Remove server data** as B: the shared rows B contributed are still there; A's data is untouched.
 11. **No server settings**: a build without them shows no notice, no store line, and behaves as before.
+
+## Recorded output of steps 3 and 4 (T022, filled at T033)
+
+Run on the real project by the owner; paste the exact output here. `$URL` is the project URL, `$TOKEN_A` user A's access token, `$ANON` the public key.
+
+Step 3 (policies):
+
+```
+curl -s "$URL/rest/v1/shared_track_facts?select=*" -H "apikey: $ANON" -H "Authorization: Bearer $TOKEN_A"
+curl -s -X PATCH "$URL/rest/v1/shared_track_facts?track_id=eq.<id>" -H ... -d '{"bpm":100}'
+curl -s -X DELETE "$URL/rest/v1/shared_track_facts?track_id=eq.<id>" -H ...
+curl -s -X POST "$URL/rest/v1/rpc/get_track_facts" -H ... -d '{"ids":[<201 ids>]}'
+curl -s -X POST "$URL/rest/v1/rpc/get_track_facts" -H ... -d '{"ids":["<known1>","<known2>"]}'
+```
+
+Expected: select empty or refused, PATCH and DELETE refused or affecting nothing, 201 ids refused (`too many ids`), two ids return exactly two rows of four columns. Output: _not yet recorded_.
+
+Step 4 (refused rows): one POST to `/rest/v1/shared_track_facts` per case (bpm 0, 999; key 12, -1; major without key; 21-character id; an extra column) and to `/rest/v1/shared_artist_reach` (`measured_on` a year ahead), each expecting 400 and no stored row; then a valid row (201) and the same id with another bpm (success, stored row unchanged). Output: _not yet recorded_.

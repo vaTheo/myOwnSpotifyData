@@ -42,9 +42,9 @@
 
 **Independent test**: bad rows, a second value for a known track, and a list attempt, all refused; checked in SQL text by tests and on the real project by the owner.
 
-- [ ] T020 [US3] Extend the refused cases in `src/server/rules.test.ts` with fixtures for each way the shared migration could go wrong: a `using (true)` select policy, an update or delete policy or grant, a missing `bpm` range, a definer without the 200 cap, a function granted to `anon` or `public`, a column named `user_id` or `owner_id` on a shared table; each yields exactly one finding
-- [ ] T021 [P] [US3] Test in `src/server/sharedFacts.test.ts` that the client refuses before sending (so a batch is never lost to one bad row): bpm 0, 301, key 12, a 21-character id, a reach `measured_on` a year ahead; and that a 400 from the server becomes `{ ok: false, message }` with the constraint text, with the run's other results intact
-- [ ] T022 [US3] Document the real-project checks in `specs/014-shared-track-facts/quickstart.md` steps 3 and 4 as executed output (done at T033); no code here
+- [x] T020 [US3] Extend the refused cases in `src/server/rules.test.ts` with fixtures for each way the shared migration could go wrong: a `using (true)` select policy, an update or delete policy or grant, a missing `bpm` range, a definer without the 200 cap, a function granted to `anon` or `public`, a column named `user_id` or `owner_id` on a shared table; each yields exactly one finding
+- [x] T021 [P] [US3] Test in `src/server/sharedFacts.test.ts` that the client refuses before sending (so a batch is never lost to one bad row): bpm 0, 301, key 12, a 21-character id, a reach `measured_on` a year ahead; and that a 400 from the server becomes `{ ok: false, message }` with the constraint text, with the run's other results intact
+- [x] T022 [US3] Document the real-project checks in `specs/014-shared-track-facts/quickstart.md` steps 3 and 4 as executed output (done at T033); no code here
 
 ## Phase 6: User Story 4 - Artist reach follows (P2)
 
