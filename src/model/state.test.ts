@@ -648,6 +648,35 @@ describe('the Mix wiring in state.ts (S13, B5)', () => {
   });
 });
 
+describe('a pasted Spotify link (round 011)', () => {
+  const LINK = 'https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG?si=x';
+
+  it('links a named row; refuses empty text and a non-track link', () => {
+    expect(state.linkMixRowSpotify(0, '  ')).toBe(state.LINK_EMPTY);
+    expect(
+      state.linkMixRowSpotify(
+        0,
+        'https://open.spotify.com/album/1qGibBSuprByJCYMC4zRUG'
+      )
+    ).toBe(state.LINK_REFUSED);
+    expect(state.mixRows.value[0].spotify).toBeUndefined();
+    expect(state.linkMixRowSpotify(0, LINK)).toBeNull();
+    expect(state.mixRows.value[0]).toMatchObject({
+      spotify: { id: '1qGibBSuprByJCYMC4zRUG' },
+      spotifyBy: 'owner',
+    });
+    expect(mocks.get).not.toHaveBeenCalled();
+    state.unlinkMixRowSpotify(0);
+    expect(state.mixRows.value[0].spotify).toBe('not-found');
+  });
+
+  it('a row with no track name says so, not that the link is wrong', () => {
+    state.mixRows.value = [{ ...row('One'), gap: true }];
+    expect(state.linkMixRowSpotify(0, LINK)).toBe(state.LINK_UNNAMED);
+    expect(state.mixRows.value[0].spotify).toBeUndefined();
+  });
+});
+
 describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
   /** putMix and getMixes over one in-memory store, as IndexedDB would. */
   async function memoryStore() {
@@ -761,7 +790,11 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
       async (path: string, query?: { q?: string }) => {
         if (String(query?.q ?? '').includes('Two')) {
           // The owner edits Two, deletes nothing, and saves mid-run.
-          state.editMixRow(1, { artist: 'Artist', title: 'Two', label: 'Warp' });
+          state.editMixRow(1, {
+            artist: 'Artist',
+            title: 'Two',
+            label: 'Warp',
+          });
           await state.saveMix();
         }
         return search(path, query);

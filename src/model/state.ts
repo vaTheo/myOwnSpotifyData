@@ -1689,6 +1689,7 @@ export function editMixRow(
 /** Round 011: the refusals of a pasted Spotify link, said under the field. */
 export const LINK_EMPTY = 'Paste a Spotify track link.';
 export const LINK_REFUSED = 'That is not a Spotify track link.';
+export const LINK_UNNAMED = 'This row has no track name to link.';
 
 /**
  * Round 011: the owner pastes a Spotify track link on a named row; it marks
@@ -1703,7 +1704,7 @@ export function linkMixRowSpotify(index: number, text: string): string | null {
   if (id === null) return LINK_REFUSED;
   const rows = mixRows.value.slice();
   const row = rows[index];
-  if (!row || !isIdentified(row)) return LINK_REFUSED;
+  if (!row || !isIdentified(row)) return LINK_UNNAMED;
   rows[index] = linkedRow(row, id, Date.now());
   mixRows.value = rows;
   return null;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TracklistRow } from '../../db/schema';
 import { sortRows } from '../table/sort';
+import { linkedRow, unlinkedRow } from '../../features/mix/spotifyLink';
 import {
   SORT_FIRST,
   effectiveSort,
@@ -66,6 +67,23 @@ describe('sortValue', () => {
     expect(sortValue('label', line(r({})))).toBeNull();
     expect(sortValue('released', line(r({ year: 1999 })))).toBe(1999);
     expect(sortValue('time', line(r({ startSec: null })))).toBeNull();
+  });
+});
+
+describe('a pasted Spotify link (round 011)', () => {
+  it('a hand-linked row sorts as found; a removed link sorts as not found again', () => {
+    const notFound = r({ spotify: 'not-found', checkedAt: 5 });
+    const found = r({
+      spotify: { id: 'B'.repeat(22), url: 'https://open.spotify.com/track/x' },
+      checkedAt: 5,
+    });
+    const linked = linkedRow(notFound, '1qGibBSuprByJCYMC4zRUG', 9);
+    expect(sortValue('spotify', line(linked))).toBe(
+      sortValue('spotify', line(found))
+    );
+    expect(sortValue('spotify', line(unlinkedRow(linked)))).toBe(
+      sortValue('spotify', line(notFound))
+    );
   });
 });
 

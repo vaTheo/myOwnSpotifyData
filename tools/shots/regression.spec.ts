@@ -1988,6 +1988,59 @@ test.describe('Y. release year', () => {
     await expect(sc).toHaveAttribute('target', '_blank');
   });
 
+  test('M03 Mix: link a Spotify track to a not-found row; an album is refused; Remove link', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    const caption = app.page
+      .locator('.mix-caption')
+      .filter({ hasText: / on Spotify · \d+ not found/ });
+    const counts = async () => {
+      const m = /(\d+) on Spotify · (\d+) not found/.exec(
+        (await caption.textContent()) ?? ''
+      );
+      expect(m, 'the review line').not.toBeNull();
+      return { found: Number(m![1]), missing: Number(m![2]) };
+    };
+    const before = await counts();
+    expect(before.missing).toBeGreaterThan(0);
+    const mark = grid
+      .getByRole('button', { name: /^Link a Spotify track to / })
+      .first();
+    const label = (await mark.getAttribute('aria-label')) ?? '';
+    const name = label.replace(/^Link a Spotify track to /, '');
+    // An album link is refused with the message; the row is unchanged.
+    await mark.click();
+    const field = app.page.getByRole('textbox', { name: 'Spotify track link' });
+    await field.fill('https://open.spotify.com/album/1qGibBSuprByJCYMC4zRUG');
+    await app.page.getByRole('button', { name: 'Link', exact: true }).click();
+    await expect(
+      app.page.getByText('That is not a Spotify track link.')
+    ).toBeVisible();
+    expect(await counts()).toEqual(before);
+    // The example link: the row is found, opened in the app, counts move.
+    await field.fill(
+      'https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG?si=f4ed2a88f4744bea'
+    );
+    await app.page.getByRole('button', { name: 'Link', exact: true }).click();
+    await expect(field).toHaveCount(0);
+    await expect(
+      grid.getByRole('link', { name: `Play ${name} on Spotify` })
+    ).toHaveAttribute('href', 'spotify:track:1qGibBSuprByJCYMC4zRUG');
+    expect(await counts()).toEqual({
+      found: before.found + 1,
+      missing: before.missing - 1,
+    });
+    // More › Remove link: back to not found.
+    await grid.getByRole('button', { name: `More for ${name}` }).click();
+    await app.page.getByRole('menuitem', { name: 'Remove link' }).click();
+    await expect(
+      grid.getByRole('button', { name: `Link a Spotify track to ${name}` })
+    ).toBeVisible();
+    expect(await counts()).toEqual(before);
+  });
+
   test('Y07 Activity names the release years pass', async ({ app }) => {
     await app.open('#/top');
     await app.set('lookupState', {
