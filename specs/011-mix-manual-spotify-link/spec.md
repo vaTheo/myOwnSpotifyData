@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-08
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "In the mix section, a song was not found on Spotify automatically; I want to add it where not found. Clicking the red mark in the Spotify column lets me paste a Spotify link (e.g. https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG?si=f4ed2a88f4744bea); it is then used to add the song to the playlist later."
 
@@ -98,3 +98,5 @@ The owner pasted the wrong link. They can replace it with another link, or remov
 - "Where not found" means rows marked not found; unchecked rows are not offered the control (they are checked first, automatically or by the button).
 - Editing the row's artist or title clears the linked track, as it does for any Check answer, so a renamed row is checked again.
 - Create playlist's existing write path and permission are unchanged; this feature adds no new Spotify permission or read.
+- The paste form replaces the row while it is open, as the Edit form does (not drawn under the row); Cancel or Link brings the row back.
+- The link is saved like an edit: with Save mix, or when a Check on Spotify run ends and saves the mix.

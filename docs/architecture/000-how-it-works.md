@@ -109,7 +109,7 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 - Optional fields added with **no** version bump read back `undefined` on old rows: `MixRow.playlistUrl?`/`playlistId?`,
   `PlayRow.months`/`attempts`/`finished`/`skipped`, `TracklistRow.confidence?`/`isrc?`/`shazamUrl?`; round 005's years:
   `TrackRow.albumYear?`, `TopTrackItem.albumYear?`, `FeatureRow.releaseYear?` (`{year | null, checkedAt}`), `FeatureValue.rid?`,
-  `TracklistRow.year?`/`yearFrom?`.
+  `TracklistRow.year?`/`yearFrom?`; round 011's `TracklistRow.spotifyBy?`.
 - One connection per tab, and it hands over: `openDb` closes its connection when a newer version opens in another tab (`blocking`) and
   reports a blocked upgrade (`blocked`) through `setDbEvents`; `state.ts` turns both into banners. Without this a version bump hangs on
   "Loading your library…" while an old tab lives. A database that has not opened after eight seconds says so.
@@ -270,15 +270,27 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   `TracklistRow.validated` stays in the schema for old saved mixes; nothing sets it any more.
 - `keepReview.ts` (T125, owner's D1): `mergeKeepingReview` replaces `mergeWorkerRows` when a result lands on a saved mix
   (`mixWithResult`, `server/sync.ts`). An untouched scan row matched by an incoming row (same ISRC, else `artistCore` and `sameTitle`)
-  hands it `spotify`, `checkedAt` (and `validated` when an old row has it); an old validated scan row the result misses stays; edited, typed, pasted, TrackId and
+  hands it `spotify`, `spotifyBy`, `checkedAt` (and `validated` when an old row has it); an old validated scan row, or one the owner
+  linked by hand (round 011), the result misses stays; edited, typed, pasted, TrackId and
   description rows stay, and an incoming row matching them (their text or what was detected) is dropped; so is one matching
   `MixRow.removed`, which `deleteMixRow` fills with a deleted row's detected artist, title and ISRC whenever something was detected
   (a scan or TrackId row, corrected or not; 500 at most). One existing row's review goes to one incoming row.
+- `spotifyLink.ts` (round 011, `specs/011-mix-manual-spotify-link/`): the owner links a track the check did not find.
+  `parseSpotifyTrackLink(text)` takes an `open.spotify.com` or `play.spotify.com` track link (an `intl-xx` segment, query and
+  fragment ignored) or `spotify:track:<id>`, a 22-character id, and returns the id or null (albums, artists, playlists, episodes,
+  `spotify.link` short links, other hosts and free text refused). `linkedRow` sets `spotify: {id, url}` (the URL rebuilt from the id),
+  `spotifyBy: 'owner'` and `checkedAt`; `unlinkedRow` puts `'not-found'` back and drops `spotifyBy`. The link is stored by its id:
+  never looked up on Spotify or by name, never verified (ADR-02, ADR-04). `linkMixRowSpotify`/`unlinkMixRowSpotify`
+  (`model/state.ts`) change the working list only, saved with Save mix like an edit, or when a Check on Spotify run ends; no job, no
+  `confirm()`. A hand-linked row is found for the counts, the Sort, the Spotify cell and Create playlist (`storedUri`, each URI
+  added once); `rowsToCheck` skips it and `applyAnswers` never puts a Check answer on it; `keepStoredAnswers` keeps it; a rename
+  drops `spotifyBy` with `spotify` (`editTracklistRow`), a label edit keeps both. `validateMix` accepts `spotifyBy` only as
+  `'owner'` beside an object `spotify`.
 - `worker.ts` `toRun`/`runLine` (T124, owner's D3): `mix_info.second_pass` (`places` or round 003's `replays`), `resumed`,
   `stopped_early` and `warnings` kept as the optional `MixRow.run`, replaced wholesale by each result, shown under the open mix's header
   ("Second pass: 41 places · 3 found", "Resumed (120 clips kept)", "Stopped early at 01:12:00 (rate limited)" with Ask again, the
   warnings collapsed). The header also shows the open mix's running request (progress line, bar, Stop) from the last pull.
-- `validateMix` checks every new optional field (`validated`, `spotify`, `checkedAt`, `removed`, `run`); Save mix keeps a saved mix's
+- `validateMix` checks every new optional field (`validated`, `spotify`, `spotifyBy`, `checkedAt`, `removed`, `run`); Save mix keeps a saved mix's
   `clues`, `run`, `identifyJobId` and `identifiedAt`.
 
 ## 11. `features/like/`: Like all songs
@@ -452,6 +464,12 @@ screen, grouped by role under `src/ui/`.
   More › Listen…. `listenIcons(row)` puts one-click icons beside the Listen menu (and on the phone meta line), each in a new tab:
   Shazam (the stored page, while the row is the scan's) and SoundCloud (the search page for artist and title, every identified
   row; gap and "ID" rows never).
+- **Link a Spotify track** (round 011): a not-found row's red mark (computer: the Spotify column's icon button; phone: the "Not
+  found on Spotify" text as a 48 px button) is labelled "Link a Spotify track to <track>" and opens `ui/mix/LinkForm.tsx` in the
+  row's place, as Edit does (`fullRow`; `keyOf` gives the linking row its own key): a "Spotify track link" field, Link, Cancel, and
+  Remove link when the row is already hand-linked; a refusal shows under the field ("Paste a Spotify track link.", "That is not a
+  Spotify track link.", "This row has no track name to link."). On a hand-linked row, More adds **Replace link** (the form opens on the current link) and **Remove
+  link**. The Spotify cell of a hand-linked row is the found app link.
 
 ## 14. Jobs and state (`model/state.ts`)
 

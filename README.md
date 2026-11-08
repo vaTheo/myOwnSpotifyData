@@ -304,6 +304,21 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   **Shazam** when known; then store and preview searches (Beatport,
   Bandcamp, Discogs, SoundCloud, YouTube), which are search pages because
   the app never looks a track up by name.
+- **Link a track Spotify did not find.** Find it on Spotify yourself and
+  copy its link (Share › Copy song link). Then tap the red "not found" mark
+  in the **Spotify** column (on a phone, the "Not found on Spotify" words),
+  paste the link in the field that opens in place of the row, and tap
+  **Link**: the track now counts as on Spotify, its play icon opens that
+  track, and Create playlist adds it. A song link like
+  `https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG?si=…` or
+  `spotify:track:…` works; an album, artist or playlist link, a
+  `spotify.link` short link or other text is refused with a message. The app
+  trusts the link as pasted (it never checks it on Spotify), and Check on
+  Spotify never overwrites it. A wrong link? The row menu has **Replace
+  link** and **Remove link** (back to not found). Changing the track's
+  artist or title clears the link, like any Spotify answer. The link is
+  saved like an edit: with **Save mix**, or when a Check on Spotify run
+  ends.
 - **Create playlist from mix** turns the list into a private Spotify
   playlist with every track of the list (remove the ones you do not want
   first); the card says how many will be added, in set order. A track found

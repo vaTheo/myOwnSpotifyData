@@ -34,5 +34,9 @@ import), library matching, Create playlist from mix, and dig links.
 - Check on Spotify (`spotifyCheck.ts`) reads Spotify on a tap, or by itself when a saved mix opens (`autoCheckDue`, ADR-13: switch on, no lock-out, no other reader, once per mix per session; never in the demo), never on load; it is not in `jobsBusy()`. Its answers are
   saved with the mix (the saved copy when the mix was closed), and Create playlist reuses a found track instead of searching again and
   keeps answers already stored when it saves (`keepStoredAnswers`).
+- Round 011 (`spotifyLink.ts`): a Spotify link the owner pastes is stored by its id (`spotify: {id, url}`, `spotifyBy: 'owner'`), never
+  verified on Spotify and never looked up by name (ADR-02, ADR-04); only track links parse, refused cases tested beside accepted ones.
+  `rowsToCheck` skips a hand-linked row and `applyAnswers` never overwrites it; `keepStoredAnswers` keeps it; `mergeKeepingReview` carries
+  `spotifyBy` and keeps an unmatched hand-linked scan row like a validated one; a rename drops `spotifyBy` with `spotify`.
 - One quota lock-out for every Spotify reader (`src/spotify/quotaLock.ts`), and one reader at a time: sync, Check on Spotify, Create
   playlist and Like all songs refuse to start while another runs (`busyRefusal`), said inline on the refused button.

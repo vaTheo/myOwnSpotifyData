@@ -3,6 +3,19 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-08 — Link a Spotify track to a not-found row
+
+Spec: `specs/011-mix-manual-spotify-link/`. In the open mix, the red "not found" mark of a track (on a phone, the "Not found on Spotify"
+words) opens a field in place of the row: paste the track's Spotify link (`https://open.spotify.com/track/<id>`, with or without `?si=`
+or a locale segment, or `spotify:track:<id>`) and tap **Link**; the row counts as on Spotify, its play icon opens that track and
+**Create playlist from mix** adds it. Album, artist, playlist and short `spotify.link` links, and other text, are refused with a message.
+A hand-linked row's menu has **Replace link** and **Remove link**. The link is stored by its id and never looked up or verified on
+Spotify; Check on Spotify (by tap or on opening) never overwrites it, a later worker result keeps it, and a rename of the track clears it.
+It is saved like an edit (Save mix, or when a Check on Spotify run ends). Create playlist now adds each Spotify track once even when two
+rows point at it. New optional `TracklistRow.spotifyBy: 'owner'`, accepted by the server's row check only beside a found track; no
+`DB_VERSION` bump, no new request, no new host, no new Spotify scope, and no new ADR (it applies ADR-02, ADR-03, ADR-04 and ADR-05 as
+they stand).
+
 ## 2026-11-08 — A simpler Mix tracklist
 
 Spec: `specs/010-mix-table-simplify/`. The open mix's table loses the **Source**, **In your library** and **Clips** columns and the
