@@ -49,11 +49,17 @@
 
 - [ ] T019 Run `yarn typecheck && yarn lint && yarn test`, judged by exit code
 - [ ] T020 Docs: how-it-works §6, §13, §14, §16 and a new short note on users; inventory row in `docs/architecture/100-features.md`; README (owner's manual: add a user, sign in, sign out, what a shared device keeps); CHANGELOG ("Several people, one app" plus the claim warning); `docs/architecture/800-limits-roadmap.md` (no remove-from-this-device button, free-tier storage shared, shared Spotify quota); `src/server/CLAUDE.md` and `src/db/CLAUDE.md` one line each
-- [ ] T021 Manual run on the real project, quickstart steps 2 to 7 (two users, two Spotify accounts); report what was and was not checked
+- [ ] T021 (after Phase 8) Manual run on the real project, quickstart steps 2 to 7 (two users, two Spotify accounts); report what was and was not checked
+
+## Phase 8: Full review of everything that touches user data and sync (last, before the manual run)
+
+- [ ] T022 Audit, written to `specs/009-multi-user-data/audit.md`: list every path that reads or writes user data and prove it is per user. At least: every `openDb`/`getAllRows`/`wipeDb` caller and every `localStorage`/`sessionStorage` key in `src/` (Spotify session, `server-session`, `quota lock`, `keyNotation`, `autoUpdates`, `deviceOwner`, `activeUser`, `deviceUsers`, and any other) with its scope (per user, per device, per app) and why; the server layer end to end (`runPush`, `runPull`, `planMixes`, `runRemoveAll`, `readUsage`, `pullJobs`, `requestIdentify`, queued jobs, `serverPending`, `serverStamps`, `serverLastSync`, `mixDeleted` metas) for a user switch, a sign-out and a sign-in as another user, with in-flight pushes and pulls; the automatic chain and `autoSync` while signed out, while signing out, and across two tabs; `disconnect`, `removeServerData`, the account-switch question, `startServerSignOut`; the worker's queue and a result applied to the right user; every `signal` in `model/state.ts` that holds user rows and when it is reset; the demo and `VITE_DEMO_FAKE_SERVER` modes; a token refresh that fails mid-session; two tabs, two users, one device; the SQL rules against a second real user. Each item ends "per user, because …" or a numbered finding with a failure scenario.
+- [ ] T023 Fix every Critical and Important finding of T022 with a test each (one fix dispatch, one scoped re-review); minors go to Limits and roadmap.
+- [ ] T024 Final whole-branch review of round 009 (most capable model), then the three gates by exit code, before T021.
 
 ## Dependencies
 
-T001 → T002. T003 → T004 → T005. T004 → T006 → T007 → T008 → T009. T007 → T010. T011 → T012. T009 and T012 → T014 → T015 → T016 → T017. T013 and T018 can run in parallel with Phases 4 to 5. T019 → T020 → T021.
+T001 → T002. T003 → T004 → T005. T004 → T006 → T007 → T008 → T009. T007 → T010. T011 → T012. T009 and T012 → T014 → T015 → T016 → T017. T013 and T018 can run in parallel with Phases 4 to 5. T019 → T020 → T022 → T023 → T024 → T021.
 
 ## Strategy
 
