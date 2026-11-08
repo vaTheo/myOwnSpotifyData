@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-08
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "In the mix section, in the table remove the source column. In the review column remove the validate, keep the delete. Every track on the list are validated by default, remove the In your library. Merge confidence and clip, keep the sortable logic. On the spotify column, the link must be the link that opens in app directly. Add a shazam icon and a soundcloud icon where I can click directly on it."
 
@@ -90,7 +90,8 @@ Each row shows a Shazam icon and a SoundCloud icon that open the track's page in
 ### Measurable Outcomes
 
 - **SC-001**: The table has three fewer controls per row (Source, In your library, Validate) and one fewer column pair (Confidence and Clips merged).
-- **SC-002**: From a found row, the owner reaches the track in the Spotify app in one tap.
+- **SC-002**: From a found row, the owner reaches the track in the Spotify app in one tap (on a computer). On a phone the cell shows
+  plain "On Spotify" (the 48 px target rule) and Play on Spotify opens the app from More › Listen… (three taps).
 - **SC-003**: From a row with a known page, the owner reaches Shazam or SoundCloud in one click, without a menu.
 - **SC-004**: Sorting by the merged column gives the same order as the Confidence sort does today.
 
@@ -101,3 +102,5 @@ Each row shows a Shazam icon and a SoundCloud icon that open the track's page in
 - "Link that opens in app directly" follows the Spotify app link already used on a phone; on a computer without the app it may do nothing, as today's "Open in Spotify app".
 - The SoundCloud icon opens the track's SoundCloud page when the row has one; otherwise the SoundCloud search page for the artist and title (a plain link, no lookup by the app). This default is open to the owner's correction.
 - The Listen menu keeps the other platforms' search pages.
+- On a phone the Spotify cell is plain "On Spotify", not a link (a link there could not meet the 48 px target); Play on Spotify opens
+  the app from More › Listen….

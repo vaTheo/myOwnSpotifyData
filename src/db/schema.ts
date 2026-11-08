@@ -270,8 +270,9 @@ export interface TracklistRow {
   clue?: Clue;
   /** Gap rows from the worker: the clues placed around this gap. */
   clues?: Clue[];
-  /** Spec 003 T118: the owner validated the track. Absent or false: To
-   *  review. A later worker result keeps it (T125). */
+  /** Legacy (spec 003 T118): the owner validated the track. Ignored since
+   *  spec 010 (every track is kept) and never set; read only by
+   *  `keepReview.ts` for old saved rows. */
   validated?: boolean;
   /** Spec 003 T117: what Check on Spotify found for this row, or absent
    *  when never checked. An edit of the artist or title clears it. */

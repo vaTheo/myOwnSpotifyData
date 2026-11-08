@@ -21,7 +21,7 @@ approved on 2026-11-06: "Find a track by its name is ok if it's impossible to do
   test suites); a version the clue does not name is a different title. Scores are ignored.
 - **Always marked.** A track found this way is a candidate: `origin: "clue"`, the clue's text kept, no confidence, shown on the
   Mix screen as "from a comment · not heard". It goes into Create playlist like an identified row (the owner's pick) unless the
-  owner deletes it first. *Amended 2026-11-06, see below.*
+  owner deletes it first. *Amended 2026-11-06, then restored 2026-11-08, see below.*
 - **Bounded**: `WORKER_LOOKUPS` clues a set (100), paced per host (Deezer 0.2 s, MusicBrainz 1.1 s, Discogs 2.5 s).
 
 ## Amendment (2026-11-06, the owner's D6, web-first redesign)
@@ -31,6 +31,15 @@ owner validate tracks, and Create playlist offers **Validated only** or **All tr
 **To review** with its "not heard" badge. **Validated only** leaves it out until the owner validates it; **All tracks** includes
 it, as before. "Goes into Create playlist unless deleted" now holds for All tracks only. The lookup rules above are unchanged.
 Code: `tracksToAdd` in `src/features/mix/createPlaylist.ts`; [How the app works](../000-how-it-works.md) §10.
+
+## Amendment (2026-11-08, spec 010, a simpler Mix tracklist)
+
+`specs/010-mix-table-simplify/` removes Validate, the To review and Validated chips and the Validated only / All tracks choice:
+every track is kept. A candidate goes into Create playlist like any identified row unless the owner deletes it first: the
+original rule is restored and the 2026-11-06 amendment no longer applies. The lookup rules above are unchanged. No new ADR:
+dropping the validation is a UI simplification; the optional `TracklistRow.validated` field stays in the schema for old saved
+mixes (ignored, read only by `keepReview.ts`), so [ADR-05](ADR-05-additive-indexeddb.md) is untouched. Code: `tracksToAdd` in
+`src/features/mix/createPlaylist.ts`; [How the app works](../000-how-it-works.md) §10.
 
 ## Consequences
 

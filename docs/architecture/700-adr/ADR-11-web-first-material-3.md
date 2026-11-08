@@ -51,7 +51,8 @@ the shots need Chromium on the owner's computer, and WebKit needs system librari
 round ([Limits and roadmap](../800-limits-roadmap.md)). The decision adds no Spotify endpoint, scope, write or host, changes
 no ranking, Crate rule, Match or gate, and no `confirm()` text (spec FR-046 to FR-049). The round did change behaviour in the
 Mix review: Check on Spotify reads `GET /search` on its own tap, Create playlist adds what Validated only or All tracks picks
-(D6, amending [ADR-10](ADR-10-name-lookup-for-clues.md)), and one quota lock-out holds for every Spotify read; Mix rows gain
+(D6, amending [ADR-10](ADR-10-name-lookup-for-clues.md); spec 010 later removed that choice: every track is added, see ADR-10's
+2026-11-08 amendment), and one quota lock-out holds for every Spotify read; Mix rows gain
 optional fields, with no `DB_VERSION` bump.
 
 ## Links
@@ -61,7 +62,7 @@ optional fields, with no `DB_VERSION` bump.
 - [Design guide](../../dev-guide/100-design-guide.md) (the rules this decision implies, for every session)
 - [ADR-06](ADR-06-lean-tooling.md) (no runtime dependency; the dev-only loop beside the no-DOM-tests rule)
 - [ADR-02](ADR-02-no-spotify-reads-on-load.md) (the Overview reads only stored data)
-- [ADR-10](ADR-10-name-lookup-for-clues.md) (amended by the Mix review: a candidate joins Validated only once validated, D6)
+- [ADR-10](ADR-10-name-lookup-for-clues.md) (amended by the Mix review: a candidate joins Validated only once validated, D6; restored by spec 010 on 2026-11-08: every track is added unless deleted)
 - [How the app works](../000-how-it-works.md) §13 · [Contributing](../../dev-guide/000-contributing.md) "The visual loop"
 - Constitution: `.specify/memory/constitution.md` 2.1.1 (preamble)
 - [ADR index](README.md)

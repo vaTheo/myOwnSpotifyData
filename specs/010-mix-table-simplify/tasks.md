@@ -47,7 +47,7 @@ description: "Task list for the simpler mix tracklist table"
 
 **Independent Test**: a found row's Spotify link href is `spotify:track:<id>`; the Listen menu has no "Open in Spotify app".
 
-- [x] T014 [US2] In `src/ui/mix/TracklistTable.tsx` `SpotifyCell`, change the found-row `IconButton` to `href={`spotify:track:${row.spotify.id}`}`, no `external`/new tab, label `Play ${nameOf(row)} on Spotify`; compact found text becomes the same link when room allows
+- [x] T014 [US2] In `src/ui/mix/TracklistTable.tsx` `SpotifyCell`, change the found-row `IconButton` to `href={`spotify:track:${row.spotify.id}`}`, no `external`/new tab, label `Play ${nameOf(row)} on Spotify`; compact found text deliberately stays plain "On Spotify" (no link: the 48 px target rule; Play on Spotify is in More › Listen…)
 - [x] T015 [US2] In `src/ui/mix/TracklistTable.tsx` update `listenItems` to the T003 signature (drop the `phone` argument at both call sites)
 
 **Checkpoint**: found rows open the Spotify app from the cell and the menu.
