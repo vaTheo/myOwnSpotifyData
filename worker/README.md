@@ -154,7 +154,7 @@ Only the first two are required.
 | `WORKER_BREAK_SECONDS` | 120 | that break's length, exactly |
 | `WORKER_SECOND_PASS_STEP_SECONDS` | 30 | one place heard again every N seconds of a part without a track; 0 = no second pass |
 | `WORKER_SECOND_PASS_OFFSET_SECONDS` | 7 | that place is this far after the probe that found nothing |
-| `WORKER_SECOND_PASS_SPEEDS` | 0.96,1.04 | speeds tried after normal speed, in order; empty = normal only; list `1` to place normal speed yourself (`0.91,1.09,1` tries both shifted speeds first) |
+| `WORKER_SECOND_PASS_SPEEDS` | 0.91,1.09,1 | speeds tried in the order listed; `1` is normal speed; empty = normal only; `0.96,1.04` (the old default) tries normal speed first, then the two small shifts |
 | `WORKER_CLUES` | 1 | read the description, chapters and comments; 0 = never |
 | `WORKER_CLUE_SECONDS` | 90 | reading them may take this long, then it is dropped |
 | `WORKER_LOOKUPS` | 100 | catalogue lookups per set (Deezer, then MusicBrainz): clues by name first, then years by ISRC; 0 = none, clues still shown |

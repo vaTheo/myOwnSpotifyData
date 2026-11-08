@@ -11,6 +11,9 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.5.3: the default of `WORKER_SECOND_PASS_SPEEDS` is `0.91,1.09,1` (both shifted speeds first, then normal speed), in the code, the
+  packaged `mix-worker.env` template and `.env.example`. 0.5.2 still wrote `0.96,1.04`. A `mix-worker.env` you already have is kept
+  as it is.
 - 0.5.2: the second pass tries the speeds of `WORKER_SECOND_PASS_SPEEDS` in the order listed (the default and the packaged
   `mix-worker.env` template now match `worker/.env.example`). 0.5.1 shipped the older template and order. A double-clicked Windows
   executable that stops on a problem (bad or missing setting, first-start template, any crash) keeps its window open: it prints the

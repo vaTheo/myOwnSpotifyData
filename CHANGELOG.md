@@ -3,6 +3,12 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-08 — Worker 0.5.3: the default second-pass speeds are 0.91, 1.09, 1
+
+`worker-v0.5.2` still wrote `WORKER_SECOND_PASS_SPEEDS=0.96,1.04` in the new `mix-worker.env` and used it as the default. 0.5.3 makes
+`0.91,1.09,1` the default everywhere (code, the packaged template, `.env.example`, the worker README). Download the new executable;
+a `mix-worker.env` you already have is not changed, so edit that value by hand there. No `DB_VERSION` bump, no migration.
+
 ## 2026-11-08 — Worker 0.5.2: the executable follows the latest settings
 
 The `worker-v0.5.1` executables (6 November) predate two worker changes: the second pass tries `WORKER_SECOND_PASS_SPEEDS` in the order

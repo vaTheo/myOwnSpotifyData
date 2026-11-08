@@ -51,7 +51,7 @@ class Settings:
     # Round 003 (gaps): defaults here so a hand-built Settings stays valid.
     second_pass_step_seconds: int = 30
     second_pass_offset_seconds: int = 7
-    second_pass_speeds: tuple[float, ...] = (0.96, 1.04)
+    second_pass_speeds: tuple[float, ...] = (0.91, 1.09, 1.0)
     clues: bool = True
     clue_seconds: int = 90
     lookups: int = 100
@@ -155,7 +155,7 @@ def _probe_seconds(values: Mapping[str, str]) -> int:
 def _speeds(values: Mapping[str, str]) -> tuple[float, ...]:
     raw = values.get("WORKER_SECOND_PASS_SPEEDS")
     if raw is None:
-        return (0.96, 1.04)
+        return (0.91, 1.09, 1.0)
     out: list[float] = []
     for part in raw.replace(" ", "").split(","):
         if not part:
