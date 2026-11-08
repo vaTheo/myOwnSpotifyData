@@ -96,7 +96,9 @@ class Auth(unittest.TestCase):
     def test_logout(self):
         c, o = client(FakeResponse(204, b""))
         self.assertEqual(c.logout("a").kind, "ok")
-        self.assertEqual(o.calls[0]["url"], BASE + "/auth/v1/logout")
+        # scope=local: GoTrue's default (global) would also sign out the
+        # owner's browsers (audit Finding 3).
+        self.assertEqual(o.calls[0]["url"], BASE + "/auth/v1/logout?scope=local")
         self.assertEqual(o.calls[0]["headers"]["authorization"], "Bearer a")
 
 

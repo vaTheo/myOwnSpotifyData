@@ -110,6 +110,18 @@ import { LINK_BROWSER_MESSAGE, type ServerResult } from '../server/client';
 import { serverAuth, serverClient, serverConfigured } from '../server/browser';
 import { DATASETS } from '../server/datasets';
 import {
+  pinnedScope,
+  scopeEnabled,
+  scopeStorage,
+} from '../server/scopeBrowser';
+import {
+  activate,
+  readDeviceUsers,
+  scopeOf,
+  writeActive,
+  type Activation,
+} from '../server/userScope';
+import {
   JOB_HISTORY_MAX,
   UPDATE_APP_MESSAGE,
   readUsage,
@@ -138,6 +150,7 @@ import {
   type SyncState,
 } from '../sync/runner';
 import { formatDateTime } from '../ui/format';
+import { connectSignOutShown, signInRequired } from '../ui/signin/gate';
 import { describeError, storageMessage } from '../util/errors';
 import { buildModel, type Model } from './aggregate';
 import {
@@ -420,19 +433,56 @@ export async function startServerSync(): Promise<void> {
   await startServerPull();
 }
 
+/** How many people have signed in on this device (ADR-14); 0 when unreadable. */
+export function deviceUserCount(): number {
+  const storage = scopeStorage();
+  if (!serverConfigured || !storage) return 0;
+  try {
+    return readDeviceUsers(storage).length;
+  } catch {
+    return 0; // storage blocked: the line is simply not shown
+  }
+}
+
+export const SIGN_OUT_BUSY_MESSAGE =
+  'Wait for the current job to finish before signing out.';
+export const SIGN_OUT_PUSH_MESSAGE =
+  'Wait for the current sync to finish before signing out.';
+
 /**
- * Signs out of the server on this browser; local and server data stay. The
- * request states are the server's knowledge, so they leave with the session.
+ * Signs out of the server on this browser (round 011, FR-006): the server
+ * session and the `activeUser` pointer go, then the page loads again, which
+ * drops every signal so the next person sees nothing of this user (FR-002).
+ * Nothing else is removed (data, Spotify keys, the claim, the device's
+ * people) and nothing is asked. Refused while a job or a server push runs:
+ * the reload would cut it half way. The session goes first: clearing the
+ * pointer first would let another tab, still holding the session, activate
+ * it again.
  */
 export async function startServerSignOut(): Promise<void> {
-  await serverAuth.signOut();
-  serverState.value = serverBaseState();
-  mixJobs.value = {};
-  try {
-    await deleteMeta(MIX_JOBS_META);
-  } catch {
-    // Nothing to show: the next pull rewrites it.
+  if (jobsBusy()) {
+    banner.value = warnBanner(SIGN_OUT_BUSY_MESSAGE);
+    return;
   }
+  // A push joins no jobsBusy(), but it needs the session to its end.
+  if (pushRunning) {
+    banner.value = warnBanner(SIGN_OUT_PUSH_MESSAGE);
+    return;
+  }
+  // Only once the sign-out goes ahead: a refusal keeps the chain running.
+  autoChain.stop();
+  try {
+    await serverAuth.signOut();
+    const storage = scopeStorage();
+    if (storage) writeActive(storage, null);
+  } catch (err) {
+    serverState.value = {
+      status: 'error',
+      message: `Could not sign out on this device: ${storageMessage(err)}`,
+    };
+    return;
+  }
+  location.reload();
 }
 
 /**
@@ -489,7 +539,11 @@ export async function recordConnectedAccount(): Promise<void> {
 export async function startServerLink(email: string): Promise<void> {
   if (!serverConfigured) return;
   const res = await serverAuth.requestLink(email.trim());
-  if (res.ok) return;
+  if (res.ok) {
+    // An earlier offline, paused or link error no longer applies.
+    if (!serverAuth.session.value) serverState.value = serverBaseState();
+    return;
+  }
   serverState.value =
     res.kind === 'paused'
       ? { status: 'paused', dashboardUrl: SUPABASE_DASHBOARD_URL }
@@ -497,22 +551,127 @@ export async function startServerLink(email: string): Promise<void> {
 }
 
 /**
+ * The sign-in gate (round 011, FR-002): a server is set up and nobody is
+ * signed in to it, so the app shows only the sign-in screen and runs nothing.
+ * Never in the demo, which never talks to the server; never without server
+ * settings (FR-008). Reads the session signal, so a render follows it.
+ */
+export function serverSignInRequired(): boolean {
+  return signInRequired({
+    configured: serverConfigured,
+    demo: import.meta.env.DEV && demoVariant() !== null,
+    signedIn: serverAuth.session.value !== null,
+  });
+}
+
+/**
+ * Connect shows who is signed in to the server and a Sign out (final review
+ * I1): the same inputs as the gate, the other side of the session.
+ */
+export function connectSignOutVisible(): boolean {
+  return connectSignOutShown({
+    configured: serverConfigured,
+    demo: import.meta.env.DEV && demoVariant() !== null,
+    signedIn: serverAuth.session.value !== null,
+  });
+}
+
+/**
+ * Spotify handed back to the app while nobody was signed in to the server:
+ * the return was not used, and the sign-in screen says so (main.tsx).
+ */
+export const spotifyReturnDropped = signal(false);
+
+/** Shown when a sign-in's token does not name its account (no `sub`). */
+export const SERVER_NO_USER_MESSAGE =
+  'This sign-in did not say which account it is. Send yourself a new link.';
+
+type Activated = 'none' | 'ok' | 'reload' | 'invalid';
+
+/** The activation, and for a refused session the sign-out it started. */
+function activateStored(): { status: Activated; signedOut: Promise<void> } {
+  const current = serverAuth.session.value;
+  const storage = scopeStorage();
+  const done = Promise.resolve();
+  if (!serverConfigured || !current || !storage) {
+    return { status: 'none', signedOut: done };
+  }
+  let result: Activation;
+  let message = SERVER_NO_USER_MESSAGE;
+  try {
+    const enabled = scopeEnabled();
+    // Pinned before the pointer moves: the names this page opened with.
+    const opened = pinnedScope();
+    result = activate(
+      storage,
+      { userId: current.userId, email: current.email },
+      enabled
+    );
+    // The page's names were pinned at load: any other scope needs a reload.
+    if (result.ok && scopeOf(storage, enabled) !== opened) {
+      result = { ok: true, reload: true };
+    }
+  } catch (err) {
+    // localStorage refused the pointer (full, locked down): never half-active.
+    result = { ok: false };
+    message = `Could not record who is signed in on this device: ${storageMessage(err)}`;
+  }
+  if (result.ok) {
+    return { status: result.reload ? 'reload' : 'ok', signedOut: done };
+  }
+  // Never a pointer naming a user whose session is signed out: a write
+  // that failed half way, or a pointer left by an earlier user, goes.
+  try {
+    writeActive(storage, null);
+  } catch {
+    // Storage refuses even this: nobody is signed in, the gate shows.
+  }
+  const refused: ServerStatus = { status: 'error', message };
+  serverState.value = refused;
+  // signOut clears the session's own error; the card keeps this one.
+  const signedOut = serverAuth.signOut().then(() => {
+    serverState.value = refused;
+  });
+  return { status: 'invalid', signedOut };
+}
+
+/**
+ * Makes the stored server session the device's active user (ADR-14): the
+ * first sign-in claims today's names, so the owner with a session from before
+ * this round is activated on the first load, with no new link and no reload.
+ * `'reload'` means the page holds another user's names and must load again;
+ * `'invalid'` means the session names no account: it is signed out with a
+ * message on the Settings card and never activated.
+ */
+export function activateServerUser(): Activated {
+  return activateStored().status;
+}
+
+/**
  * Finishes the magic link when the app opens on `?link=server&code=…`
  * (main.tsx). An invalid link leaves the owner signed out with the one
- * message they can act on.
+ * message they can act on. `'reload'`: the account differs from the one the
+ * page opened with; main.tsx loads the page again, without the code.
  */
 export async function completeServerLink(
   params: URLSearchParams
-): Promise<'none' | 'ok' | 'invalid'> {
+): Promise<'none' | 'ok' | 'reload' | 'invalid'> {
   const result = await serverAuth.completeLink(params);
-  if (result === 'ok') serverState.value = serverBaseState();
   if (result === 'invalid') {
     serverState.value = {
       status: 'error',
       message: serverAuth.lastError.value ?? LINK_BROWSER_MESSAGE,
     };
+    return result;
   }
-  return result;
+  if (result === 'none') return result;
+  const activated = activateStored();
+  if (activated.status === 'invalid') {
+    await activated.signedOut;
+    return 'invalid';
+  }
+  serverState.value = serverBaseState();
+  return activated.status === 'reload' ? 'reload' : 'ok';
 }
 
 export interface MixView {

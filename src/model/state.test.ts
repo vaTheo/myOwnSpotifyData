@@ -5,7 +5,7 @@
  * The browser edges (the Spotify session, the API client, the server, the
  * database) are replaced, so state.ts runs under Vitest without a browser.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '../auth/session';
 import type { TracklistRow } from '../db/schema';
 import { QuotaError } from '../spotify/errors';
@@ -46,7 +46,9 @@ vi.mock('../server/browser', async () => {
       linkSent: s(false),
       lastError: s(null),
       getAccessToken: vi.fn(),
-      signOut: vi.fn(),
+      completeLink: vi.fn(async () => 'ok'),
+      requestLink: vi.fn(async () => ({ ok: true, value: undefined })),
+      signOut: vi.fn(async () => undefined),
     },
   };
 });
@@ -63,6 +65,9 @@ vi.mock('../db/repo', async (importOriginal) => ({
 
 const { auth } = await import('../auth/browser');
 const state = await import('./state');
+const { serverAuth } = await import('../server/browser');
+const { setScopeForTests } = await import('../server/scopeBrowser');
+const scope = await import('../server/userScope');
 
 const HOUR = 3_600_000;
 const URL = 'https://soundcloud.com/demo/set';
@@ -826,5 +831,330 @@ describe('Create playlist ends without losing the owner (S13 N1, N3)', () => {
     await state.startCreatePlaylist();
     expect(state.mixError.value).toBe('Could not save the mix: B');
     expect(state.savedMixes.value.map((m) => m.url)).toEqual([URL]);
+  });
+});
+
+/* ---------- ADR-14: the stored server session is the active user ---------- */
+
+describe('activateServerUser', () => {
+  const OWNER = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
+  const OTHER = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
+  const map = new Map<string, string>();
+  const storage = {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, v),
+    removeItem: (k: string) => void map.delete(k),
+  };
+  const session = serverAuth.session as unknown as {
+    value: { userId: string | null; email: string } | null;
+  };
+
+  beforeEach(() => {
+    map.clear();
+    mocks.serverConfigured = true;
+    setScopeForTests({ storage, enabled: true });
+    vi.mocked(serverAuth.signOut).mockClear();
+  });
+
+  afterEach(() => {
+    mocks.serverConfigured = false;
+    setScopeForTests(null);
+    session.value = null;
+    state.serverState.value = { status: 'unset' };
+  });
+
+  it("claims the owner's pre-update session on first load: no reload, today's names", () => {
+    session.value = { userId: OWNER, email: 'me@x.y' };
+    expect(state.activateServerUser()).toBe('ok');
+    expect(scope.readActive(storage)).toEqual({
+      userId: OWNER,
+      email: 'me@x.y',
+    });
+    expect(scope.dbNameFor('spotify-dj', storage, true)).toBe('spotify-dj');
+    expect(scope.keyFor('session', storage, true)).toBe('session');
+    expect(serverAuth.signOut).not.toHaveBeenCalled();
+  });
+
+  it('a session whose token names no account is signed out with a message, never activated', async () => {
+    session.value = { userId: null, email: 'me@x.y' };
+    // The real signOut clears the card's state: the message must survive it.
+    vi.mocked(serverAuth.signOut).mockImplementationOnce(async () => {
+      state.serverState.value = { status: 'signedOut' };
+    });
+    expect(state.activateServerUser()).toBe('invalid');
+    expect(scope.readActive(storage)).toBeNull();
+    expect(map.size).toBe(0);
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() =>
+      expect(state.serverState.value).toEqual({
+        status: 'error',
+        message: state.SERVER_NO_USER_MESSAGE,
+      })
+    );
+  });
+
+  it('a localStorage that refuses writes shows an error and signs out, never a blank page', async () => {
+    session.value = { userId: OWNER, email: 'me@x.y' };
+    setScopeForTests({
+      storage: {
+        getItem: () => null,
+        setItem: () => {
+          throw new DOMException('full', 'QuotaExceededError');
+        },
+        removeItem: () => undefined,
+      },
+      enabled: true,
+    });
+    expect(state.activateServerUser()).toBe('invalid');
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() =>
+      expect(state.serverState.value).toEqual({
+        status: 'error',
+        message:
+          'Could not record who is signed in on this device: Local storage is full. Free space on the phone and try again.',
+      })
+    );
+  });
+
+  it("completeServerLink: another user than the page's is 'reload'", async () => {
+    scope.activate(storage, { userId: OWNER, email: 'me@x.y' }, true);
+    setScopeForTests({ storage, enabled: true }); // the page opened as the owner
+    session.value = { userId: OTHER, email: 'b@x.y' };
+    await expect(
+      state.completeServerLink(new URLSearchParams('link=server&code=c'))
+    ).resolves.toBe('reload');
+    expect(scope.readActive(storage)?.userId).toBe(OTHER);
+  });
+
+  it("completeServerLink: the same user is 'ok', no reload", async () => {
+    scope.activate(storage, { userId: OWNER, email: 'me@x.y' }, true);
+    setScopeForTests({ storage, enabled: true });
+    session.value = { userId: OWNER, email: 'me@x.y' };
+    await expect(
+      state.completeServerLink(new URLSearchParams('link=server&code=c'))
+    ).resolves.toBe('ok');
+  });
+
+  it("completeServerLink: a token without sub is 'invalid', signed out, message kept", async () => {
+    session.value = { userId: null, email: 'me@x.y' };
+    vi.mocked(serverAuth.signOut).mockImplementationOnce(async () => {
+      state.serverState.value = { status: 'signedOut' };
+    });
+    await expect(
+      state.completeServerLink(new URLSearchParams('link=server&code=c'))
+    ).resolves.toBe('invalid');
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+    expect(state.serverState.value).toEqual({
+      status: 'error',
+      message: state.SERVER_NO_USER_MESSAGE,
+    });
+    expect(scope.readActive(storage)).toBeNull();
+  });
+
+  it('a storage that fails half way through clears the pointer it wrote (never a user without a session)', async () => {
+    session.value = { userId: OTHER, email: 'b@x.y' };
+    setScopeForTests({
+      storage: {
+        ...storage,
+        setItem: (k: string, v: string) => {
+          if (k === scope.DEVICE_USERS_KEY) {
+            throw new DOMException('full', 'QuotaExceededError');
+          }
+          map.set(k, v);
+        },
+      },
+      enabled: true,
+    });
+    expect(state.activateServerUser()).toBe('invalid');
+    expect(scope.readActive(storage)).toBeNull();
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('a refused session clears a pointer left by an earlier user', () => {
+    scope.activate(storage, { userId: OWNER, email: 'me@x.y' }, true);
+    session.value = { userId: null, email: 'me@x.y' };
+    expect(state.activateServerUser()).toBe('invalid');
+    expect(scope.readActive(storage)).toBeNull();
+    // The claim and the people of this device stay.
+    expect(map.has(scope.DEVICE_OWNER_KEY)).toBe(true);
+    expect(scope.readDeviceUsers(storage)).toHaveLength(1);
+  });
+
+  it('is none without a server', () => {
+    mocks.serverConfigured = false;
+    session.value = { userId: OWNER, email: 'me@x.y' };
+    expect(state.activateServerUser()).toBe('none');
+    expect(map.size).toBe(0);
+  });
+});
+
+describe('the sign-in gate (round 011, FR-002)', () => {
+  const session = serverAuth.session as unknown as {
+    value: { userId: string | null; email: string } | null;
+  };
+
+  afterEach(() => {
+    mocks.serverConfigured = false;
+    session.value = null;
+    state.serverState.value = { status: 'unset' };
+  });
+
+  it('is required with a server set up and nobody signed in', () => {
+    mocks.serverConfigured = true;
+    expect(state.serverSignInRequired()).toBe(true);
+    session.value = {
+      userId: 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',
+      email: 'me@x.y',
+    };
+    expect(state.serverSignInRequired()).toBe(false);
+  });
+
+  it('is never required without server settings (FR-008)', () => {
+    expect(state.serverSignInRequired()).toBe(false);
+  });
+
+  it('a link sent clears an earlier offline notice; a failed one shows why', async () => {
+    mocks.serverConfigured = true;
+    state.serverState.value = { status: 'offline', message: 'No network.' };
+    await state.startServerLink('me@x.y');
+    expect(state.serverState.value).toEqual({ status: 'signedOut' });
+    vi.mocked(serverAuth.requestLink).mockResolvedValueOnce({
+      ok: false,
+      kind: 'offline',
+      message: 'Still no network.',
+    });
+    await state.startServerLink('me@x.y');
+    expect(state.serverState.value).toEqual({
+      status: 'offline',
+      message: 'Still no network.',
+    });
+  });
+});
+
+describe('startServerSignOut (round 011 T014)', () => {
+  const OWNER = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
+  const OTHER = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
+  const map = new Map<string, string>();
+  const storage = {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, v),
+    removeItem: (k: string) => void map.delete(k),
+  };
+  const session = serverAuth.session as unknown as {
+    value: { userId: string | null; email: string } | null;
+  };
+  const reload = vi.fn();
+  const ask = vi.fn(() => true);
+
+  beforeEach(async () => {
+    map.clear();
+    mocks.serverConfigured = true;
+    scope.activate(storage, { userId: OWNER, email: 'me@x.y' }, true);
+    scope.activate(storage, { userId: OTHER, email: 'b@x.y' }, true);
+    map.set('session', 'owner spotify');
+    map.set(`session:${OTHER}`, 'other spotify');
+    setScopeForTests({ storage, enabled: true });
+    session.value = { userId: OTHER, email: 'b@x.y' };
+    reload.mockClear();
+    ask.mockClear();
+    vi.stubGlobal('location', { reload });
+    vi.stubGlobal('confirm', ask);
+    vi.mocked(serverAuth.signOut).mockReset();
+    vi.mocked(serverAuth.signOut).mockImplementation(async () => {
+      session.value = null;
+    });
+    const repo = await import('../db/repo');
+    vi.mocked(repo.wipeDb).mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    mocks.serverConfigured = false;
+    setScopeForTests(null);
+    session.value = null;
+    state.syncState.value = { status: 'idle' };
+    state.serverState.value = { status: 'unset' };
+  });
+
+  it('signs out, clears the pointer and reloads; removes nothing else, asks nothing', async () => {
+    const repo = await import('../db/repo');
+    await state.startServerSignOut();
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+    expect(scope.readActive(storage)).toBeNull();
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(ask).not.toHaveBeenCalled();
+    expect(repo.wipeDb).not.toHaveBeenCalled();
+    expect(auth.clearAll).not.toHaveBeenCalled();
+    // The device's claim, its people and every user's Spotify keys stay.
+    expect(map.has(scope.DEVICE_OWNER_KEY)).toBe(true);
+    expect(scope.readDeviceUsers(storage)).toHaveLength(2);
+    expect(map.get('session')).toBe('owner spotify');
+    expect(map.get(`session:${OTHER}`)).toBe('other spotify');
+  });
+
+  it('is refused with a warning while a job runs: nothing signed out, no reload', async () => {
+    state.syncState.value = {
+      status: 'running',
+    } as unknown as typeof state.syncState.value;
+    await state.startServerSignOut();
+    expect(state.banner.value).toEqual(
+      expect.objectContaining({
+        text: 'Wait for the current job to finish before signing out.',
+      })
+    );
+    expect(serverAuth.signOut).not.toHaveBeenCalled();
+    expect(scope.readActive(storage)?.userId).toBe(OTHER);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('a refused sign-out leaves the automatic chain alone', async () => {
+    state.syncState.value = {
+      status: 'running',
+    } as unknown as typeof state.syncState.value;
+    const before = { current: null, waiting: ['reach'], failed: [] };
+    state.chainView.value = before as unknown as typeof state.chainView.value;
+    await state.startServerSignOut();
+    expect(state.chainView.value).toBe(before);
+  });
+
+  it('is refused while a server push runs: the push keeps its session', async () => {
+    const repo = await import('../db/repo');
+    let release!: (v: undefined) => void;
+    vi.mocked(repo.getMeta).mockImplementationOnce(
+      () => new Promise((r) => (release = r))
+    );
+    const push = state.queueServerPush([]);
+    await state.startServerSignOut();
+    expect(state.banner.value).toEqual(
+      expect.objectContaining({
+        text: 'Wait for the current sync to finish before signing out.',
+      })
+    );
+    expect(serverAuth.signOut).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+    release(undefined);
+    await push;
+    // Once the push is done, sign-out goes ahead.
+    await state.startServerSignOut();
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('a storage that refuses the pointer shows why on the card, no reload', async () => {
+    setScopeForTests({
+      storage: {
+        ...storage,
+        removeItem: () => {
+          throw new DOMException('denied', 'SecurityError');
+        },
+      },
+      enabled: true,
+    });
+    await state.startServerSignOut();
+    expect(state.serverState.value).toMatchObject({ status: 'error' });
+    expect((state.serverState.value as { message: string }).message).toMatch(
+      /^Could not sign out on this device: /
+    );
+    expect(reload).not.toHaveBeenCalled();
   });
 });

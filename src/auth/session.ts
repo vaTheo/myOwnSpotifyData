@@ -13,7 +13,7 @@ export const SCOPES =
   'user-top-read playlist-read-private playlist-modify-private user-library-read user-library-modify';
 
 export const SESSION_KEY = 'session';
-const PKCE_KEY = 'pkce';
+export const PKCE_KEY = 'pkce';
 const REFRESH_MARGIN_MS = 60_000;
 
 export interface Session {
@@ -45,6 +45,8 @@ export interface SessionDeps {
   navigate: (url: string) => void;
   clientId: string;
   redirectUri: () => string;
+  /** Read at each Connect: true when this device knows more than one person. */
+  showDialog?: () => boolean;
 }
 
 export interface SessionStore {
@@ -110,6 +112,7 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
         scope: SCOPES,
         state: record.state,
         codeChallenge: await challengeFor(record.verifier),
+        showDialog: deps.showDialog?.() ?? false,
       })
     );
   }

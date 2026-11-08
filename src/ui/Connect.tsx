@@ -1,14 +1,29 @@
 import { auth } from '../auth/browser';
+import {
+  banner,
+  connectSignOutVisible,
+  serverSession,
+  serverState,
+  startServerSignOut,
+} from '../model/state';
+import { Button } from './components/Button';
 import { StatusLine } from './components/StatusLine';
 import { Icon } from './icons';
+import { signedInLine } from './settings/lines';
 
 /**
  * The sign-in card (spec 003, contracts/screens.md §2): what the app is,
  * what it reads, and — one tap away — the privacy statement, word for word
  * as before. Also the "Signing you in…" step while Spotify hands back.
+ * Signed in to the server, it says as whom and offers Sign out (final review
+ * I1): Settings is out of reach until Spotify is connected. No banner slot
+ * here, so a refusal or a failure of Sign out is printed on the card.
  */
 export function Connect(p: { signingIn?: boolean }) {
   const error = auth.lastAuthError.value;
+  const session = connectSignOutVisible() ? serverSession.value : null;
+  const state = serverState.value;
+  const notice = banner.value;
   return (
     <main class="connect">
       <section class="connect-card">
@@ -38,6 +53,19 @@ export function Connect(p: { signingIn?: boolean }) {
                 artists.
               </p>
             </details>
+            {session && (
+              <StatusLine kind="success">
+                {signedInLine(session.email)}
+              </StatusLine>
+            )}
+            {session && state.status === 'error' && (
+              <StatusLine kind="error">{state.message}</StatusLine>
+            )}
+            {notice && (
+              <StatusLine kind={notice.kind === 'error' ? 'error' : 'warning'}>
+                {notice.text}
+              </StatusLine>
+            )}
             {error && <StatusLine kind="error">{error}</StatusLine>}
             <button
               type="button"
@@ -46,6 +74,11 @@ export function Connect(p: { signingIn?: boolean }) {
             >
               Connect Spotify
             </button>
+            {session && (
+              <Button variant="tonal" onClick={() => void startServerSignOut()}>
+                Sign out
+              </Button>
+            )}
           </>
         )}
       </section>

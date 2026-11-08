@@ -38,6 +38,23 @@ column when a set has clip counts. The **Sort** menu is rebuilt from the same co
 a phone can sort too; header and menu always agree. Tracks with no value stay last in both directions, and the sort is not saved with
 the mix. "Best score" is now Confidence and "Year, oldest first" is Released. The Listen menu now starts with the direct pages, **Play on Spotify** (the Check answer, else the song in your library) and Shazam, before the search pages; the phone's "Open on Spotify" moves there. Spec: `specs/009-mix-sortable-columns/`. No
 `DB_VERSION` bump.
+## 2026-11-08 — Several people, one app
+
+With the server set up, each person who signs in is a user with data of their own: library, history, BPM and key, artist reach
+and saved mixes, on the device and on the server. You add a person in the Supabase dashboard (sign-ups stay off) and their Spotify
+account in the Spotify app's User Management; they sign in with their email and connect their own Spotify. The app now opens on a
+sign-in screen while nobody is signed in to the server, and shows nothing of anyone behind it. **Sign out** returns to it, asks
+nothing and removes nothing; the next person sees only their data, and yours is back at once when you sign in again. Settings ·
+Server says "Signed in as …" and "N people use this device"; Disconnect and Remove server data touch only your data.
+**Sign in first on each of your own devices:** the first person to sign in on a device after this update gets the data already
+stored there. Your session from before the update counts, so a browser you were already signed in on stays yours with no new link.
+A new sign-in needs the network. Three fixes from the round's user-data audit: on a device more than one person uses,
+**Connect Spotify** shows Spotify's account screen, so nobody is connected to the previous person's Spotify login by accident; a tab
+left open never takes over the session of a person who signed in in another tab (it asks for a reload instead); and **Sign out**
+signs out of this browser only, so your other devices and the worker on your computer stay signed in (`mix-worker logout` likewise),
+and is also on the Connect screen, which says who is signed in, so a person who never connected Spotify can still hand over the device.
+Decision: ADR-14 (amends ADR-08; constitution 2.4.0). Spec: `specs/011-multi-user-data/`. No
+`DB_VERSION` bump: other users get a database of their own beside yours; no server change.
 
 ## 2026-11-07 — Lists keep loading as you scroll
 

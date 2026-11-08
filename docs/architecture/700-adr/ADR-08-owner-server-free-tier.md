@@ -1,6 +1,6 @@
 # ADR-08 — One server for the owner, on a free tier, holding the app's data and a job queue
 
-> **Status**: Accepted
+> **Status**: Accepted; "for the owner alone" amended by [ADR-14](ADR-14-users-by-server-account.md) (the owner's accounts)
 > **Date**: 2026-11-05
 
 ## Context
@@ -62,6 +62,7 @@ the used share); a hosted service can change its free tier; a worker that only r
 - Spec: [Backend data sync](../../../specs/001-backend-data-sync/spec.md)
 - The first worker: [ADR-09](ADR-09-mix-identification-on-the-owners-computer.md), spec `specs/002-mix-analysis-worker/`
 - Constitution: `.specify/memory/constitution.md` Principle I
+- Amended by [ADR-14](ADR-14-users-by-server-account.md): several accounts, each with data of its own
 - [ADR-02](ADR-02-no-spotify-reads-on-load.md), [ADR-03](ADR-03-library-writes-on-tap.md), [ADR-04](ADR-04-keyless-sources-by-id.md)
 - [ADR index](README.md)
 - [Limits and roadmap](../800-limits-roadmap.md)

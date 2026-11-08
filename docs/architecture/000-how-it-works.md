@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-07
+> **Last updated**: 2026-11-08
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -113,6 +113,10 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 - One connection per tab, and it hands over: `openDb` closes its connection when a newer version opens in another tab (`blocking`) and
   reports a blocked upgrade (`blocked`) through `setDbEvents`; `state.ts` turns both into banners. Without this a version bump hangs on
   "Loading your library…" while an old tab lives. A database that has not opened after eight seconds says so.
+- One database per server user (round 011, [ADR-14](700-adr/ADR-14-users-by-server-account.md)): `dbName()` (`repo.ts`) keeps the
+  demo rule first, then asks `scopedDbName(DB_NAME)` (`server/scopeBrowser.ts`): `spotify-dj` for the device's claimer, for nobody
+  signed in and without server settings; `spotify-dj-u-<userId>` for any other user. `wipeDb` deletes that same name. Same stores,
+  `DB_VERSION` still 4, nothing copied or renamed (§16 "Users").
 
 ## 7. `sync/`
 
@@ -326,7 +330,8 @@ screen, grouped by role under `src/ui/`.
 - **Frame**: `layout/AppFrame.tsx` draws `Nav.tsx` (a rail with labels from 600 px, Settings at its foot; a five-item bottom bar
   on compact), `TopBar.tsx` (the title from `titles.ts`, back on a detail, the screen's actions, the search field, the Activity
   button) and `ScreenTabs.tsx` (Top · Crate, Playlists · Artists). The frame paints before anything is awaited: `main.tsx` calls
-  `render` before `completeLogin` and `loadFromDb`, and drives `bootPhase` (`'signin' | 'loading' | 'ready'`, in `app.tsx`).
+  `render` before `completeLogin` and `loadFromDb`, and drives `bootPhase` (`'signin' | 'loading' | 'ready' | 'linking' |
+  'signedout'`, in `app.tsx`).
   `src/ui/ActivityButton.tsx` reads `activeJobs` (`ui/jobs.ts`, over the job signals of §14, read only, Check on Spotify included)
   and links to the place that owns each job (a Mix job to its own mix); it never starts, stops or retries one, and its panel closes
   with the last job. `ScreenTabs` are navigation links (`nav` named Listening or Library, the current one `aria-current="page"`).
@@ -369,6 +374,20 @@ screen, grouped by role under `src/ui/`.
   `artistReachSummary.version === 1`; **Well known** is a heading at the bottom, never a filter; listeners and fans in two
   columns), `Artist.tsx`, `settings/` (`SettingsPage.tsx`, the seven sections of `sections.ts` with an index on large windows;
   long jobs start only here; Disconnect alone in `DangerZone.tsx`), `Import.tsx` (a `FileDrop`) and `Connect.tsx`.
+- **Sign-in screen** (round 011, `ui/signin/`): with server settings and no server session, `App` renders only `SignInGate.tsx`
+  (`serverSignInRequired()`, live, so a session that ends mid-use brings it back; `bootPhase` `'signedout'`, or `'linking'` with
+  "Signing you in…" while a magic link is exchanged); boot then reads, syncs and starts nothing, and `main.tsx` starts
+  neither the automatic chain nor auto-sync while signed out (`runChain` and the `installAutoSync` `enabled` checks). Never in the demo, never without the settings. It shows the link errors kept
+  in `serverState`, offline and paused notices and "Sign in to the app first, then connect Spotify again." for a dropped Spotify
+  return (`gateNotices`, `gate.ts`); the field stays usable. `ServerLinkForm.tsx` (email, **Send me a link**, Enter sends, "If
+  this email has an account, a link was sent to …") is shared with the Settings server card, which shows "Signed in as <email>.",
+  "N people use this device." when N > 1 (`deviceUsersLine`, `settings/lines.ts`), **Sign out** and **Remove server data**; the
+  Danger zone's words say "your" data once a server is set up (`dangerDescription`).
+- **Connect screen** (`Connect.tsx`): signed in to the server without a Spotify session (a new person, or after Disconnect,
+  which keeps the server session), Settings is out of reach, so Connect also shows "Signed in as <email>." (`signedInLine`,
+  `settings/lines.ts`, shared with the server card) and **Sign out** (`startServerSignOut`) when `connectSignOutVisible()`
+  (`connectSignOutShown`, `gate.ts`: server configured, a session, not the demo); never on the "Signing you in…" step. With no
+  banner slot there, a refusal (`banner`) and a failed sign-out (`serverState` `error`) print inline on the card (final review I1).
 - **Mix** (`ui/mix/`, §10): `Workspace.tsx` lays out `MixListPane.tsx` (the link field, Identify on my computer, the JSON import,
   the Mixes list with the queue) beside `MixDetail.tsx` (the header with `RunLine.tsx`, the review line, `TracklistTable.tsx` on
   `DataTable`, `CreatePlaylistCard.tsx`, `Clues.tsx`); from 840 to 1599 px the Mixes pane folds while a mix is open, behind a
@@ -503,6 +522,15 @@ Their texts, word for word (`<…>` is filled in when asked); `yarn regression` 
 - The description: "Replace your edited tracklist with the one from the description?"
 - Pasted tracks: "Replace your edited tracklist with the pasted tracks?"
 
+Switching users and signing out of the server ask nothing (round 011, ADR-14): no question joins this list. `startServerSignOut`
+is refused while `jobsBusy()` with `warnBanner` "Wait for the current job to finish before signing out." and while a server push
+runs (`pushRunning`, which joins no `jobsBusy()`) with "Wait for the current sync to finish before signing out."; a refusal leaves
+the automatic chain alone. Otherwise it stops the chain, signs the server session out, clears the `activeUser` pointer (session
+first, so another tab never activates a session being removed) and reloads, which drops every signal; it removes no data. A
+storage that refuses the pointer shows "Could not sign out on this device: …" on the card and does not reload. Sign out is on the
+Settings server card and on the Connect screen while Spotify is not connected (§13), where both refusals and that failure print
+inline, the Connect screen having no banner.
+
 ## 15. Build, CI and deploy
 
 `.github/workflows/ci.yml` runs `yarn install --frozen-lockfile`, `typecheck`, `lint`, `test` on every push to `main` and every PR, then a
@@ -511,8 +539,9 @@ to GitHub Pages on pushes to `main`. Commands: [Contributing](../dev-guide/000-c
 
 ## 16. `server/`: the owner's server
 
-One Supabase Free project, for the owner alone, that stores every dataset the app builds and never computes
-([ADR-08](700-adr/ADR-08-owner-server-free-tier.md); the round's full record is under `specs/001-backend-data-sync/`). Local rules:
+One Supabase Free project, for the owner and the accounts the owner adds (round 011), that stores every dataset the app builds and
+never computes ([ADR-08](700-adr/ADR-08-owner-server-free-tier.md), [ADR-14](700-adr/ADR-14-users-by-server-account.md); the
+round's full record is under `specs/001-backend-data-sync/`, the users round under `specs/011-multi-user-data/`). Local rules:
 `src/server/CLAUDE.md`. Without `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY` the module is inert and the app is the browser-only app.
 
 - `client.ts` (`createServerClient`): plain `fetch` against PostgREST (`/rest/v1/<table>`, filters in the query, `Range` paging,
@@ -521,7 +550,8 @@ One Supabase Free project, for the owner alone, that stores every dataset the ap
 - `session.ts` (`createServerSessionStore`): the magic link in the PKCE flow. `requestLink` stores a verifier under `server-pkce` and
   asks for a link whose `redirect_to` is the app plus `?link=server`; `main.tsx` branches on that marker (Spotify's callback is a bare
   `?code=`), `completeLink` exchanges the code with the verifier and stores `server-session`. A refresh re-reads storage first and retries
-  once on "already used"; a 401 signs out.
+  once on "already used"; a 401 signs out. Sign-out posts `/auth/v1/logout?scope=local` (this session only; GoTrue's default,
+  `global`, would also sign out the user's other devices and the worker; the worker's `logout` does the same).
 - `datasets.ts` (pure): the four datasets and their stores, each with its stamp (`library` = `lastSyncAt`; `history` =
   `historySummary.importedAt`, version 2 only; `features` = newest `updatedAt`; `reach` = `artistReachSummary.ranAt`), `compareStamps`
   (newer wins, never by push time), `batches` (500), `rowKey`, and `planMixes` (per row by `savedAt`, with tombstones).
@@ -563,6 +593,37 @@ payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history 
 - `autoSync.ts` (`installAutoSync`, installed by `main.tsx` after the open's sync; its `sync` also runs the automatic chain, §14): `startServerSync` on return to the app (tab
   visible, `RESUME_GAP_MS` = 60 s since the last), on `online`, and `startServerPull` every `ACTIVE_POLL_MS` (60 s) while visible
   and a request waits or runs (`hasActiveRequest`); only when signed in to both (`serverAutoSyncEnabled`). Never reads Spotify.
+
+**Users** (round 011, [ADR-14](700-adr/ADR-14-users-by-server-account.md)). The user is the server account; the server's rules
+were already per account (`owner_id = auth.uid()`, no `anon` grant), pinned by `rules.test.ts` (an audit of every migration).
+
+- `session.ts`: `ServerSession.userId`, the token's `sub` (`userIdFromToken`), stamped on read, save and refresh, so a session
+  stored before the round gains it with no call; null when the token carries none. The store pins the user it loaded with (or
+  signed in, `completeLink`): a refresh that finds another person's session in storage (another tab signed in) never adopts it
+  nor refreshes it, and answers `unauthorized` "The signed-in person changed in another tab. Reload." with storage left alone;
+  the same person's rotated session is still adopted (S7).
+- `auth/browser.ts`: Connect adds `show_dialog=true` to Spotify's authorize URL when this device knows more than one person
+  (`readDeviceUsers(...).length > 1`, read at each tap), so a browser still logged in to Spotify as the previous person shows
+  Spotify's account screen instead of connecting that account silently; a one-person device keeps the URL unchanged.
+- `userScope.ts` (pure, storage injected): `claim` (the first sign-in on a device writes `deviceOwner`, never changed), `scopeOf`
+  (`''` for the claimer, nobody or no server; the user id otherwise), `dbNameIn`/`keyIn` (`spotify-dj-u-<id>`, `session:<id>`,
+  `pkce:<id>`), `activeUser` and `deviceUsers` in `localStorage`, `activate` (claim, pointer, device list; refuses an id that is
+  not a uuid; says when a reload is needed), `scopeChangedElsewhere`, `sessionChangedElsewhere`, `reloadNeeded`. `scopedStorage`
+  is used by its tests only.
+- `scopeBrowser.ts`: the browser side, kept free of the server client so `db/` can import it. `pinnedScope()` resolves the scope
+  once per page and keeps it, so another tab moving the pointer never moves this page onto another user's database or Spotify
+  keys; `scopedDbName`, `scopedKey`, `scopedView` (the Spotify session keys in `auth/browser.ts`). `watchScope` reloads the page
+  when another tab makes a different user active; `watchSession` reloads it when a server session appears (this page shows the
+  sign-in screen) or disappears (this page is signed in), both installed by `main.tsx` at boot.
+- `model/state.ts`: `activateServerUser()` at the top of boot activates a stored session (the owner's session from before the
+  round claims today's names: no new link, no reload); `completeServerLink` activates after a link and answers `'reload'` when
+  the account differs from the page's names (`main.tsx` then navigates without the spent code). A session whose token names no
+  account, or a storage that refuses the pointer, is signed out with a message (`SERVER_NO_USER_MESSAGE`: "This sign-in did not
+  say which account it is. Send yourself a new link.") and the pointer cleared. A failed link stays on the page so its message
+  stays on the sign-in screen or the card; `syncOnOpen` (`ui/signin/gate.ts`) then skips the open's server sync and chain.
+- Per user: the database and the Spotify session keys. Per device: `deviceOwner`, `activeUser`, `deviceUsers`, `server-session`,
+  `server-pkce`, the quota lock, `keyNotation`, `autoUpdates`. `disconnect` and `removeServerData` act on the signed-in user only
+  (the scoped name and keys; the server rows chosen by the row rules).
 
 ## 17. `worker/`: the owner's-computer worker
 

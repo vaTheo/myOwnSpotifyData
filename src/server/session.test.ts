@@ -123,6 +123,8 @@ describe('completeLink', () => {
       refreshToken: 'r1',
       expiresAt: 10_000_000,
       email: 'me@example.com',
+      // 'a1' is not a JWT: no `sub`, so no id (ADR-14).
+      userId: null,
     });
     expect(storage.getItem(PKCE_KEY)).toBeNull();
     expect(s.session.value?.email).toBe('me@example.com');
@@ -174,6 +176,7 @@ describe('getAccessToken', () => {
     refreshToken: 'r1',
     expiresAt: 1_000_000 + 120_000,
     email: 'me@example.com',
+    userId: null,
   };
 
   it('returns the stored token while more than the margin remains', async () => {
@@ -327,5 +330,164 @@ describe('signOut', () => {
     expect(storage.getItem(SESSION_KEY)).toBeNull();
     expect(storage.getItem(PKCE_KEY)).toBeNull();
     expect(s.session.value).toBeNull();
+  });
+});
+
+describe('userId (ADR-14)', () => {
+  const ID = 'aaaaaaaa-1111-4111-8111-bbbbbbbbbbbb';
+  const token = `x.${btoa(JSON.stringify({ sub: ID }))}.y`;
+
+  it('a session stored before this round gets its id from the token, with no call', () => {
+    const client = fakeClient();
+    const storage = new MemoryStorage();
+    storage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        accessToken: token,
+        refreshToken: 'r',
+        expiresAt: 9_999_999,
+        email: 'me@example.com',
+      })
+    );
+    const { s } = store(client, storage);
+    expect(s.session.value?.userId).toBe(ID);
+    expect(client.refresh).not.toHaveBeenCalled();
+  });
+
+  describe("a refresh never adopts another person's session (audit Finding 2)", () => {
+    const A = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
+    const B = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
+    const tokenOf = (id: string, tag: string): string =>
+      `${tag}.${btoa(JSON.stringify({ sub: id }))}.y`;
+    const expiredA = {
+      accessToken: tokenOf(A, 'a1'),
+      refreshToken: 'rA',
+      expiresAt: 1_000_000 + 30_000,
+      email: 'a@example.com',
+      userId: A,
+    };
+
+    function pinnedToA(refresh = vi.fn<ServerClient['refresh']>()) {
+      const storage = new MemoryStorage();
+      storage.setItem(SESSION_KEY, JSON.stringify(expiredA));
+      const client = fakeClient({ refresh });
+      const { s } = store(client, storage);
+      return { s, storage, refresh };
+    }
+
+    it('same person: a rotated session from another tab is still adopted (S7)', async () => {
+      const { s, storage, refresh } = pinnedToA();
+      storage.setItem(
+        SESSION_KEY,
+        JSON.stringify({
+          ...expiredA,
+          accessToken: tokenOf(A, 'a-other'),
+          refreshToken: 'rA2',
+          expiresAt: 1_000_000 + 3_600_000,
+        })
+      );
+      expect(await s.getAccessToken()).toEqual({
+        ok: true,
+        value: tokenOf(A, 'a-other'),
+      });
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('same person: an expired session is refreshed and stored as before', async () => {
+      const refresh = vi.fn<ServerClient['refresh']>(async () =>
+        ok(tokens({ accessToken: tokenOf(A, 'a2'), refreshToken: 'rA2' }))
+      );
+      const { s, storage } = pinnedToA(refresh);
+      expect(await s.getAccessToken()).toEqual({
+        ok: true,
+        value: tokenOf(A, 'a2'),
+      });
+      expect(refresh).toHaveBeenCalledWith('rA');
+      expect(JSON.parse(storage.getItem(SESSION_KEY)!)).toMatchObject({
+        refreshToken: 'rA2',
+        userId: A,
+      });
+    });
+
+    it('another person signed in in another tab: refused, nothing called, nothing written', async () => {
+      const { s, storage, refresh } = pinnedToA();
+      const sessionB = JSON.stringify({
+        accessToken: tokenOf(B, 'b1'),
+        refreshToken: 'rB',
+        expiresAt: 1_000_000 + 3_600_000,
+        email: 'b@example.com',
+        userId: B,
+      });
+      storage.setItem(SESSION_KEY, sessionB);
+      expect(await s.getAccessToken()).toEqual({
+        ok: false,
+        kind: 'unauthorized',
+        message: 'The signed-in person changed in another tab. Reload.',
+      });
+      expect(refresh).not.toHaveBeenCalled();
+      expect(storage.getItem(SESSION_KEY)).toBe(sessionB);
+      expect(s.session.value?.userId).toBe(A);
+    });
+
+    it('another person whose stored token is also stale: never refreshed with their token', async () => {
+      const { s, storage, refresh } = pinnedToA();
+      const sessionB = JSON.stringify({
+        accessToken: tokenOf(B, 'b1'),
+        refreshToken: 'rB',
+        expiresAt: 1_000_000 + 30_000,
+        email: 'b@example.com',
+        userId: B,
+      });
+      storage.setItem(SESSION_KEY, sessionB);
+      expect(await s.getAccessToken()).toMatchObject({
+        ok: false,
+        kind: 'unauthorized',
+        message: 'The signed-in person changed in another tab. Reload.',
+      });
+      expect(refresh).not.toHaveBeenCalled();
+      expect(storage.getItem(SESSION_KEY)).toBe(sessionB);
+    });
+
+    it('another person found on the "already used" retry: refused, B never refreshed', async () => {
+      const sessionB = JSON.stringify({
+        accessToken: tokenOf(B, 'b1'),
+        refreshToken: 'rB',
+        expiresAt: 1_000_000 + 30_000,
+        email: 'b@example.com',
+        userId: B,
+      });
+      let storageRef: MemoryStorage | null = null;
+      const refresh = vi
+        .fn<ServerClient['refresh']>()
+        .mockImplementationOnce(async () => {
+          storageRef!.setItem(SESSION_KEY, sessionB);
+          return fail('error', 'Invalid Refresh Token: Already Used', 400);
+        });
+      const { s, storage } = pinnedToA(refresh);
+      storageRef = storage;
+      expect(await s.getAccessToken()).toMatchObject({
+        ok: false,
+        kind: 'unauthorized',
+        message: 'The signed-in person changed in another tab. Reload.',
+      });
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(refresh).toHaveBeenCalledWith('rA');
+      expect(storage.getItem(SESSION_KEY)).toBe(sessionB);
+    });
+  });
+
+  it('a token without a valid sub leaves the id null', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        accessToken: 'plain',
+        refreshToken: 'r',
+        expiresAt: 9_999_999,
+        email: 'me@example.com',
+      })
+    );
+    const { s } = store(fakeClient(), storage);
+    expect(s.session.value?.userId).toBeNull();
   });
 });

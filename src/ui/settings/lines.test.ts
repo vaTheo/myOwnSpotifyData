@@ -3,6 +3,8 @@ import type { ImportSummary } from '../../history/importer';
 import { formatDate, historyLine } from '../format';
 import {
   coverageLine,
+  dangerDescription,
+  deviceUsersLine,
   lookupDoneLine,
   pausedLine,
   pendingLine,
@@ -10,6 +12,7 @@ import {
   reachCoverageLine,
   reachRunLine,
   rekordboxLine,
+  signedInLine,
   usedShare,
   yearsLine,
 } from './lines';
@@ -123,5 +126,32 @@ describe('Settings lines (word for word, FR-049)', () => {
     expect(usedShare(12.5 * 1024 * 1024, 500 * 1024 * 1024)).toBe(
       '12.5 MB of 500.0 MB used on the server'
     );
+  });
+});
+
+describe('several people, one device (round 011 T017)', () => {
+  it('says how many people use this device only when more than one', () => {
+    expect(deviceUsersLine(0)).toBeNull();
+    expect(deviceUsersLine(1)).toBeNull();
+    expect(deviceUsersLine(2)).toBe('2 people use this device');
+  });
+
+  it("Danger zone: today's words without a server, 'your' with one", () => {
+    expect(dangerDescription(false)).toBe(
+      'Removes the Spotify login and deletes every cached playlist and play count from this browser. Server data is kept.'
+    );
+    expect(dangerDescription(true)).toBe(
+      "Removes your Spotify login and deletes your cached playlists and play counts from this browser. Your server data and other people's data on this device are kept."
+    );
+  });
+});
+
+describe('signedInLine (Settings server card and Connect)', () => {
+  it('names the email', () => {
+    expect(signedInLine('dj@example.com')).toBe('Signed in as dj@example.com.');
+  });
+
+  it('falls back to "the owner" when the session has no email', () => {
+    expect(signedInLine('')).toBe('Signed in as the owner.');
   });
 });

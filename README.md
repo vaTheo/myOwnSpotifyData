@@ -234,7 +234,8 @@ only here.
   deleting anything — the way back when a token refresh fails or a new
   permission is needed.
 - **Disconnect**, alone in the Danger zone, removes the login and all cached
-  data in this browser; server data is kept. So does syncing while a
+  data in this browser; server data is kept. With the server set up it removes
+  only yours: other people's data on this device stays. So does syncing while a
   different Spotify account is signed in, which asks first.
 
 ### Mix
@@ -372,11 +373,16 @@ Nothing else: the worker signs in with the same magic link as the app,
 returned to a local address the project already allows. Requests wait while
 the computer is off;
 the audio never leaves your computer; the worker never talks to Spotify.
+The worker serves one account, the one that signed it in (yours): a friend's
+**Identify on my computer** is recorded on the server but never taken, and
+waits as Queued in their Mixes list until they Cancel it, so the button is
+your feature.
 
 ## Server (optional)
 
-One server, for you alone, that keeps every dataset the app builds so a new
-browser or a second device gets it all back after one sign-in. It is a
+One server, for you and the people you add, that keeps every dataset the app
+builds so a new browser or a second device gets it all back after one
+sign-in. It is a
 [Supabase](https://supabase.com) Free project: a database with sign-in that
 the browser talks to directly. It stores, never computes, never sees your
 Spotify token, and the app works without it.
@@ -400,8 +406,10 @@ Set it up once:
 
 Using it:
 
-- **Settings → Server → Send me a link**: open the emailed link in the same
-  browser within 10 minutes. The browser stays signed in.
+- With the server set up, the app opens on a **sign-in screen** until you
+  sign in: type your email, **Send me a link**, open the emailed link in the
+  same browser within 10 minutes. The browser stays signed in. A new sign-in
+  needs the network.
 - After every sync, import, lookup, reach run, and every mix you save or
   delete, the app sends that data to the server. On open, when you come back
   to the app after a minute or more, and when the network returns, it fetches
@@ -411,14 +419,49 @@ Using it:
 - **Sync now with server** does both on demand; the card shows when each
   dataset was fetched here and on the server, the rows held, and the used
   share of the 500 MB.
-- **Sign out** keeps everything here and on the server. **Remove server data**
-  deletes everything on the server and keeps this browser's copy, after a
-  question.
+- **Sign out** keeps everything here and on the server, asks nothing and
+  returns to the sign-in screen. It is also on the Connect screen, beside
+  "Signed in as …", while Spotify is not connected. **Remove server data** deletes all your data
+  on the server and keeps this browser's copy, after a question.
 - Offline, the app works from local data and sends the pending changes on the
   next open. A Free project **pauses after a week without traffic**: the card
   says so, and only you can resume it, from the Supabase dashboard. Free
   projects have no backups; your local copy is the backup of the server as
   much as the reverse.
+
+### Several people, one app
+
+Each person who signs in to the server is a user with data of their own:
+their own library, history, BPM and key, artist reach and saved mixes, on the
+device and on the server.
+
+- **Sign in first on your own devices.** The first person to sign in on a
+  device after this update gets the data already stored there. Sign in
+  yourself on each of your browsers before anyone else uses them.
+- **Add a person**: Supabase dashboard → Authentication → Users → Add user:
+  their email, auto-confirm, no password. Leave **Allow new users to sign up**
+  off: an email you did not add gets no account and sees nothing. Then add
+  their Spotify account to the Spotify app's User Management (one-time setup,
+  step 1). Only you, the app's owner, need Premium; they do not. Spotify
+  lets a Development Mode app list only a small number of people, set by
+  Spotify.
+- **They sign in** with their email on the sign-in screen, then **Connect
+  Spotify** with their own account. Once more than one person has signed in on
+  a device, Connect there always shows Spotify's account screen: check the
+  account it names, and use "Not you?" if the browser is still logged in to
+  Spotify as someone else. Their screens start empty and fill from their own
+  syncs; yours do not change.
+- **Sign out** before handing over a shared browser (Settings → Server, or
+  the Connect screen when Spotify is not connected, which also says who is
+  signed in). It signs you out of that browser only: your other devices and the worker stay signed in. Signing out
+  of Spotify there too (on spotify.com) is wise. The next person signs in
+  and sees only their data; when you sign back in, yours is there at once,
+  with no question and no new sync. Every person's copy stays on that device
+  (Settings → Server says "N people use this device"); there is no button yet
+  to remove another person's copy. **Disconnect** and **Remove server data**
+  touch only the signed-in person's data.
+- The 500 MB of the Free project and Spotify's daily read quota are shared by
+  everyone: a Spotify lock-out stops every person on that device.
 
 Keep it safe: turn on MFA for your supabase.com account, never copy the
 `service_role` key anywhere, leave sign-ups off. The app checks every row it

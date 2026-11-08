@@ -1286,7 +1286,7 @@ test.describe('F. features', () => {
     await app.set('serverSession', SERVER_SESSION);
     await app.set('serverState', SERVER_CONNECTED);
     await expect(
-      app.page.getByText('Connected as dj@example.com.')
+      app.page.getByText('Signed in as dj@example.com.')
     ).toBeVisible();
     await expect(
       app.page.getByRole('button', { name: 'Sync now with server' })
@@ -1330,7 +1330,7 @@ test.describe('F. features', () => {
         'confirm: Remove all your data from the server? Local data on this browser is kept.',
       ]);
       await expect(
-        app.page.getByText('Connected as dj@example.com.')
+        app.page.getByText('Signed in as dj@example.com.')
       ).toBeVisible();
       expect(sent.slice(before), 'requests after No').toEqual([]);
     });

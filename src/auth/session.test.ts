@@ -38,6 +38,7 @@ function setup(
     pkce?: { verifier: string; state: string };
     responses?: Array<() => Response | Promise<Response>>;
     clientId?: string;
+    showDialog?: () => boolean;
   } = {}
 ) {
   const storage = new MemoryStorage();
@@ -59,6 +60,7 @@ function setup(
     navigate,
     clientId: opts.clientId ?? 'cid',
     redirectUri: () => 'https://x.test/app/',
+    showDialog: opts.showDialog,
   });
   return { store, storage, fetchFn, navigate };
 }
@@ -90,6 +92,25 @@ describe('beginLogin', () => {
     );
     expect(url.searchParams.get('redirect_uri')).toBe('https://x.test/app/');
     expect(url.searchParams.get('client_id')).toBe('cid');
+  });
+
+  it('adds show_dialog only when the device knows more than one person', async () => {
+    let shared = false;
+    const { store, navigate } = setup({ showDialog: () => shared });
+    await store.beginLogin();
+    const single = new URL(navigate.mock.calls[0][0] as string);
+    expect(single.searchParams.has('show_dialog')).toBe(false);
+    shared = true; // read at call time, not at store creation
+    await store.beginLogin();
+    const two = new URL(navigate.mock.calls[1][0] as string);
+    expect(two.searchParams.get('show_dialog')).toBe('true');
+  });
+
+  it('keeps the URL without show_dialog when no reader is given', async () => {
+    const { store, navigate } = setup();
+    await store.beginLogin();
+    const url = new URL(navigate.mock.calls[0][0] as string);
+    expect(url.searchParams.has('show_dialog')).toBe(false);
   });
 
   it('refuses to start without a client id and says why', async () => {

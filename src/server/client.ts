@@ -294,8 +294,10 @@ export function createServerClient(deps: ServerDeps): ServerClient {
     },
 
     signOut(accessToken) {
+      // scope=local: this browser's session only. GoTrue's default (global)
+      // would sign out the user's other devices and the worker (audit F3).
       return call(
-        url('/auth/v1/logout'),
+        url('/auth/v1/logout', { scope: 'local' }),
         { method: 'POST', token: accessToken },
         () => undefined
       );

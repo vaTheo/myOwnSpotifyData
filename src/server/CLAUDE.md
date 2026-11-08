@@ -30,3 +30,5 @@ project reached with plain `fetch`. The server stores and never computes; it nev
 - A refresh re-reads storage first and retries once on "already used"; a 401 on refresh signs out.
 - `offline` and `paused` are states, not errors: no banner, pending flags kept, no retry loop.
 - A new table or column: `supabase/migrations/` gains a file, `contracts/server-schema.md` the row, the grants block stays last.
+- Per-user scope (ADR-14): the user is the server account; `userScope.ts` (pure) and `scopeBrowser.ts` (the pinned page scope,
+  `watchScope`/`watchSession`) name each user's database and Spotify keys; a switch or a sign-out reloads, never asks.

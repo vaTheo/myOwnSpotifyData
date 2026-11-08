@@ -16,6 +16,11 @@ export function usedShare(bytes: number, freeBytes: number): string {
   return `${mb(bytes)} MB of ${mb(freeBytes)} MB used on the server`;
 }
 
+/** Whose server session this is: the Settings server card and Connect. */
+export function signedInLine(email: string): string {
+  return `Signed in as ${email || 'the owner'}.`;
+}
+
 /** Spec §5: "BPM and key for 3,120 of 4,980 tracks · ReccoBeats 2,900 · …". */
 export function coverageLine(c: Coverage): string {
   const total = plural(c.total, 'track');
@@ -124,4 +129,19 @@ export function pendingValue(pending: ServerPending): string {
 /** The Settings server section's line for the same figure. */
 export function pendingLine(pending: ServerPending): string {
   return `Changes waiting to send: ${pendingValue(pending)}`;
+}
+
+/** round 011: "3 people use this device", or null for one person or none. */
+export function deviceUsersLine(n: number): string | null {
+  return n > 1 ? `${n.toLocaleString()} people use this device` : null;
+}
+
+/**
+ * The Danger zone's words: today's without a server (FR-008); with one, the
+ * device may hold several people's data and Disconnect touches only yours.
+ */
+export function dangerDescription(serverSetUp: boolean): string {
+  return serverSetUp
+    ? "Removes your Spotify login and deletes your cached playlists and play counts from this browser. Your server data and other people's data on this device are kept."
+    : 'Removes the Spotify login and deletes every cached playlist and play count from this browser. Server data is kept.';
 }

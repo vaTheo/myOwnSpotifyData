@@ -64,7 +64,7 @@ All with `apikey: <publishable key>` and `Authorization: Bearer <access token>`,
 | worker (login --code) | `POST /auth/v1/otp` | `{ "email": "<owner>", "create_user": false }` | 200 → "check your mail" |
 | worker (login --code) | `POST /auth/v1/verify` | `{ "type": "email", "email": "<owner>", "token": "<6 digits>" }` | `access_token`, `refresh_token`, `expires_in` |
 | worker | `POST /auth/v1/token?grant_type=refresh_token` | `{ "refresh_token": "<…>" }` | new pair, stored in place |
-| worker (logout) | `POST /auth/v1/logout` | — | session file removed |
+| worker (logout) | `POST /auth/v1/logout?scope=local` (this session only; round 011 audit Finding 3) | — | session file removed |
 
 Error mapping, same as `client.ts`: network failure or 5xx → `offline` (worker: exit 2 "server unreachable, try later"); a 5xx
 whose body mentions the project being paused, or a DNS failure → `paused` (exit 3 with the dashboard hint); 401 → `unauthorized`
