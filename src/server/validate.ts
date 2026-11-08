@@ -251,8 +251,22 @@ export function validateMix(row: unknown): Valid<MixRow> {
     if (!optFinite(t.startSec) || !optFinite(t.endSec))
       return fail('mixes.row.time');
     if (!optHttps(t.shazamUrl)) return fail('mixes.row.shazamUrl');
-    if (t.origin !== undefined && t.origin !== 'replay' && t.origin !== 'clue')
+    if (
+      t.origin !== undefined &&
+      t.origin !== 'replay' &&
+      t.origin !== 'clue' &&
+      t.origin !== 'trackid'
+    )
       return fail('mixes.row.origin');
+    if (
+      (t.trackid !== undefined || t.shazamCheck !== undefined) &&
+      t.origin !== 'trackid'
+    )
+      return fail('mixes.row.trackid');
+    if (t.trackid !== undefined && !trackidOk(t.trackid))
+      return fail('mixes.row.trackid');
+    if (t.shazamCheck !== undefined && !shazamCheckOk(t.shazamCheck))
+      return fail('mixes.row.shazamCheck');
     if (t.speedPercent !== undefined && !finite(t.speedPercent))
       return fail('mixes.row.speedPercent');
     if (
@@ -284,6 +298,51 @@ export function validateMix(row: unknown): Valid<MixRow> {
     ? { ...row, rows: cleaned }
     : row;
   return { ok: true, row: out as unknown as MixRow };
+}
+
+const TRACKID_SECONDS_MAX = 100_000;
+const TRACKID_TEXT_MAX = 200;
+
+/** Round 016: a TrackId.net span, bounded as in data-model.md. */
+function trackidOk(v: unknown): boolean {
+  if (!obj(v)) return false;
+  if (typeof v.slug !== 'string' || v.slug.length > TRACKID_TEXT_MAX)
+    return false;
+  const { spanStart: a, spanEnd: b } = v;
+  if (!finite(a) || !finite(b)) return false;
+  if (a < 0 || b < a || b > TRACKID_SECONDS_MAX) return false;
+  return (
+    v.references === undefined ||
+    (typeof v.references === 'number' &&
+      Number.isInteger(v.references) &&
+      v.references >= 0)
+  );
+}
+
+/** Round 016: the Shazam probe's answer on a TrackId.net row. */
+function shazamCheckOk(v: unknown): boolean {
+  if (!obj(v)) return false;
+  const o = v.outcome;
+  if (
+    o !== 'agrees' &&
+    o !== 'differs' &&
+    o !== 'no_match' &&
+    o !== 'not_asked'
+  )
+    return false;
+  const extras = [v.artist, v.title, v.confidence].some((x) => x !== undefined);
+  if (o !== 'differs') return !extras;
+  for (const x of [v.artist, v.title]) {
+    if (
+      x !== undefined &&
+      (typeof x !== 'string' || x.length > TRACKID_TEXT_MAX)
+    )
+      return false;
+  }
+  return (
+    v.confidence === undefined ||
+    (finite(v.confidence) && v.confidence >= 0 && v.confidence <= 1)
+  );
 }
 
 /** Check on Spotify's answer (T117): 'not-found', or a track id and its

@@ -1,4 +1,5 @@
 import json
+import urllib.parse
 import tempfile
 import unittest
 from pathlib import Path
@@ -118,6 +119,32 @@ class Success(unittest.TestCase):
             run_one(job(), settings, "tok", deps)
             self.assertTrue(all(deps.client.base_url.startswith("https://abc.supabase.co") for _ in deps.client.calls))
             self.assertNotIn("spotify", json.dumps(deps.client.calls).lower())
+
+    def test_outbound_hosts_gain_only_trackid_net(self):
+        # Round 016: the worker's TrackId.net layer is the one new host, asked by the mix link only.
+        from mix_worker.trackid import TRACKID_LIST_URL, fetch_trackid
+
+        urls = []
+
+        def fetch(url, headers, timeout):
+            urls.append(url)
+            return 200, b'{"result": {"audiostreams": [], "rowCount": 0}}'
+
+        fetch_trackid("https://soundcloud.com/a/b", fetch, lambda s: None, lambda line: None)
+        hosts = {urllib.parse.urlsplit(u).hostname for u in urls}
+        self.assertEqual(hosts, {"trackid.net"})
+        self.assertTrue(all(u.startswith(TRACKID_LIST_URL) for u in urls))
+        self.assertTrue(all("keywords" not in u for u in urls))
+
+    def test_a_failing_trackid_layer_is_unknown_and_logged_once(self):
+        from mix_worker.trackid import fetch_trackid
+
+        def fetch(url, headers, timeout):
+            raise OSError("down")
+
+        lines = []
+        self.assertIsNone(fetch_trackid("https://soundcloud.com/a/b", fetch, lambda s: None, lines.append))
+        self.assertEqual(len(lines), 1)
 
 
 class Failures(unittest.TestCase):
@@ -488,3 +515,146 @@ class Round005Years(unittest.TestCase):
             deps.years = lambda tracks: None
             self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
             self.assertNotIn("years", self.sent(deps)["result"]["mix_info"])
+
+
+class Round016Pipeline(unittest.TestCase):
+    """TrackId.net in the request: guides only for a trusted record, rows merged, gaps clipped."""
+
+    def sent(self, deps):
+        return [c for c in deps.client.calls if c[0] == "finish"][-1][4]
+
+    def record(self, duration=7260.0, spans=None):
+        from mix_worker.trackid import Record, Span
+
+        spans = [Span(100, 400, "Span Artist", "Span Title", "Lbl", 3)] if spans is None else spans
+        return Record("the-slug", "A set", duration, spans)
+
+    def run_with(self, tmp, trackid, scan=None, **kw):
+        calls = []
+
+        def fake(path, duration, **extra):
+            calls.append(extra)
+            return scan(path, duration, **extra) if scan else [TRACK]
+
+        settings, deps, log = make(tmp, scan=fake, **kw)
+        deps.trackid = trackid
+        deps.scan_hooks = False
+        outcome = run_one(job(), settings, "tok", deps)
+        return outcome, calls, deps, log
+
+    def test_guides_are_passed_only_for_a_trusted_record(self):
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = ScanOutput(rows=[TRACK], span_checks={0: {"outcome": "agrees"}})
+            outcome, calls, deps, log = self.run_with(tmp, lambda link: self.record(), scan=lambda p, d, **e: out)
+            self.assertEqual(outcome.status, "done")
+            self.assertEqual(set(calls[0]), {"guides", "spans"})
+            self.assertEqual(len(calls[0]["guides"]), 1)
+            self.assertIn("  trackid · A set · 1 spans · 1 guided", log.lines)
+            self.assertIn("  trackid · 1 agree · 0 differ · 0 no match", log.lines)
+            self.assertFalse([l for l in log.lines if "probes skipped" in l])  # guided is None here: nothing logged
+            tracks = self.sent(deps)["result"]["tracks"]
+            self.assertEqual([t["origin"] if "origin" in t else "heard" for t in tracks], ["heard", "trackid"])
+            self.assertEqual(tracks[1]["trackid"], {"slug": "the-slug", "span_start": 100, "span_end": 400, "references": 3})
+            self.assertEqual(self.sent(deps)["result"]["mix_info"]["track_count"], 2)
+
+    def test_the_skipped_probe_count_is_logged_after_the_scan_when_guided(self):
+        from mix_worker.scan import ScanOutput
+
+        out = ScanOutput(rows=[TRACK], guided={"spans": 1, "skipped_probes": 19}, span_checks={0: {"outcome": "agrees"}})
+        with tempfile.TemporaryDirectory() as tmp:
+            outcome, calls, deps, log = self.run_with(tmp, lambda link: self.record(), scan=lambda p, d, **e: out)
+        self.assertEqual(outcome.status, "done")
+        lines = [l for l in log.lines if l.startswith("  trackid")]
+        self.assertEqual(lines[-1], "  trackid · 19 probes skipped")
+        self.assertEqual(lines[-2], "  trackid · 1 agree · 0 differ · 0 no match")
+
+    def test_not_known_a_failing_layer_and_off_leave_the_calls_as_today(self):
+        results = []
+
+        def boom(link):
+            raise OSError("down")
+
+        for trackid in (None, lambda link: None, boom):
+            with tempfile.TemporaryDirectory() as tmp:
+                outcome, calls, deps, log = self.run_with(tmp, trackid)
+                results.append((outcome.status, calls, self.sent(deps)["result"]["tracks"], [s[0] for s in log.steps]))
+        self.assertEqual(results[0], results[1])
+        self.assertEqual(results[0], results[2])
+        self.assertEqual(results[0][1], [{}])
+
+    def test_a_failing_layer_is_logged_once_and_the_request_finishes(self):
+        def boom(link):
+            raise OSError("down")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            outcome, calls, deps, log = self.run_with(tmp, boom)
+        self.assertEqual(outcome.status, "done")
+        self.assertEqual([l for l in log.lines if "trackid" in l], ["  trackid · failed (OSError)"])
+
+    def test_a_record_of_another_length_is_not_used(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            outcome, calls, deps, log = self.run_with(tmp, lambda link: self.record(duration=7260 * 1.06))
+            self.assertEqual(calls, [{}])
+            self.assertIn("  trackid · record length differs from the audio, not used", log.lines)
+            self.assertEqual(self.sent(deps)["result"]["tracks"], [TRACK])
+
+    def test_a_record_without_spans_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            outcome, calls, deps, log = self.run_with(tmp, lambda link: self.record(spans=[]))
+            self.assertEqual(calls, [{}])
+            self.assertEqual(self.sent(deps)["result"]["tracks"], [TRACK])
+
+    def test_rows_merge_sorted_and_the_clue_step_gets_clipped_gaps(self):
+        from mix_worker.clues import Gathered
+        from mix_worker.scan import ScanOutput
+
+        late = dict(TRACK, song_name="Late", time_in_mix="00:30:00")
+        out = ScanOutput(rows=[TRACK, late], gaps=[(0, 150), (350, 500), (405, 405.5), (1000, 1100)], span_checks={0: {"outcome": "no_match"}})
+        seen = {}
+
+        def clues(url, gaps, rows):
+            seen["gaps"], seen["rows"] = gaps, [r["song_name"] for r in rows]
+            return Gathered(gaps=[], clues=[], candidates=[])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d: out)
+            deps.trackid, deps.clues = (lambda link: self.record()), clues
+            deps.scan = lambda p, d, **e: out
+            self.assertEqual(run_one(job(), settings, "tok", deps).status, "done")
+        self.assertEqual(seen["gaps"], [(0, 100), (400, 500), (1000, 1100)])
+        self.assertEqual(seen["rows"], ["T", "Span Title", "Late"])
+        self.assertIn("  trackid · 0 agree · 0 differ · 1 no match", log.lines)
+
+    def test_a_refusal_with_only_absorbed_hits_still_sends_the_trackid_rows(self):
+        from mix_worker.scan import ScanOutput
+
+        out = ScanOutput(rows=[], stopped={"at": "00:03:00", "reason": "rate limited"}, span_checks={0: {"outcome": "not_asked"}})
+        with tempfile.TemporaryDirectory() as tmp:
+            outcome, calls, deps, log = self.run_with(tmp, lambda link: self.record(), scan=lambda p, d, **e: out)
+            self.assertEqual(outcome.status, "done")
+            body = self.sent(deps)
+        self.assertEqual([t["origin"] for t in body["result"]["tracks"]], ["trackid"])
+        self.assertIn("rate limited", body["error"])
+
+    def test_the_slug_and_cores_join_the_run_state_key(self):
+        from mix_worker import runstate
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp, scan=lambda p, d, **e: (_ for _ in ()).throw(ScanRefused()))
+            deps.scan_hooks = True
+            seen = {}
+            real = runstate.load
+
+            def spy(*a, **k):
+                seen.update(k)
+                return real(*a, **k)
+
+            deps.trackid = lambda link: self.record()
+            runstate.load = spy
+            try:
+                run_one(job(), settings, "tok", deps)
+            finally:
+                runstate.load = real
+        self.assertEqual(seen["trackid"], runstate.trackid_key("the-slug", [(110, 390)]))

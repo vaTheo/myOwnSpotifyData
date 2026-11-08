@@ -6,7 +6,7 @@
 One decision per file, kept when it no longer holds (marked `Superseded by …`). A decision belongs here when it outlives the feature round
 that made it; the round's reasoning stays in its [spec](../../specs/). The first seven were taken during the rounds of 2026-09-04 to
 2026-09-25 and written down on 2026-11-05; ADR-08 was taken on 2026-11-05, ADR-09, ADR-10 and ADR-11 on 2026-11-06 (ADR-10
-amended the same day by the redesign's Mix review), ADR-12 on 2026-11-07, ADR-13, ADR-14, ADR-15 and ADR-16 on 2026-11-08.
+amended the same day by the redesign's Mix review), ADR-12 on 2026-11-07, ADR-13, ADR-14, ADR-15, ADR-16 and ADR-17 on 2026-11-08.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -19,13 +19,14 @@ amended the same day by the redesign's Mix review), ADR-12 on 2026-11-07, ADR-13
 | [ADR-07](ADR-07-play-counts-from-export.md) | Play counts come only from the history export; history views gate on a versioned summary | Accepted |
 | [ADR-08](ADR-08-owner-server-free-tier.md) | One server for the owner on a free tier: stores the app's datasets and a job queue, never computes, never holds a token; workers run on the owner's computer | Accepted |
 | [ADR-09](ADR-09-mix-identification-on-the-owners-computer.md) | Mix identification by audio runs only in the worker on the owner's computer, keyless (Shazam), one probe at a time; the app and the server never touch audio; the result keeps the F15 JSON shape | Accepted |
-| [ADR-10](ADR-10-name-lookup-for-clues.md) | The worker may look a track up by name, only for a clue (comment, chapter, description) without identifier: keyless catalogues, exact equality, marked "from a comment" | Accepted; amended 2026-11-06 (a candidate joins **Validated only** once validated; **All tracks** includes it); restored 2026-11-08 by spec 010 (no choice: every track, candidates included, goes into Create playlist unless deleted) |
+| [ADR-10](ADR-10-name-lookup-for-clues.md) | The worker may look a track up by name, only for a clue (comment, chapter, description) without identifier: keyless catalogues, exact equality, marked "from a comment" | Accepted; amended 2026-11-06 (a candidate joins **Validated only** once validated; **All tracks** includes it); restored 2026-11-08 by spec 010 (no choice: every track, candidates included, goes into Create playlist unless deleted); amended 2026-11-08 by ADR-17 (a TrackId.net span is a candidate, origin `trackid`) |
 | [ADR-11](ADR-11-web-first-material-3.md) | Web-first adaptive layout on Material Design 3: dark only, chartreuse seed and accent, five destinations, tables and side sheets; the Playwright visual loop as a dev-only check | Accepted |
 | [ADR-12](ADR-12-automatic-updates.md) | Automatic updates: after the server sync, the Spotify sync (library older than 12 hours, at most once a session), then BPM and key, then Artist reach, one at a time; no wake lock, no banner; a per-device switch | Accepted |
 | [ADR-13](ADR-13-automatic-mix-check.md) | Opening a saved mix checks its unchecked named tracks on Spotify by itself, once per mix, under the Automatic updates switch, the lock-out and one-reader-at-a-time rules; never in the demo | Accepted |
 | [ADR-14](ADR-14-users-by-server-account.md) | Users are server accounts: one local database and one Spotify login per user; the first sign-in on a device claims the existing names; a switch reloads the page; a sign-in screen when nobody is signed in | Accepted; amended by ADR-15 (the shared store is the one named exception to isolation) and ADR-16 (a shared worker serves every user's requests) |
 | [ADR-15](ADR-15-shared-track-facts.md) | One shared store of public track and artist facts (BPM, key, reach) on the server: no user column, insert-only, checked by the database, read by id (200 at most) through two functions; rekordbox and everything personal stay private | Accepted |
 | [ADR-16](ADR-16-shared-worker.md) | One worker for every user: a named worker role (listed by the owner) takes any user's identification request through five definer functions, no table privilege, one request per user in turn; personal mode kept | Accepted |
+| [ADR-17](ADR-17-trackid-worker.md) | The worker asks TrackId.net by the exact mix link, makes one confirming Shazam probe per known span and skips the rest, adds a row per span (origin `trackid`) with a Shazam check; TrackId.net is the source of truth | Accepted |
 
 ## Skeleton
 

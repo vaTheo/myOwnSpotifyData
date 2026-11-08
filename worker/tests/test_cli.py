@@ -3,7 +3,11 @@ import unittest
 from pathlib import Path
 
 from mix_worker import __version__
-from mix_worker.cli import PRESS_ENTER, SHARED_LINK_REASON, shared_link_allowed, CliDeps, EXIT_NOT_SHARED, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, code_for, main, make_client, run_queue
+from unittest import mock
+import io
+import urllib.error
+
+from mix_worker.cli import http_get, PRESS_ENTER, SHARED_LINK_REASON, shared_link_allowed, CliDeps, EXIT_NOT_SHARED, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, code_for, main, make_client, run_queue
 from mix_worker.config import Settings, SettingsError
 from mix_worker.pipeline import Deps
 from mix_worker.server import Result, ServerClient, SharedServerClient
@@ -483,6 +487,121 @@ class PersonalUntouched(unittest.TestCase):
             self.assertFalse(any(name in u for u in urls), name)
         self.assertTrue(any(u.endswith("/rpc/claim_job") for u in urls))
         self.assertTrue(any(m == "PATCH" and "/rest/v1/jobs?" in u for m, u in opener.calls))
+
+
+class HttpGetTest(unittest.TestCase):
+    """The real TrackId.net seam, with a faked opener and clock."""
+
+    class Res:
+        status = 200
+
+        def __init__(self, body=b"body", chunk=65536, tick=None):
+            self.io, self.tick = io.BytesIO(body), tick
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self, n=-1):
+            if self.tick:
+                self.tick()
+            return self.io.read(n)
+
+    class Opener:
+        def __init__(self, result):
+            self.result, self.calls = result, []
+
+        def open(self, req, timeout=None):
+            self.calls.append((req, timeout))
+            if isinstance(self.result, Exception):
+                raise self.result
+            return self.result
+
+    def get(self, result, url="https://x.test/a", headers=None, timeout=7.5, **kw):
+        opener = self.Opener(result)
+        with mock.patch("urllib.request.build_opener", return_value=opener) as build:
+            out = http_get(url, headers or {}, timeout, **kw)
+        return out, opener, build
+
+    def test_sends_headers_user_agent_and_timeout(self):
+        out, opener, _ = self.get(self.Res(), headers={"Accept": "application/json"})
+        self.assertEqual(out, (200, b"body"))
+        req, timeout = opener.calls[0]
+        self.assertEqual(req.full_url, "https://x.test/a")
+        self.assertEqual(req.get_header("Accept"), "application/json")
+        self.assertEqual(req.get_header("User-agent"), f"mix-worker/{__version__}")
+        self.assertLessEqual(timeout, 7.5)
+
+    def test_http_error_returns_status_and_body(self):
+        err = urllib.error.HTTPError("https://x.test/a", 404, "nf", {}, io.BytesIO(b"gone"))
+        out, _, _ = self.get(err)
+        self.assertEqual(out, (404, b"gone"))
+
+    def test_network_error_raises(self):
+        with self.assertRaises(urllib.error.URLError):
+            self.get(urllib.error.URLError("down"))
+
+    def test_a_redirect_is_returned_not_followed(self):
+        import urllib.request
+
+        out, opener, build = self.get(urllib.error.HTTPError("https://x.test/a", 302, "found", {"Location": "https://evil.test/"}, io.BytesIO(b"")))
+        self.assertEqual(out, (302, b""))
+        self.assertEqual(len(opener.calls), 1)
+        handler = build.call_args.args[0]
+        self.assertIsNone(handler().redirect_request(urllib.request.Request("https://x.test/a"), None, 302, "found", {}, "https://evil.test/"))
+
+    def test_a_redirect_is_not_followed_on_a_real_socket(self):
+        import http.server
+        import threading
+
+        hits = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                hits.append(self.path)
+                self.send_response(302)
+                self.send_header("Location", "/elsewhere")
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            status, _ = http_get(f"http://127.0.0.1:{srv.server_port}/a", {}, 5)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+        self.assertEqual((status, hits), (302, ["/a"]))
+
+    def test_an_oversize_body_raises(self):
+        with self.assertRaises(OSError):
+            self.get(self.Res(b"x" * (2 * 1024 * 1024 + 1)))
+
+    def test_exactly_the_cap_is_read(self):
+        out, _, _ = self.get(self.Res(b"x" * (2 * 1024 * 1024)))
+        self.assertEqual(len(out[1]), 2 * 1024 * 1024)
+
+    def test_a_slow_drip_raises_after_the_total_deadline(self):
+        now = [0.0]
+
+        def tick():
+            now[0] += 4.0
+
+        with self.assertRaises(TimeoutError):
+            self.get(self.Res(b"x" * 500_000, tick=tick), timeout=10, clock=lambda: now[0])
+
+    def test_a_fast_answer_within_the_deadline_returns(self):
+        now = [0.0]
+
+        def tick():
+            now[0] += 1.0
+
+        out, _, _ = self.get(self.Res(b"x" * 100_000, tick=tick), timeout=10, clock=lambda: now[0])
+        self.assertEqual(len(out[1]), 100_000)
 
 
 if __name__ == "__main__":

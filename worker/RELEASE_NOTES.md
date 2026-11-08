@@ -11,6 +11,13 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.7.0: **TrackId.net**. The worker asks TrackId.net about the exact mix link (never a search by name; `WORKER_TRACKID=off` turns it
+  off) once per request, before the first probe. When TrackId.net knows the mix, the first pass makes **one confirming Shazam probe
+  per span** it names, centred on the span's middle, and **no other probe inside it**; each span becomes a row ("from TrackId.net",
+  not heard) with a **Shazam check** (agrees, differs, no match, not asked). TrackId.net is the source of truth: a Shazam answer never
+  replaces, clips or removes its row. When it knows nothing, fails or is off, the scan is as before. A `mix-worker.env` you already
+  have is kept, so add `WORKER_TRACKID=on` by hand if you want the line. **The app must be updated first**: wait for the Pages
+  deploy and hard-reload the app before using worker 0.7.0, because an old app refuses the new rows.
 - 0.6.0: a **shared mode**. With `WORKER_MODE=shared` (default `personal`, today's behaviour) the worker takes the identification
   requests of every user of the app, one request per user in turn, and sends each result to the person who asked. The account it
   signs in with must be listed by the owner in `shared_workers`; at start it asks the server and stops with **exit code 7** when it is

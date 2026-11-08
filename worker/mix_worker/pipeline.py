@@ -17,6 +17,7 @@ from .config import Settings
 from .download import DownloadFailure, Downloaded
 from .scan import ScanOutput, ScanRefused, ScanUnreachable, StopRequested
 from .server import Result
+from .trackid import Record, merge_rows, plan_guides, span_rows, trusted, uncovered
 
 REFUSED_REASON = "Recognition service refused (rate limited); try later"
 UNREACHABLE_REASON = "Recognition service did not answer; try later"
@@ -46,6 +47,9 @@ class Deps:
     # Round 005: tracks → {"asked", "filled"} or None; fills `release_date`
     # by ISRC in place, after the clues (same lookup budget). None = no step.
     years: Callable[[list[dict[str, Any]]], dict[str, int] | None] | None = None
+    # Round 016: link → the TrackId.net record, or None when it knows nothing;
+    # None here = no lookup at all (every call is then as before).
+    trackid: Callable[[str], Record | None] | None = None
 
 
 @dataclass
@@ -165,6 +169,34 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
 
             return _fail(deps, settings, token, job_id, too_long_reason(got.duration, settings.max_duration_seconds))
 
+        record: Record | None = None
+        guides: list[Any] = []
+        if deps.trackid is not None:
+            news.step("trackid")
+            try:
+                found = deps.trackid(url)
+            except Exception as err:  # TrackId.net never costs a request
+                found = None
+                if deps.log is not None:
+                    deps.log.line(f"  trackid · failed ({type(err).__name__})")
+            news.step("trackid")
+            if found is None:
+                pass  # the client already logged why (one line: "trackid · not known", HTTP status, ...)
+            elif not trusted(found, got.duration):
+                if deps.log is not None:
+                    deps.log.line("  trackid · record length differs from the audio, not used")
+            else:
+                record = found
+                guides = plan_guides(record.spans, settings.probe_step_seconds, settings.probe_seconds)
+                if deps.log is not None:
+                    deps.log.line(f"  trackid · {record.title} · {len(record.spans)} spans · {len(guides)} guided")
+        guided_args: dict[str, Any] = {"guides": guides, "spans": record.spans} if record is not None and record.spans else {}
+        key_trackid = None
+        if guided_args:
+            from .runstate import trackid_key
+
+            key_trackid = trackid_key(record.slug, [(g.core_start, g.core_end) for g in guides])
+
         started = deps.now()
         recorder = None
         hooks: dict[str, Any] = {}
@@ -175,13 +207,13 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
                 "step": settings.probe_step_seconds, "probe_seconds": settings.probe_seconds,
                 "second": [settings.second_pass_step_seconds, settings.second_pass_offset_seconds, list(settings.second_pass_speeds)],
             }
-            state, why = runstate.load(settings.work_dir, url, key, settings.resume_days)
+            state, why = runstate.load(settings.work_dir, url, key, settings.resume_days, trackid=key_trackid)
             if why and deps.log is not None:
                 deps.log.line(f"  scan · starting over: {why}")
-            recorder = runstate.Recorder(settings.work_dir, url, key, base=state)
+            recorder = runstate.Recorder(settings.work_dir, url, key, base=state, trackid=key_trackid)
             hooks = {"progress": news.publish, "resume": state, "remember": recorder.remember}
         try:
-            out = deps.scan(got.path, got.duration, **hooks)
+            out = deps.scan(got.path, got.duration, **hooks, **guided_args)
         except StopRequested:
             steps.done("scan", "stopped by you", started)
             return _fail(deps, settings, token, job_id, STOPPED_BY_YOU)
@@ -196,6 +228,19 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
         stopped = out.stopped if isinstance(out, ScanOutput) else None
         gaps = list(out.gaps) if isinstance(out, ScanOutput) else []
         steps.done("scan", f"{len(tracks)} tracks", started)
+        covering = record.spans if record is not None else []
+        if record is not None and covering:
+            checks = out.span_checks if isinstance(out, ScanOutput) else {}
+            tracks = merge_rows(tracks, span_rows(covering, checks, record.slug))
+            tally = [(checks.get(i) or {}).get("outcome") for i in range(len(covering))]
+            if deps.log is not None:
+                deps.log.line(
+                    f"  trackid · {tally.count('agrees')} agree · {tally.count('differs')} differ · {tally.count('no_match')} no match"
+                )
+                guided = out.guided if isinstance(out, ScanOutput) else None
+                if guided:
+                    deps.log.line(f"  trackid · {guided['skipped_probes']} probes skipped")
+            gaps = uncovered(gaps, covering)
         if recorder is not None and stopped is None:
             recorder.clear()  # a complete run: the next Ask again is a fresh scan
 

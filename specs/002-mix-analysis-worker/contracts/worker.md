@@ -100,3 +100,5 @@ the traceback goes to the log file only; the loop continues with the next reques
 The Supabase project (`SUPABASE_URL`), the platform the link points to (yt-dlp), `amp.shazam.com` (ShazamIO), and the proxy if
 set. Never `api.spotify.com` or `accounts.spotify.com`: `test_pipeline.py` asserts the fake opener saw only the project host, and
 the manual lists the hosts.
+
+> Amendment, round 016 (2026-11-08): the outbound host list also holds `trackid.net` (the exact mix link only, `WORKER_TRACKID`), and with a known mix the first pass skips its grid probes inside a TrackId.net span; see `specs/016-trackid-worker-clues/contracts/worker.md`. Everything above holds when TrackId.net knows nothing or is off.

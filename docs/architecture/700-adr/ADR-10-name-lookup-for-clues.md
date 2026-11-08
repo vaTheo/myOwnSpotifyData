@@ -41,6 +41,12 @@ dropping the validation is a UI simplification; the optional `TracklistRow.valid
 mixes (ignored, read only by `keepReview.ts`), so [ADR-05](ADR-05-additive-indexeddb.md) is untouched. Code: `tracksToAdd` in
 `src/features/mix/createPlaylist.ts`; [How the app works](../000-how-it-works.md) §10.
 
+## Amendment (2026-11-08, ADR-17, TrackId.net spans)
+
+[ADR-17](ADR-17-trackid-worker.md): a span the worker reads from TrackId.net by the exact mix link is a candidate like a clue (not
+heard, unvalidated, goes into Create playlist unless deleted), but its origin is `trackid`, not `clue`, and it is never a name
+search. The lookup rules above are unchanged.
+
 ## Consequences
 
 **Positive:** answers already written by DJs and listeners become rows with ISRCs when a catalogue holds them; underground
@@ -52,6 +58,7 @@ with the exact same artist and title would pass; the catalogues' search may chan
 ## Links
 
 - Spec: `specs/003-fill-scan-gaps/` (research R4, R5, R8)
+- [ADR-17](ADR-17-trackid-worker.md) (amends: TrackId.net spans, origin `trackid`)
 - [ADR-04](ADR-04-keyless-sources-by-id.md) (the rule this narrows), [ADR-09](ADR-09-mix-identification-on-the-owners-computer.md)
   (the worker)
 - [ADR-11](ADR-11-web-first-material-3.md) (the redesign whose Mix review amends the Create playlist line, owner's D6) and its

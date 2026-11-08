@@ -39,6 +39,9 @@ Every page of the docs: [docs/README.md](docs/README.md). What is built and the 
 4. After any change: `yarn typecheck`, `yarn lint`, `yarn test` (CI runs the same three).
 5. A round ends with its docs: spec, inventory row, how-it-works section, README (owner's manual), CHANGELOG, an ADR when a decision lasts,
    Limits and roadmap when a limit is found or lifted.
+   Every plan and every approved change carries a documentation task: the docs of everything it touches (folder `CLAUDE.md`, how-it-works
+   section, READMEs, the round's contracts, inventory, limits, CHANGELOG) are updated in the same batch and commit as the code, then
+   swept once more at the end (a file-to-doc map), and the final review checks the docs against the code.
 
 ## Commands
 
@@ -63,7 +66,7 @@ Details: [Contributing](docs/dev-guide/000-contributing.md).
   retried; a refresh never widens a scope, so a new scope means **Connect again** (ADR-03).
 - External sources: keyless, keyed on Spotify ids or ISRCs, never name search; clients never throw; long jobs start from Settings or the
   automatic chain (ADR-12) and resume; the reach pacing split is pinned by a test (ADR-04). The one exception: the worker may look up by name a clue that carries no
-  identifier, exact equality only, the row marked "not heard" (ADR-10); the app's external sources never search by name.
+  identifier, exact equality only, the row marked "not heard" (ADR-10); the app's external sources never search by name. The worker also asks TrackId.net by the exact mix link only, never its keyword endpoint, and TrackId.net never changes a request when it knows nothing or fails (ADR-17).
 - IndexedDB upgrades only add stores; optional fields need no bump; `mixes` stays out of `buildModel` (ADR-05).
 - Play counts come only from the history export; the Crate gates on `historySummary.version === 2`, Under the radar on
   `artistReachSummary.version === 1`, never on rows (ADR-07).

@@ -194,6 +194,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 - `oembed.ts` (`fetchOembed`): SoundCloud oEmbed → title, author, description and the validated player iframe src.
 - `trackid.ts` (`fetchTrackId`): TrackId.net's two-call list-then-detail flow behind the mandatory `result.rowCount === 1` **and**
   URL-equality guard, mapping the identified spans to rows with `ID · unidentified` gaps.
+- Rows the worker sends from TrackId.net (round 016, §17) carry `origin: "trackid"`, `trackid {slug, span_start, span_end, references?}` and a `shazam_check` (`agrees`, `differs` with the other track, `no_match`, `not_asked`); the row shows "from TrackId.net · …" and the check line, and is flagged "not heard" like a clue row. The span is the truth: a differing check never changes the row.
 - `parse.ts`: the shared line grammar (`parseLines`, `parseClock`): six row shapes, the ≥5-line run guard, link-out detection.
 - `tracklistify.ts` (`parseTracklistifyJson`): imports a Tracklistify `tracklist.json` (confidence, ISRC, Shazam URL per row).
 - `match.ts` (`libraryTitleIndex`/`matchMixRow`): each row joined to the library live at render time, memoised on `Model` identity.
@@ -422,6 +423,7 @@ screen, grouped by role under `src/ui/`.
   "Mixes" button. No banner: every failure inline. `mixError` shows under the Mixes list's header, or under the open mix's
   header when the Mixes pane is folded or the window has one column (one copy), and the "Mixes" button then carries an error
   indicator (ruling S08b, constitution VII).
+- Round 016: a TrackId.net row (`origin: "trackid"`) shows "from TrackId.net · mm:ss to mm:ss · n references" (`rowText.ts`) and, under it, the Shazam check line (`checkText`: "Shazam agrees", "Shazam: no match", "Shazam heard A - B instead"; nothing for `not_asked`); `TracklistTable.tsx` renders it like a clue row, no new token. The progress step `trackid` reads "TrackId.net" (`stepName`).
 - **Search and filters**: `search/searchIndex.ts` (pure `buildSearchIndex` over the model and the saved mixes, which are read
   again on each opening; `searchAll` with the existing `normalize`), `SearchView.tsx` (`/`, Ctrl+K or ⌘K, or the top bar field;
   results grouped, five a group with Show all), `choose.ts` (what a result opens; Escape clears the text, then closes).
@@ -604,6 +606,7 @@ round's full record is under `specs/001-backend-data-sync/`, the users round und
   (newer wins, never by push time), `batches` (500), `rowKey`, and `planMixes` (per row by `savedAt`, with tombstones).
 - `validate.ts` (pure): every pulled row and summary checked before it is written or rendered (keys, finite numbers, `https:` links,
   `open.spotify.com` links, `SC_PLAYER_PREFIX`, the gate versions); a failing row is dropped and counted (security review S3).
+  Round 016: `origin` may be `trackid`; `trackid {slug, spanStart, spanEnd, references?}` and `shazamCheck` are accepted only on such a row and bounded (seconds 0 to 100000, texts 200, confidence 0 to 1, the check's extras only on `differs`); a row failing them is dropped.
   The one exception (round 005): an invalid optional year field (`albumYear`, `releaseYear`, `reccobeats.rid`, a mix row's
   `year`/`yearFrom`) is removed from a copy of the row and the row is kept: a year is display data and must not cost its BPM,
   plays or tracklist.
@@ -702,7 +705,7 @@ A Python `uv` project (3.11–3.13; `yt-dlp`, `shazamio`, `imageio-ffmpeg`; test
 and one PyInstaller executable per system built by `.github/workflows/worker-release.yml` and released as `worker-v<version>` on the first push to `main` carrying a new
 version in `worker/pyproject.toml`
 ([ADR-09](700-adr/ADR-09-mix-identification-on-the-owners-computer.md); the round's record under `specs/002-mix-analysis-worker/`;
-the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never calls a Spotify host.
+the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never calls a Spotify host; besides the project, Shazam and the link's platform it reaches `trackid.net` by the exact mix link only ([ADR-17](700-adr/ADR-17-trackid-worker.md)).
 
 - `cli.py`: `check`, `login` (the app's magic link in the PKCE flow, caught on `127.0.0.1:5173/myOwnSpotifyData/` → `session.json`
   at mode 600; `--code` for a typed six-digit code), `logout`, `run --once|--watch`, `--config`, `--version`;
@@ -746,6 +749,8 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   `GET /ws/2/isrc/{ISRC}?inc=releases&fmt=json`; earliest valid year, `release_date_from` naming the catalogue), on the same
   per-set `WORKER_LOOKUPS` budget as the clues (clues first). An invalid year ("0000") is removed; a catalogue failure stops
   the step with one log line and never fails the set.
+- Round 016 (the guided first pass, `scan.scan(guides=, spans=)`): inside each TrackId.net span whose core (start + 10 s to end − 10 s) is at least 40 s the first pass skips its grid probes and makes one confirming probe centred on the span's middle (made before the first grid probe `t` with `confirm_at < t + step`, so any step and overlapping spans work; remembered and resumed like any probe, except an undecodable one, which is asked again); a Shazam hit is absorbed into the span's check (`agrees`, `differs`, `no_match`, `not_asked`), never a row, when it names the span's track and the probe window `[t, t+probe_seconds]` overlaps `[start, end)`, or names another track and the window's center lies in `[start, end)` (half-open, so abutting spans never both absorb); a miss whose window center is in a span is covered, so neither the second pass nor the gaps see it. Without spans nothing changes; the run state key gains the record's slug and a hash of the cores, so a changed record starts over.
+- Round 016 in `pipeline.run_one` (`Deps.trackid`, default `None` = no lookup; the CLI sets it unless `WORKER_TRACKID=off`): after the download and the length check, one call with the request's link (`trackid.fetch_trackid`, `cli.http_get` over `urllib`: no redirect followed, at most 2 MB, a 10 s total deadline; `shazam_check.confidence` goes out as 0..1; any exception is one log line and "unknown"); `trusted` (the record's length within 5 % of the audio's) gates its use; only then `guides` and `spans` go to `deps.scan` (with no record the scan is called exactly as before) and the run state key gains the slug and cores. After the scan `trackid.span_rows` makes one `origin: "trackid"` row per span (`trackid {slug, span_start, span_end, references?}`, `shazam_check`, `metadata.label` when given, `hits: 0`, no `confidence`), `merge_rows` sorts them with the heard rows by start time, and the clue step gets the gaps minus the stretches the spans cover (`uncovered`; a piece under 1 s is dropped). With spans, a Stop, a refusal or an unreachable first pass with only absorbed hits no longer raises in `scan`: the TrackId.net rows are sent, marked stopped early as today. Log lines: `trackid · <title> · <n> spans · <m> guided`, `trackid · record length differs from the audio, not used`, the client's reason when it knows nothing (`trackid · not known`, `trackid · HTTP 503`), and after the scan `trackid · <a> agree · <d> differ · <n> no match` then `trackid · <k> probes skipped`.
 - The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
 
 ## Links

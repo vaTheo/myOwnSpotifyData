@@ -38,3 +38,5 @@ Extends `specs/002-mix-analysis-worker/contracts/worker.md`. Unchanged: commands
 `split_tracklist`, `parse_line` pure; `clues.Lookups(fetch=…, sleep=…, …)` with a fake fetch; `clues.gather(...)`;
 `pipeline.Deps.clues` (url, gaps, rows) → `Gathered`; no test touches the network.
 Shared cases with the app: `src/features/mix/parse.cases.json`, `src/features/mix/match.cases.json`.
+
+> Amendment, round 016 (2026-11-08): `trackid.net` joins the outbound hosts; with a known mix the first pass makes one confirming probe per TrackId.net span and none other inside it, and a miss or a second-pass hit inside a span is absorbed, not a gap or a row; see `specs/016-trackid-worker-clues/contracts/worker.md`. Unchanged when TrackId.net knows nothing or is off.

@@ -169,3 +169,18 @@ class WorkerMode(unittest.TestCase):
             load({"WORKER_MODE": "both"})
         self.assertEqual(ctx.exception.setting, "WORKER_MODE")
         self.assertEqual(ctx.exception.message, "must be personal or shared")
+
+
+class Round016Settings(unittest.TestCase):
+    def test_trackid_default_on(self):
+        self.assertTrue(load().trackid)
+
+    def test_trackid_off_and_on(self):
+        self.assertFalse(load({**GOOD, "WORKER_TRACKID": "off"}).trackid)
+        self.assertTrue(load({**GOOD, "WORKER_TRACKID": "ON"}).trackid)
+
+    def test_trackid_other_value_is_a_settings_error(self):
+        with self.assertRaises(SettingsError) as ctx:
+            load({**GOOD, "WORKER_TRACKID": "maybe"})
+        self.assertEqual(ctx.exception.setting, "WORKER_TRACKID")
+        self.assertEqual(str(ctx.exception), "WORKER_TRACKID: must be on or off")

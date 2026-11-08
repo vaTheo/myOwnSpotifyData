@@ -3,6 +3,19 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-08 — TrackId.net with the Shazam probes (worker 0.7.0)
+
+The worker now asks TrackId.net about the exact mix link (never a search by name) before it listens. For a mix TrackId.net knows, the
+first pass makes **one confirming Shazam probe per span** it names and no other probe inside it, so the scan is faster; each span is a
+row marked "from TrackId.net · mm:ss to mm:ss", not heard, with a **Shazam check** (agrees, differs, no match). TrackId.net is the
+source of truth: Shazam never replaces or removes its row. Unknown mix, failure or `WORKER_TRACKID=off`: the scan is as before. The app
+shows the new rows and the step name "TrackId.net"; the Mix screen validates them on pull. Spec `specs/016-trackid-worker-clues/`,
+[ADR-17](docs/architecture/700-adr/ADR-17-trackid-worker.md). No `DB_VERSION` bump, no migration. **Release order, by you:** (1) wait
+for the Pages deploy and hard-reload the app (an old app refuses the new rows); (2) then download worker 0.7.0, or run it from the
+source. `WORKER_TRACKID` (default `on`) is new; an existing `mix-worker.env` is kept, so add the line by hand if you want it.
+
+TrackId.net's answer is bounded (no redirect, 2 MB, 10 s in total); a Shazam hit naming a span's own track is never a second row, a different track's hit counts inside a span only when the middle of its probe is there (a neighbour's tail at a boundary may still show); the confirming probe works at any probe step; the check's confidence goes out as 0..1.
+
 ## 2026-11-08 — One worker for every user (worker 0.6.0)
 
 A friend's **Identify on my computer** was recorded but never taken, because the worker served only the account that signed it in. The
