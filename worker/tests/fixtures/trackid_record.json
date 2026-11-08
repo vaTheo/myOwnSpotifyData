@@ -1,0 +1,132 @@
+{
+  "result": {
+    "url": "https://soundcloud.com/yagathering/temple-rat-pinegrove-2025",
+    "slug": "temple-rat-yaga25-off-the-map",
+    "title": "Temple Rat @ YAGA'25 Off the Map",
+    "duration": "01:29:47.3790000",
+    "detectionProcesses": [
+      {
+        "isReprocessing": false,
+        "detectionProcessMusicTracks": [
+          {
+            "musicTrackId": 700047,
+            "startTime": "00:10:16.7580000",
+            "endTime": "00:14:17.7580000",
+            "artist": "Kyntral",
+            "title": "Yuco",
+            "label": "Kyntral",
+            "referenceCount": 31
+          },
+          {
+            "musicTrackId": 117199,
+            "startTime": "00:15:16.7580000",
+            "endTime": "00:18:45.7580000",
+            "artist": "Marco Shuttle",
+            "title": "Bembe Bongo",
+            "label": "Incienso",
+            "referenceCount": 10
+          },
+          {
+            "musicTrackId": 243786,
+            "startTime": "00:28:33.7580000",
+            "endTime": "00:32:46.7580000",
+            "artist": "Rico Casazza",
+            "title": "Rainmaker",
+            "label": "Dionysian Mysteries",
+            "referenceCount": 15
+          },
+          {
+            "musicTrackId": 674415,
+            "startTime": "00:33:44.7580000",
+            "endTime": "00:38:13.7580000",
+            "artist": "Human Space Machine",
+            "title": "Lyf",
+            "label": "Human Space Machine",
+            "referenceCount": 53
+          },
+          {
+            "musicTrackId": 1081187,
+            "startTime": "00:44:02.7580000",
+            "endTime": "00:47:41.7580000",
+            "artist": "Shoal",
+            "title": "Temporal Blend",
+            "label": "Animalia Label",
+            "referenceCount": 45
+          },
+          {
+            "musicTrackId": 611172,
+            "startTime": "00:49:22.7580000",
+            "endTime": "00:55:20.7580000",
+            "artist": "Human Space Machine",
+            "title": "Mopo",
+            "label": "Human Space Machine",
+            "referenceCount": 63
+          },
+          {
+            "musicTrackId": 48190,
+            "startTime": "00:56:13.7580000",
+            "endTime": "00:59:11.7580000",
+            "artist": "Peter Van Hoesen",
+            "title": "Oker Cosby (Original Mix)",
+            "label": "International Day Off",
+            "referenceCount": 33
+          },
+          {
+            "musicTrackId": 708830,
+            "startTime": "01:04:39.7580000",
+            "endTime": "01:08:22.7580000",
+            "artist": "AMØK",
+            "title": "Zone Shift (Original Mix)",
+            "label": "AMØK",
+            "referenceCount": 2
+          },
+          {
+            "musicTrackId": 429668,
+            "startTime": "01:08:24.7580000",
+            "endTime": "01:12:53.7580000",
+            "artist": "Kasper Marott",
+            "title": "Professor",
+            "label": "Axces Recordings",
+            "referenceCount": 12
+          },
+          {
+            "musicTrackId": 51273,
+            "startTime": "01:14:09.7580000",
+            "endTime": "01:16:52.7580000",
+            "artist": "Armec",
+            "title": "Disassociate",
+            "label": "",
+            "referenceCount": 15
+          },
+          {
+            "musicTrackId": 427779,
+            "startTime": "01:16:42.7580000",
+            "endTime": "01:22:30.7580000",
+            "artist": "Kasper Marott",
+            "title": "Tommy Seebach",
+            "label": "Axces Recordings",
+            "referenceCount": 7
+          }
+        ]
+      },
+      {
+        "isReprocessing": true,
+        "detectionProcessMusicTracks": [
+          {
+            "musicTrackId": 700047,
+            "startTime": "00:14:19.7580000",
+            "endTime": "00:14:40.7580000",
+            "artist": "Kyntral",
+            "title": "Yuco",
+            "label": "Kyntral",
+            "referenceCount": 31
+          }
+        ]
+      },
+      {
+        "isReprocessing": true,
+        "detectionProcessMusicTracks": []
+      }
+    ]
+  }
+}

@@ -62,6 +62,7 @@ class Settings:
     resume_days: int = 7
     break_seconds: float = 120.0
     worker_mode: str = "personal"
+    trackid: bool = True
 
 
 def template_text() -> str:
@@ -185,6 +186,13 @@ def _mode(values: Mapping[str, str]) -> str:
     return value
 
 
+def _trackid(values: Mapping[str, str]) -> bool:
+    value = values.get("WORKER_TRACKID", "on").strip().lower()
+    if value not in ("on", "off"):
+        raise SettingsError("WORKER_TRACKID", "must be on or off")
+    return value == "on"
+
+
 def load_settings(
     path: Path | None,
     env: Mapping[str, str],
@@ -259,4 +267,5 @@ def load_settings(
         resume_days=_int(values, "WORKER_RESUME_DAYS", 7, 0),
         break_seconds=_float(values, "WORKER_BREAK_SECONDS", 120.0, 0.0),
         worker_mode=_mode(values),
+        trackid=_trackid(values),
     )

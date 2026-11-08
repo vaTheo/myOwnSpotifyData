@@ -160,11 +160,12 @@ Only the first two are required.
 | `WORKER_CLUES` | 1 | read the description, chapters and comments; 0 = never |
 | `WORKER_CLUE_SECONDS` | 90 | reading them may take this long, then it is dropped |
 | `WORKER_LOOKUPS` | 100 | catalogue lookups per set (Deezer, then MusicBrainz): clues by name first, then years by ISRC; 0 = none, clues still shown |
+| `WORKER_TRACKID` | on | ask TrackId.net about the exact mix link (never by name) before the first probe; what it already names is not probed again, one confirming Shazam probe per span; `off` = never, the scan is as before; anything else exits 5 |
 
 ## Where things go, what leaves the computer
 
 - Outbound hosts: your Supabase project, the platform of the link (through yt-dlp), `amp.shazam.com` (ShazamIO),
-  `api.deezer.com`, `musicbrainz.org` and `api.discogs.com` (clues and years), and the proxy if you set one. Never a Spotify host. The audio never leaves the computer; only the tracklist JSON is sent.
+  `api.deezer.com`, `musicbrainz.org` and `api.discogs.com` (clues and years), `trackid.net` (the exact mix link only), and the proxy if you set one. Never a Spotify host. The audio never leaves the computer; only the tracklist JSON is sent.
 - On disk: the session file (mode 600), the work folder (emptied after each request), the kept JSON files, the log.
 - Inside the executables: yt-dlp, ShazamIO and a static ffmpeg built by [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)
   under the **GPL v3**, shipped unmodified through the `imageio-ffmpeg` package (BSD-2-Clause). The worker and the app are MIT.

@@ -1,4 +1,5 @@
 import json
+import urllib.parse
 import tempfile
 import unittest
 from pathlib import Path
@@ -118,6 +119,33 @@ class Success(unittest.TestCase):
             run_one(job(), settings, "tok", deps)
             self.assertTrue(all(deps.client.base_url.startswith("https://abc.supabase.co") for _ in deps.client.calls))
             self.assertNotIn("spotify", json.dumps(deps.client.calls).lower())
+
+    def test_outbound_hosts_gain_only_trackid_net(self):
+        # Round 016: the worker's TrackId.net layer is the one new host, asked by the mix link only.
+        from mix_worker.trackid import TRACKID_LIST_URL, fetch_trackid
+
+        urls = []
+
+        def fetch(url, headers, timeout):
+            urls.append(url)
+            return 200, b'{"result": {"audiostreams": [], "rowCount": 0}}'
+
+        fetch_trackid("https://soundcloud.com/a/b", fetch, lambda s: None, lambda line: None)
+        hosts = {urllib.parse.urlsplit(u).hostname for u in urls}
+        self.assertEqual(hosts, {"trackid.net"})
+        self.assertTrue(all(u.startswith(TRACKID_LIST_URL) for u in urls))
+        self.assertTrue(all("keywords" not in u for u in urls))
+
+    def test_a_failing_trackid_layer_is_unknown_and_logged_once(self):
+        # Batch E wires the layer into run_one; then extend this to compare a whole run with and without it.
+        from mix_worker.trackid import fetch_trackid
+
+        def fetch(url, headers, timeout):
+            raise OSError("down")
+
+        lines = []
+        self.assertIsNone(fetch_trackid("https://soundcloud.com/a/b", fetch, lambda s: None, lines.append))
+        self.assertEqual(len(lines), 1)
 
 
 class Failures(unittest.TestCase):
