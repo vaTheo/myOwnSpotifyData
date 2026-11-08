@@ -642,11 +642,13 @@ payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history 
   and a request waits or runs (`hasActiveRequest`); only when signed in to both (`serverAutoSyncEnabled`). Never reads Spotify.
 
 **Shared facts** (round 014, [ADR-15](700-adr/ADR-15-shared-track-facts.md); spec `specs/014-shared-track-facts/`).
-`supabase/migrations/0004_shared_facts.sql` adds `shared_track_facts` and `shared_artist_reach` (no user column; an insert policy
-for `authenticated`, no select, update or delete policy or grant, nothing for `anon`; check constraints on every column) and the
-`security definer` functions `get_track_facts(ids)` and `get_artist_reach(ids)` (`search_path = ''`, at most 200 ids, only the asked
-rows; reach returns the newest row per artist and source). `sharedFacts.ts` (`createSharedFactsPort`) is the client: plain `fetch`
-through `client.ts` (an insert with `Prefer: resolution=ignore-duplicates,return=minimal` and `on_conflict`), a 10 s timeout, never
+`supabase/migrations/0004_shared_facts.sql` adds `shared_track_facts` and `shared_artist_reach` (no user column; check constraints on every column;
+after `0005_shared_add_functions.sql` no policy and no privilege for `authenticated` or `anon`: a plain PostgREST insert is refused by
+Postgres, ADR-15 "Revised") and the `security definer` functions `get_track_facts(ids)` and `get_artist_reach(ids)` (`search_path = ''`,
+at most 200 ids, only the asked rows; reach returns the newest row per artist and source), `add_track_facts(rows)` and
+`add_artist_reach(rows)` (at most 200 rows, `ON CONFLICT DO NOTHING`, checks still bind). Written only through `add_*`, read only
+through `get_*`. `sharedFacts.ts` (`createSharedFactsPort`) is the client: plain `fetch`
+through `client.ts` (`rpc` for all four functions), a 10 s timeout, never
 throws, never retries, validates each returned row with `validate.ts` (BPM 30 to 300, key 0 to 11, id shapes, value range) and
 drops what was not asked or fails, and drops before sending any row the SQL would refuse. Read and share only with a token. The
 first row for a key wins; a wrong value stays until the owner fixes it in the dashboard. `rules.test.ts` audits the migration.

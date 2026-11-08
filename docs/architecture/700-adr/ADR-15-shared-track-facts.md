@@ -27,8 +27,9 @@ BPM, key, major or minor, source) and `shared_artist_reach` (Spotify artist id, 
 named exception to ADR-14's isolation; it stores, never computes, never calls Spotify.
 
 - **No user column.** Neither table says who added a row.
-- **Insert only.** A signed-in user may insert; there is no select, update or delete policy or grant, and `anon` gets nothing. The
-  first row for a key wins (`ON CONFLICT DO NOTHING`, or the fallback recorded when the migration is run on the real project).
+- **Write only through `add_*`.** A signed-in user adds rows through `add_track_facts(rows)` and `add_artist_reach(rows)` (see
+  "Revised" below); the tables carry no policy and no privilege for `authenticated`, and `anon` gets nothing. The first row for a
+  key wins (`ON CONFLICT DO NOTHING` inside the function).
 - **Checked by the database.** Constraints refuse a bad row, so they bind every writer: track id 22 base-62 characters, BPM 30 to
   300, key 0 to 11, `major` only with a key, at least one of BPM and key, source `reccobeats`; reach source `listenbrainz` or
   `deezer`, `measured_on` within a week back to a day ahead, value 0 to 10,000,000,000.
@@ -57,8 +58,25 @@ stays partial for everyone; the full run still takes the release-year pass, whic
 and ISRC passes; a test reads the migration so the numbers (BPM range, 200 ids) cannot drift from the client; the free-tier
 storage is shared by the store too.
 
-The 200-id cap applies to reads only: the size of an insert batch is not bounded, so a signed-in user could fill the free tier's
-storage. The owner adds every user, so the trust model accepts it.
+The 200 cap bounds one call, read or add; it does not bound how many add calls a user makes, so a signed-in user could fill the free
+tier's storage. The owner adds every user, so the trust model accepts it.
+
+## Revised (2026-11-08): inserts go through two definer functions
+
+The first version let `authenticated` insert into the tables directly (an insert policy `with check (true)` and `grant insert`).
+Checked on the real Supabase project, PostgREST's `POST /rest/v1/shared_track_facts?on_conflict=track_id` with
+`Prefer: resolution=ignore-duplicates,return=minimal` failed under that insert-only grant, twice:
+
+1. `403`, `42501 permission denied for table`: `ON CONFLICT` needs `select` on the conflict column.
+2. After `grant select (track_id)`: `403`, `42501 new row violates row-level security policy`: `ON CONFLICT` also passes the row
+   through the select policy, and there is deliberately none; adding one would let a user list the table.
+
+So the plain insert cannot work. `0005_shared_add_functions.sql` takes the fallback recorded in research D6, (b): it revokes every
+privilege on the two tables from `authenticated`, `anon` and `public`, drops both insert policies, and adds
+`add_track_facts(rows jsonb)` and `add_artist_reach(rows jsonb)`: `security definer`, `search_path = ''`, at most 200 rows (`54000`),
+a non-array refused (`22023`), `ON CONFLICT ... DO NOTHING`, the table checks still binding (one bad row fails the call), `execute`
+for `authenticated` only. Written only through `add_*`, read only through `get_*`; the tables answer nothing else. Nothing about the
+data, the checks or the first-row-wins rule changes.
 
 ## Links
 

@@ -27,7 +27,7 @@
 ## D4 Table and policy design
 
 See [contracts/server-sql.md](contracts/server-sql.md). In short: `shared_track_facts (track_id pk, bpm, key, major, source, added_at)` and `shared_artist_reach (artist_id, source, measured_on, value, added_at; pk on the first three)`;
-no user column (FR-001); RLS enabled; one insert policy `to authenticated with check (true)` (the check constraints do the validating); **no** select, update or delete policy, and the grant is `insert` only (belt and braces: no policy and no grant).
+no user column (FR-001); RLS enabled; no policy and no privilege for `authenticated` after 0005 (the first version had one insert policy `with check (true)` and `grant insert`; see D6); the check constraints do the validating inside the table.
 
 ## D5 Reading by id with no list
 
@@ -36,13 +36,12 @@ fully qualified names, `language plpgsql stable`; each raises `'too many ids'` a
 still try ids it guesses (Spotify ids are public, spec assumption), but needs 5,000 calls to walk a million guesses and gets nothing it did not name. `get_artist_reach` returns the newest row per (artist, source) (`distinct on`).
 Callers cannot learn anything about another user: rows hold no user.
 
-## D6 Insert only, so "the stored value is unchanged" and "a newer number replaces an old one"
+## D6 First value wins, so "the stored value is unchanged" and "a newer number replaces an old one"
 
-- **Tracks**: primary key `track_id`; the client sends `Prefer: resolution=ignore-duplicates` with `?on_conflict=track_id`, so a second submission is silently dropped and the stored row is unchanged (US3 scenario 2, two users at once: one wins).
+- **Tracks**: primary key `track_id`; `add_track_facts` inserts `on conflict (track_id) do nothing`, so a second submission is silently dropped and the stored row is unchanged (US3 scenario 2, two users at once: one wins).
 - **Reach**: the key includes `measured_on` (a date), so a newer measurement is a new row; the read function returns the newest per (artist, source). Rows are small (one per artist, source and day at most); growth is bounded by the 90-day refresh.
   `measured_on` check: `between current_date - 7 and current_date + 1`, so a client cannot post a far-future date that would pin a number as "newest" forever or a stale one as fresh.
-- **Risk to verify on the real project** (quickstart step 4): `INSERT ... ON CONFLICT DO NOTHING` under an insert-only grant. If Postgres asks for a select privilege on the conflict column, the fallback, in order: (a) `grant select (track_id)` as a column
-  grant (no select policy exists, so a query returns zero rows anyway); (b) `add_track_facts(rows jsonb)` as a third definer function. Decide at the manual check, record in ADR-15.
+- **Decided (2026-11-08), fallback (b)**: verified on the real project, PostgREST's `ON CONFLICT DO NOTHING` insert under an insert-only grant fails: `403 42501 permission denied for table` (needs `select` on the conflict column), and after a column grant `403 42501 new row violates row-level security policy` (`ON CONFLICT` also applies the select policy, and a select policy would allow listing). So `0005_shared_add_functions.sql` revokes all table privileges, drops the insert policies and adds `add_track_facts(rows jsonb)` and `add_artist_reach(rows jsonb)` (definer, `search_path = ''`, 200-row cap, `on conflict do nothing`). Fallback (a) was tried and does not work. Recorded in ADR-15 "Revised".
 
 ## D7 Where the shortcut hooks in
 
