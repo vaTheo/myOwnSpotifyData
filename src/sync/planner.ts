@@ -3,6 +3,9 @@ import type { ApiPlaylistSummary } from '../spotify/types';
 
 export type ListedPlaylist = Omit<PlaylistRow, 'syncedAt'>;
 
+/** An owned playlist with this exact name is never synced (the owner's request). */
+export const SKIPPED_PLAYLIST_NAME = 'Liked Songs';
+
 export function selectOwned(
   items: ReadonlyArray<ApiPlaylistSummary | null | undefined>,
   meId: string
@@ -10,6 +13,7 @@ export function selectOwned(
   const out: ListedPlaylist[] = [];
   for (const p of items) {
     if (!p || p.owner?.id !== meId) continue;
+    if (p.name === SKIPPED_PLAYLIST_NAME) continue;
     out.push({
       id: p.id,
       name: p.name,

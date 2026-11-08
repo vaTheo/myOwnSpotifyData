@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { PlaylistRow } from '../db/schema';
 import type { ApiPlaylistSummary } from '../spotify/types';
-import { planSync, selectOwned, type ListedPlaylist } from './planner';
+import {
+  planSync,
+  selectOwned,
+  SKIPPED_PLAYLIST_NAME,
+  type ListedPlaylist,
+} from './planner';
 
 function api(id: string, owner = 'me', snapshot = 's1'): ApiPlaylistSummary {
   return {
@@ -45,6 +50,28 @@ describe('selectOwned', () => {
       imageUrl: 'https://i/a',
       spotifyUrl: 'https://open.spotify.com/playlist/a',
     });
+  });
+
+  it('skips an owned playlist named Liked Songs, exact name only', () => {
+    const out = selectOwned(
+      [
+        { ...api('a'), name: SKIPPED_PLAYLIST_NAME },
+        { ...api('b'), name: 'Liked Songs 2' },
+        { ...api('c'), name: 'liked songs' },
+        { ...api('d', 'someone'), name: SKIPPED_PLAYLIST_NAME },
+      ],
+      'me'
+    );
+    expect(out.map((p) => p.id)).toEqual(['b', 'c']);
+  });
+
+  it('a stored Liked Songs playlist is deleted by the next plan', () => {
+    const listing = selectOwned(
+      [{ ...api('a'), name: SKIPPED_PLAYLIST_NAME }, api('b')],
+      'me'
+    );
+    const plan = planSync(listing, [cached('a'), cached('b')]);
+    expect(plan.toDelete).toEqual(['a']);
   });
 
   it('falls back to tracks.total and tolerates missing optional fields', () => {

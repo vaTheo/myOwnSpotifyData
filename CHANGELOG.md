@@ -3,6 +3,12 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-08 — Sync skips the playlist "Liked Songs"
+
+The Spotify sync no longer downloads your playlist named exactly `Liked Songs` (same capitals; `Liked Songs 2` or `liked songs` still
+sync). If the app already holds it, the next sync removes it from the app; nothing changes on Spotify. The name is fixed in
+`src/sync/planner.ts` (`SKIPPED_PLAYLIST_NAME`); there is no setting. No `DB_VERSION` bump.
+
 ## 2026-11-08 — Shared store: inserts through two functions
 
 Fix to the shared BPM, key and reach store. Postgres refused the plain insert on the real project, so adding numbers to the store now
