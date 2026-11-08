@@ -2,15 +2,16 @@
 Sync Impact Report
 - Version change: 2.4.0 → 2.5.0 (MINOR: Principle I's server also holds one shared store of public facts, per ADR-15)
 - Modified principles: I
-- Previous: 2.2.0 → 2.4.0 (MINOR: Principle I's server is for the owner and the accounts the owner creates, per ADR-14)
+- Previous: 2.3.0 → 2.4.0 (MINOR: Principle I's server is for the owner and the accounts the owner creates, per ADR-14)
 - Modified principles: I
-- Previous: 2.1.1 → 2.2.0 (MINOR: Principle II allows one gated automatic sync; Principle IV's long jobs also start from
-  the automatic chain, per ADR-12)
-- Modified principles: II (title and body), IV (one clause)
+- Previous: 2.2.0 → 2.3.0 (MINOR: Principle II also allows the automatic Check on Spotify when a saved mix opens, per ADR-13)
+- Modified principles: II (title and body)
 - Added sections: none
 - Removed sections: none
 - Templates: plan/spec/tasks templates read this file at runtime; no template edited here
 - Follow-up TODOs: none
+- Previous: 2.1.1 → 2.2.0 (MINOR: Principle II allows one gated automatic sync; Principle IV's long jobs also start from the
+  automatic chain, per ADR-12)
 - Previous: 2.0.2 → 2.1.0 (MINOR: Principle IV gains one bounded exception, a name lookup in the worker, per ADR-10)
 -->
 
@@ -41,13 +42,14 @@ rejects it.
 Rationale: a secret in a public repo is a leak; a server of the owner's own is upkeep they
 declined; a free hosted database gives every device the same data at no cost.
 
-### II. No Spotify reads on load outside the automatic chain (ADR-02, ADR-12)
+### II. No Spotify reads on load outside the automatic chain and the mix check (ADR-02, ADR-12, ADR-13)
 
 The app MUST NOT read Spotify playlists, tracks or profile data when a page loads, except
 the automatic chain's sync: only when the library is older than 12 hours, never while
 Spotify's lock-out lasts, at most once per page session, and only with the per-device
-Automatic updates switch on. Every other Spotify read starts from an explicit button, and
-every read MUST be visible as a job.
+Automatic updates switch on. Opening a saved mix may start Check on Spotify for its unchecked named
+tracks, once per mix per page session, under the same switch, lock-out and one-reader-at-a-time rules
+(ADR-13). Every other Spotify read starts from an explicit button, and every read MUST be visible as a job.
 
 Rationale: the daily quota locks the account out for hours; an automatic read on every
 open burns it, while one gated sync a few times a day does not.

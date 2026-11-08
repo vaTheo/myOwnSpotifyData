@@ -6,6 +6,8 @@ export interface RowMenuItem {
   label: string;
   /** A link item (opens in a new tab) instead of an action. */
   href?: string;
+  /** The Spotify app's own link: opened in place, not in a new tab. */
+  app?: boolean;
   onSelect?: () => void;
   /** A sub-menu: the list shows these items (and Back) in its place. */
   items?: RowMenuItem[];
@@ -209,8 +211,7 @@ export function RowMenu(p: {
                 key={item.label}
                 role="menuitem"
                 href={item.href}
-                target="_blank"
-                rel="noopener"
+                {...(item.app ? {} : { target: '_blank', rel: 'noopener' })}
                 onClick={() => setAt(null)}
               >
                 {item.label}

@@ -276,23 +276,65 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   with **Ask again**, warnings folded), and a running request shows its
   progress and **Stop** there too.
 - **Review the tracks.** The line above the tracklist counts them ("40
-  tracks · 12 validated · 30 on Spotify · 4 not found"). **Check on
+  tracks · 30 on Spotify · 4 not found"). **Check on
   Spotify** looks each named track up on Spotify, one at a time ("Checked 12
   of 40", Stop), and keeps the answer on the row (a Spotify link, or "not
-  found"); it reads Spotify only on that tap, and saves the mix when it ends.
-  **Validate** (✓) marks a track you have checked by ear; **Remove** (✕)
-  takes it out. The chips **All**, **To review**, **Validated**, **Not on
-  Spotify** and **Heard once** (tracks one 12-second clip matched) show one
-  group at a time; they never change what goes into a playlist. Each track's
-  **Listen** menu (**Listen…** in the row menu on a phone) opens store and
-  preview searches (Beatport, Bandcamp, Discogs, SoundCloud, YouTube, and
-  Shazam when known).
+  found"); it runs when you tap it and also by itself when you open a saved mix with tracks not checked yet (once per mix, only with
+  **Automatic updates** on, never while Spotify's lock-out lasts or another Spotify job runs), and saves the mix when it ends.
+  Every track counts as kept; **Remove** (✕, or **Delete** in the row
+  menu) takes a wrong one out. The columns are Time, Artist – Title, Label,
+  **Confidence**, Released (when tracks have a year), Spotify, Listen and
+  Review. **Confidence** reads "×3 · 92%": heard in 3 clips, best match
+  92 %. The chips **All**, **Not on Spotify** and **Heard once** (tracks one
+  12-second clip matched) show one group at a time; they never change what
+  goes into a playlist. Click a column header to **sort** the tracklist by
+  it (**Confidence** puts the tracks heard most often first, then by their
+  %; click again for the least heard first; also Time, Artist – Title,
+  Label, Released and Spotify); the
+  **Sort** menu beside the chips offers the same choices, with **Set order**
+  to go back, and is how a phone sorts. Tracks with no value always stay at
+  the bottom; the sort is only how you look at the list and is not saved.
+  A track found on Spotify has a play icon in the **Spotify** column that
+  opens it in the Spotify app (on a computer without the app it does
+  nothing); on a phone the row says "On Spotify" and **Play on Spotify** is
+  in the row menu under **Listen…**. Beside each track's **Listen** menu, a
+  **Shazam** icon (when the scan knows the track's Shazam page) and a
+  **SoundCloud** icon (a SoundCloud search for the artist and title) open in
+  a new tab in one click; on a phone they sit on the row's second line. The
+  **Listen** menu (**Listen…** in the row menu on a phone) opens first the
+  pages that go straight to the track: **Play on Spotify** (from Check on
+  Spotify, or from the same song in your library, in the Spotify app) and
+  **Shazam** when known; then store and preview searches (Beatport,
+  Bandcamp, Discogs, SoundCloud, YouTube), which are search pages because
+  the app never looks a track up by name.
+- **The last track you clicked stays highlighted.** Click anywhere on a
+  row (its title, the Spotify play icon, a Shazam or SoundCloud icon, the
+  menu) and it keeps the selected colour with a chartreuse bar on its left
+  and glowing lines above and below it, so when you come back from Spotify
+  or another tab you see where you were. With the keyboard, Enter or Space
+  on a row marks it too. It follows the track when you sort
+  or filter and stays while you edit or link it. Deleting a row, opening
+  another mix, or replacing the whole list (a paste, the description,
+  reopening the mix) clears it; it is not saved.
+- **Link a track Spotify did not find.** Find it on Spotify yourself and
+  copy its link (Share › Copy song link). Then tap the red "not found" mark
+  in the **Spotify** column (on a phone, the "Not found on Spotify" words),
+  paste the link in the field that opens in place of the row, and tap
+  **Link**: the track now counts as on Spotify, its play icon opens that
+  track, and Create playlist adds it. A song link like
+  `https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG?si=…` or
+  `spotify:track:…` works; an album, artist or playlist link, a
+  `spotify.link` short link or other text is refused with a message. The app
+  trusts the link as pasted (it never checks it on Spotify), and Check on
+  Spotify never overwrites it. A wrong link? The row menu has **Replace
+  link** and **Remove link** (back to not found). Changing the track's
+  artist or title clears the link, like any Spotify answer. The link is
+  saved like an edit: with **Save mix**, or when a Check on Spotify run
+  ends.
 - **Create playlist from mix** turns the list into a private Spotify
-  playlist. Choose **Validated only** (the default once you validated a
-  track) or **All tracks**; the card says how many will be added, in set
-  order. A track found from a comment ("from a comment · not heard") starts
-  _To review_: it joins Validated only once you validate it, and All tracks
-  includes it. The app searches Spotify for each track (or uses the answer
+  playlist with every track of the list (remove the ones you do not want
+  first); the card says how many will be added, in set order. A track found
+  from a comment ("from a comment · not heard") is included too. The app searches Spotify for each track (or uses the answer
   Check on Spotify already found), adds the ones it can match with
   confidence, and lists the others under "N not found" with the same
   Listen links, so you can add them by hand — it never guesses a wrong track.
@@ -318,8 +360,8 @@ failed with the reason) with Ask again. Where the first listen found nothing, th
 listens again (7 s later, then 4 % slower and faster) and reads the set's
 description and comments: they show on those parts of the tracklist, and a
 comment that names a track the free catalogues (Deezer, MusicBrainz) hold
-exactly becomes a row marked "from a comment · not heard": it starts To
-review, joins Validated only once you validate it, and All tracks includes it.
+exactly becomes a row marked "from a comment · not heard", kept like every
+track: remove it if it is wrong.
 While a set is analysed, its row in the Mixes list shows where it is ("First pass · 47 % · about
 25 min left", "Paused by Shazam until 20:35"); a waiting request has **Move to
 top** and **Cancel**, a running one **Stop** (it keeps the tracks found, and Ask
@@ -334,8 +376,8 @@ takes them, then the rest newest first. **Check now** asks the server again
 (it also checks every minute while something waits or runs); a done row opens
 its saved mix, a failed one has Ask again. If a request was already taken or
 finished when you tapped Cancel, Move to top or Stop, the list says so. A new
-result keeps your review: validated tracks stay validated, Spotify answers
-stay, removed tracks stay removed, and only new tracks arrive To review.
+result keeps your review: Spotify answers stay, removed tracks stay removed,
+and only new tracks are added.
 Each track also shows its release year (Shazam's, or the earliest Deezer or
 MusicBrainz give for its ISRC, or the Spotify album Create playlist matched,
 which dates the undated tracks); sort **by year** or keep one **decade**,

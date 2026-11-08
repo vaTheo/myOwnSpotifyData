@@ -47,20 +47,28 @@ import { requestStatusText } from '../features/mix/worker';
 import {
   applyYears,
   applyYearsByTrack,
-  defaultChoice,
   runCreatePlaylist,
   rowAfterCreate,
   tracksToAdd,
-  type CreateChoice,
 } from '../features/mix/createPlaylist';
-import { canCreatePlaylists } from '../features/mix/spotifySearch';
+import {
+  canCreatePlaylists,
+  isIdentified,
+} from '../features/mix/spotifySearch';
+import {
+  linkedRow,
+  parseSpotifyTrackLink,
+  unlinkedRow,
+} from '../features/mix/spotifyLink';
 import {
   applyAnswers,
+  autoCheckDue,
   keepStoredAnswers,
   rowsToCheck,
   runSpotifyCheck,
   type CheckAnswer,
 } from '../features/mix/spotifyCheck';
+import { soundcloudPlayerSrc } from '../features/mix/oembed';
 import { QuotaError } from '../spotify/errors';
 import {
   QUOTA_LOCK_KEY,
@@ -751,6 +759,12 @@ export const mixState = signal<MixState>({ status: 'idle' });
 /** The one working, editable tracklist; its own signal so an edit re-renders. */
 export const mixRows = signal<TracklistRow[]>([]);
 /**
+ * Counts the times the whole working list was replaced (a lookup, an import,
+ * a paste, the description, a saved mix opened), so the tracklist's marked
+ * row (spec 013) clears: its index would land on another track.
+ */
+export const mixRowsReplaced = signal(0);
+/**
  * The open mix's removed scan tracks (T125), saved with it as
  * `MixRow.removed` so a later worker result does not bring them back.
  */
@@ -879,25 +893,6 @@ export function isCreating(s: CreatePlaylistState): boolean {
   return (
     s.status === 'resolving' || s.status === 'creating' || s.status === 'adding'
   );
-}
-
-/** The owner's Validated only / All tracks pick for one mix (T119); none
- *  picked: `defaultChoice`. Keyed by the mix so another mix starts fresh. */
-export const createChoice = signal<{
-  url: string;
-  choice: CreateChoice;
-} | null>(null);
-
-/** What Create playlist adds for this mix: the owner's pick, else the
- *  default (Validated only once a track is validated). */
-export function createChoiceFor(
-  url: string,
-  rows: readonly TracklistRow[]
-): CreateChoice {
-  const picked = createChoice.value;
-  return picked !== null && picked.url === url
-    ? picked.choice
-    : defaultChoice(rows);
 }
 
 /* ---------- the one Spotify quota lock-out (S08d) ---------- */
@@ -1617,6 +1612,7 @@ export async function startMixLookup(pastedUrl: string): Promise<void> {
     trackid.status === 'ok' && trackid.rows.length > 0
       ? trackid.rows
       : descriptionRows;
+  mixRowsReplaced.value += 1;
 }
 
 /**
@@ -1665,6 +1661,7 @@ export async function startTracklistifyImport(file: File): Promise<void> {
   mixState.value = { status: 'ready', view };
   mixRemoved.value = removedOf(view.url);
   mixRows.value = parsed.rows;
+  mixRowsReplaced.value += 1;
 }
 
 /** Replaces the working list with the description's rows (spec §4/§5.2). */
@@ -1676,6 +1673,7 @@ export function applyDescriptionTracklist(): void {
   if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_DESCRIPTION))
     return;
   mixRows.value = state.view.descriptionRows;
+  mixRowsReplaced.value += 1;
 }
 
 /**
@@ -1699,6 +1697,7 @@ export function applyPastedTracklist(
     return 'added';
   }
   mixRows.value = parsed.rows;
+  mixRowsReplaced.value += 1;
   mixState.value = {
     status: 'ready',
     view: { ...state.view, sources: { ...state.view.sources, pasted: true } },
@@ -1726,6 +1725,39 @@ export function editMixRow(
   const row = rows[index];
   if (!row) return;
   rows[index] = editTracklistRow(row, fields);
+  mixRows.value = rows;
+}
+
+/** Round 011: the refusals of a pasted Spotify link, said under the field. */
+export const LINK_EMPTY = 'Paste a Spotify track link.';
+export const LINK_REFUSED = 'That is not a Spotify track link.';
+export const LINK_UNNAMED = 'This row has no track name to link.';
+
+/**
+ * Round 011: the owner pastes a Spotify track link on a named row; it marks
+ * the row found (`spotifyBy: 'owner'`). Returns the refusal to show, or
+ * null when the row was linked. No Spotify read, no lookup (ADR-02, ADR-04):
+ * the id is stored as given. Not a job, no `confirm()`. Saved with Save mix,
+ * like an edit.
+ */
+export function linkMixRowSpotify(index: number, text: string): string | null {
+  if (text.trim() === '') return LINK_EMPTY;
+  const id = parseSpotifyTrackLink(text);
+  if (id === null) return LINK_REFUSED;
+  const rows = mixRows.value.slice();
+  const row = rows[index];
+  if (!row || !isIdentified(row)) return LINK_UNNAMED;
+  rows[index] = linkedRow(row, id, Date.now());
+  mixRows.value = rows;
+  return null;
+}
+
+/** Round 011: Remove link — a hand-linked row goes back to not found. */
+export function unlinkMixRowSpotify(index: number): void {
+  const row = mixRows.value[index];
+  if (!row || row.spotifyBy !== 'owner') return;
+  const rows = mixRows.value.slice();
+  rows[index] = unlinkedRow(row);
   mixRows.value = rows;
 }
 
@@ -1757,15 +1789,6 @@ export function deleteMixRow(index: number): void {
   const removed = recordRemoved(mixRemoved.value, row);
   if (removed !== undefined) mixRemoved.value = removed;
   mixRows.value = mixRows.value.filter((_, i) => i !== index);
-}
-
-/** Validated or back To review (T118); saved with Save mix like an edit. */
-export function toggleValidated(index: number): void {
-  const rows = mixRows.value.slice();
-  const row = rows[index];
-  if (!row || row.gap) return;
-  rows[index] = { ...row, validated: row.validated !== true };
-  mixRows.value = rows;
 }
 
 /**
@@ -1939,9 +1962,9 @@ export async function startCreatePlaylist(): Promise<void> {
     createPlaylistState.value = { status: 'error', message: refused, mixUrl };
     return;
   }
-  // Validated only or All tracks (T119, owner's D6); the mix itself is
+  // Every identified track (round 010: all are kept); the mix itself is
   // saved whole below.
-  const toAdd = tracksToAdd(rows, createChoiceFor(view.url, rows));
+  const toAdd = tracksToAdd(rows);
   if (toAdd.length === 0) return;
 
   // Claim the running state synchronously so a second tap cannot double-run,
@@ -1995,7 +2018,7 @@ export async function startCreatePlaylist(): Promise<void> {
   // rather than through `saveMix` (which reads live state), then reflect the
   // link on the open view only if this same mix is still open.
   // Round 005: the years the matches taught reach the open rows whatever the
-  // outcome: by track (S13b M2), so a row validated meanwhile (a new object)
+  // outcome: by track (S13b M2), so a row edited meanwhile (a new object)
   // is dated and a row now naming another track is left alone.
   const live = mixState.value;
   if (
@@ -2113,13 +2136,21 @@ export function openMix(url: string): void {
   if (!row) return;
   mixError.value = null;
   mixRows.value = row.rows;
+  mixRowsReplaced.value += 1;
   mixRemoved.value = row.removed ?? [];
   const count = row.rows.filter((r) => !r.gap).length;
   const view: MixView = {
     url: row.url,
     title: row.title,
     author: row.author,
-    playerSrc: row.playerSrc,
+    // A mix made by the worker or an import stored no player: rebuilt from
+    // its permalink, no request (only the saved row stays as it was).
+    // The demo blocks the host, so it keeps no player.
+    playerSrc:
+      row.playerSrc ??
+      (import.meta.env.DEV && demoVariant() !== null
+        ? null
+        : soundcloudPlayerSrc(row.url)),
     sources: row.sources,
     descriptionRows: [],
     trackid:
@@ -2135,6 +2166,7 @@ export function openMix(url: string): void {
     playlistId: row.playlistId,
   };
   mixState.value = { status: 'ready', view };
+  maybeAutoCheck();
 }
 
 /**
@@ -2179,8 +2211,8 @@ export function stopSpotifyCheck(): void {
 }
 
 /**
- * Check on Spotify for the open mix (T117). Never on load or open: only
- * from the button (ADR-02). Gated like Create playlist: a Spotify session,
+ * Check on Spotify for the open mix (T117). Never on load: from the button
+ * or, when a saved mix opens, `maybeAutoCheck` (ADR-02, ADR-13). Gated like Create playlist: a Spotify session,
  * no sync running, no quota lock-out. Runs `searchTrack`/`pickMatch`
  * unchanged on each named track not checked yet, puts each answer on its
  * row as it comes (by place and text, never object identity), and saves
@@ -2269,6 +2301,38 @@ export async function startSpotifyCheck(): Promise<void> {
 
 export function checkLockMessage(retryAt: number): string {
   return quotaRefusal('check', retryAt, 0, formatDateTime) ?? '';
+}
+
+/** The mixes the automatic check already tried this page session (ADR-13). */
+const autoCheckTried = new Set<string>();
+
+/**
+ * Opening a mix checks its unchecked named tracks by itself (ADR-13): only
+ * under the conditions of `autoCheckDue`, once per mix per page session. It
+ * is the same `startSpotifyCheck` a tap runs, so its answers are saved with
+ * the mix and a mix is never searched twice.
+ */
+function maybeAutoCheck(): void {
+  // The demo (`yarn dev` with `?demo`) has no Spotify session to read with
+  // and the shots block the host, as for the automatic chain (main.tsx).
+  if (import.meta.env.DEV && demoVariant() !== null) return;
+  const state = mixState.value;
+  if (state.status !== 'ready') return;
+  const url = state.view.url;
+  if (
+    !autoCheckDue({
+      switchOn: autoUpdates.value,
+      signedIn: auth.session.value !== null && auth.session.value !== undefined,
+      lockedUntil: spotifyLockedUntil(),
+      busy: spotifyBusyMessage('check') !== null,
+      rows: mixRows.value,
+      alreadyTried: autoCheckTried.has(url),
+    })
+  ) {
+    return;
+  }
+  autoCheckTried.add(url);
+  void startSpotifyCheck();
 }
 
 /**

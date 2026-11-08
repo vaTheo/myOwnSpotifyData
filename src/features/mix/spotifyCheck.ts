@@ -3,8 +3,8 @@ import type { SpotifyClient } from '../../spotify/client';
 import { isIdentified, searchTrack } from './spotifySearch';
 
 /**
- * Check on Spotify (spec 003 §12, T117): on a tap only, never on load or
- * open (ADR-02), each named track not checked yet goes through the same
+ * Check on Spotify (spec 003 §12, T117): on a tap, or when a saved mix opens
+ * (`autoCheckDue`, ADR-13), never on load (ADR-02), each named track not checked yet goes through the same
  * `searchTrack`/`pickMatch` as Create playlist, one at a time. A read, no
  * write. The answer is kept on the row (`spotify`, `checkedAt`), so Create
  * playlist reuses a found track instead of searching again.
@@ -15,6 +15,32 @@ const TRACK_PREFIX = 'spotify:track:';
 /** The rows a check asks about: named tracks never checked; no gap, no ID. */
 export function rowsToCheck(rows: readonly TracklistRow[]): TracklistRow[] {
   return rows.filter((r) => isIdentified(r) && r.spotify === undefined);
+}
+
+/**
+ * Whether opening a mix starts Check on Spotify by itself (ADR-13): the
+ * Automatic updates switch is on, a Spotify session exists, no quota lock-out
+ * and no other Spotify reader runs (so the automatic check never shows a
+ * refusal), the mix has named tracks never checked, and this page session has
+ * not tried this mix yet (a stopped or failed check is not retried on every
+ * reopen; the button stays).
+ */
+export function autoCheckDue(p: {
+  switchOn: boolean;
+  signedIn: boolean;
+  lockedUntil: number | null;
+  busy: boolean;
+  rows: readonly TracklistRow[];
+  alreadyTried: boolean;
+}): boolean {
+  return (
+    p.switchOn &&
+    p.signedIn &&
+    p.lockedUntil === null &&
+    !p.busy &&
+    !p.alreadyTried &&
+    rowsToCheck(p.rows).length > 0
+  );
 }
 
 /** The row with Search's answer: the track's id and link, or not found. */
@@ -46,7 +72,7 @@ export function storedUri(row: TracklistRow): string | null {
 
 /**
  * One answer of a check, keyed by where its row stood and what it read
- * when the check started, never by object identity: a row validated,
+ * when the check started, never by object identity: a row edited,
  * reloaded or reopened during the run is a new object but the same track.
  */
 export interface CheckAnswer {
@@ -58,6 +84,9 @@ export interface CheckAnswer {
   /** Round 005 (S13b I1): the found track's album year, from the same
    *  search answer; absent when not found or undated. */
   year?: number;
+  /** Round 011: a stored hand link put back by `keepStoredAnswers`; never
+   *  set on a Check answer. */
+  spotifyBy?: 'owner';
 }
 
 /** The answer for the row at `index`, from Search's URI (or null) and the
@@ -81,10 +110,13 @@ export function answerFor(
   };
 }
 
+/** Round 011 (FR-006): a row the owner linked by hand takes no answer, so a
+ *  check that ends after the owner linked a row never overwrites the link. */
 function reads(row: TracklistRow | undefined, a: CheckAnswer): boolean {
   return (
     row !== undefined &&
     !row.gap &&
+    row.spotifyBy !== 'owner' &&
     row.artist === a.artist &&
     row.title === a.title
   );
@@ -95,8 +127,8 @@ function reads(row: TracklistRow | undefined, a: CheckAnswer): boolean {
  * reads the same artist and title; else the one unchecked row in the list
  * that reads them (a row above was deleted); else the answer is dropped
  * (the row was edited or deleted: its new text was never checked). A row
- * takes one answer at most. Everything else on the row (Validate, a new
- * label) is kept.
+ * takes one answer at most. Everything else on the row (a new label) is
+ * kept.
  */
 export function applyAnswers(
   rows: readonly TracklistRow[],
@@ -120,6 +152,9 @@ export function applyAnswers(
     out[at] = {
       ...out[at],
       spotify: a.spotify,
+      ...(a.spotifyBy === 'owner' && typeof a.spotify === 'object'
+        ? { spotifyBy: 'owner' as const }
+        : {}),
       checkedAt: a.checkedAt,
       // Round 005: a dated row keeps its year (Shazam's or a catalogue's).
       ...(a.year !== undefined && typeof out[at].year !== 'number'
@@ -148,6 +183,7 @@ export function keepStoredAnswers(
       artist: r.artist,
       title: r.title,
       spotify: r.spotify,
+      ...(r.spotifyBy === 'owner' ? { spotifyBy: 'owner' as const } : {}),
       checkedAt: r.checkedAt ?? 0,
       ...(r.yearFrom === 'spotify' && typeof r.year === 'number'
         ? { year: r.year }

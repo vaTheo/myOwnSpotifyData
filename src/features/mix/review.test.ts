@@ -41,12 +41,6 @@ describe('inFilter (T118, T127)', () => {
   it('All shows every row, gaps included', () => {
     expect(ids('all')).toEqual([0, 1, 2, 3, 4, 5]);
   });
-  it('To review is every track not validated, candidates included; never a gap', () => {
-    expect(ids('toReview')).toEqual([1, 2, 3, 5]);
-  });
-  it('Validated is the validated tracks', () => {
-    expect(ids('validated')).toEqual([0]);
-  });
   it('Not on Spotify is the tracks the check did not find', () => {
     expect(ids('notOnSpotify')).toEqual([1, 5]);
   });
@@ -59,8 +53,6 @@ describe('reviewChips', () => {
   it('counts tracks, never gaps, and offers Heard once when a row has hits', () => {
     expect(reviewChips(rows)).toEqual([
       { filter: 'all', label: 'All (5)', count: 5 },
-      { filter: 'toReview', label: 'To review (4)', count: 4 },
-      { filter: 'validated', label: 'Validated (1)', count: 1 },
       { filter: 'notOnSpotify', label: 'Not on Spotify (2)', count: 2 },
       { filter: 'heardOnce', label: 'Heard once (2)', count: 2 },
     ]);
@@ -69,8 +61,6 @@ describe('reviewChips', () => {
     const old = [row(), row({ gap: true })];
     expect(reviewChips(old).map((c) => c.filter)).toEqual([
       'all',
-      'toReview',
-      'validated',
       'notOnSpotify',
     ]);
   });
@@ -85,12 +75,8 @@ describe('spotifyStatus', () => {
 });
 
 describe('reviewLine', () => {
-  it('reads "N tracks · K validated · M on Spotify · L not found"', () => {
-    expect(reviewLine(rows)).toBe(
-      '5 tracks · 1 validated · 1 on Spotify · 2 not found'
-    );
-    expect(reviewLine([row()])).toBe(
-      '1 track · 0 validated · 0 on Spotify · 0 not found'
-    );
+  it('reads "N tracks · M on Spotify · L not found", never a validated count', () => {
+    expect(reviewLine(rows)).toBe('5 tracks · 1 on Spotify · 2 not found');
+    expect(reviewLine([row()])).toBe('1 track · 0 on Spotify · 0 not found');
   });
 });

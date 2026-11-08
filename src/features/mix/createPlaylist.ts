@@ -39,28 +39,15 @@ export interface CreatePlaylistOutcome {
   rows: TracklistRow[];
 }
 
-/** Which tracks Create playlist adds (spec 003 §12, owner's D6). */
-export type CreateChoice = 'validated' | 'all';
-
 /**
- * The rows Create playlist adds, in set order (T119, T126, owner's D6).
- * **Validated only**: validated tracks, a candidate included once validated.
- * **All tracks**: every track still in the list (a removed one is gone from
- * it), candidates included. Gap and "ID" rows never. Only the working list
- * decides: the filter chips and the Sort never change it.
+ * The rows Create playlist adds, in set order (T119, T126, round 010): every
+ * identified track still in the list (Delete is how one is left out),
+ * candidates included. Gap and "ID" rows never. `validated` is never read:
+ * every track is kept. Only the working list decides: the filter chips and
+ * the Sort never change it.
  */
-export function tracksToAdd(
-  rows: readonly TracklistRow[],
-  choice: CreateChoice
-): TracklistRow[] {
-  return rows.filter(
-    (r) => isIdentified(r) && (choice === 'all' || r.validated === true)
-  );
-}
-
-/** Validated only once any track is validated, else All tracks. */
-export function defaultChoice(rows: readonly TracklistRow[]): CreateChoice {
-  return rows.some((r) => !r.gap && r.validated === true) ? 'validated' : 'all';
+export function tracksToAdd(rows: readonly TracklistRow[]): TracklistRow[] {
+  return rows.filter(isIdentified);
 }
 
 function quotaOf(err: unknown): { quotaUntil?: number } {
@@ -90,7 +77,7 @@ export function applyYears(
  * carries no year takes the year of a searched row naming the same track
  * (`sameTrack` on artist and title only: an ISRC kept from a rejected
  * identification never decides). For the copy the owner saved, or the open
- * rows, during the run (a validated row is a new object). A row now naming
+ * rows, during the run (a row whose label was edited is a new object). A row now naming
  * another track, or already dated, is left alone.
  */
 export function applyYearsByTrack(
@@ -135,7 +122,15 @@ export async function runCreatePlaylist(
   // 1. Resolve identified rows in order; inert rows are skipped silently.
   const identified = rows.filter(isIdentified);
   const total = identified.length;
+  // Round 011: each track once, at its first place in the set (two rows can
+  // name the same track, say a hand link pasted on a second row).
   const uris: string[] = [];
+  const seen = new Set<string>();
+  const pushUri = (uri: string) => {
+    if (seen.has(uri)) return;
+    seen.add(uri);
+    uris.push(uri);
+  };
   const unmatched: UnmatchedRow[] = [];
   const years = new Map<TracklistRow, number>();
   const outcome = (
@@ -155,7 +150,7 @@ export async function runCreatePlaylist(
     // Check on Spotify already found it (T117): no search again.
     const stored = storedUri(row);
     if (stored !== null) {
-      uris.push(stored);
+      pushUri(stored);
       onState({ status: 'resolving', done: ++done, total });
       continue;
     }
@@ -169,7 +164,7 @@ export async function runCreatePlaylist(
     // A dated row keeps its year (Shazam's or a catalogue's).
     if (match.year !== null && typeof row.year !== 'number')
       years.set(row, match.year);
-    if (match.uri !== null) uris.push(match.uri);
+    if (match.uri !== null) pushUri(match.uri);
     else
       unmatched.push({
         artist: row.artist,
@@ -230,7 +225,7 @@ export async function runCreatePlaylist(
 
 /**
  * The mix Create playlist saves when it ends (S13 N1). A copy the owner
- * saved after the tap wins whole (validates, edits, removed tracks): Create
+ * saved after the tap wins whole (edits, removed tracks): Create
  * adds only its playlist. Otherwise the rows of the tap, with the check
  * answers already stored put back (`keepStoredAnswers`).
  */

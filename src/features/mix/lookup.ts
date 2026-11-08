@@ -147,6 +147,7 @@ export function editTracklistRow(
   const kept: TracklistRow = { ...row };
   if (renamed) {
     delete kept.spotify;
+    delete kept.spotifyBy;
     delete kept.checkedAt;
     // A year belongs to a track (S13b N1). A Spotify year goes with the
     // answer above; a Shazam or ISRC year belongs to the identified

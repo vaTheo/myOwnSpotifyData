@@ -1406,10 +1406,84 @@ a {
   );
 }
 
+/* Selected (a list–detail row, the marked Mix row, spec 013) beats hover:
+   same specificity as the hover rule, declared after it. Status marks
+   (not found, warning flags) keep their own colours. */
 .dt-row[aria-selected='true'],
-.dt-item[aria-selected='true'] {
+.dt-item[aria-selected='true'],
+.dt-body .dt-row[aria-selected='true'] {
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
+}
+
+/* Hover over a selected row is a layer over the selected fill. */
+.dt-body .dt-row[aria-selected='true']:hover,
+.dt-body .dt-item[aria-selected='true']:hover {
+  background:
+    linear-gradient(
+      color-mix(
+        in srgb,
+        var(--md-sys-color-on-primary-container) var(--md-sys-state-hover),
+        transparent
+      ),
+      color-mix(
+        in srgb,
+        var(--md-sys-color-on-primary-container) var(--md-sys-state-hover),
+        transparent
+      )
+    ),
+    var(--md-sys-color-primary-container);
+}
+
+/* The marked Mix row's second cues (spec 013, FR-007, FR-007b): an edge bar
+   (--app-mark-bar) and top and bottom lines (--app-mark-line) in primary,
+   inset shadows (no layout shift), a soft primary halo (--app-mark-halo)
+   outside them. The row is positioned, so it paints above its
+   non-positioned neighbours; no z-index, so no stacking context traps its
+   open More menu under banners and bars. The focus ring is an outline,
+   drawn above. Checked
+   against colour-analysis §2–§6: row and phone item text, muted, found,
+   error, warning and secondary pass on primary-container; the phone "Not
+   found on Spotify" button is error text on a transparent background
+   (5.49); gap, Edit and Link rows are `.dt-full`, never filled, so field
+   outlines stay on the neutral surface (2.94 on the fill); `.mix-rowview`
+   controls sit above the table and the row menu list on its own surface.
+   No pair missed its target. */
+.mix-tracklist .dt-body .dt-row[aria-selected='true'],
+.mix-tracklist .dt-body .dt-item[aria-selected='true'],
+.mix-tracklist .dt-body .dt-full[aria-selected='true'] {
+  position: relative;
+  /* The bottom line reaches the edge: the row's 1 px border takes the
+     line's colour and the inset shadow draws the rest, so the line is
+     --app-mark-line tall like the top one, with no layout shift. */
+  border-bottom-color: var(--md-sys-color-primary);
+  box-shadow:
+    inset var(--app-mark-bar) 0 0 var(--md-sys-color-primary),
+    inset 0 var(--app-mark-line) 0 var(--md-sys-color-primary),
+    inset 0 calc(1px - var(--app-mark-line)) 0 var(--md-sys-color-primary),
+    0 0 var(--app-mark-halo)
+      color-mix(in srgb, var(--md-sys-color-primary) 60%, transparent);
+}
+
+/* A focused marked row (FR-006): the ring is `on-surface`, drawn inside
+   the bar and the lines with a band of the row's fill between, so it is
+   told from them (7.24:1 on the selected fill, 12.71:1 on the neutral
+   form row). */
+.mix-tracklist .dt-body .dt-row[aria-selected='true']:focus-visible,
+.mix-tracklist .dt-body .dt-item[aria-selected='true']:focus-visible,
+.mix-tracklist .dt-body .dt-full[aria-selected='true']:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-on-surface);
+  outline-offset: calc(
+    -1 * (var(--app-mark-bar) + var(--app-focus-ring) + var(--app-mark-line))
+  );
+}
+
+/* Shadows are dropped in forced colours: a real outline marks the row. */
+@media (forced-colors: active) {
+  .mix-tracklist .dt-body [aria-selected='true']:not(:focus-visible) {
+    outline: var(--app-mark-line) solid Highlight;
+    outline-offset: calc(-1 * var(--app-mark-line));
+  }
 }
 
 .dt-row:focus-visible,
@@ -3413,6 +3487,13 @@ details.mix-clues > summary:focus-visible {
   font: var(--md-sys-typescale-body-medium);
 }
 
+/* Spec 008: the Sort select and its direction button stay together. */
+.mix-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .mix-rowview select {
   min-height: var(--app-target);
   padding: 0 8px;
@@ -3465,11 +3546,6 @@ details.mix-clues > summary:focus-visible {
   flex: none;
 }
 
-.mix-source-icon {
-  display: inline-flex;
-  color: var(--md-sys-color-on-surface-variant);
-}
-
 .mix-conf {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -3490,14 +3566,7 @@ details.mix-clues > summary:focus-visible {
   clip: auto;
 }
 
-.mix-library {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-}
-
-/* The review (T117, T118): the Spotify status, the Listen menu, ✓ and ✕. */
+/* The review (T117, T118, round 010): the Spotify status, the Listen menu, ✕. */
 .mix-spotify {
   display: inline-flex;
   align-items: center;
@@ -3519,21 +3588,51 @@ details.mix-clues > summary:focus-visible {
   color: var(--md-sys-color-primary);
 }
 
-.mix-review {
+/* Round 011: on a phone the red "Not found on Spotify" is a 48 px text
+   button that opens the pasted-link form. */
+.mix-link-open {
+  padding: 0 8px;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mix-link-open:hover:not(:disabled) {
+  background: var(--md-sys-color-surface-container-high);
+}
+
+/* Round 011: the pasted-link form, in place of the row (as .mix-edit). */
+.mix-link {
+  display: grid;
+  gap: 8px;
+  padding: 8px 0;
+  min-width: 0;
+}
+
+.mix-link-name {
+  font: var(--md-sys-typescale-title-small);
+  overflow-wrap: anywhere;
+}
+
+.mix-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mix-review,
+.mix-listen,
+.mix-listen-icons {
   display: inline-flex;
   align-items: center;
 }
 
-/* The 48 px Listen column and the 96 px Review column hold their 48 px
-   targets edge to edge: no cell padding (Spotify has 64 px for its
-   header's word). */
-.dt-cell:has(> .row-menu, > .mix-review) {
+/* The 144 px Listen column (Shazam, SoundCloud, the menu) and the 48 px
+   Review column hold their 48 px targets edge to edge: no cell padding
+   (Spotify has 64 px for its header's word). */
+.dt-cell:has(> .row-menu, > .mix-review, > .mix-listen) {
   padding-inline: 0;
-}
-
-.icon-btn.mix-validate.on {
-  background: var(--md-sys-color-secondary-container);
-  color: var(--md-sys-color-on-secondary-container);
 }
 
 /* The review line and Check on Spotify, under the open mix's header. */
@@ -3666,18 +3765,6 @@ details.mix-clues > summary:focus-visible {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-}
-
-/* Validated only / All tracks: each segment as wide as its words, on one
-   line (equal halves wrapped "Validated only (4)"). */
-.mix-create .segmented {
-  max-width: 100%;
-  margin-bottom: 0;
-}
-
-.mix-create .segmented button {
-  flex: 1 1 auto;
-  white-space: nowrap;
 }
 
 .mix-notfound {

@@ -65,6 +65,8 @@ function review(row: TracklistRow): Partial<TracklistRow> {
   return {
     ...(row.validated !== undefined ? { validated: row.validated } : {}),
     ...(row.spotify !== undefined ? { spotify: row.spotify } : {}),
+    // Round 011: the owner's hand link travels with its answer.
+    ...(row.spotifyBy !== undefined ? { spotifyBy: row.spotifyBy } : {}),
     ...(row.checkedAt !== undefined ? { checkedAt: row.checkedAt } : {}),
   };
 }
@@ -105,9 +107,10 @@ export function byTime(rows: TracklistRow[]): TracklistRow[] {
  *   dropped;
  * - an incoming row matching a removed track is dropped;
  * - an untouched scan row that an incoming row matches is replaced by it,
- *   which carries `validated`, `spotify` and `checkedAt`;
+ *   which carries `validated`, `spotify`, `spotifyBy` and `checkedAt`;
  * - an untouched scan row nothing matches goes, as before, unless the
- *   owner validated it (a review is never lost to a shorter result);
+ *   owner validated it or linked it by hand (round 012) (a review is never
+ *   lost to a shorter result);
  * - every other incoming row arrives To review. Gap rows are replaced.
  */
 export function mergeKeepingReview(
@@ -136,8 +139,10 @@ export function mergeKeepingReview(
       arriving.push(row);
     }
   }
+  // Round 011: a row the owner linked by hand is review too, kept like a
+  // validated one.
   const stillValidated = scans.filter(
-    (s) => !matched.has(s) && s.validated === true
+    (s) => !matched.has(s) && (s.validated === true || s.spotifyBy === 'owner')
   );
   return byTime([...kept, ...stillValidated, ...arriving]);
 }

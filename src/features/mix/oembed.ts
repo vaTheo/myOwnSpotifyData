@@ -1,3 +1,4 @@
+import { normalizeMixUrl } from './url';
 /** SoundCloud oEmbed, a keyless public GET (spec §3.2). */
 export const OEMBED_URL = 'https://soundcloud.com/oembed';
 
@@ -36,6 +37,19 @@ export function oembedUrl(normUrl: string): string {
 function field(raw: unknown, name: string): unknown {
   if (typeof raw !== 'object' || raw === null) return undefined;
   return (raw as Record<string, unknown>)[name];
+}
+
+/**
+ * The player src for a mix whose lookup never stored one (a mix made by the
+ * worker or a Tracklistify import): the literal SC_PLAYER_PREFIX and the
+ * encoded permalink, so no request is made and nothing foreign is injected.
+ * null when the url is not a SoundCloud permalink (a short link, free text).
+ */
+export function soundcloudPlayerSrc(url: string): string | null {
+  const norm = normalizeMixUrl(url);
+  return norm === null
+    ? null
+    : `${SC_PLAYER_PREFIX}?url=${encodeURIComponent(norm)}&visual=true`;
 }
 
 function str(value: unknown): string {

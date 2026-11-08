@@ -87,7 +87,7 @@ async function openGrid(page: Page): Promise<void> {
   await page.getByRole('grid', { name: 'Tracklist' }).waitFor();
 }
 
-/** The demo's TrackId mix: nothing validated, so All tracks by default. */
+/** The demo's TrackId mix. */
 const HARBOUR = 'https://soundcloud.com/demo-dj/peak-time-set-at-the-harbour';
 
 /**
@@ -106,7 +106,11 @@ async function settleRows(page: Page, keep?: string): Promise<void> {
       ...document.querySelectorAll<HTMLElement>(
         'button, a[href], select, input, [role=tab]'
       ),
-    ].filter((el) => !el.closest('header'));
+    ]
+      // The main navigation (rail, bottom bar) is fixed: no scroll moves it,
+      // and its first link straddles the bar's height on the rail, so
+      // counting it left no place clear at computer widths.
+      .filter((el) => !el.closest('header, nav[aria-label="Main"]'));
     // The top bar's own controls (the search field, S09): a target under
     // the bar must not share any of their pixels either.
     const barTargets = [
@@ -151,6 +155,28 @@ async function settleRows(page: Page, keep?: string): Promise<void> {
     }
     window.scrollTo(0, start);
   }, keep);
+}
+
+/** Marks the third track row (a click on its title) and returns it. */
+async function markThirdRow(page: Page) {
+  await openGrid(page);
+  const row = page
+    .getByRole('grid', { name: 'Tracklist' })
+    .locator('[role=row][data-row-id]')
+    .filter({ has: page.getByRole('button', { name: /^More for / }) })
+    .nth(2);
+  await row.getByRole('gridcell').nth(1).click();
+  await page.mouse.move(0, 0);
+  return row;
+}
+
+/** One row of the tracklist marked. */
+async function markedOnce(page: Page): Promise<string[]> {
+  const n = await page
+    .getByRole('grid', { name: 'Tracklist' })
+    .locator('[role=row][aria-selected="true"]')
+    .count();
+  return n === 1 ? [] : [`${n} rows marked, expected 1`];
 }
 
 /**
@@ -676,9 +702,10 @@ export const PAGES: ShotPage[] = [
     hash: `#/mix/${enc('https://www.youtube.com/watch?v=demoSet0001')}`,
   },
   {
-    // The review (S08c, T117, T118): Spotify status per row (found, not
-    // found, not checked), Validate on, the filter chips, the run line
-    // with its warning collapsed, the review line and Check on Spotify.
+    // The review (S08c, T117, T118, round 010): Spotify status per row
+    // (found, not found, not checked), the Shazam and SoundCloud icons,
+    // Delete, the filter chips, the run line with its warning collapsed,
+    // the review line and Check on Spotify.
     id: 'mix-review',
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: openGrid,
@@ -773,8 +800,6 @@ export const PAGES: ShotPage[] = [
   },
   ...(
     [
-      ['mix-filter-review', /^To review/],
-      ['mix-filter-validated', /^Validated \(/],
       ['mix-filter-notfound', /^Not on Spotify/],
       ['mix-filter-heard', /^Heard once/],
     ] as const
@@ -825,7 +850,7 @@ export const PAGES: ShotPage[] = [
   {
     // A result asked again after a stop (T124, T125): stopped early with
     // Ask again, the review kept on the earlier tracks, the removed one
-    // left out, the new ones To review. The server is connected.
+    // left out, the new ones added. The server is connected.
     id: 'mix-reresult',
     hash: `#/mix/${enc('https://soundcloud.com/demo-dj/closing-set-at-the-dock')}`,
     setup: async (page) => {
@@ -921,40 +946,21 @@ export const PAGES: ShotPage[] = [
     },
   },
   {
-    // The Sort select on Clips heard (round 004): most heard first.
-    id: 'mix-sort-clips',
+    // The Sort select on Confidence (round 010: clips merged into it):
+    // most heard first, then the best percent.
+    id: 'mix-sort-confidence',
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: async (page) => {
       await openGrid(page);
-      await page.getByLabel('Sort').selectOption('clips');
+      await page.getByLabel('Sort').selectOption('confidence');
     },
   },
   {
-    // Create playlist on Validated only, the default once a track is
-    // validated (T119, D6): the unvalidated candidate is left out.
-    id: 'mix-create-validated',
+    // Create playlist (round 010): every identified track, the candidate
+    // included; no Validated only / All tracks choice.
+    id: 'mix-create',
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: (page) => createCard(page),
-  },
-  {
-    // The same mix on All tracks: every track, the candidate included.
-    id: 'mix-create-all',
-    hash: `#/mix/${enc(SUNRISE)}`,
-    setup: async (page) => {
-      await createCard(page);
-      await page.getByRole('tab', { name: /^All tracks/ }).click();
-      await settleRows(page, 'Create playlist');
-    },
-  },
-  {
-    // Validated only with nothing validated: the button rests, and why.
-    id: 'mix-create-none',
-    hash: `#/mix/${enc(HARBOUR)}`,
-    setup: async (page) => {
-      await createCard(page);
-      await page.getByRole('tab', { name: /^Validated only/ }).click();
-      await settleRows(page, 'Create playlist');
-    },
   },
   {
     // Matching tracks: the bar, the button busy.
@@ -1738,13 +1744,49 @@ export const PAGES: ShotPage[] = [
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: async (page) => {
       await openGrid(page);
-      await page.getByLabel('Sort').selectOption('year');
+      await page.getByLabel('Sort').selectOption('released');
       await page.getByLabel('Decade').selectOption({ label: '90s' });
     },
     expect: async (page) =>
       (await page.getByText(/^Hidden, not deleted/).count())
         ? []
         : ['no caption with a decade on'],
+  },
+  {
+    // The last row clicked stays marked (round 013): the fill, the edge
+    // bar, the glowing top and bottom lines; the pointer moved away.
+    id: 'mix-marked',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await markThirdRow(page);
+      await settleRows(page);
+    },
+    expect: markedOnce,
+  },
+  {
+    // The marked row reached with the keyboard: its focus ring is told
+    // from the bar and the lines (round 013, FR-006).
+    id: 'mix-marked-focus',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      await markThirdRow(page);
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('ArrowUp');
+      await settleRows(page);
+    },
+    expect: markedOnce,
+  },
+  {
+    // The marked row's Edit form: the neutral surface, the bar and lines.
+    id: 'mix-marked-edit',
+    hash: `#/mix/${enc(SUNRISE)}`,
+    setup: async (page) => {
+      const row = await markThirdRow(page);
+      await row.getByRole('button', { name: /^More for / }).click();
+      await page.getByRole('menuitem', { name: 'Edit' }).click();
+      await settleRows(page);
+    },
+    expect: markedOnce,
   },
   {
     // The look-up's third pass, seen from the Activity button (§5).

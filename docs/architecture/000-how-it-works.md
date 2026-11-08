@@ -109,7 +109,7 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 - Optional fields added with **no** version bump read back `undefined` on old rows: `MixRow.playlistUrl?`/`playlistId?`,
   `PlayRow.months`/`attempts`/`finished`/`skipped`, `TracklistRow.confidence?`/`isrc?`/`shazamUrl?`; round 005's years:
   `TrackRow.albumYear?`, `TopTrackItem.albumYear?`, `FeatureRow.releaseYear?` (`{year | null, checkedAt}`), `FeatureValue.rid?`,
-  `TracklistRow.year?`/`yearFrom?`.
+  `TracklistRow.year?`/`yearFrom?`; round 012's `TracklistRow.spotifyBy?`.
 - One connection per tab, and it hands over: `openDb` closes its connection when a newer version opens in another tab (`blocking`) and
   reports a blocked upgrade (`blocked`) through `setDbEvents`; `state.ts` turns both into banners. Without this a version bump hangs on
   "Loading your library…" while an old tab lives. A database that has not opened after eight seconds says so.
@@ -215,12 +215,12 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   `POST /playlists/{id}/items` with the matched URIs in batches of ≤100, driving an `onState` callback and never throwing. A
   `QuotaError` (a search or a POST) comes back as `quotaUntil` before it becomes text, so the wrapper remembers the app's lock-out
   (§4) and says "Try again after …" inline; the POST is still never retried.
-- **Validated only / All tracks** (spec 003 T119, T126, owner's D6): `tracksToAdd(rows, choice)` is what is given to the runner.
-  **Validated only** keeps validated tracks, a candidate (`origin: 'clue'`, "not heard", which starts To review) once validated;
-  **All tracks** keeps every track still in the list, candidates included. Gap and "ID" rows never. The filter chips and the Sort are
-  view state and never change it. `defaultChoice`: Validated only once any track is validated, else All tracks; the owner's pick is
-  kept per mix (`createChoice`). The card shows "N tracks will be added, in set order." and rests disabled at zero. The mix is still
-  saved whole with the playlist's link. This amends ADR-10 ("candidates go into the playlist unless deleted").
+- **Every track** (spec 010, replacing spec 003's Validated only / All tracks choice, owner's D6): `tracksToAdd(rows)` is what is
+  given to the runner: every identified track still in the list, candidates (`origin: 'clue'`, "not heard") included; gap and "ID"
+  rows never. Deleting a row is the only way to leave a track out. The filter chips and the Sort are view state and never change
+  it. `validated` is never read (old saved rows keep the field, ignored). The card shows "N tracks will be added, in set order." and
+  rests disabled at zero. The mix is still saved whole with the playlist's link. This keeps ADR-10's rule ("candidates go into the
+  playlist unless deleted").
 - Round 005: `searchTrack` also returns the matched album's year (same answer, no extra call); `runCreatePlaylist` returns the
   years on every exit path and `applyYears` writes them, `yearFrom: 'spotify'`, on the undated rows only (a row edited meanwhile
   is left alone). The search runs on `tracksToAdd`'s rows; `startCreatePlaylist` puts the years on the whole working list of the
@@ -260,7 +260,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 
 **The review** (spec 003 §12, S08c):
 
-- `spotifyCheck.ts` (**Check on Spotify**, T117): a read on the open mix header's tap only, never on load or open (ADR-02). Gated like
+- `spotifyCheck.ts` (**Check on Spotify**, T117): a read on the open mix header's tap, or by itself when a saved mix opens (`maybeAutoCheck` in `openMix`, gated by `autoCheckDue`: Automatic updates on, a session, no lock-out, no other reader, a named track never checked, this mix not yet tried this page session; never in the demo; ADR-13), never on load (ADR-02). Gated like
   Create playlist in `startSpotifyCheck` (`model/state.ts`): a Spotify session, no other Spotify reader running (§4), no quota
   lock-out, and no check of another mix. `runSpotifyCheck`
   runs `searchTrack`/`pickMatch` unchanged on each named track not checked yet (`rowsToCheck`: candidates and second-listen rows
@@ -270,22 +270,39 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   id without searching again (`storedUri`). No write; not in `jobsBusy()`; failures (quota, network) inline, never a banner.
   The check saves the mix when it ends, edits and deletions included, and an unsaved lookup becomes a saved mix (ruling R1, S08c fix
   round 1; Save mix's "Saved ✓" shows it). Answers are put back by the row's place and unchanged artist and title, never object
-  identity, so a row validated or a list reopened during the run keeps them; an edited or deleted row's answer is dropped. A quota
+  identity, so a row whose label was edited or a list reopened during the run keeps them; an edited or deleted row's answer is dropped. A quota
   answer joins the app's one lock-out (§4 `quotaLock.ts`), which disables the button with its message until it lapses.
-- `review.ts` (T118, T127): the filter chips All, To review, Validated, Not on Spotify and Heard once (N) (only when a row has `hits`),
-  one at a time, gaps under All only; the header line "N tracks · K validated · M on Spotify · L not found". **Validate** is the
-  optional `TracklistRow.validated`, saved with Save mix like an edit; **Remove** is `deleteMixRow`.
+- `review.ts` (T118, T127, spec 010): the filter chips All, Not on Spotify and Heard once (N) (only when a row has `hits`), one at a
+  time, gaps under All only; the header line "N tracks · M on Spotify · L not found". Every track is kept: there is no Validate and
+  no To review or Validated chip (spec 010). The Review column's ✕ (**Remove**) is `deleteMixRow`, like More › Delete. The optional
+  `TracklistRow.validated` stays in the schema for old saved mixes; nothing sets it any more.
 - `keepReview.ts` (T125, owner's D1): `mergeKeepingReview` replaces `mergeWorkerRows` when a result lands on a saved mix
   (`mixWithResult`, `server/sync.ts`). An untouched scan row matched by an incoming row (same ISRC, else `artistCore` and `sameTitle`)
-  hands it `validated`, `spotify` and `checkedAt`; a validated scan row the result misses stays; edited, typed, pasted, TrackId and
+  hands it `spotify`, `spotifyBy`, `checkedAt` (and `validated` when an old row has it); an old validated scan row, or one the owner
+  linked by hand (round 012), the result misses stays; edited, typed, pasted, TrackId and
   description rows stay, and an incoming row matching them (their text or what was detected) is dropped; so is one matching
   `MixRow.removed`, which `deleteMixRow` fills with a deleted row's detected artist, title and ISRC whenever something was detected
   (a scan or TrackId row, corrected or not; 500 at most). One existing row's review goes to one incoming row.
+- `spotifyLink.ts` (round 012, `specs/012-mix-manual-spotify-link/`): the owner links a track the check did not find.
+  `parseSpotifyTrackLink(text)` takes an `open.spotify.com` or `play.spotify.com` track link (an `intl-xx` segment, query and
+  fragment ignored) or `spotify:track:<id>`, a 22-character id, and returns the id or null (albums, artists, playlists, episodes,
+  `spotify.link` short links, other hosts and free text refused). `linkedRow` sets `spotify: {id, url}` (the URL rebuilt from the id),
+  `spotifyBy: 'owner'` and `checkedAt`; `unlinkedRow` puts `'not-found'` back and drops `spotifyBy`. The link is stored by its id:
+  never looked up on Spotify or by name, never verified (ADR-02, ADR-04). `linkMixRowSpotify`/`unlinkMixRowSpotify`
+  (`model/state.ts`) change the working list only, saved with Save mix like an edit, or when a Check on Spotify run ends; no job, no
+  `confirm()`. A hand-linked row is found for the counts, the Sort, the Spotify cell and Create playlist (`storedUri`, each URI
+  added once); `rowsToCheck` skips it and `applyAnswers` never puts a Check answer on it; `keepStoredAnswers` keeps it; a rename
+  drops `spotifyBy` with `spotify` (`editTracklistRow`), a label edit keeps both. `validateMix` accepts `spotifyBy` only as
+  `'owner'` beside an object `spotify`.
+- `ui/mix/rowMark.ts` (round 013, the table's side of this list, §13 "Marked row"): `markAfter(marked, event)` is the marked
+  row after a `click` (that row), `add` (the new row), `delete` (none: the rows after it shift), `open-mix` (another mix URL) or
+  `rows-replaced` (none). `mixRowsReplaced` (`model/state.ts`) counts the whole-list replaces that keep the URL (a lookup, a
+  Tracklistify import, a paste, the description, `openMix`), and `TracklistTable` sends `rows-replaced` when it moves.
 - `worker.ts` `toRun`/`runLine` (T124, owner's D3): `mix_info.second_pass` (`places` or round 003's `replays`), `resumed`,
   `stopped_early` and `warnings` kept as the optional `MixRow.run`, replaced wholesale by each result, shown under the open mix's header
   ("Second pass: 41 places · 3 found", "Resumed (120 clips kept)", "Stopped early at 01:12:00 (rate limited)" with Ask again, the
   warnings collapsed). The header also shows the open mix's running request (progress line, bar, Stop) from the last pull.
-- `validateMix` checks every new optional field (`validated`, `spotify`, `checkedAt`, `removed`, `run`); Save mix keeps a saved mix's
+- `validateMix` checks every new optional field (`validated`, `spotify`, `spotifyBy`, `checkedAt`, `removed`, `run`); Save mix keeps a saved mix's
   `clues`, `run`, `identifyJobId` and `identifiedAt`.
 
 ## 11. `features/like/`: Like all songs
@@ -363,6 +380,10 @@ screen, grouped by role under `src/ui/`.
   alone leave too little (`titleRoom`/`widthLevel` in `table/layout.ts`); Top and the Crate views do so beside the docked sheet too (`besideSheet`,
   below 960 px). `DataTable` keeps only that level, not the pixel width, so a resize re-renders a table only when it changes.
   The visual loop checks every table at 1440, 1024 and 768 for a title cut under 160 px (`checks.ts` "title-cut"). Sort state is a signal per screen, for the session.
+  A list–detail table passes `selectedKey` and `onOpen`; a table may instead mark its last row clicked (round 013, the Mix
+  tracklist): `markedKey` (passed, even null, every row says `aria-selected` and the marked one is drawn selected) and `onMark`,
+  called from a capture-phase click on every row element (table row, phone item, full row), neither stopped nor prevented, so a
+  link or button inside still acts; Enter or Space on the focused row element itself calls `onMark` too. Selected beats hover (`styles.css`): hovering a selected row lays a hover layer over its fill.
 - **Details and list–detail**: `layout/SideSheet.tsx` docks the sheet at 400 px on large windows, a modal on medium and
   expanded, full screen on compact; `details/TrackDetails.tsx` with the pure `trackFacts.ts` shows everything the app holds for a
   track. `layout/ListDetail.tsx` puts Playlists, Artists and the Mixes list beside the open item from 840 px; on compact the item
@@ -431,7 +452,7 @@ screen, grouped by role under `src/ui/`.
     sort is `{ columnId: 'released', direction: 'asc' }`; off, the screen's default.
   - **Details**: `yearFact` (`ui/details/trackFacts.ts`) gives the sheet's "Released 1993 · ReccoBeats (earliest album)" or
     "· album", `NoData` when undated.
-  - **Mix**: the Sort select gains "Year, oldest first" and shows when a row is counted or dated; a Decade select ("All
+  - **Mix**: the Released column sorts like any other (spec 009, below); a Decade select ("All
     decades", each decade present) combines with the review chips; the edited row stays visible (`TracklistTable.tsx`). A
     rename drops the year unless the row is renamed back to the identified track and the year is not Spotify's
     (`editTracklistRow`, S13b N1).
@@ -441,6 +462,38 @@ screen, grouped by role under `src/ui/`.
   - **Cost** (round 006 fix): the year pass skips a track Spotify already dates (`albumDatedIds`, `model/year.ts`: a synced album
     year or a Top item's), whose year still shows from the album; ReccoBeats' album list is asked only for the rest. Its ReccoBeats
     id lookups run first as their own counted pass (`PASS_RIDS`), so the line moves from the start instead of sitting at 0.
+- **Mix tracklist sort** (spec 009): the table's own `SortState` is the one sort. Every column with a comparable value has a
+  `sortValue` and a first direction in `ui/mix/tracklistSort.ts` (`sortValue`, `SORT_FIRST`): Time, Artist – Title, Label,
+  Confidence (how many clips found the track, then the best %; highest first), Released and Spotify (not found, unchecked, found);
+  Listen, Review and More do not sort. Spec 010 removed the Source, Clips, In your library and Validate columns and their sorts. `DataTable` sorts: missing values
+  last in both directions, ties in set order. The Sort select (all widths, `TracklistTable.tsx`) is built by `sortChoices` from the
+  same columns, with "Set order" and a direction button, so a phone picks what a header would; `effectiveSort` falls back to the
+  set's order when a column no longer applies. `tracklistView` (chip, decade, the edited row) and `viewRows` only filter now;
+  `RowSort` is gone. The sort is component state: not saved with the mix, no Spotify read. The Listen menu (`listenItems`) lists
+  `playLinks` (`ui/mix/rowText.ts`: Play on Spotify from the Check answer or the library match, never a local file, always the
+  `spotify:track:` app link opened in place, on every device; Shazam while the row is the scan's) before the dig links' search
+  pages; no lookup by name is made for the other platforms (ADR-04).
+- **Leaner tracklist** (spec 010): columns Time, Artist – Title, Label, Confidence, Released (when a row has a year), Spotify,
+  Listen, Review (✕ only). The Confidence cell merges the clip count: "×3 · 92%" (`confidenceShort`), the long "heard 3× · best
+  92 %" (`confidenceText`) its tooltip, screen-reader text and phone meta line. A found row's Spotify cell is an icon link to
+  `spotify:track:<id>`, opened in place; on a phone the meta line says "On Spotify" as plain text and Play on Spotify is in
+  More › Listen…. `listenIcons(row)` puts one-click icons beside the Listen menu (and on the phone meta line), each in a new tab:
+  Shazam (the stored page, while the row is the scan's) and SoundCloud (the search page for artist and title, every identified
+  row; gap and "ID" rows never).
+- **Link a Spotify track** (round 012): a not-found row's red mark (computer: the Spotify column's icon button; phone: the "Not
+  found on Spotify" text as a 48 px button, named "Not found on Spotify: link a Spotify track to <track>" so the words it shows start
+  its name) is labelled "Link a Spotify track to <track>" and opens `ui/mix/LinkForm.tsx` in the
+  row's place, as Edit does (`fullRow`; `keyOf` gives the linking row its own key): a "Spotify track link" field, Link, Cancel, and
+  Remove link when the row is already hand-linked; a refusal shows under the field ("Paste a Spotify track link.", "That is not a
+  Spotify track link.", "This row has no track name to link."). On a hand-linked row, More adds **Replace link** (the form opens on the current link) and **Remove
+  link**. The Spotify cell of a hand-linked row is the found app link.
+- **Marked row** (round 013, `specs/013-mix-row-last-clicked/`): the last row clicked stays selected, so the owner finds it on
+  coming back from Spotify or a new tab. `TracklistTable.tsx` keeps `marked` (component state, an index into `mixRows`, never
+  saved or synced) through the pure `markAfter` of `ui/mix/rowMark.ts` (§10) and hands `DataTable` `markedKey` (through `keyOf`, so
+  the Edit and Link form rows stay marked) and `onMark`. Sort, filter and decade keep it on the same track; a filter that hides it
+  marks nothing. Look: §13 Tables and the design guide "One selected look" (fill, `--app-mark-*` bar, lines and glow, hover as a
+  layer, neutral form row, an `on-surface` focus ring inside the cues, a forced-colours outline); `aria-selected="true"` on the
+  marked row; Enter or Space on a focused row marks it.
 
 ## 14. Jobs and state (`model/state.ts`)
 
@@ -479,7 +532,7 @@ every failure inline (never a banner) and is reset by `disconnect` (`:2091`). Ev
 (`spotifyQuotaLock`, §4): a quota answer to any of them is remembered for all, across reloads, and `disconnect` keeps it. The four
 readers (sync, Check on Spotify, Create playlist, Like all songs) also run one at a time (§4). Create playlist's state names its mix
 (`mixUrl`), shows only on that mix and survives Close while it runs. When it ends it reads the stored mix again (`rowAfterCreate`):
-a copy the owner saved during the run wins (validates, edits, removed tracks) and Create adds only its playlist; otherwise it saves the
+a copy the owner saved during the run wins (edits, removed tracks) and Create adds only its playlist; otherwise it saves the
 rows of the tap with the check answers already stored (`keepStoredAnswers`). Like a check that ends in the background, it refreshes the
 saved mixes without clearing the open mix's error.
 

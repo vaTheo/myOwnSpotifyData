@@ -336,7 +336,7 @@ test.describe('A. addresses', () => {
     ).toBeVisible();
   });
 
-  test('A05 #/crate opens the Crate hub with its five views', async ({
+  test('A05 #/crate opens the Crate hub with its six views', async ({
     app,
   }) => {
     await app.open('#/crate');
@@ -355,6 +355,7 @@ test.describe('A. addresses', () => {
       'All-time classics',
       'By year',
       'Finish rate',
+      'Rarely played',
     ]);
   });
 
@@ -1007,9 +1008,7 @@ test.describe('F. features', () => {
     ).toBeVisible();
   });
 
-  test('F12 Mix: open a saved mix, validate a row and save', async ({
-    app,
-  }) => {
+  test('F12 Mix: open a saved mix, delete a row and save', async ({ app }) => {
     await app.open('#/mix');
     await app.page
       .getByRole('link', { name: /^Closing set at the Dock/ })
@@ -1019,15 +1018,19 @@ test.describe('F. features', () => {
       new RegExp(`#/mix/${enc(DOCK).replace(/[.?]/g, '\\$&')}$`)
     );
     const grid = await openGrid(app.page);
-    const summary = app.page.getByText(/^\d+ tracks · \d+ validated/);
+    // Round 010: no Validate; Delete (the Review column's ✕) is the review.
+    await expect(grid.getByRole('button', { name: /^Validate / })).toHaveCount(
+      0
+    );
+    const summary = app.page.getByText(/^\d+ tracks? · \d+ on Spotify/);
     const before = Number(
-      /(\d+) validated/.exec((await summary.textContent()) ?? '')?.[1]
+      /^(\d+) track/.exec((await summary.textContent()) ?? '')?.[1]
     );
     await grid
-      .getByRole('button', { name: /^Validate /, pressed: false })
+      .getByRole('button', { name: /^Remove / })
       .first()
       .click();
-    await expect(summary).toContainText(`${before + 1} validated`);
+    await expect(summary).toHaveText(new RegExp(`^${before - 1} tracks? · `));
     await app.page.getByRole('button', { name: 'Save mix' }).click();
     await expect(
       app.page.getByRole('button', { name: 'Saved ✓' })
@@ -1046,7 +1049,7 @@ test.describe('F. features', () => {
       .first()
       .click();
     await openGrid(app.page);
-    await expect(summary).toContainText(`${before + 1} validated`);
+    await expect(summary).toHaveText(new RegExp(`^${before - 1} tracks? · `));
   });
 
   test('F12b Mix: removing a saved mix asks first; Yes removes it', async ({
@@ -1155,26 +1158,21 @@ test.describe('F. features', () => {
     await expect(grid).not.toContainText('Manual Title');
   });
 
-  test('F13 Create playlist: Validated only or All tracks, gated by the scope, no request', async ({
+  test('F13 Create playlist: every track, gated by the scope, no request', async ({
     app,
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     await openGrid(app.page);
-    const validated = app.page.getByRole('tab', {
-      name: /^Validated only \(\d+\)$/,
-    });
-    const all = app.page.getByRole('tab', { name: /^All tracks \(\d+\)$/ });
-    await validated.click();
+    // Round 010: no Validated only / All tracks choice; every track goes.
+    await expect(
+      app.page.getByRole('tab', { name: /^(Validated only|All tracks)/ })
+    ).toHaveCount(0);
+    const allChip = app.page.getByRole('tab', { name: /^All \(\d+\)$/ });
     const n = Number(
-      /\((\d+)\)/.exec((await validated.textContent()) ?? '')?.[1]
+      /\((\d+)\)/.exec((await allChip.textContent()) ?? '')?.[1]
     );
     await expect(
       app.page.getByText(new RegExp(`^${n} tracks? will be added`))
-    ).toBeVisible();
-    await all.click();
-    const m = Number(/\((\d+)\)/.exec((await all.textContent()) ?? '')?.[1]);
-    await expect(
-      app.page.getByText(new RegExp(`^${m} tracks? will be added`))
     ).toBeVisible();
     const create = app.page.getByRole('button', {
       name: 'Create playlist from mix',
@@ -1583,16 +1581,13 @@ test.describe('R. rounds 003 and 004', () => {
     await expect(row).toHaveCount(1);
     await expect(row).toContainText('not heard');
     await expect(row).not.toContainText(/heard \d+×/);
-    // It starts To review: Validated only leaves it out, All tracks keeps it.
-    await expect(
-      row.getByRole('button', { name: /^Validate / })
-    ).toHaveAttribute('aria-pressed', 'false');
+    // Kept like every track (round 010): Create playlist counts it.
     const allChip = app.page.getByRole('tab', { name: /^All \(\d+\)$/ });
     const tracks = Number(
       /\((\d+)\)/.exec((await allChip.textContent()) ?? '')?.[1]
     );
     await expect(
-      app.page.getByRole('tab', { name: `All tracks (${tracks})` })
+      app.page.getByText(new RegExp(`^${tracks} tracks will be added`))
     ).toBeVisible();
   });
 
@@ -1667,19 +1662,19 @@ test.describe('R. rounds 003 and 004', () => {
     ).toBe(true);
   });
 
-  test('R07 Sort by Clips heard, then Best score: most first', async ({
+  test('R07 Sort by Confidence (times heard, then %): most first', async ({
     app,
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
-    await app.page.getByLabel('Sort').selectOption({ label: 'Clips heard' });
-    const byHits = await heardFigures(grid);
-    expect(byHits).toHaveLength(16);
-    expect(nonIncreasing(byHits.map((f) => f.hits))).toBe(true);
-    await app.page.getByLabel('Sort').selectOption({ label: 'Best score' });
+    // Round 010: Clips heard is folded into Confidence.
+    await expect(
+      app.page.getByLabel('Sort').locator('option', { hasText: 'Clips heard' })
+    ).toHaveCount(0);
+    await app.page.getByLabel('Sort').selectOption({ label: 'Confidence' });
     const byBest = await heardFigures(grid);
     expect(byBest).toHaveLength(16);
-    expect(nonIncreasing(byBest.map((f) => f.best))).toBe(true);
+    expect(nonIncreasing(byBest.map((f) => f.hits * 1000 + f.best))).toBe(true);
     await app.page.getByLabel('Sort').selectOption({ label: 'Time' });
     const times = await column(grid, 'Time');
     expect(times[0]).toBe('0:00');
@@ -1916,19 +1911,270 @@ test.describe('Y. release year', () => {
     );
   });
 
-  test('Y06 the open mix: Released column, Year sort and a Decade', async ({
+  test('Y06 the open mix: Released column, Released sort and a Decade', async ({
     app,
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
     expect(await headers(grid)).toContain('Released');
-    await app.page.getByLabel('Sort').selectOption('year');
+    await app.page.getByLabel('Sort').selectOption('released');
     expect(yearOrder(await column(grid, 'Released'), 'asc')).toBeNull();
     await app.page.getByLabel('Decade').selectOption({ label: '90s' });
     await expect(app.page.getByText(/^Hidden, not deleted/)).toBeVisible();
     const years = (await column(grid, 'Released')).map(num);
     expect(years.length).toBeGreaterThan(0);
     expect(years.every((y) => y !== null && y >= 1990 && y < 2000)).toBe(true);
+  });
+
+  test('M01 Mix header sort: Confidence highest first, then lowest, the select follows', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    const header = grid
+      .getByRole('columnheader', { name: 'Confidence' })
+      .getByRole('button');
+    await header.click();
+    const high = await heardFigures(grid);
+    expect(high).toHaveLength(16);
+    expect(nonIncreasing(high.map((f) => f.hits * 1000 + f.best))).toBe(true);
+    await expect(app.page.getByLabel('Sort')).toHaveValue('confidence');
+    await header.click();
+    const low = await heardFigures(grid);
+    expect(low).toHaveLength(16);
+    expect(nonIncreasing(low.map((f) => -(f.hits * 1000 + f.best)))).toBe(true);
+    await app.page.getByLabel('Sort').selectOption({ label: 'Set order' });
+    expect((await column(grid, 'Time'))[0]).toBe('0:00');
+  });
+
+  test('M02 Mix leaner table: merged Confidence, app link, Shazam and SoundCloud icons', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    const heads = await headers(grid);
+    for (const gone of ['Source', 'In your library', 'Clips']) {
+      expect(heads).not.toContain(gone);
+    }
+    await expect(grid.getByRole('button', { name: /^Validate / })).toHaveCount(
+      0
+    );
+    await expect(
+      app.page.getByRole('tab', { name: /^(To review|Validated) / })
+    ).toHaveCount(0);
+    // One cell: times heard, then the best percent.
+    const shorts = await grid.locator('.mix-conf-short').allTextContents();
+    expect(shorts.length).toBeGreaterThan(0);
+    expect(shorts.every((t) => /^(×\d+ · )?\d+%$/.test(t))).toBe(true);
+    expect(shorts.some((t) => /^×\d+ · \d+%$/.test(t))).toBe(true);
+    // A found row opens the Spotify app in place.
+    const play = grid.getByRole('link', { name: /^Play .+ on Spotify$/ });
+    await expect(play.first()).toHaveAttribute('href', /^spotify:track:\w+$/);
+    await expect(play.first()).not.toHaveAttribute('target', '_blank');
+    // Shazam where the row has its page, SoundCloud search on every named
+    // row, each in a new tab.
+    const shazam = grid.getByRole('link', { name: /^Shazam / }).first();
+    await expect(shazam).toHaveAttribute(
+      'href',
+      /^https:\/\/www\.shazam\.com\/track\//
+    );
+    await expect(shazam).toHaveAttribute('target', '_blank');
+    const sc = grid
+      .getByRole('link', { name: /^Search SoundCloud for / })
+      .first();
+    await expect(sc).toHaveAttribute(
+      'href',
+      /^https:\/\/soundcloud\.com\/search\/sounds\?q=/
+    );
+    await expect(sc).toHaveAttribute('target', '_blank');
+  });
+
+  test('M03 Mix: link a Spotify track to a not-found row; an album is refused; Remove link', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    const caption = app.page
+      .locator('.mix-caption')
+      .filter({ hasText: / on Spotify · \d+ not found/ });
+    const counts = async () => {
+      const m = /(\d+) on Spotify · (\d+) not found/.exec(
+        (await caption.textContent()) ?? ''
+      );
+      expect(m, 'the review line').not.toBeNull();
+      return { found: Number(m![1]), missing: Number(m![2]) };
+    };
+    const before = await counts();
+    expect(before.missing).toBeGreaterThan(0);
+    const mark = grid
+      .getByRole('button', { name: /^Link a Spotify track to / })
+      .first();
+    const label = (await mark.getAttribute('aria-label')) ?? '';
+    const name = label.replace(/^Link a Spotify track to /, '');
+    // An album link is refused with the message; the row is unchanged.
+    await mark.click();
+    const field = app.page.getByRole('textbox', { name: 'Spotify track link' });
+    await field.fill('https://open.spotify.com/album/1qGibBSuprByJCYMC4zRUG');
+    await app.page.getByRole('button', { name: 'Link', exact: true }).click();
+    await expect(
+      app.page.getByText('That is not a Spotify track link.')
+    ).toBeVisible();
+    expect(await counts()).toEqual(before);
+    // The example link: the row is found, opened in the app, counts move.
+    await field.fill(
+      'https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG?si=f4ed2a88f4744bea'
+    );
+    await app.page.getByRole('button', { name: 'Link', exact: true }).click();
+    await expect(field).toHaveCount(0);
+    await expect(
+      grid.getByRole('link', { name: `Play ${name} on Spotify` })
+    ).toHaveAttribute('href', 'spotify:track:1qGibBSuprByJCYMC4zRUG');
+    expect(await counts()).toEqual({
+      found: before.found + 1,
+      missing: before.missing - 1,
+    });
+    // More › Remove link: back to not found.
+    await grid.getByRole('button', { name: `More for ${name}` }).click();
+    await app.page.getByRole('menuitem', { name: 'Remove link' }).click();
+    await expect(
+      grid.getByRole('button', { name: `Link a Spotify track to ${name}` })
+    ).toBeVisible();
+    expect(await counts()).toEqual(before);
+  });
+
+  test('M04 Mix: the last row clicked stays marked, links included; hover and Edit keep it; Delete clears it', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const page = app.page;
+    const grid = await openGrid(page);
+    // A link still acts (its default is not prevented by the mark): record
+    // it, then stop it here, since every request leaving 127.0.0.1 fails.
+    await page.evaluate(() => {
+      const w = window as unknown as { __opened: string[] };
+      w.__opened = [];
+      document.addEventListener('click', (e) => {
+        const a = (e.target as Element).closest('a');
+        if (!a) return;
+        if (!e.defaultPrevented) w.__opened.push(a.getAttribute('href') ?? '');
+        e.preventDefault();
+      });
+    });
+    const opened = () =>
+      page.evaluate(
+        () => (window as unknown as { __opened: string[] }).__opened
+      );
+    const rows = grid
+      .locator('[role=rowgroup]')
+      .nth(1)
+      .locator('[role=row][data-row-id]');
+    const byId = (id: string) =>
+      grid.locator(`[role=row][data-row-id="${id}"]`);
+    const marked = grid.locator('[role=row][aria-selected="true"]');
+    const play = /^Play .+ on Spotify$/;
+    const playId =
+      (await rows
+        .filter({ has: page.getByRole('link', { name: play }) })
+        .first()
+        .getAttribute('data-row-id')) ?? '';
+    const ids = await rows.evaluateAll((rs) =>
+      rs.map((r) => r.getAttribute('data-row-id') ?? '')
+    );
+    const titleId = ids.find((id) => id !== playId) ?? '';
+    expect(playId).not.toBe('');
+    expect(titleId).not.toBe('');
+    await expect(marked).toHaveCount(0);
+
+    // A click on a title marks its row.
+    await byId(titleId).getByRole('gridcell').nth(1).click();
+    await expect(byId(titleId)).toHaveAttribute('aria-selected', 'true');
+    await expect(marked).toHaveCount(1);
+
+    // The Spotify icon of another row: that row is marked, the link opens.
+    await byId(playId).getByRole('link', { name: play }).click();
+    await expect(byId(playId)).toHaveAttribute('aria-selected', 'true');
+    await expect(byId(titleId)).toHaveAttribute('aria-selected', 'false');
+    await expect(marked).toHaveCount(1);
+    expect(await opened()).toContainEqual(
+      expect.stringMatching(/^spotify:track:\w+$/)
+    );
+
+    // A Shazam icon (new tab): its row is marked, and stays marked when
+    // the owner comes back to the window.
+    const shazamRow = rows
+      .filter({ has: page.getByRole('link', { name: /^Shazam / }) })
+      .first();
+    const shazamId = (await shazamRow.getAttribute('data-row-id')) ?? '';
+    await shazamRow.getByRole('link', { name: /^Shazam / }).click();
+    await expect(byId(shazamId)).toHaveAttribute('aria-selected', 'true');
+    expect(await opened()).toContainEqual(
+      expect.stringMatching(/^https:\/\/www\.shazam\.com\/track\//)
+    );
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('blur'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+    });
+    await expect(byId(shazamId)).toHaveAttribute('aria-selected', 'true');
+    await expect(marked).toHaveCount(1);
+
+    // Hover keeps the selected fill (a layer over it, not the hover grey),
+    // and the glowing lines stay.
+    const fill = await page.evaluate(() => {
+      const probe = document.createElement('div');
+      probe.style.color = 'var(--md-sys-color-primary-container)';
+      document.body.append(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    });
+    const look = () =>
+      byId(shazamId).evaluate((r) => {
+        const s = getComputedStyle(r);
+        return {
+          color: s.backgroundColor,
+          image: s.backgroundImage,
+          shadow: s.boxShadow,
+        };
+      });
+    await page.mouse.move(0, 0);
+    await expect.poll(async () => (await look()).color).toBe(fill);
+    expect((await look()).image).toBe('none');
+    expect((await look()).shadow).not.toBe('none');
+    await byId(shazamId).getByRole('gridcell').first().hover();
+    await expect.poll(async () => (await look()).color).toBe(fill);
+    expect((await look()).image).toMatch(/gradient/);
+    expect((await look()).shadow).not.toBe('none');
+
+    // Edit on it: the form row is the marked one; Cancel keeps it.
+    await byId(shazamId)
+      .getByRole('button', { name: /^More for / })
+      .click();
+    await page.getByRole('menuitem', { name: 'Edit' }).click();
+    await expect(marked).toHaveCount(1);
+    await expect(
+      marked.getByRole('textbox', { name: /^Artist/ })
+    ).toBeVisible();
+    await marked.getByRole('button', { name: 'Cancel' }).click();
+    await expect(byId(shazamId)).toHaveAttribute('aria-selected', 'true');
+
+    // Enter on a focused row marks it; then Space marks the next one.
+    await byId(titleId).focus();
+    await page.keyboard.press('Enter');
+    await expect(byId(titleId)).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press(' ');
+    await expect(marked).toHaveCount(1);
+    await expect(byId(titleId)).toHaveAttribute('aria-selected', 'false');
+    await byId(shazamId).getByRole('gridcell').first().click();
+    await expect(byId(shazamId)).toHaveAttribute('aria-selected', 'true');
+
+    // Delete clears the mark.
+    await byId(shazamId)
+      .getByRole('button', { name: /^More for / })
+      .click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
+    await expect(marked).toHaveCount(0);
   });
 
   test('Y07 Activity names the release years pass', async ({ app }) => {

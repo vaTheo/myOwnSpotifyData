@@ -133,7 +133,9 @@ function ariaSort(
  * The tables of the redesign (spec 003, FR-015–FR-018, FR-022, FR-043,
  * FR-044). ARIA grid roles on CSS grid rows; header buttons sort; rows take
  * a roving tabindex. Ranks are computed before any sort or filter and travel
- * with their rows. Long lists grow 100 rows at a time, as before.
+ * with their rows. Long lists grow 100 rows at a time, as before. A table
+ * may instead mark the last row clicked (`markedKey`, `onMark`; Mix, spec
+ * 013): any click inside a row reports it, links and buttons included.
  */
 export function DataTable<Row>(p: {
   label: string;
@@ -147,6 +149,18 @@ export function DataTable<Row>(p: {
   onSort: (sort: SortState) => void;
   onOpen?: (row: Row) => void;
   selectedKey?: string | null;
+  /**
+   * The marked row's key (spec 013): passed, even null, the table draws that
+   * row selected instead of `selectedKey`'s and every row says
+   * `aria-selected`. Tables that leave it out are unchanged.
+   */
+  markedKey?: string | null;
+  /**
+   * Any click inside a row, a cell, link or button alike (capture phase,
+   * neither stopped nor prevented, so the control still acts), and Enter or
+   * Space on the focused row itself.
+   */
+  onMark?: (row: Row) => void;
   /** Heading rows between groups (Under the radar); kept in order. */
   groupOf?: (row: Row) => string | null;
   groupHeading?: (group: string) => ComponentChildren;
@@ -295,6 +309,13 @@ export function DataTable<Row>(p: {
       p.onOpen(visible[index].row);
       return;
     }
+    // A marking table (Mix): Enter or Space on the focused row marks it,
+    // as a click would. Keys typed in a control of the row never get here.
+    if ((e.key === 'Enter' || e.key === ' ') && p.onMark) {
+      e.preventDefault();
+      p.onMark(visible[index].row);
+      return;
+    }
     const next = moveIndex(index, e.key, visible.length, 10);
     if (next === null) return;
     e.preventDefault();
@@ -381,14 +402,16 @@ export function DataTable<Row>(p: {
         ? p.groupHeading(group)
         : null;
     lastGroup = group;
-    const selected = p.selectedKey === key;
+    const marking = p.markedKey !== undefined;
+    const selected = marking ? p.markedKey === key : p.selectedKey === key;
     const common = {
       role: 'row' as const,
       tabIndex: index === tabTarget ? 0 : -1,
       'data-index': index,
       'data-row-id': key,
-      'aria-selected': p.onOpen ? selected : undefined,
+      'aria-selected': p.onOpen || marking ? selected : undefined,
       onClick: (e: MouseEvent) => onRowClick(e, row, index),
+      onClickCapture: p.onMark ? () => p.onMark?.(row) : undefined,
       onFocus: () => setActive(index),
     };
     const full = p.fullRow?.(row);

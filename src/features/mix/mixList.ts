@@ -17,13 +17,13 @@ import {
  * results on them); no request, no poll.
  */
 
-/** What the list reads of a saved mix. `validated` arrives with the review (T118). */
+/** What the list reads of a saved mix (round 010: never `validated`). */
 export interface MixListMix {
   url: string;
   title: string | null;
   savedAt: number;
   playlistUrl?: string;
-  rows: readonly { gap?: boolean; validated?: boolean; origin?: string }[];
+  rows: readonly { gap?: boolean; origin?: string }[];
 }
 
 export type MixChipKind =
@@ -67,8 +67,7 @@ export interface MixListItem {
 function savedChip(mix: MixListMix): MixListItem['chip'] {
   if (mix.playlistUrl) return { kind: 'playlist', text: 'Playlist made' };
   const tracks = mix.rows.filter((r) => !r.gap);
-  const validated = tracks.filter((r) => r.validated === true).length;
-  const text = `Saved · ${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}${validated > 0 ? ` · ${validated} validated` : ''}`;
+  const text = `Saved · ${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}`;
   return { kind: 'saved', text };
 }
 

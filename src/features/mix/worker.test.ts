@@ -609,12 +609,8 @@ describe('viewRows', () => {
     r({ hits: 1, confidence: 97 }),
   ];
   it('keeps set order by default and filters heard-once without touching the rows', () => {
-    expect(viewRows(rows, 'time', false)).toEqual([0, 1, 2, 3]);
-    expect(viewRows(rows, 'time', true)).toEqual([0, 3]);
-  });
-  it('sorts by clips or best score, rows without the number last', () => {
-    expect(viewRows(rows, 'clips', false)).toEqual([1, 0, 3, 2]);
-    expect(viewRows(rows, 'score', false)).toEqual([3, 1, 0, 2]);
+    expect(viewRows(rows, false)).toEqual([0, 1, 2, 3]);
+    expect(viewRows(rows, true)).toEqual([0, 3]);
   });
 });
 
@@ -858,20 +854,16 @@ describe('viewRows — round 005 year', () => {
     r({ year: 1993, hits: 1 }),
     r({ year: 1996, hits: 2 }),
   ];
-  it('sorts oldest first, undated last, ties in set order', () => {
-    expect(viewRows(rows, 'year', false)).toEqual([3, 1, 4, 5, 0, 2]);
-  });
-  it('keeps one decade, combined with heard once and any sort', () => {
-    expect(viewRows(rows, 'time', false, 1990)).toEqual([1, 4, 5]);
-    expect(viewRows(rows, 'time', true, 1990)).toEqual([4]);
-    expect(viewRows(rows, 'clips', false, 1990)).toEqual([1, 5, 4]);
-    expect(viewRows(rows, 'year', false, 2010)).toEqual([0]);
-    expect(viewRows(rows, 'time', false, 1970)).toEqual([]);
+  it('keeps one decade in set order, combined with heard once', () => {
+    expect(viewRows(rows, false, 1990)).toEqual([1, 4, 5]);
+    expect(viewRows(rows, true, 1990)).toEqual([4]);
+    expect(viewRows(rows, false, 2010)).toEqual([0]);
+    expect(viewRows(rows, false, 1970)).toEqual([]);
   });
   it('reads the year the Released column shows: never a gap row (S13c M6)', () => {
     const withGap = [r({ year: 1993 }), r({ gap: true, year: 1991 })];
     expect(rowYear(withGap[1])).toBeNull();
-    expect(viewRows(withGap, 'time', false, 1990)).toEqual([0]);
-    expect(viewRows(withGap, 'year', false)).toEqual([0, 1]);
+    expect(viewRows(withGap, false, 1990)).toEqual([0]);
+    expect(viewRows(withGap, false)).toEqual([0, 1]);
   });
 });

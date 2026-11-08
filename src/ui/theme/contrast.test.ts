@@ -67,6 +67,21 @@ const PAIRS: [string, string, number][] = [
   ['--md-sys-color-on-error-container', '--md-sys-color-error-container', 4.5],
   ['--app-color-on-warning-container', '--app-color-warning-container', 4.5],
   ['--md-sys-color-inverse-on-surface', '--md-sys-color-inverse-surface', 4.5],
+  // Spec 013: every colour inside a marked Mix row, on the selected fill
+  // (colour-analysis.md §2). `outline` is not asserted on it (2.94:1): the
+  // Edit/Link form row keeps the neutral surface, never this fill.
+  ['--md-sys-color-on-surface', '--md-sys-color-primary-container', 4.5],
+  [
+    '--md-sys-color-on-surface-variant',
+    '--md-sys-color-primary-container',
+    4.5,
+  ],
+  // Text too: the phone "Not found on Spotify" button (5.49:1).
+  ['--md-sys-color-error', '--md-sys-color-primary-container', 4.5],
+  ['--app-color-warning', '--md-sys-color-primary-container', 4.5],
+  ['--md-sys-color-secondary', '--md-sys-color-primary-container', 4.5],
+  // The found mark, the edge bar and the glow lines.
+  ['--md-sys-color-primary', '--md-sys-color-primary-container', 3],
 ];
 
 const SURFACES = [

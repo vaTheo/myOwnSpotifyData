@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   applyYears,
   applyYearsByTrack,
-  defaultChoice,
   rowAfterCreate,
   runCreatePlaylist,
   tracksToAdd,
@@ -326,6 +325,72 @@ describe('runCreatePlaylist', () => {
     ]);
   });
 
+  it('adds a hand-linked row from its stored id, no search (round 012)', async () => {
+    const linked: TracklistRow = {
+      ...id(t(0)),
+      spotify: {
+        id: '1qGibBSuprByJCYMC4zRUG',
+        url: 'https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG',
+      },
+      spotifyBy: 'owner',
+      checkedAt: 1,
+    };
+    const { client, get, post } = makeClient({ matchable: [] });
+    const { states, onState } = record();
+
+    await runCreatePlaylist({ client, onState }, input([linked]));
+
+    expect(get).not.toHaveBeenCalled();
+    expect(itemsBatches(post)).toEqual([
+      ['spotify:track:1qGibBSuprByJCYMC4zRUG'],
+    ]);
+    expect(states.at(-1)).toMatchObject({ status: 'done', added: 1, total: 1 });
+  });
+
+  it('adds a track two rows name once, at its first place (round 012)', async () => {
+    const found = (title: string, trackId: string): TracklistRow => ({
+      ...id(title),
+      spotify: { id: trackId, url: `https://open.spotify.com/track/${trackId}` },
+      checkedAt: 1,
+    });
+    const rows = [
+      found(t(0), 'X1'),
+      { ...found(t(1), 'X1'), spotifyBy: 'owner' as const },
+      id(t(2)),
+      id(t(3)),
+      found(t(4), 'T002'), // a stored id equal to an earlier searched match
+    ];
+    const { client, post } = makeClient({ matchable: [t(2), t(3)] });
+    const { states, onState } = record();
+
+    await runCreatePlaylist({ client, onState }, input(rows));
+
+    expect(itemsBatches(post)).toEqual([
+      ['spotify:track:X1', 'spotify:track:T002', 'spotify:track:T003'],
+    ]);
+    expect(states.at(-1)).toMatchObject({ status: 'done', added: 3, total: 5 });
+  });
+
+  it('still skips a not-found row the search misses (round 012)', async () => {
+    const notFound: TracklistRow = {
+      ...id(t(1)),
+      spotify: 'not-found',
+      checkedAt: 1,
+    };
+    const { client, post } = makeClient({
+      matchable: [t(0), t(1)],
+      misses: new Set([t(1)]),
+    });
+    const { states, onState } = record();
+
+    await runCreatePlaylist({ client, onState }, input([id(t(0)), notFound]));
+
+    expect(itemsBatches(post)).toEqual([['spotify:track:T000']]);
+    const done = states.at(-1);
+    expect(done).toMatchObject({ status: 'done', added: 1, total: 2 });
+    expect(done?.status === 'done' && done.unmatched.length).toBe(1);
+  });
+
   it('remembers a quota lock-out met by a search; nothing is written', async () => {
     const rows = ids(2);
     const { client, post } = makeClient({
@@ -388,60 +453,33 @@ describe('runCreatePlaylist', () => {
   });
 });
 
-/* ---------- the selection rule (T119, T126, owner's D6) ---------- */
+/* ---------- the selection rule (T119, T126, round 010) ---------- */
 
 describe('tracksToAdd', () => {
-  const validated: TracklistRow = { ...id('V'), validated: true };
-  const toReview: TracklistRow = { ...id('R') };
+  const old: TracklistRow = { ...id('V'), validated: true };
+  const toReview: TracklistRow = { ...id('R'), validated: false };
+  const plain: TracklistRow = { ...id('P') };
   const candidate: TracklistRow = { ...id('C'), origin: 'clue' };
-  const validCandidate: TracklistRow = {
-    ...id('VC'),
-    origin: 'clue',
-    validated: true,
-  };
   const heardOnce: TracklistRow = { ...id('H'), hits: 1 };
   const validGap: TracklistRow = { ...gap, validated: true };
-  const rows = [
-    validated,
-    gap,
-    toReview,
-    candidate,
-    validCandidate,
-    heardOnce,
-    validGap,
-    idRow,
-  ];
 
-  it('Validated only keeps validated tracks, a validated candidate included', () => {
-    expect(tracksToAdd(rows, 'validated')).toEqual([validated, validCandidate]);
+  it('adds every identified track, whatever an old validated flag says', () => {
+    expect(
+      tracksToAdd([
+        old,
+        gap,
+        toReview,
+        plain,
+        candidate,
+        heardOnce,
+        validGap,
+        idRow,
+      ])
+    ).toEqual([old, toReview, plain, candidate, heardOnce]);
   });
 
-  it('All tracks keeps every track not removed, candidates included', () => {
-    expect(tracksToAdd(rows, 'all')).toEqual([
-      validated,
-      toReview,
-      candidate,
-      validCandidate,
-      heardOnce,
-    ]);
-  });
-
-  it('an unvalidated candidate is out of Validated only and in All tracks', () => {
-    expect(tracksToAdd([candidate], 'validated')).toEqual([]);
-    expect(tracksToAdd([candidate], 'all')).toEqual([candidate]);
-  });
-
-  it('a validated candidate is in both', () => {
-    expect(tracksToAdd([validCandidate], 'validated')).toEqual([
-      validCandidate,
-    ]);
-    expect(tracksToAdd([validCandidate], 'all')).toEqual([validCandidate]);
-  });
-
-  it('a gap row is in neither, even marked validated; nor an ID row', () => {
-    for (const choice of ['validated', 'all'] as const) {
-      expect(tracksToAdd([gap, validGap, idRow], choice)).toEqual([]);
-    }
+  it('never a gap row, even marked validated; nor an ID row', () => {
+    expect(tracksToAdd([gap, validGap, idRow])).toEqual([]);
   });
 
   it('keeps set order whatever the rows hold for the chips and the Sort', () => {
@@ -449,31 +487,7 @@ describe('tracksToAdd', () => {
     // the working list, so a heard-once row and clip counts change nothing.
     const a: TracklistRow = { ...id('A'), hits: 5, confidence: 90 };
     const b: TracklistRow = { ...id('B'), hits: 1, confidence: 99 };
-    expect(tracksToAdd([a, b], 'all')).toEqual([a, b]);
-  });
-
-  it('a candidate starts To review, so Validated only leaves it out', () => {
-    expect(candidate.validated).toBeUndefined();
-    expect(tracksToAdd([validated, candidate], 'validated')).toEqual([
-      validated,
-    ]);
-  });
-});
-
-describe('defaultChoice', () => {
-  it('is Validated only once any track is validated', () => {
-    expect(defaultChoice([id('A'), { ...id('B'), validated: true }])).toBe(
-      'validated'
-    );
-  });
-
-  it('is All tracks while none is', () => {
-    expect(defaultChoice([id('A'), id('B')])).toBe('all');
-    expect(defaultChoice([])).toBe('all');
-  });
-
-  it('ignores a validated gap row', () => {
-    expect(defaultChoice([id('A'), { ...gap, validated: true }])).toBe('all');
+    expect(tracksToAdd([a, b])).toEqual([a, b]);
   });
 });
 

@@ -806,7 +806,11 @@ function buildMixes(
         detected: { artist, title },
         confidence: int(rand, 55, 99),
         isrc: t.isrc,
-        shazamUrl: null,
+        // Round 010: a Shazam page on some rows, for the row's Shazam icon.
+        shazamUrl:
+          i % 3 === 0
+            ? `https://www.shazam.com/track/${900100 + i}/demo-${i}`
+            : null,
         hits: i % 5 === 1 || replay !== null ? 1 : int(rand, 2, 7),
         // Round 005: Shazam's year on most heard rows, a catalogue's on some.
         ...(i % 4 === 3
@@ -823,8 +827,8 @@ function buildMixes(
     );
     at += int(rand, 200, 380);
   }
-  // The review (S08c, T117, T118): validated rows, rows Check on Spotify
-  // found or did not find, rows not checked yet; the candidate To review.
+  // The review (S08c, T117, T118): rows Check on Spotify found or did not
+  // find, rows not checked yet (round 010: every track is kept).
   const checkedAt = DEMO_NOW - 2 * 3_600_000;
   second.forEach((row, i) => {
     if (row.gap || row.origin === 'clue') return;
@@ -832,9 +836,6 @@ function buildMixes(
     let next = row;
     if (i <= 6) {
       next = checkedRow(next, i === 3 || i === 6 ? null : t.uri, checkedAt);
-    }
-    if (i === 0 || i === 1 || i === 2 || i === 5) {
-      next = { ...next, validated: true };
     }
     second[i] = next;
   });
@@ -848,7 +849,7 @@ function buildMixes(
 
   // The Dock: a result asked again after a stop, merged into the rows the
   // owner had reviewed (T125): the review kept, a removed track left out,
-  // the new tracks To review.
+  // the new tracks added.
   const scanRow = (t: (typeof known)[number], startSec: number) =>
     tracklistRow({
       startSec,
@@ -867,10 +868,7 @@ function buildMixes(
     const row = scanRow(known[i + 3], at);
     before.push(
       i < 4
-        ? {
-            ...checkedRow(row, i === 2 ? null : known[i + 3].uri, checkedAt),
-            validated: i !== 2,
-          }
+        ? checkedRow(row, i === 2 ? null : known[i + 3].uri, checkedAt)
         : row
     );
     at += int(rand, 220, 360);

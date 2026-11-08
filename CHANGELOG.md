@@ -14,6 +14,68 @@ many numbers came from the store and how many were added. **Once, in the Supabas
 key results (and the reach results) and run the lookup again. Nobody can change or delete a shared row from the app; fix a wrong one
 in the dashboard. Decision: ADR-15 (amends ADR-14). Spec: `specs/014-shared-track-facts/`. No `DB_VERSION` bump.
 
+## 2026-11-08 — The last Mix row clicked stays marked
+
+Spec: `specs/013-mix-row-last-clicked/`. In the open mix, the last row you click (its title, the Spotify icon that opens the app, a
+Shazam or SoundCloud icon that opens a new tab, a menu) stays highlighted, so coming back to the app you see where you were: the
+selected colour (`primary-container`), a chartreuse bar on its left edge and glowing chartreuse lines at its top and bottom, said
+"selected" to a screen reader. It follows the track when you sort or filter, stays while the row is in Edit or Link, moves to the row
+Add track makes, and clears on Delete, on opening another mix and when a paste, the description, a lookup or reopening the mix replaces
+every row. Fixed on the way: hovering a selected row (the playlist, artist or mix open beside its list) showed the grey hover instead
+of the selected colour; selected now wins and hover is a light layer over it. New size tokens `--app-mark-bar`, `--app-mark-line` and
+`--app-mark-halo`; no stored field, no `DB_VERSION` bump, no request, no new ADR. Polish: the bottom line now sits at the row's edge
+like the top one (no grey hairline under it), a focused marked row's keyboard ring is light (`on-surface`) inside the chartreuse
+cues so focus is told from the mark, and Enter or Space on a focused row marks it. The phone "Not found on Spotify" button's
+screen-reader name now starts with those words ("Not found on Spotify: link a Spotify track to …", WCAG 2.5.3).
+
+## 2026-11-08 — Link a Spotify track to a not-found row
+
+Spec: `specs/012-mix-manual-spotify-link/`. In the open mix, the red "not found" mark of a track (on a phone, the "Not found on Spotify"
+words) opens a field in place of the row: paste the track's Spotify link (`https://open.spotify.com/track/<id>`, with or without `?si=`
+or a locale segment, or `spotify:track:<id>`) and tap **Link**; the row counts as on Spotify, its play icon opens that track and
+**Create playlist from mix** adds it. Album, artist, playlist and short `spotify.link` links, and other text, are refused with a message.
+A hand-linked row's menu has **Replace link** and **Remove link**. The link is stored by its id and never looked up or verified on
+Spotify; Check on Spotify (by tap or on opening) never overwrites it, a later worker result keeps it, and a rename of the track clears it.
+It is saved like an edit (Save mix, or when a Check on Spotify run ends). Create playlist now adds each Spotify track once even when two
+rows point at it. New optional `TracklistRow.spotifyBy: 'owner'`, accepted by the server's row check only beside a found track; no
+`DB_VERSION` bump, no new request, no new host, no new Spotify scope, and no new ADR (it applies ADR-02, ADR-03, ADR-04 and ADR-05 as
+they stand).
+
+## 2026-11-08 — A simpler Mix tracklist
+
+Spec: `specs/010-mix-table-simplify/`. The open mix's table loses the **Source**, **In your library** and **Clips** columns and the
+**Validate** button: every track is kept, and **Remove** (✕, or Delete in the row menu) is the only review action. The **To review** and
+**Validated** chips are gone, and **Create playlist from mix** adds every track (no more Validated only / All tracks); old saved
+"validated" marks are ignored. **Confidence** now carries the clip count, "×3 · 92%", and still sorts by times heard then percent; the Sort
+menu loses Clips heard, Source, In your library and Review.
+
+A found track's **Spotify** cell opens the Spotify app directly (`spotify:track:`) on every device; **Open in Spotify app** is gone from
+the Listen menu, whose Play on Spotify is now that app link. On a phone the row says "On Spotify" and Play on Spotify is under More ›
+Listen…. Each row gains one-click **Shazam** (when the scan knows its page) and **SoundCloud** (a search for the track) icons, each in a
+new tab. No new request, no new host, no `DB_VERSION` bump.
+
+## 2026-11-08 — Opening a mix checks it on Spotify
+
+The Listen menu's **Play on Spotify** opens the Spotify app on a phone (the `spotify:track:` link); on a computer it opens the web page and
+a new **Open in Spotify app** entry follows it. Without the app installed, the app link does nothing.
+
+Opening a saved mix now runs **Check on Spotify** by itself for its named tracks never checked, once per mix per page session: only with
+**Automatic updates** on, a Spotify session, no lock-out and no other Spotify job running, and never in the demo; the answers are saved with
+the mix, so it is searched once. A refusal shows nothing; a failure shows inline as before. Decision: ADR-13 (amends ADR-02 and ADR-12;
+constitution 2.3.0). No `DB_VERSION` bump.
+
+Fix: a mix made by **Identify on my computer** or a Tracklistify import now shows its SoundCloud player when opened. Only a lookup stored
+the player, so those mixes had none; it is now rebuilt from the mix's permalink on open (`soundcloudPlayerSrc`), with no request, and
+nothing is added to the saved mix.
+
+## 2026-11-07 — Sortable Mix tracklist
+
+Every column of the open mix's tracklist with a comparable value now sorts from its header: **Confidence** (found most often first, then by %; click
+again for the reverse), Time, Artist – Title, Label, Source, In your library, Released, Spotify and Review, plus a **Clips**
+column when a set has clip counts. The **Sort** menu is rebuilt from the same columns, with **Set order** and a direction button, so
+a phone can sort too; header and menu always agree. Tracks with no value stay last in both directions, and the sort is not saved with
+the mix. "Best score" is now Confidence and "Year, oldest first" is Released. The Listen menu now starts with the direct pages, **Play on Spotify** (the Check answer, else the song in your library) and Shazam, before the search pages; the phone's "Open on Spotify" moves there. Spec: `specs/009-mix-sortable-columns/`. No
+`DB_VERSION` bump.
 ## 2026-11-08 — Several people, one app
 
 With the server set up, each person who signs in is a user with data of their own: library, history, BPM and key, artist reach

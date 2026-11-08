@@ -217,6 +217,21 @@ describe('mergeKeepingReview (T125, owner D1)', () => {
     ]);
   });
 
+  it('keeps the owner’s hand link: carried to the matching row, or the row kept when nothing matches (round 012)', () => {
+    const LINKED = { ...FOUND, spotifyBy: 'owner' } as const;
+    const carried = mergeKeepingReview(
+      [scan({ startSec: 60, ...LINKED })],
+      [scan({ startSec: 75, hits: 2 })],
+      []
+    );
+    expect(carried).toEqual([
+      { ...scan({ startSec: 75, hits: 2 }), ...LINKED },
+    ]);
+    const linked = scan({ startSec: 100, title: 'Linked', ...LINKED });
+    const fresh = scan({ startSec: 150, title: 'Fresh' });
+    expect(mergeKeepingReview([linked], [fresh], [])).toEqual([linked, fresh]);
+  });
+
   it('hands one row’s review to one incoming row only (fix round 1, M8)', () => {
     const existing = [scan({ startSec: 60, validated: true, ...FOUND })];
     const incoming = [scan({ startSec: 60 }), scan({ startSec: 900 })];

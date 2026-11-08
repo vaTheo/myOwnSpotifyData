@@ -57,7 +57,8 @@ Details: [Contributing](docs/dev-guide/000-contributing.md).
   workers run on the owner's computer (ADR-08).
 - Never open `localhost`: Spotify rejects it as a redirect URI; use `http://127.0.0.1:5173/myOwnSpotifyData/` (ADR-01).
 - Never read Spotify on load outside the automatic chain: it syncs only when the library is older than 12 hours, not while locked, at
-  most once a session; a new Spotify read joins that gate (ADR-02, ADR-11).
+  most once a session; a new Spotify read joins that gate (ADR-02, ADR-11). The one other automatic read: opening a saved mix checks its
+  unchecked named tracks on Spotify, once per mix, under the same switch and lock-out (ADR-13).
 - Spotify writes exist in exactly two places (Create playlist from mix, Like all songs), on a tap, gated by `hasScope`; `post` is never
   retried; a refresh never widens a scope, so a new scope means **Connect again** (ADR-03).
 - External sources: keyless, keyed on Spotify ids or ISRCs, never name search; clients never throw; long jobs start from Settings or the

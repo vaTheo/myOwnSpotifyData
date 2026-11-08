@@ -419,6 +419,23 @@ describe('validateMix — the review (T117, T118, T125)', () => {
       }).ok
     ).toBe(true);
   });
+  it('accepts spotifyBy only as owner beside a found track (round 012)', () => {
+    expect(
+      validateMix({
+        ...mixRow,
+        rows: [{ ...r0, spotify: found, spotifyBy: 'owner', checkedAt: 5 }],
+      }).ok
+    ).toBe(true);
+    for (const row of [
+      { ...r0, spotify: found, spotifyBy: 'check' },
+      { ...r0, spotify: found, spotifyBy: true },
+      { ...r0, spotify: 'not-found', spotifyBy: 'owner' },
+      { ...r0, spotifyBy: 'owner' },
+    ]) {
+      const res = validateMix({ ...mixRow, rows: [row] });
+      expect(res).toEqual({ ok: false, reason: 'mixes.row.spotifyBy' });
+    }
+  });
   it('refuses a malformed review field', () => {
     for (const row of [
       { ...r0, validated: 'yes' },

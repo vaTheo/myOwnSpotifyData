@@ -41,6 +41,15 @@ is never cut where a column could give way; the shots check it.
 **Detail beside the list.** A track opens in the side sheet (`?d=` in the address); a playlist, artist or saved mix opens beside its list
 from 840 px and full screen below. Both are navigation: Back works, the address is shareable.
 
+**One selected look.** A selected row (the row open beside a list, the Mix tracklist's last row clicked) has the `primary-container`
+fill, `on-primary-container` text and `aria-selected="true"`. Selected beats hover: hovering a selected row lays `on-primary-container`
+at the hover opacity over the fill, never the grey hover. Status marks (not found, warnings) keep their own tokens on it. The marked Mix
+row adds second cues, as shadows so no row moves: a `--app-mark-bar` (4 px) `primary` edge bar, `--app-mark-line` (2 px) `primary`
+top and bottom lines and a soft `--app-mark-halo` (8 px) `primary` glow, the row raised over its neighbours; a form row (Edit, Link)
+keeps the neutral surface (field outlines are 2.94:1 on the fill) with the same cues; forced colours get a `Highlight` outline. Its
+1 px bottom border turns `primary`, so the bottom line sits at the edge like the top one. Focused, a marked row's ring is
+`on-surface` inside the bar and lines, a band of fill between, so focus is told from the mark.
+
 **A missing number is a dash, never zero.** Use `NoData` (a dash with `aria-label="no data"`). A year, a BPM, a play count, a figure with
 no source: never `0`, never blank. Listeners and fans are never summed. A zero that is real is printed as zero.
 

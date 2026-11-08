@@ -7,10 +7,11 @@ import {
   yearText,
   confidenceText,
   gapCluesSummary,
+  listenIcons,
   originText,
+  playLinks,
   referencesText,
   setWideSummary,
-  sourceLabel,
   timeText,
 } from './rowText';
 
@@ -35,19 +36,6 @@ const clue = (over: Partial<Clue> = {}): Clue => ({
   text: 'ID is Foo – Bar https://x.example',
   kind: 'comment',
   ...over,
-});
-
-describe('sourceLabel', () => {
-  it('names each layer, and the owner’s added or edited rows', () => {
-    expect(sourceLabel(row({ source: 'trackid' }))).toBe('TrackId');
-    expect(sourceLabel(row({ source: 'description' }))).toBe('description');
-    expect(sourceLabel(row({ source: 'pasted' }))).toBe('pasted');
-    expect(sourceLabel(row({ source: 'tracklistify' }))).toBe('Tracklistify');
-    expect(sourceLabel(row({ source: 'manual', detected: null }))).toBe(
-      'added'
-    );
-    expect(sourceLabel(row({ source: 'manual' }))).toBe('edited');
-  });
 });
 
 describe('originText', () => {
@@ -114,11 +102,11 @@ describe('confidenceText', () => {
 });
 
 describe('confidenceShort', () => {
-  it('fits the narrow column: clips and score, or the score alone', () => {
+  it('merges Clips into Confidence: times heard then score, or the score alone', () => {
     expect(confidenceShort(row({ confidence: 92.2, hits: 3 }))).toBe(
-      '3× · 92 %'
+      '×3 · 92%'
     );
-    expect(confidenceShort(row({ confidence: 91.6 }))).toBe('92 %');
+    expect(confidenceShort(row({ confidence: 91.6 }))).toBe('92%');
   });
 
   it('is null wherever the long text is null', () => {
@@ -211,5 +199,66 @@ describe('the row year (round 005)', () => {
     expect(rowYear({ ...base, year: 1993 })).toBe(1993);
     expect(rowYear(base)).toBeNull();
     expect(rowYear({ ...base, gap: true, year: 1993 })).toBeNull();
+  });
+});
+
+describe('playLinks: the direct pages first', () => {
+  const web = 'https://open.spotify.com/track/abc';
+
+  it('one Play on Spotify, the app link, on every device; no web page', () => {
+    const found = row({ spotify: { id: 'abc', url: web } });
+    expect(playLinks(found, 'zzz')).toEqual([
+      { label: 'Play on Spotify', href: 'spotify:track:abc', app: true },
+    ]);
+  });
+
+  it('without a Check answer it uses the library match', () => {
+    expect(playLinks(row(), 'zzz')).toEqual([
+      { label: 'Play on Spotify', href: 'spotify:track:zzz', app: true },
+    ]);
+  });
+
+  it('nothing when Spotify has no direct page: not found, no match, a local file', () => {
+    expect(playLinks(row({ spotify: 'not-found' }), 'zzz')).toEqual([]);
+    expect(playLinks(row(), null)).toEqual([]);
+    expect(playLinks(row(), 'spotify:local:a:b:c:1')).toEqual([]);
+  });
+
+  it('Shazam only for a row still reading as the scan heard it, after Spotify', () => {
+    const shazam = 'https://www.shazam.com/track/1/x';
+    expect(playLinks(row({ shazamUrl: shazam }), 'zzz')).toEqual([
+      { label: 'Play on Spotify', href: 'spotify:track:zzz', app: true },
+      { label: 'Shazam', href: shazam },
+    ]);
+    expect(
+      playLinks(row({ shazamUrl: shazam, source: 'manual' }), null)
+    ).toEqual([]);
+  });
+});
+
+describe('listenIcons: Shazam and SoundCloud beside the Listen menu', () => {
+  const shazam = 'https://www.shazam.com/track/1/x';
+  const sc = 'https://soundcloud.com/search/sounds?q=A+T';
+
+  it('Shazam then the SoundCloud search, named for the track', () => {
+    expect(listenIcons(row({ shazamUrl: shazam }))).toEqual([
+      { site: 'shazam', label: 'Shazam A – T', href: shazam },
+      { site: 'soundcloud', label: 'Search SoundCloud for A – T', href: sc },
+    ]);
+  });
+
+  it('no Shazam without its URL or once the row was edited', () => {
+    const only = [
+      { site: 'soundcloud', label: 'Search SoundCloud for A – T', href: sc },
+    ];
+    expect(listenIcons(row())).toEqual(only);
+    expect(listenIcons(row({ shazamUrl: shazam, source: 'manual' }))).toEqual(
+      only
+    );
+  });
+
+  it('none for a gap or an unnamed row', () => {
+    expect(listenIcons(row({ gap: true, shazamUrl: shazam }))).toEqual([]);
+    expect(listenIcons(row({ artist: 'ID', title: 'ID' }))).toEqual([]);
   });
 });

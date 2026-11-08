@@ -266,6 +266,11 @@ export function validateMix(row: unknown): Valid<MixRow> {
       return fail('mixes.row.validated');
     if (t.spotify !== undefined && !spotifyCheckOk(t.spotify))
       return fail('mixes.row.spotify');
+    if (
+      t.spotifyBy !== undefined &&
+      !(t.spotifyBy === 'owner' && obj(t.spotify))
+    )
+      return fail('mixes.row.spotifyBy');
     if (t.checkedAt !== undefined && !finite(t.checkedAt))
       return fail('mixes.row.checkedAt');
   }

@@ -30,6 +30,12 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   widths on demo data, [ADR-11](700-adr/ADR-11-web-first-material-3.md)) and by hand; it runs on Chromium and Firefox here,
   WebKit needs system libraries (libicu74, libjpeg-turbo8) the owner's Debian lacks. It is not run in CI.
 - Check on Spotify (F21) saves its answers when it ends: a page reload in the middle loses the answers read so far.
+- A Spotify link pasted on a Mix row (F28) is trusted as given, never verified: a wrong link adds the wrong track until replaced;
+  `spotify.link` short links (they need a redirect) are refused. It is saved like an edit, so a reload before Save mix loses it.
+- The marked Mix row (F29) is the place of a row in the list, kept for the page only: a reload or another mix forgets it; a delete,
+  a paste, the description, a lookup or a reopened mix clears it rather than follow the track; an answer written into the rows in
+  place (Check on Spotify, release years) keeps it. A worker result reaches the open list only when the mix is reopened, which
+  clears it. The glow may be clipped at the scroll container's left and right edges (the bar and lines stay).
 - The redesign's speed targets (LCP ≤ 2.5 s, INP < 200 ms, CLS < 0.1) are checked on demo data only until the owner runs
   the speed run on the real profile (`specs/003-web-first-redesign/quickstart.md` §12).
 - The worker (F19): Shazam's tolerance for unauthenticated calls is undocumented; the pacing (one 12 s probe a minute, 3 s
