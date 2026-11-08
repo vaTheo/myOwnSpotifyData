@@ -77,6 +77,17 @@ describe('reachChanged', () => {
       })
     ).toBe(true);
   });
+  it('is true for a run whose rows all came from the shared store', () => {
+    expect(
+      reachChanged({
+        status: 'done',
+        summary,
+        run: { lookedUp: 0, written: 4, unresolved: 0 },
+        paused: [],
+        shared: { fromStore: 2, sent: 0, error: null },
+      })
+    ).toBe(true);
+  });
   it('is false for an error', () => {
     expect(reachChanged({ status: 'error', message: 'x', paused: [] })).toBe(
       false

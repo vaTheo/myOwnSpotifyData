@@ -152,7 +152,11 @@ import {
   type SyncState,
 } from '../sync/runner';
 import { formatDateTime } from '../ui/format';
-import { connectSignOutShown, signInRequired } from '../ui/signin/gate';
+import {
+  connectSignOutShown,
+  signInRequired,
+  sharedPortAllowed,
+} from '../ui/signin/gate';
 import { describeError, storageMessage } from '../util/errors';
 import { buildModel, type Model } from './aggregate';
 import {
@@ -589,9 +593,12 @@ export function connectSignOutVisible(): boolean {
  * port holds no state and reads the session on each call.
  */
 export function sharedPort(): SharedFactsPort | undefined {
-  if (!serverConfigured) return undefined;
-  if (!serverAuth.session.value) return undefined;
-  if (import.meta.env.DEV && demoVariant() !== null) return undefined;
+  const allowed = sharedPortAllowed({
+    configured: serverConfigured,
+    demo: import.meta.env.DEV && demoVariant() !== null,
+    signedIn: serverAuth.session.value !== null,
+  });
+  if (!allowed) return undefined;
   return createSharedFactsPort({
     client: serverClient,
     getToken: () => serverAuth.getAccessToken(),

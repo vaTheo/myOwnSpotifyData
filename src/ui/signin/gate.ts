@@ -32,6 +32,19 @@ export function connectSignOutShown(p: {
 }
 
 /**
+ * Whether a run may talk to the shared track facts store (round 014, FR-007):
+ * server settings present, someone signed in, and not the demo. Otherwise the
+ * run gets no port and behaves as before the round.
+ */
+export function sharedPortAllowed(p: {
+  configured: boolean;
+  demo: boolean;
+  signedIn: boolean;
+}): boolean {
+  return p.configured && !p.demo && p.signedIn;
+}
+
+/**
  * What boot does once a magic link is exchanged. A working link loads the
  * page again without the code (under the new user's names). A failed one
  * stays on this page: loading again would lose the message (Principle VII).

@@ -789,4 +789,17 @@ describe('the shared store (0004_shared_facts.sql)', () => {
     const shape = SHARED_ID_PATTERN.source.toLowerCase();
     expect(sql.split(shape).length - 1).toBe(2);
   });
+
+  it('get_artist_reach returns the newest measurement per artist and source', () => {
+    const { bodies } = normalise(
+      readFileSync(new URL('0004_shared_facts.sql', DIR), 'utf8')
+    );
+    const body = bodies.find((b) => b.includes('shared_artist_reach'));
+    expect(body).toBeDefined();
+    expect(body).toContain('select distinct on (r.artist_id, r.source)');
+    // distinct on keeps the first row of each group, so the order decides.
+    expect(body).toContain(
+      'order by r.artist_id, r.source, r.measured_on desc'
+    );
+  });
 });
