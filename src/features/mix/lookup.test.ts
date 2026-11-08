@@ -283,6 +283,30 @@ describe('editTracklistRow', () => {
     expect(renamed.validated).toBe(true);
   });
 
+  it('drops the owner’s hand link on a rename, keeps it on a label edit (round 011)', () => {
+    const linked: TracklistRow = {
+      ...base,
+      spotify: { id: 'abc', url: 'https://open.spotify.com/track/abc' },
+      spotifyBy: 'owner',
+      checkedAt: 5,
+    };
+    const relabelled = editTracklistRow(linked, {
+      artist: linked.artist,
+      title: linked.title,
+      label: 'Ovum',
+    });
+    expect(relabelled.spotify).toEqual(linked.spotify);
+    expect(relabelled.spotifyBy).toBe('owner');
+    const renamed = editTracklistRow(linked, {
+      artist: linked.artist,
+      title: `${linked.title} (Edit)`,
+      label: '',
+    });
+    expect('spotify' in renamed).toBe(false);
+    expect('spotifyBy' in renamed).toBe(false);
+    expect('checkedAt' in renamed).toBe(false);
+  });
+
   it('drops a year on a rename unless the row is renamed back to the identified track (S13b N1)', () => {
     const fromSpotify: TracklistRow = {
       ...base,

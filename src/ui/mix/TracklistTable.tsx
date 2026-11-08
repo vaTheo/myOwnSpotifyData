@@ -19,6 +19,7 @@ import {
   addMixRow,
   deleteMixRow,
   editMixRow,
+  linkMixRowSpotify,
   mixCheckSaved,
   mixError,
   mixRows,
@@ -39,6 +40,7 @@ import { yearColumn } from '../table/columns';
 import { DataTable, type Column } from '../table/DataTable';
 import { nextSort, type SortState } from '../table/sort';
 import { Clues } from './Clues';
+import { LinkForm } from './LinkForm';
 import {
   SORT_FIRST,
   effectiveSort,
@@ -175,13 +177,39 @@ const STATUS_TEXT = {
  * in the tooltip. On a phone, the words on the meta line (Play on Spotify
  * is in More's Listen list).
  */
-function SpotifyCell(p: { row: TracklistRow; compact: boolean }) {
+function SpotifyCell(p: {
+  row: TracklistRow;
+  compact: boolean;
+  onLink: () => void;
+}) {
   const { row } = p;
   if (!isIdentified(row)) return null;
   const status = spotifyStatus(row);
   const app =
     typeof row.spotify === 'object' ? `spotify:track:${row.spotify.id}` : null;
   const play = `Play ${nameOf(row)} on Spotify`;
+  // Round 011: the red mark opens the form to paste a Spotify track link.
+  const link = `Link a Spotify track to ${nameOf(row)}`;
+  if (status === 'notFound') {
+    return p.compact ? (
+      <button
+        type="button"
+        class="mix-spotify-text notFound mix-link-open"
+        aria-label={link}
+        title={link}
+        onClick={p.onLink}
+      >
+        {STATUS_TEXT.notFound}
+      </button>
+    ) : (
+      <IconButton
+        icon="error"
+        class="mix-spotify notFound"
+        label={link}
+        onClick={p.onLink}
+      />
+    );
+  }
   if (p.compact) {
     return status === 'unchecked' ? null : (
       <span class={`mix-spotify-text ${status}`}>{STATUS_TEXT[status]}</span>
@@ -199,7 +227,7 @@ function SpotifyCell(p: { row: TracklistRow; compact: boolean }) {
   }
   return (
     <span class={`mix-spotify ${status}`} title={STATUS_TEXT[status]}>
-      <Icon name={status === 'notFound' ? 'error' : 'schedule'} size={20} />
+      <Icon name="schedule" size={20} />
       <span class="visually-hidden">{STATUS_TEXT[status]}</span>
     </span>
   );
@@ -247,6 +275,7 @@ function ReviewCell(p: { line: Line; onRemove: () => void }) {
 function columns(on: {
   edit: (index: number) => void;
   remove: (index: number) => void;
+  link: (index: number) => void;
   compact: boolean;
 }): Column<Line>[] {
   const { compact } = on;
@@ -306,7 +335,13 @@ function columns(on: {
       header: 'Spotify',
       priority: 1,
       width: '64px',
-      cell: (l) => <SpotifyCell row={l.row} compact={compact} />,
+      cell: (l) => (
+        <SpotifyCell
+          row={l.row}
+          compact={compact}
+          onLink={() => on.link(l.index)}
+        />
+      ),
       compact: 'meta',
     },
     {
@@ -555,9 +590,18 @@ function RowView(p: {
   );
 }
 
-/** The row key: the edited row remounts its fields, so Cancel drops the typing. */
-function keyOf(index: number, editing: number | null): string {
-  return `${index}${editing === index ? '-edit' : ''}`;
+/**
+ * The row key: the edited (or linking, round 011) row remounts its fields,
+ * so Cancel drops the typing.
+ */
+function keyOf(
+  index: number,
+  editing: number | null,
+  linking: number | null
+): string {
+  if (editing === index) return `${index}-edit`;
+  if (linking === index) return `${index}-link`;
+  return `${index}`;
 }
 
 /**
@@ -576,6 +620,7 @@ export function TracklistTable() {
   const index = m ? libraryTitleIndex(m) : null;
   const compact = windowClass.value === 'compact';
   const [editing, setEditing] = useState<number | null>(null);
+  const [linking, setLinking] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
   // Check on Spotify saves the mix when it ends (ruling R1): the same
   // "Saved ✓" as Save mix says so.
@@ -610,10 +655,18 @@ export function TracklistTable() {
   };
   const edit = (i: number | null): void => {
     setSaveError(null);
+    setLinking(null);
     setEditing(i);
   };
+  // Round 011: the row whose pasted-link form is open; one form at a time.
+  const link = (i: number | null): void => {
+    setSaveError(null);
+    setEditing(null);
+    setLinking(i);
+  };
+  const open = editing ?? linking;
   // The Sort, the decade and the chip, with their fallbacks (round 005).
-  const view = tracklistView(rows, { decade, filter }, editing);
+  const view = tracklistView(rows, { decade, filter }, open);
   const { decades, order } = view;
   // Spec 008: one sort for the headers and the select; a column the rows no
   // longer allow is the set's order.
@@ -661,15 +714,28 @@ export function TracklistTable() {
       />
       <DataTable
         label="Tracklist"
-        columns={columns({ edit, remove, compact })}
+        columns={columns({ edit, remove, link, compact })}
         rows={lines}
-        rowKey={(l) => keyOf(l.index, editing)}
+        rowKey={(l) => keyOf(l.index, editing, linking)}
         sort={sortNow}
         onSort={setSort}
         noun="track"
         resetKey={`${filter}-${decadeNow ?? ''}`}
-        revealKey={editing === null ? null : keyOf(editing, editing)}
+        revealKey={open === null ? null : keyOf(open, editing, linking)}
         fullRow={(l) => {
+          if (linking === l.index) {
+            return (
+              <LinkForm
+                name={nameOf(l.row)}
+                onLink={(text) => {
+                  const refused = linkMixRowSpotify(l.index, text);
+                  if (refused === null) link(null);
+                  return refused;
+                }}
+                onCancel={() => link(null)}
+              />
+            );
+          }
           if (editing === l.index) {
             return (
               <EditLine

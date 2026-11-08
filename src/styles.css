@@ -3514,6 +3514,39 @@ details.mix-clues > summary:focus-visible {
   color: var(--md-sys-color-primary);
 }
 
+/* Round 011: on a phone the red "Not found on Spotify" is a 48 px text
+   button that opens the pasted-link form. */
+.mix-link-open {
+  padding: 0 8px;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mix-link-open:hover:not(:disabled) {
+  background: var(--md-sys-color-surface-container-high);
+}
+
+/* Round 011: the pasted-link form, in place of the row (as .mix-edit). */
+.mix-link {
+  display: grid;
+  gap: 8px;
+  padding: 8px 0;
+  min-width: 0;
+}
+
+.mix-link-name {
+  font: var(--md-sys-typescale-title-small);
+  overflow-wrap: anywhere;
+}
+
+.mix-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .mix-review,
 .mix-listen,
 .mix-listen-icons {

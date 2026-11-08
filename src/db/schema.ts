@@ -277,6 +277,11 @@ export interface TracklistRow {
   /** Spec 003 T117: what Check on Spotify found for this row, or absent
    *  when never checked. An edit of the artist or title clears it. */
   spotify?: SpotifyCheck;
+  /** Round 011: 'owner' when the owner pasted the Spotify link, set only
+   *  beside an object `spotify`. Cleared with `spotify` on a rename, and by
+   *  Remove link (back to 'not-found'). Absent for every Check answer. No
+   *  `DB_VERSION` bump (ADR-05). */
+  spotifyBy?: 'owner';
   /** When Check on Spotify answered for this row, epoch ms. */
   checkedAt?: number;
 }

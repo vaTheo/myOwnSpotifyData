@@ -51,7 +51,15 @@ import {
   rowAfterCreate,
   tracksToAdd,
 } from '../features/mix/createPlaylist';
-import { canCreatePlaylists } from '../features/mix/spotifySearch';
+import {
+  canCreatePlaylists,
+  isIdentified,
+} from '../features/mix/spotifySearch';
+import {
+  linkedRow,
+  parseSpotifyTrackLink,
+  unlinkedRow,
+} from '../features/mix/spotifyLink';
 import {
   applyAnswers,
   autoCheckDue,
@@ -1675,6 +1683,38 @@ export function editMixRow(
   const row = rows[index];
   if (!row) return;
   rows[index] = editTracklistRow(row, fields);
+  mixRows.value = rows;
+}
+
+/** Round 011: the refusals of a pasted Spotify link, said under the field. */
+export const LINK_EMPTY = 'Paste a Spotify track link.';
+export const LINK_REFUSED = 'That is not a Spotify track link.';
+
+/**
+ * Round 011: the owner pastes a Spotify track link on a named row; it marks
+ * the row found (`spotifyBy: 'owner'`). Returns the refusal to show, or
+ * null when the row was linked. No Spotify read, no lookup (ADR-02, ADR-04):
+ * the id is stored as given. Not a job, no `confirm()`. Saved with Save mix,
+ * like an edit.
+ */
+export function linkMixRowSpotify(index: number, text: string): string | null {
+  if (text.trim() === '') return LINK_EMPTY;
+  const id = parseSpotifyTrackLink(text);
+  if (id === null) return LINK_REFUSED;
+  const rows = mixRows.value.slice();
+  const row = rows[index];
+  if (!row || !isIdentified(row)) return LINK_REFUSED;
+  rows[index] = linkedRow(row, id, Date.now());
+  mixRows.value = rows;
+  return null;
+}
+
+/** Round 011: Remove link — a hand-linked row goes back to not found. */
+export function unlinkMixRowSpotify(index: number): void {
+  const row = mixRows.value[index];
+  if (!row || row.spotifyBy !== 'owner') return;
+  const rows = mixRows.value.slice();
+  rows[index] = unlinkedRow(row);
   mixRows.value = rows;
 }
 

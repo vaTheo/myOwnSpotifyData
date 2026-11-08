@@ -250,6 +250,41 @@ describe('keepStoredAnswers (S13 B3)', () => {
   });
 });
 
+describe('a link the owner pasted (round 011, FR-006)', () => {
+  const ID = '1qGibBSuprByJCYMC4zRUG';
+  const linked = row('One', {
+    spotify: { id: ID, url: `https://open.spotify.com/track/${ID}` },
+    spotifyBy: 'owner',
+    checkedAt: 7,
+  });
+
+  it('rowsToCheck skips a hand-linked row', () => {
+    expect(rowsToCheck([linked, row('Two')])).toEqual([row('Two')]);
+  });
+
+  it('a check answer never overwrites it, even one that ends after the link', () => {
+    const missed = answerFor(0, row('One'), null, 9);
+    expect(applyAnswers([linked], [missed])).toEqual([linked]);
+    const found = answerFor(0, row('One'), 'spotify:track:Other', 9);
+    expect(applyAnswers([linked], [found])).toEqual([linked]);
+  });
+
+  it('keepStoredAnswers keeps it on the live row and puts a stored one back with its marker', () => {
+    expect(keepStoredAnswers([linked], [row('One')])).toEqual([linked]);
+    const stored = checkedRow(row('One'), null, 5);
+    expect(keepStoredAnswers([linked], [stored])).toEqual([linked]);
+    expect(keepStoredAnswers([row('One')], [linked])).toEqual([linked]);
+  });
+
+  it('a check answer carries no marker', () => {
+    const out = applyAnswers(
+      [row('One')],
+      [answerFor(0, row('One'), 'spotify:track:A', 9)]
+    );
+    expect('spotifyBy' in out[0]).toBe(false);
+  });
+});
+
 describe('checkLine', () => {
   it('reads "Checked 12 of 40"', () => {
     expect(checkLine(12, 40)).toBe('Checked 12 of 40');

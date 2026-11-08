@@ -84,6 +84,9 @@ export interface CheckAnswer {
   /** Round 005 (S13b I1): the found track's album year, from the same
    *  search answer; absent when not found or undated. */
   year?: number;
+  /** Round 011: a stored hand link put back by `keepStoredAnswers`; never
+   *  set on a Check answer. */
+  spotifyBy?: 'owner';
 }
 
 /** The answer for the row at `index`, from Search's URI (or null) and the
@@ -107,10 +110,13 @@ export function answerFor(
   };
 }
 
+/** Round 011 (FR-006): a row the owner linked by hand takes no answer, so a
+ *  check that ends after the owner linked a row never overwrites the link. */
 function reads(row: TracklistRow | undefined, a: CheckAnswer): boolean {
   return (
     row !== undefined &&
     !row.gap &&
+    row.spotifyBy !== 'owner' &&
     row.artist === a.artist &&
     row.title === a.title
   );
@@ -146,6 +152,9 @@ export function applyAnswers(
     out[at] = {
       ...out[at],
       spotify: a.spotify,
+      ...(a.spotifyBy === 'owner' && typeof a.spotify === 'object'
+        ? { spotifyBy: 'owner' as const }
+        : {}),
       checkedAt: a.checkedAt,
       // Round 005: a dated row keeps its year (Shazam's or a catalogue's).
       ...(a.year !== undefined && typeof out[at].year !== 'number'
@@ -174,6 +183,7 @@ export function keepStoredAnswers(
       artist: r.artist,
       title: r.title,
       spotify: r.spotify,
+      ...(r.spotifyBy === 'owner' ? { spotifyBy: 'owner' as const } : {}),
       checkedAt: r.checkedAt ?? 0,
       ...(r.yearFrom === 'spotify' && typeof r.year === 'number'
         ? { year: r.year }
