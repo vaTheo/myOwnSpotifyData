@@ -272,35 +272,41 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   with **Ask again**, warnings folded), and a running request shows its
   progress and **Stop** there too.
 - **Review the tracks.** The line above the tracklist counts them ("40
-  tracks · 12 validated · 30 on Spotify · 4 not found"). **Check on
+  tracks · 30 on Spotify · 4 not found"). **Check on
   Spotify** looks each named track up on Spotify, one at a time ("Checked 12
   of 40", Stop), and keeps the answer on the row (a Spotify link, or "not
   found"); it runs when you tap it and also by itself when you open a saved mix with tracks not checked yet (once per mix, only with
   **Automatic updates** on, never while Spotify's lock-out lasts or another Spotify job runs), and saves the mix when it ends.
-  **Validate** (✓) marks a track you have checked by ear; **Remove** (✕)
-  takes it out. The chips **All**, **To review**, **Validated**, **Not on
-  Spotify** and **Heard once** (tracks one 12-second clip matched) show one
-  group at a time; they never change what goes into a playlist. Click a
-  column header to **sort** the tracklist by it (**Confidence** puts the tracks found most often first, then by their %;
-  click again for the least found first; also Time, Artist –
-  Title, Label, Source, In your library, Released, Spotify and Review); the
+  Every track counts as kept; **Remove** (✕, or **Delete** in the row
+  menu) takes a wrong one out. The columns are Time, Artist – Title, Label,
+  **Confidence**, Released (when tracks have a year), Spotify, Listen and
+  Review. **Confidence** reads "×3 · 92%": heard in 3 clips, best match
+  92 %. The chips **All**, **Not on Spotify** and **Heard once** (tracks one
+  12-second clip matched) show one group at a time; they never change what
+  goes into a playlist. Click a column header to **sort** the tracklist by
+  it (**Confidence** puts the tracks heard most often first, then by their
+  %; click again for the least heard first; also Time, Artist – Title,
+  Label, Released and Spotify); the
   **Sort** menu beside the chips offers the same choices, with **Set order**
   to go back, and is how a phone sorts. Tracks with no value always stay at
-  the bottom; the sort is only how you look at the list and is not saved. Each track's
+  the bottom; the sort is only how you look at the list and is not saved.
+  A track found on Spotify has a play icon in the **Spotify** column that
+  opens it in the Spotify app (on a computer without the app it does
+  nothing); on a phone the row says "On Spotify" and **Play on Spotify** is
+  in the row menu under **Listen…**. Beside each track's **Listen** menu, a
+  **Shazam** icon (when the scan knows the track's Shazam page) and a
+  **SoundCloud** icon (a SoundCloud search for the artist and title) open in
+  a new tab in one click; on a phone they sit on the row's second line. The
   **Listen** menu (**Listen…** in the row menu on a phone) opens first the
   pages that go straight to the track: **Play on Spotify** (from Check on
-  Spotify, or from the same song in your library; on a phone it opens the
-  Spotify app, on a computer the web page, with **Open in Spotify app**
-  after it) and **Shazam** when known;
-  then store and preview searches (Beatport, Bandcamp, Discogs, SoundCloud,
-  YouTube), which are search pages because the app never looks a track up by
-  name.
+  Spotify, or from the same song in your library, in the Spotify app) and
+  **Shazam** when known; then store and preview searches (Beatport,
+  Bandcamp, Discogs, SoundCloud, YouTube), which are search pages because
+  the app never looks a track up by name.
 - **Create playlist from mix** turns the list into a private Spotify
-  playlist. Choose **Validated only** (the default once you validated a
-  track) or **All tracks**; the card says how many will be added, in set
-  order. A track found from a comment ("from a comment · not heard") starts
-  _To review_: it joins Validated only once you validate it, and All tracks
-  includes it. The app searches Spotify for each track (or uses the answer
+  playlist with every track of the list (remove the ones you do not want
+  first); the card says how many will be added, in set order. A track found
+  from a comment ("from a comment · not heard") is included too. The app searches Spotify for each track (or uses the answer
   Check on Spotify already found), adds the ones it can match with
   confidence, and lists the others under "N not found" with the same
   Listen links, so you can add them by hand — it never guesses a wrong track.
@@ -326,8 +332,8 @@ failed with the reason) with Ask again. Where the first listen found nothing, th
 listens again (7 s later, then 4 % slower and faster) and reads the set's
 description and comments: they show on those parts of the tracklist, and a
 comment that names a track the free catalogues (Deezer, MusicBrainz) hold
-exactly becomes a row marked "from a comment · not heard": it starts To
-review, joins Validated only once you validate it, and All tracks includes it.
+exactly becomes a row marked "from a comment · not heard", kept like every
+track: remove it if it is wrong.
 While a set is analysed, its row in the Mixes list shows where it is ("First pass · 47 % · about
 25 min left", "Paused by Shazam until 20:35"); a waiting request has **Move to
 top** and **Cancel**, a running one **Stop** (it keeps the tracks found, and Ask
@@ -342,8 +348,8 @@ takes them, then the rest newest first. **Check now** asks the server again
 (it also checks every minute while something waits or runs); a done row opens
 its saved mix, a failed one has Ask again. If a request was already taken or
 finished when you tapped Cancel, Move to top or Stop, the list says so. A new
-result keeps your review: validated tracks stay validated, Spotify answers
-stay, removed tracks stay removed, and only new tracks arrive To review.
+result keeps your review: Spotify answers stay, removed tracks stay removed,
+and only new tracks are added.
 Each track also shows its release year (Shazam's, or the earliest Deezer or
 MusicBrainz give for its ISRC, or the Spotify album Create playlist matched,
 which dates the undated tracks); sort **by year** or keep one **decade**,

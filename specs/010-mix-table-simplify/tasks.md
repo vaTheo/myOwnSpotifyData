@@ -65,10 +65,10 @@ description: "Task list for the simpler mix tracklist table"
 
 ## Phase 6: Polish and docs
 
-- [ ] T018 Update `src/dev/demo.ts` if it sets `validated` (lines ~837, ~872) so the demo still shows a mixed set without relying on it; update `tools/shots/pages.ts` (`mix-filter-validated`, `mix-create-validated`) only to stop referencing removed controls (do not run shots)
-- [ ] T019 Update `tools/shots/regression.spec.ts` rows that click Validate, count "validated", use the Validated tab or the Create playlist choice (~lines 1022–1049, 1163–1169, create-playlist rows) and `specs/003-web-first-redesign/regression.md` to match; add a row for the merged Confidence cell and the icons
-- [ ] T020 Docs round: `src/features/mix/CLAUDE.md` (D6 line, review rules), `docs/architecture/000-how-it-works.md`, `docs/architecture/100-features.md` (new F26 row), `README.md` (owner's manual: columns, Delete, app link, icons), `CHANGELOG.md`; ADR only if the owner wants "validated is gone" recorded
-- [ ] T021 Run `yarn typecheck`, `yarn lint`, `yarn test` and `yarn regression` (A05 is a known stale failure); walk quickstart step 2 on `?demo`
+- [x] T018 Update `src/dev/demo.ts` if it sets `validated` (lines ~837, ~872) so the demo still shows a mixed set without relying on it; update `tools/shots/pages.ts` (`mix-filter-validated`, `mix-create-validated`) only to stop referencing removed controls (do not run shots)
+- [x] T019 Update `tools/shots/regression.spec.ts` rows that click Validate, count "validated", use the Validated tab or the Create playlist choice (~lines 1022–1049, 1163–1169, create-playlist rows) and `specs/003-web-first-redesign/regression.md` to match; add a row for the merged Confidence cell and the icons
+- [x] T020 Docs round: `src/features/mix/CLAUDE.md` (D6 line, review rules), `docs/architecture/000-how-it-works.md`, `docs/architecture/100-features.md` (new F26 row), `README.md` (owner's manual: columns, Delete, app link, icons), `CHANGELOG.md`; ADR only if the owner wants "validated is gone" recorded
+- [x] T021 Run `yarn typecheck`, `yarn lint`, `yarn test` and `yarn regression` (A05 is a known stale failure); walk quickstart step 2 on `?demo` (2026-11-08: all green, regression 73/74 with only A05 failing; step 2 driven by regression M02, F12, R07, not by hand)
 
 ## Dependencies
 

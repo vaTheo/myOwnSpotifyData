@@ -3,6 +3,19 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-08 — A simpler Mix tracklist
+
+Spec: `specs/010-mix-table-simplify/`. The open mix's table loses the **Source**, **In your library** and **Clips** columns and the
+**Validate** button: every track is kept, and **Remove** (✕, or Delete in the row menu) is the only review action. The **To review** and
+**Validated** chips are gone, and **Create playlist from mix** adds every track (no more Validated only / All tracks); old saved
+"validated" marks are ignored. **Confidence** now carries the clip count, "×3 · 92%", and still sorts by times heard then percent; the Sort
+menu loses Clips heard, Source, In your library and Review.
+
+A found track's **Spotify** cell opens the Spotify app directly (`spotify:track:`) on every device; **Open in Spotify app** is gone from
+the Listen menu, whose Play on Spotify is now that app link. On a phone the row says "On Spotify" and Play on Spotify is under More ›
+Listen…. Each row gains one-click **Shazam** (when the scan knows its page) and **SoundCloud** (a search for the track) icons, each in a
+new tab. No new request, no new host, no `DB_VERSION` bump.
+
 ## 2026-11-08 — Opening a mix checks it on Spotify
 
 The Listen menu's **Play on Spotify** opens the Spotify app on a phone (the `spotify:track:` link); on a computer it opens the web page and

@@ -45,6 +45,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 One design document per feature round, dated. The first one is the base model; later ones build on it.
 
+- 2026-11-08 — Simpler Mix tracklist (round 010): [`specs/010-mix-table-simplify/`](../specs/010-mix-table-simplify/spec.md)
 - 2026-11-07 — Sortable Mix tracklist (round 009): [`specs/009-mix-sortable-columns/`](../specs/009-mix-sortable-columns/spec.md)
 - 2026-11-07 — Automatic updates (round 006): [`specs/006-automatic-updates/`](../specs/006-automatic-updates/spec.md), decision [ADR-12](architecture/700-adr/ADR-12-automatic-updates.md)
 - [2026-11-06 — A web-first redesign of every screen](specs/2026-11-06-web-first-redesign-design.md) (full round under [`specs/003-web-first-redesign/`](../specs/003-web-first-redesign/spec.md); not to be confused with `specs/003-fill-scan-gaps/`, round 003 of the worker, recorded in the CHANGELOG)
