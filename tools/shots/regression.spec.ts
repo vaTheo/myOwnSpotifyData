@@ -336,7 +336,7 @@ test.describe('A. addresses', () => {
     ).toBeVisible();
   });
 
-  test('A05 #/crate opens the Crate hub with its five views', async ({
+  test('A05 #/crate opens the Crate hub with its six views', async ({
     app,
   }) => {
     await app.open('#/crate');
@@ -355,6 +355,7 @@ test.describe('A. addresses', () => {
       'All-time classics',
       'By year',
       'Finish rate',
+      'Rarely played',
     ]);
   });
 
