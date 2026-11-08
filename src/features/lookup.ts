@@ -11,6 +11,7 @@ import {
   type FeatureBatch,
   type FetchedFeature,
 } from './reccobeats';
+import type { SharedFactsPort, SharedRunNote, SharedTrackFact } from './shared';
 
 /** A "not found" answer is taken as final for ninety days. */
 export const LOOKUP_NOT_FOUND_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -31,6 +32,10 @@ export const PASS_YEARS = 'release years';
  *  the line moves while they run (forty tracks per request). */
 export const PASS_RIDS = 'ReccoBeats ids';
 
+/** Round 014: the shared store is asked before pass 1; 200 ids a call. */
+export const PASS_SHARED = 'shared store';
+const SHARED_BATCH = 200;
+
 /** Year rows are written every this many tracks, so an error keeps them. */
 export const YEAR_WRITE_BATCH = 10;
 
@@ -50,6 +55,8 @@ export type LookupState =
       notFound: number;
       total: number;
       years: number;
+      /** Only when the run had a shared store port. */
+      shared?: SharedRunNote;
     }
   | { status: 'error'; message: string };
 
@@ -63,6 +70,8 @@ export interface LookupDeps {
   sleep: (ms: number) => Promise<void>;
   now: () => number;
   onState: (state: LookupState) => void;
+  /** Round 014: absent means no call and no `shared` field in the result. */
+  shared?: SharedFactsPort;
 }
 
 /**
@@ -168,7 +177,7 @@ export async function runLookup(
 ): Promise<void> {
   const rows = new Map(existing.map((row) => [row.trackId, row]));
   const startedAt = deps.now();
-  const todo = candidates.filter((c) => !isFresh(rows.get(c.id), startedAt));
+  let todo = candidates.filter((c) => !isFresh(rows.get(c.id), startedAt));
   let requests = 0;
   let pass = PASS_BY_ID;
   let done = 0;
@@ -178,6 +187,53 @@ export async function runLookup(
   let years = 0;
   /** Pass-3 rows not yet written; flushed on an error too. */
   let pendingYears: FeatureRow[] = [];
+  const port = deps.shared;
+  /** The first failed read or share switches the port off for this run. */
+  let sharedOff = false;
+  let sharedError: string | null = null;
+  let fromStore = 0;
+  let sent = 0;
+  /**
+   * Facts to give the store. Built ONLY from the `FetchedFeature` ReccoBeats
+   * returned, never from a row: a rekordbox value has no path to the port
+   * (FR-005). A not-found track is never queued.
+   */
+  let shareQueue: SharedTrackFact[] = [];
+
+  function sharedFailed(message: string): void {
+    sharedOff = true;
+    sharedError = message;
+    shareQueue = [];
+  }
+
+  function queueShare(id: string, fetched: FetchedFeature): void {
+    if (!port || sharedOff) return;
+    if (fetched.bpm === null && fetched.key === null) return;
+    shareQueue.push({
+      trackId: id,
+      bpm: fetched.bpm,
+      key: fetched.key,
+      major: fetched.key === null ? null : fetched.major,
+    });
+  }
+
+  async function flushShare(all: boolean): Promise<void> {
+    if (!port) return;
+    while (
+      !sharedOff &&
+      (all ? shareQueue.length > 0 : shareQueue.length >= SHARED_BATCH)
+    ) {
+      const part = shareQueue.slice(0, SHARED_BATCH);
+      shareQueue = shareQueue.slice(SHARED_BATCH);
+      try {
+        const res = await port.shareTracks(part);
+        if (res.ok) sent += res.value;
+        else sharedFailed(res.message);
+      } catch (err) {
+        sharedFailed(err instanceof Error ? err.message : String(err));
+      }
+    }
+  }
 
   function running(): void {
     deps.onState({ status: 'running', pass, done, total });
@@ -233,6 +289,61 @@ export async function runLookup(
 
   try {
     running();
+    if (port && todo.length > 0) {
+      pass = PASS_SHARED;
+      running();
+      const hits: Candidate[] = [];
+      const hitIds = new Set<string>();
+      const facts = new Map<string, SharedTrackFact>();
+      for (const batch of chunk(todo, SHARED_BATCH)) {
+        if (sharedOff) break;
+        let res;
+        try {
+          res = await port.readTracks(batch.map((c) => c.id));
+        } catch (err) {
+          res = {
+            ok: false as const,
+            message: err instanceof Error ? err.message : String(err),
+          };
+        }
+        if (!res.ok) {
+          sharedFailed(res.message);
+          break;
+        }
+        for (const f of res.value) facts.set(f.trackId, f);
+        done += batch.length;
+        running();
+      }
+      const at = deps.now();
+      const writes: FeatureRow[] = [];
+      for (const candidate of todo) {
+        const f = facts.get(candidate.id);
+        if (!f) continue;
+        const value: FeatureValue = {
+          bpm: f.bpm,
+          key: f.key,
+          major: f.major,
+          energy: null,
+          fetchedAt: at,
+        };
+        writes.push(
+          withReccobeats(rows.get(candidate.id), candidate, value, null, at)
+        );
+        hits.push(candidate);
+        hitIds.add(candidate.id);
+      }
+      if (writes.length > 0) {
+        await putFeatures(writes);
+        for (const row of writes) rows.set(row.trackId, row);
+      }
+      fromStore = hits.length;
+      found += hits.length;
+      todo = todo.filter((c) => !hitIds.has(c.id));
+      pass = PASS_BY_ID;
+      done = 0;
+      total = todo.length;
+      running();
+    }
     const missed: (Candidate & { isrc: string })[] = [];
     for (const batch of chunk(todo, MAX_IDS)) {
       const result = await ask(batch.map((c) => c.id));
@@ -251,6 +362,7 @@ export async function runLookup(
               at
             )
           );
+          queueShare(candidate.id, feature);
           found += 1;
         } else if (candidate.isrc !== null) {
           missed.push({ ...candidate, isrc: candidate.isrc });
@@ -263,6 +375,7 @@ export async function runLookup(
         }
       }
       await write(writes, batch.length);
+      await flushShare(false);
     }
 
     const isrcBatches = chunk(missed, MAX_IDS);
@@ -289,6 +402,7 @@ export async function runLookup(
               at
             )
           );
+          queueShare(candidate.id, feature);
           found += 1;
         } else {
           const marker = { notFound: true as const, checkedAt: at };
@@ -299,7 +413,10 @@ export async function runLookup(
         }
       }
       await write(writes, batch.length);
+      await flushShare(false);
     }
+
+    await flushShare(true);
 
     const dated = candidates
       .map((c) => rows.get(c.id))
@@ -355,6 +472,7 @@ export async function runLookup(
       notFound,
       total: found + notFound,
       years,
+      ...(port ? { shared: { fromStore, sent, error: sharedError } } : {}),
     });
   } catch (err) {
     // The years found before the failure are kept, as the BPM batches are.
@@ -362,6 +480,11 @@ export async function runLookup(
       await flushYears();
     } catch {
       // The first error is the one to show.
+    }
+    try {
+      await flushShare(true);
+    } catch {
+      // Sharing never changes how the run ends.
     }
     deps.onState({ status: 'error', message: storageMessage(err) });
   }
