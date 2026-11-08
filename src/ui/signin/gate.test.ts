@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   SPOTIFY_BEFORE_SIGNIN_MESSAGE,
   afterLink,
+  connectSignOutShown,
   gateNotices,
   signInRequired,
   syncOnOpen,
@@ -102,5 +103,31 @@ describe('syncOnOpen', () => {
     expect(syncOnOpen(null)).toBe(true);
     expect(syncOnOpen('none')).toBe(true);
     expect(syncOnOpen('ok')).toBe(true);
+  });
+});
+
+describe('connectSignOutShown (round 009, final review I1)', () => {
+  it('shows Sign out on Connect with a server and a session', () => {
+    expect(
+      connectSignOutShown({ configured: true, demo: false, signedIn: true })
+    ).toBe(true);
+  });
+
+  it('never without server settings', () => {
+    expect(
+      connectSignOutShown({ configured: false, demo: false, signedIn: true })
+    ).toBe(false);
+  });
+
+  it('never without a server session', () => {
+    expect(
+      connectSignOutShown({ configured: true, demo: false, signedIn: false })
+    ).toBe(false);
+  });
+
+  it('never in the demo, which never talks to the server', () => {
+    expect(
+      connectSignOutShown({ configured: true, demo: true, signedIn: true })
+    ).toBe(false);
   });
 });

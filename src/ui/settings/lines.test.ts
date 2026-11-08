@@ -12,6 +12,7 @@ import {
   reachCoverageLine,
   reachRunLine,
   rekordboxLine,
+  signedInLine,
   usedShare,
   yearsLine,
 } from './lines';
@@ -142,5 +143,15 @@ describe('several people, one device (round 009 T017)', () => {
     expect(dangerDescription(true)).toBe(
       "Removes your Spotify login and deletes your cached playlists and play counts from this browser. Your server data and other people's data on this device are kept."
     );
+  });
+});
+
+describe('signedInLine (Settings server card and Connect)', () => {
+  it('names the email', () => {
+    expect(signedInLine('dj@example.com')).toBe('Signed in as dj@example.com.');
+  });
+
+  it('falls back to "the owner" when the session has no email', () => {
+    expect(signedInLine('')).toBe('Signed in as the owner.');
   });
 });

@@ -16,6 +16,11 @@ export function usedShare(bytes: number, freeBytes: number): string {
   return `${mb(bytes)} MB of ${mb(freeBytes)} MB used on the server`;
 }
 
+/** Whose server session this is: the Settings server card and Connect. */
+export function signedInLine(email: string): string {
+  return `Signed in as ${email || 'the owner'}.`;
+}
+
 /** Spec §5: "BPM and key for 3,120 of 4,980 tracks · ReccoBeats 2,900 · …". */
 export function coverageLine(c: Coverage): string {
   const total = plural(c.total, 'track');

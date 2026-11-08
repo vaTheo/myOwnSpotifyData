@@ -17,6 +17,21 @@ export function signInRequired(p: {
 }
 
 /**
+ * The Connect screen offers Sign out (round 009, final review I1): someone
+ * signed in to the server who has not connected Spotify (new, or after
+ * Disconnect) sees only Connect, so it must say whose space this is and let
+ * them leave it, or the next person would connect into it (FR-002, FR-006).
+ * Never in the demo, never without server settings or a session.
+ */
+export function connectSignOutShown(p: {
+  configured: boolean;
+  demo: boolean;
+  signedIn: boolean;
+}): boolean {
+  return p.configured && !p.demo && p.signedIn;
+}
+
+/**
  * What boot does once a magic link is exchanged. A working link loads the
  * page again without the code (under the new user's names). A failed one
  * stays on this page: loading again would lose the message (Principle VII).

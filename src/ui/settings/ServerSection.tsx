@@ -20,7 +20,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
 import { formatDateTime, plural } from '../format';
 import { ServerLinkForm } from '../signin/ServerLinkForm';
-import { deviceUsersLine, pendingLine, usedShare } from './lines';
+import { deviceUsersLine, pendingLine, signedInLine, usedShare } from './lines';
 import { sectionDomId } from './sections';
 
 const DESCRIPTION =
@@ -102,9 +102,7 @@ export function ServerSection() {
         <ServerSignIn />
       ) : (
         <>
-          <StatusLine kind="success">
-            Signed in as {session.email || 'the owner'}.
-          </StatusLine>
+          <StatusLine kind="success">{signedInLine(session.email)}</StatusLine>
           {people && <StatusLine>{people}.</StatusLine>}
           {pending && <StatusLine>{pendingLine(pending)}</StatusLine>}
           {pendingError && <StatusLine kind="error">{pendingError}</StatusLine>}

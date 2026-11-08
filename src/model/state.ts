@@ -150,7 +150,7 @@ import {
   type SyncState,
 } from '../sync/runner';
 import { formatDateTime } from '../ui/format';
-import { signInRequired } from '../ui/signin/gate';
+import { connectSignOutShown, signInRequired } from '../ui/signin/gate';
 import { describeError, storageMessage } from '../util/errors';
 import { buildModel, type Model } from './aggregate';
 import {
@@ -558,6 +558,18 @@ export async function startServerLink(email: string): Promise<void> {
  */
 export function serverSignInRequired(): boolean {
   return signInRequired({
+    configured: serverConfigured,
+    demo: import.meta.env.DEV && demoVariant() !== null,
+    signedIn: serverAuth.session.value !== null,
+  });
+}
+
+/**
+ * Connect shows who is signed in to the server and a Sign out (final review
+ * I1): the same inputs as the gate, the other side of the session.
+ */
+export function connectSignOutVisible(): boolean {
+  return connectSignOutShown({
     configured: serverConfigured,
     demo: import.meta.env.DEV && demoVariant() !== null,
     signedIn: serverAuth.session.value !== null,
