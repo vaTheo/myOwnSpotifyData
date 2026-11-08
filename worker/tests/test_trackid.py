@@ -15,6 +15,8 @@ from mix_worker.trackid import (
     TRACKID_TIMEOUT_SECONDS,
     Record,
     Span,
+    check_of,
+    plan_guides,
     fetch_trackid,
     parse_clock,
     parse_spans,
@@ -307,6 +309,25 @@ class ParseSpans(unittest.TestCase):
         record = fixture("trackid_record.json")["result"]
         record["detectionProcesses"][0]["detectionProcessMusicTracks"].append(mk("garbage", "00:01:00.0000000", 99))
         self.assertEqual(len(self.spans(record)), 11)
+
+
+class Guides(unittest.TestCase):
+    def test_plan_guides_cores_and_confirm_time(self):
+        spans = [Span(0, 50, "A", "T"), Span(100, 300, "A", "U"), Span(600, 640, "A", "V")]
+        guides = plan_guides(spans, 15, 12)
+        self.assertEqual([(g.span_index, g.core_start, g.core_end, g.confirm_at) for g in guides], [(1, 110, 290, 194)])
+        self.assertEqual(plan_guides([Span(0, 60, "A", "T")], 15, 12)[0].confirm_at, 24)
+        self.assertEqual(plan_guides([Span(0, 60, "A", "T")], 15, 100)[0].confirm_at, 0)
+
+    def test_check_of_outcomes(self):
+        sp = Span(0, 100, "Gloria Gaynor", "I Will Survive (Original Mix)")
+        e = {"artist": "Gloria Gaynor", "song_name": "I Will Survive", "confidence": 80.0}
+        o = {"artist": "Other", "song_name": "Else", "confidence": 90.0}
+        self.assertEqual(check_of(sp, [o, e]), {"outcome": "agrees"})
+        self.assertEqual(check_of(sp, [e, o])["outcome"], "agrees")
+        self.assertEqual(check_of(sp, [o, dict(o, confidence=10.0)]), {"outcome": "differs", "artist": "Other", "song_name": "Else", "confidence": 90.0})
+        self.assertEqual(check_of(sp, [], probed=True), {"outcome": "no_match"})
+        self.assertEqual(check_of(sp, []), {"outcome": "not_asked"})
 
 
 if __name__ == "__main__":

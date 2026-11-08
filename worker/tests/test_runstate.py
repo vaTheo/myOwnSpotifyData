@@ -35,6 +35,31 @@ class RunState(unittest.TestCase):
             runstate.path_for(w, LINK).write_text("{broken", encoding="utf-8")
             self.assertEqual(runstate.load(w, LINK, SETTINGS, 7)[1], "the saved run could not be read")
 
+    def test_trackid_key_changes_start_over_and_confirm_is_remembered(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            w = Path(tmp)
+            key = runstate.trackid_key("slug-a", [(70.0, 190.0)])
+            self.assertEqual(key, runstate.trackid_key("slug-a", [(70.0, 190.0)]))
+            rec = runstate.Recorder(w, LINK, SETTINGS, now=lambda: 0.0, trackid=key)
+            rec.remember("confirm", "0", {"song_name": "T", "artist": "A"})
+            rec.remember("first", "0", None)
+            state, why = runstate.load(w, LINK, SETTINGS, 7, now=lambda: 1.0, trackid=key)
+            self.assertIsNone(why)
+            self.assertEqual(state["confirm"], {"0": {"song_name": "T", "artist": "A"}})
+            for other in (
+                runstate.trackid_key("slug-b", [(70.0, 190.0)]),
+                runstate.trackid_key("slug-a", [(70.0, 200.0)]),
+                None,
+            ):
+                self.assertEqual(runstate.load(w, LINK, SETTINGS, 7, now=lambda: 1.0, trackid=other), (None, "the TrackId.net spans changed since"))
+
+    def test_a_run_without_trackid_loads_as_before(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            w = Path(tmp)
+            runstate.Recorder(w, LINK, SETTINGS, now=lambda: 0.0).remember("first", "0", None)
+            self.assertIsNone(runstate.load(w, LINK, SETTINGS, 7, now=lambda: 1.0)[1])
+            self.assertEqual(runstate.load(w, LINK, SETTINGS, 7, now=lambda: 1.0, trackid=runstate.trackid_key("s", []))[1], "the TrackId.net spans changed since")
+
     def test_written_atomically(self):
         with tempfile.TemporaryDirectory() as tmp:
             w = Path(tmp)

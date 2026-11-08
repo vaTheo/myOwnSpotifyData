@@ -24,6 +24,7 @@ one PyInstaller executable per system.
   Shazam, yt-dlp or a real download. `python -m unittest discover -s tests` is green before every commit.
 - No Spotify host, ever: the outbound hosts are the owner's project, the platform of the link, `amp.shazam.com` (plus the
   optional proxy) and, for clue lookups only (round 003, ADR-10), `api.deezer.com`, `musicbrainz.org`, `api.discogs.com` and, round 016 (ADR-17), `trackid.net` (the exact mix link only, the list and the detail call, never the keyword endpoint). `test_pipeline.py` asserts the fake client saw only the project's host.
+- Round 016 `scan(guides=, spans=)` (both default `None`: nothing changes): a grid probe inside a guided core is skipped (done, not a miss), one `confirm` probe per span is remembered and resumed like a first-pass probe, every hit or miss inside a span's times (any probe, any pass) is absorbed into `span_checks`, never a row or a gap; the run state key carries the slug and a hash of the cores (`runstate.trackid_key`).
 - TrackId.net never fails a request; one confirming probe per guided span and no other probe inside it; TrackId.net outranks Shazam inside its spans (ADR-17).
 - One probe at a time: `sleep(WORKER_COOLDOWN_SECONDS)` before every `recognize`; a `RateLimited` pauses once, twice fails the
   request; never a retry loop against a paused or unreachable server (exit 2/3).

@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from .trackid import check_of
+
 PROBE_SECONDS = 12
 MIN_PROBE_BYTES = 1000
 # A cooldown doubled after each rate limit never grows past this.
@@ -182,6 +184,8 @@ class ScanOutput:
     stopped: dict[str, Any] | None = None  # {"at": "HH:MM:SS", "reason"} when the first pass stopped early
     warnings: list[str] = field(default_factory=list)  # round 004: "refuses often"
     resumed: dict[str, Any] | None = None  # round 004: {"probes_kept", "from"}
+    guided: dict[str, Any] | None = None  # round 016: {"spans", "skipped_probes"} when TrackId.net guided the scan
+    span_checks: dict[int, dict[str, Any]] = field(default_factory=dict)  # round 016: span index → check_of(...)
 
 
 @dataclass(frozen=True)
@@ -312,6 +316,8 @@ async def scan(
     warn_calls: int = 0,
     resume: dict[str, Any] | None = None,
     remember: Callable[[str, str, dict[str, Any] | None], None] | None = None,
+    guides: list[Any] | None = None,
+    spans: list[Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Probes at 0, step, 2·step…; one recognition at a time with `cooldown`
     (+ `jitter(cooldown)`) before each. A `rate_limited` error doubles the
@@ -328,7 +334,14 @@ async def scan(
     A refusal or a run of unanswered calls during the second pass stops it
     and keeps every hit so far (research R6). With `report`, fills
     `second_pass` (`{places, found, stopped}`) and `gaps` (the stretches still
-    without a track, `[(start, end)]` in seconds)."""
+    without a track, `[(start, end)]` in seconds).
+
+    Round 016: with `spans` (TrackId.net's) every hit of any probe whose time
+    lies inside a span is absorbed into that span's check, never a row, and a
+    first-pass miss inside one is covered (no second-pass probe, no gap). With
+    `guides` the first pass skips the grid probes inside each guided core and
+    makes its one confirming probe (`resume["confirm"]` replays it). Both
+    default to None, and then nothing here changes."""
     hits: list[Hit] = []
     misses: list[int] = []
     seen: set[str] = set()
@@ -387,12 +400,42 @@ async def scan(
         prog["paused_until"] = None
         publish(before, force=True)
 
+    # Round 016: hits inside a span's times (start <= t <= end) per span index,
+    # and the spans a probe was made in; only filled when `spans` is given.
+    span_list = list(spans or [])
+    absorbed: dict[int, list[dict[str, Any]]] = {}
+    probed: set[int] = set()
+    guide_list = list(guides or [])
+    skipped_probes = 0
+    confirmed: set[int] = set()
+
+    def spans_at(t: float) -> list[int]:
+        return [i for i, sp in enumerate(span_list) if sp.start <= t <= sp.end]
+
+    def absorb(t: float, entry: dict[str, Any] | None, answered_ok: bool) -> bool:
+        """True when `t` is inside some span: the answer goes to its check."""
+        inside = spans_at(t)
+        for i in inside:
+            if answered_ok:
+                probed.add(i)
+            if entry is not None:
+                absorbed.setdefault(i, []).append(entry)
+        return bool(inside)
+
+    def guide_for(t: int) -> Any | None:
+        for g in guide_list:
+            if g.core_start <= t and t + step <= g.core_end:
+                return g
+        return None
+
     kept = 0
     first_done: dict[int, Any] = {}
     second_done: dict[str, Any] = {}
+    confirm_done: dict[str, Any] = {}
     if resume:
         first_done = {int(k): v for k, v in (resume.get("first") or {}).items()}
         second_done = dict(resume.get("second") or {})
+        confirm_done = dict(resume.get("confirm") or {})
         if first_done:
             kept = len(first_done)
             say(f"  scan · resuming at {hhmmss(max(first_done))} · {kept} probes kept from the stopped run")
@@ -508,15 +551,44 @@ async def scan(
                 t = times[index]
             else:
                 t = index * step
+            guide = guide_for(t) if guide_list else None
+            if guide is not None:
+                if guide.span_index not in confirmed:
+                    confirmed.add(guide.span_index)
+                    ckey = str(guide.span_index)
+                    if ckey in confirm_done:
+                        old = confirm_done[ckey]
+                        absorb(guide.confirm_at, dict(old) if old is not None else None, True)
+                    else:
+                        data = cut(guide.confirm_at)
+                        if len(data) >= MIN_PROBE_BYTES:
+                            where = f"trackid confirm · span {guide.span_index + 1} · {hhmmss(guide.confirm_at)}"
+                            response = await ask(data, where)
+                            if response is not None:
+                                where = answered(where)
+                            entry = track_entry(response, hhmmss(guide.confirm_at)) if response is not None else None
+                            absorb(guide.confirm_at, entry, response is not None)
+                            if entry is not None:
+                                say(f"  {where} · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
+                            elif response is not None:
+                                say(f"  {where} · no match")
+                            if remember is not None:
+                                remember("confirm", ckey, dict(entry) if entry is not None else None)
+                # Inside the core: not cut, not asked, not slept; done, neither a hit nor a miss.
+                skipped_probes += 1
+                index += 1
+                prog["done"] = index
+                continue
             if t in first_done:
                 # Heard by the stopped run (round 004): kept, not asked again.
                 old = first_done[t]
                 if old is not None:
                     entry = dict(old)
-                    hits.append(Hit(time=t, entry=entry))
-                    seen.add(_key(entry))
-                    first_keys[t] = _key(entry)
-                else:
+                    if not (span_list and absorb(t, entry, True)):
+                        hits.append(Hit(time=t, entry=entry))
+                        seen.add(_key(entry))
+                        first_keys[t] = _key(entry)
+                elif not (span_list and absorb(t, None, True)):
                     misses.append(t)
                 index += 1
                 prog["done"] = index
@@ -533,7 +605,13 @@ async def scan(
             if response is not None:
                 where = answered(where)
             entry = track_entry(response, hhmmss(t)) if response is not None else None
-            if entry is not None:
+            covered = bool(span_list) and absorb(t, entry, response is not None)
+            if covered:
+                if entry is not None:
+                    say(f"  {where} · inside a TrackId.net span · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
+                elif response is not None:
+                    say(f"  {where} · no match")
+            elif entry is not None:
                 record(t, entry, where)
                 first_keys[t] = _key(entry)
             else:
@@ -585,8 +663,9 @@ async def scan(
                         old = second_done[key]
                         if old is not None:
                             entry = dict(old)
-                            hits.append(Hit(time=p, entry=entry))
-                            seen.add(_key(entry))
+                            if not (span_list and absorb(p, entry, True)):
+                                hits.append(Hit(time=p, entry=entry))
+                                seen.add(_key(entry))
                         else:
                             still.append(p)
                         prog["done"] = n
@@ -600,10 +679,14 @@ async def scan(
                     if response is not None:
                         where = answered(where)
                     entry = track_entry(response, hhmmss(p)) if response is not None else None
-                    if entry is not None:
+                    if entry is not None and span_list and absorb(p, entry, True):
+                        say(f"  {where} · inside a TrackId.net span · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
+                    elif entry is not None:
                         if record(p, entry, where, speed):
                             second["found"] += 1  # new tracks only, not a known one heard again
                     else:
+                        if span_list and response is not None:
+                            absorb(p, None, True)
                         still.append(p)
                         if response is not None:
                             say(f"  {where} · no match")
@@ -644,6 +727,8 @@ async def scan(
         report["gaps"] = gaps_of(misses, [h.time for h in hits], step)
         report["warnings"] = warnings
         report["resumed"] = {"probes_kept": kept, "from": hhmmss(max(first_done))} if kept else None
+        report["guided"] = {"spans": len(guide_list), "skipped_probes": skipped_probes} if guide_list else None
+        report["span_checks"] = {i: check_of(sp, absorbed.get(i, []), i in probed) for i, sp in enumerate(span_list)}
     return merge(hits, gap)
 
 
@@ -830,6 +915,8 @@ def run_scan(
     progress: Callable[[dict[str, Any]], None] | None = None,
     resume: dict[str, Any] | None = None,
     remember: Callable[[str, str, dict[str, Any] | None], None] | None = None,
+    guides: list[Any] | None = None,
+    spans: list[Any] | None = None,
 ) -> "ScanOutput":
     """The pipeline's `scan` seam: builds the Shazam client lazily and runs
     the async scan with the real cutter and sleeps, second pass included."""
@@ -885,6 +972,8 @@ def run_scan(
                 progress=progress,
                 resume=resume,
                 remember=remember,
+                guides=guides,
+                spans=spans,
                 warn_calls=getattr(settings, "refusal_warn_calls", 0),
             )
         finally:
@@ -897,4 +986,5 @@ def run_scan(
     return ScanOutput(
         rows=rows, second_pass=report.get("second_pass"), gaps=report.get("gaps", []), stopped=report.get("stopped"),
         warnings=report.get("warnings") or [], resumed=report.get("resumed"),
+        guided=report.get("guided"), span_checks=report.get("span_checks") or {},
     )

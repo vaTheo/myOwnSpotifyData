@@ -746,6 +746,7 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   `GET /ws/2/isrc/{ISRC}?inc=releases&fmt=json`; earliest valid year, `release_date_from` naming the catalogue), on the same
   per-set `WORKER_LOOKUPS` budget as the clues (clues first). An invalid year ("0000") is removed; a catalogue failure stops
   the step with one log line and never fails the set.
+- Round 016 (the guided first pass, `scan.scan(guides=, spans=)`): inside each TrackId.net span whose core (start + 10 s to end − 10 s) is at least 40 s the first pass skips its grid probes and makes one confirming probe centred on the span's middle (remembered and resumed like any probe); every Shazam hit inside a span's times is absorbed into the span's check (`agrees`, `differs`, `no_match`, `not_asked`), never a row, and a miss there is covered, so neither the second pass nor the gaps see it. Without spans nothing changes; the run state key gains the record's slug and a hash of the cores, so a changed record starts over.
 - The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
 
 ## Links

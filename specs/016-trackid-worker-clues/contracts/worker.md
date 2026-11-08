@@ -31,7 +31,8 @@ Complements `specs/002-mix-analysis-worker/contracts/worker.md` and `specs/003-f
 | A probe at an edge or outside every core | an ordinary probe; a hit whose time is inside some span's times (unshrunk) is absorbed into that span's check, not a row |
 | A span with a core below 40 s | not guided: probed normally; its check comes from the ordinary hits inside its times |
 | Check outcome | `agrees` (a hit inside the span names the same track by the `match.py` rule), `differs` (only other tracks heard inside it: the best hit's artist, title, confidence), `no_match` (probes made, none matched), `not_asked` (the confirming probe was not made) |
-| Second pass | unchanged; it never receives a skipped probe as a miss |
+| Second pass | unchanged; it never receives a skipped probe as a miss. As built: a first-pass miss inside any span's times (guided or not) is covered, so it never triggers a second-pass probe or becomes a gap; a second-pass probe landing inside a span is absorbed like any other hit. |
+| Resume | the confirming probe is remembered as kind `confirm` (key: the span index) and replayed on resume; the run state gains `trackid` (`{slug, cores}`, `runstate.trackid_key`) and a changed one starts over ("the TrackId.net spans changed since"). |
 
 Rows after the scan: one `origin: "trackid"` row per trusted span with its check, whatever the check says; heard rows only outside every span; sorted by start time; then the clue step runs on the gaps left (a stretch a span covers is not a gap).
 

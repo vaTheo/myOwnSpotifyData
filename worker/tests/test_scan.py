@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from mix_worker.trackid import Span, plan_guides
 from mix_worker.scan import (
     Hit,
     ScanRefused,
@@ -367,6 +368,174 @@ class Result(unittest.TestCase):
             data = write_result(Path(tmp) / "o.json", title="t", artist=None, audio_filename="a", source_url="u", duration=None, date="d", tracks=[])
             self.assertNotIn("artist", data["mix_info"])
             self.assertNotIn("duration_seconds", data["mix_info"])
+
+
+OTHER = {**CASSETTE, "track": {**CASSETTE["track"], "key": "1", "title": "Another One", "subtitle": "Someone Else"}}
+
+
+class GuidedScan(unittest.TestCase):
+    """Round 016: TrackId.net spans guide the first pass."""
+
+    SPAN = Span(60, 200, "Gloria Gaynor", "I Will Survive")  # core 70-190: grid 90, 120, 150 are inside
+
+    def setUp(self):
+        self.cuts, self.asked, self.sleeps, self.lines = [], [], [], []
+
+    def go(self, answer, duration=300, step=30, spans=None, guided=True, second=False, **kw):
+        async def recognise(data, skew):
+            self.asked.append(len(self.cuts))
+            r = answer(self.cuts[-1]) if callable(answer) else answer
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        async def sleep(s):
+            self.sleeps.append(s)
+
+        def cut(t):
+            self.cuts.append(t)
+            return b"x" * 5000
+
+        spans = [self.SPAN] if spans is None else spans
+        guides = plan_guides(spans, step, 12) if guided else None
+        report = {}
+        extra = dict(guides=guides, spans=spans) if guided is not None else {}
+        rows = run(scan(duration, step=step, cooldown=2.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, cut_at=(lambda t, sp: self.cuts.append(t) or b"x" * 5000) if second else None, gap_step=30, speeds=(), sleep=sleep, classify=classify, line=self.lines.append, report=report, **extra, **kw))
+        return rows, report
+
+    def plain(self, answer, duration=300, step=30):
+        cuts, sleeps, asked = [], [], []
+
+        async def recognise(data, skew):
+            asked.append(1)
+            return answer(cuts[-1]) if callable(answer) else answer
+
+        async def sleep(s):
+            sleeps.append(s)
+
+        def cut(t):
+            cuts.append(t)
+            return b"x" * 5000
+
+        report = {}
+        rows = run(scan(duration, step=step, cooldown=2.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=cut, speeds=(), sleep=sleep, classify=classify, report=report))
+        return rows, report, cuts, sleeps, asked
+
+    def test_a_no_guides_is_identical(self):
+        def answer(t):
+            return CASSETTE if t in (0, 30) else NO_MATCH
+
+        rows0, rep0, cuts0, sleeps0, asked0 = self.plain(answer)
+        rows1, rep1 = self.go(answer, spans=[], guided=True)  # empty plan: nothing changes
+        self.assertEqual(self.cuts, cuts0)
+        self.assertEqual(self.sleeps, sleeps0)
+        self.assertEqual(len(self.asked), len(asked0))
+        self.assertEqual(rows1, rows0)
+        self.assertEqual(rep1["gaps"], rep0["gaps"])
+        self.assertIsNone(rep1["guided"])
+        self.assertEqual(rep1["span_checks"], {})
+        self.assertIsNone(rep0.get("guided"))
+
+    def test_b_core_skipped_except_the_one_confirming_probe(self):
+        rows, rep = self.go(NO_MATCH)
+        grid = [t for t in range(0, 300, 30) if t not in (90, 120, 150)]
+        self.assertEqual(self.cuts[:3], [0, 30, 60])
+        self.assertEqual(self.cuts[3], 124)  # (60 + 200) / 2 - 6, before the next grid time
+        self.assertEqual([t for t in self.cuts if t % 30 == 0 and t < 300][:len(grid)], grid)
+        self.assertEqual(len(self.asked), len(grid) + 1)
+        self.assertEqual(len(self.sleeps), len(self.asked))  # no sleep for a skipped probe
+        self.assertEqual(rep["guided"], {"spans": 1, "skipped_probes": 3})
+        self.assertTrue(any("trackid confirm · span 1" in l for l in self.lines))
+
+    def test_b_skipped_probes_count_as_done_and_are_not_misses(self):
+        seen = []
+        rows, rep = self.go(NO_MATCH, second=True, progress=seen.append, clock=lambda: 0.0, wall=lambda: 1_794_000_000.0)
+        self.assertEqual(seen[0]["total"], 10)
+        # no second-pass probe (grid + 7) lands in the span's times: 60-200 is covered
+        self.assertEqual([t for t in self.cuts if t % 30 == 7 and 60 <= t <= 200], [])
+        self.assertTrue(any(t % 30 == 7 for t in self.cuts))
+        for start, end in rep["gaps"]:
+            self.assertFalse(start < 200 and end > 60)
+
+    def test_c_confirm_answer_goes_to_the_check_not_the_hits(self):
+        hits = []
+        rows, rep = self.go(lambda t: CASSETTE if t in (124, 0) else NO_MATCH, hits_out=hits)
+        self.assertEqual([h.time for h in hits], [0])
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual([r["time_in_mix"] for r in rows], ["00:00:00"])
+
+    def test_c_hit_inside_the_unshrunk_span_is_absorbed_and_outside_stays(self):
+        hits = []
+        # 60 is inside the span (start edge) but not inside the core: ordinary probe, absorbed
+        rows, rep = self.go(lambda t: OTHER if t in (60, 270) else NO_MATCH, hits_out=hits)
+        self.assertEqual([h.time for h in hits], [270])
+        self.assertEqual(rep["span_checks"][0]["outcome"], "differs")
+
+    def test_d_outcomes(self):
+        _, rep = self.go(lambda t: OTHER if t == 124 else NO_MATCH)
+        c = rep["span_checks"][0]
+        self.assertEqual((c["outcome"], c["artist"], c["song_name"]), ("differs", "Someone Else", "Another One"))
+        self.assertIsInstance(c["confidence"], float)
+        self.setUp()
+        _, rep = self.go(NO_MATCH)
+        self.assertEqual(rep["span_checks"][0], {"outcome": "no_match"})
+        self.setUp()
+        _, rep = self.go(SignatureError("silence"))
+        self.assertEqual(rep["span_checks"][0], {"outcome": "not_asked"})
+
+    def test_d_stop_before_the_confirm_is_not_asked(self):
+        n = {"c": 0}
+
+        def progress(p):
+            n["c"] += 1
+            if n["c"] == 2:
+                raise StopRequested()
+
+        rows, rep = self.go(lambda t: CASSETTE if t == 0 else NO_MATCH, progress=progress, clock=iter(range(0, 10_000, 100)).__next__)
+        self.assertEqual(rep["span_checks"][0]["outcome"], "not_asked")
+        self.assertIsNotNone(rep["stopped"])
+
+    def test_e_a_short_core_is_not_guided(self):
+        short = Span(60, 120, "Gloria Gaynor", "I Will Survive")  # core 50 s - 20 = 40... use 60-109
+        short = Span(60, 109, "Gloria Gaynor", "I Will Survive")  # core 29 s
+        self.assertEqual(plan_guides([short], 30, 12), [])
+        hits = []
+        rows, rep = self.go(lambda t: CASSETTE if t == 90 else NO_MATCH, spans=[short], hits_out=hits)
+        self.assertEqual(hits, [])  # the ordinary hit inside the span's times is absorbed
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertIsNone(rep["guided"])
+        self.assertEqual([t for t in self.cuts if t % 30 == 0], list(range(0, 300, 30)))
+
+    def test_f_overlapping_spans_share_the_skipped_probes(self):
+        a = Span(60, 200, "Gloria Gaynor", "I Will Survive")
+        b = Span(100, 240, "Gloria Gaynor", "I Will Survive")
+        self.assertEqual([g.span_index for g in plan_guides([a, b], 30, 12)], [0, 1])
+        rows, rep = self.go(lambda t: CASSETTE if t in (124, 144) else NO_MATCH, spans=[a, b])
+        self.assertEqual(rep["guided"]["spans"], 2)
+        self.assertEqual(set(rep["span_checks"]), {0, 1})
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual(rep["span_checks"][1], {"outcome": "agrees"})
+        # grid times inside either core are skipped once each
+        for t in (90, 120, 150, 180):
+            self.assertNotIn(t, self.cuts)
+
+    def test_g_confirm_is_remembered_and_not_asked_again(self):
+        remembered = []
+        self.go(lambda t: CASSETTE if t == 124 else NO_MATCH, remember=lambda k, key, e: remembered.append((k, key, e is not None)))
+        self.assertIn(("confirm", "0", True), remembered)
+        self.assertNotIn(("first", "90", False), remembered)  # skipped probes remember nothing
+        self.setUp()
+        _, rep = self.go(NO_MATCH, resume={"confirm": {"0": dict(track_entry(CASSETTE, "00:02:04"))}, "first": {}})
+        self.assertNotIn(124, self.cuts)
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+
+    def test_h_refusal_and_cooldown_unchanged(self):
+        with self.assertRaises(ScanRefused):
+            self.go(RateLimited(), max_pauses=1)
+        self.assertTrue(all(s in (2.0, 0.0) for s in self.sleeps))
+        self.setUp()
+        rows, rep = self.go(lambda t: CASSETTE if t == 0 else NO_MATCH)
+        self.assertTrue(all(s == 2.0 for s in self.sleeps))
 
 
 if __name__ == "__main__":

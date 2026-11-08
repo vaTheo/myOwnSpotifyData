@@ -21,7 +21,21 @@ def path_for(work_dir: Path, link: str) -> Path:
     return work_dir / "runs" / (hashlib.sha1(link.encode("utf-8")).hexdigest() + ".json")
 
 
-def load(work_dir: Path, link: str, settings: dict[str, Any], max_days: int, now: Callable[[], float] = time.time) -> tuple[dict[str, Any] | None, str | None]:
+def trackid_key(slug: str, cores: list[tuple[float, float]]) -> dict[str, str]:
+    """Round 016: the record's slug and a hash of the guided cores; a scan that
+    skipped other stretches cannot be continued."""
+    digest = hashlib.sha1(json.dumps(sorted(cores)).encode("utf-8")).hexdigest()
+    return {"slug": slug, "cores": digest}
+
+
+def load(
+    work_dir: Path,
+    link: str,
+    settings: dict[str, Any],
+    max_days: int,
+    now: Callable[[], float] = time.time,
+    trackid: dict[str, str] | None = None,
+) -> tuple[dict[str, Any] | None, str | None]:
     """The saved state for `link` when it can be resumed, else (None, why not)."""
     if max_days <= 0:
         return None, None
@@ -36,20 +50,25 @@ def load(work_dir: Path, link: str, settings: dict[str, Any], max_days: int, now
         return None, None
     if state.get("settings") != settings:
         return None, "the probe settings changed since"
+    if state.get("trackid") != trackid:
+        return None, "the TrackId.net spans changed since"
     if now() - float(state.get("updated", 0)) > max_days * 86400:
         return None, f"the stopped run is older than {max_days} days"
-    if not state.get("first"):
+    if not state.get("first") and not state.get("confirm"):
         return None, None
     return state, None
 
 
 class Recorder:
-    """Keeps the run state and writes it after every probe."""
+    """Keeps the run state (kinds: first, second, confirm) and writes it after every probe."""
 
-    def __init__(self, work_dir: Path, link: str, settings: dict[str, Any], base: dict[str, Any] | None = None, now: Callable[[], float] = time.time) -> None:
+    def __init__(self, work_dir: Path, link: str, settings: dict[str, Any], base: dict[str, Any] | None = None, now: Callable[[], float] = time.time, trackid: dict[str, str] | None = None) -> None:
         self.path = path_for(work_dir, link)
         self.now = now
         self.state: dict[str, Any] = base or {"link": link, "settings": settings, "started": now(), "first": {}, "second": {}}
+        if trackid is not None and base is None:
+            self.state["trackid"] = trackid
+        self.state.setdefault("confirm", {})
         self.state.setdefault("first", {})
         self.state.setdefault("second", {})
 

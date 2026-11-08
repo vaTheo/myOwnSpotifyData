@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import __version__
+from .match import artist_matches, title_matches
 
 TRACKID_LIST_URL = "https://trackid.net/api/public/audiostreams"
 TRACKID_EDGE_SECONDS = 10
@@ -194,3 +195,43 @@ def fetch_trackid(
     except Exception as err:  # noqa: BLE001 - TrackId.net never costs a request
         log(f"trackid · failed ({type(err).__name__})")
     return None
+
+
+@dataclass(frozen=True)
+class Guide:
+    """One guided span: its core (the span shrunk by the edges) is skipped by
+    the first pass except the one confirming probe at `confirm_at`."""
+
+    span_index: int
+    core_start: float
+    core_end: float
+    confirm_at: int
+
+
+def plan_guides(spans: list[Span], step: int, probe_seconds: int) -> list[Guide]:
+    """A guide per span whose core (start + 10 s to end - 10 s) is at least
+    `TRACKID_MIN_CORE_SECONDS` long; the confirming probe's window is centred
+    on the span's middle, never below 0. `step` is the grid the scan walks (the
+    skipping itself happens there, on the grid's own windows)."""
+    guides: list[Guide] = []
+    for i, span in enumerate(spans):
+        core_start = span.start + TRACKID_EDGE_SECONDS
+        core_end = span.end - TRACKID_EDGE_SECONDS
+        if core_end - core_start < TRACKID_MIN_CORE_SECONDS:
+            continue
+        guides.append(Guide(i, core_start, core_end, max(0, int((span.start + span.end) / 2 - probe_seconds / 2))))
+    return guides
+
+
+def check_of(span: Span, entries: list[dict[str, Any]], probed: bool = False) -> dict[str, Any]:
+    """What the Shazam probes inside a span said about it: `agrees` (some
+    entry names the same track by the `match.py` rule), `differs` (entries, none
+    agreeing; carries the most confident one), `no_match` (a probe was made
+    inside the span and nothing matched), `not_asked` (no probe was made)."""
+    for e in entries:
+        if artist_matches(span.artist, str(e.get("artist", ""))) and title_matches(span.title, str(e.get("song_name", ""))):
+            return {"outcome": "agrees"}
+    if entries:
+        best = max(entries, key=lambda e: e.get("confidence") or 0)
+        return {"outcome": "differs", "artist": best.get("artist"), "song_name": best.get("song_name"), "confidence": best.get("confidence")}
+    return {"outcome": "no_match" if probed else "not_asked"}
