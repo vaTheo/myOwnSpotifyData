@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Clue, TracklistRow } from '../../db/schema';
 import {
+  checkText,
   clueLine,
   confidenceShort,
   rowYear,
@@ -260,5 +261,45 @@ describe('listenIcons: Shazam and SoundCloud beside the Listen menu', () => {
   it('none for a gap or an unnamed row', () => {
     expect(listenIcons(row({ gap: true, shazamUrl: shazam }))).toEqual([]);
     expect(listenIcons(row({ artist: 'ID', title: 'ID' }))).toEqual([]);
+  });
+});
+
+describe('round 016: TrackId.net rows', () => {
+  const tr = { slug: 's', spanStart: 616, spanEnd: 857, references: 31 };
+  it('originText names TrackId.net, the span and the references', () => {
+    expect(originText(row({ origin: 'trackid', trackid: tr }))).toBe(
+      'from TrackId.net · 10:16 to 14:17 · 31 references'
+    );
+    expect(
+      originText(
+        row({
+          origin: 'trackid',
+          trackid: { ...tr, spanStart: 3700, references: undefined },
+        })
+      )
+    ).toBe('from TrackId.net · 1:01:40 to 14:17');
+  });
+  it('checkText reads the Shazam check', () => {
+    const t = (c: TracklistRow['shazamCheck']) =>
+      checkText(row({ origin: 'trackid', trackid: tr, shazamCheck: c }));
+    expect(t({ outcome: 'agrees' })).toBe('Shazam agrees');
+    expect(t({ outcome: 'no_match' })).toBe('Shazam: no match');
+    expect(t({ outcome: 'not_asked' })).toBeNull();
+    expect(
+      t({
+        outcome: 'differs',
+        artist: 'Other',
+        title: 'Track',
+        confidence: 0.7,
+      })
+    ).toBe('Shazam heard Other - Track instead');
+    expect(checkText(row({ origin: 'trackid', trackid: tr }))).toBeNull();
+    expect(checkText(row())).toBeNull();
+  });
+  it('leaves clue and replay rows unchanged and shows no confidence', () => {
+    expect(originText(row({ origin: 'replay' }))).toBe('second listen');
+    expect(
+      confidenceText(row({ origin: 'trackid', confidence: 80 }))
+    ).toBeNull();
   });
 });

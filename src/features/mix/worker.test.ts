@@ -867,3 +867,74 @@ describe('viewRows — round 005 year', () => {
     expect(viewRows(withGap, false)).toEqual([0, 1]);
   });
 });
+
+describe('resultToRows — round 016 TrackId.net rows', () => {
+  const tid = (extra: object) => {
+    const base = resultFixture() as { tracks: object[] };
+    return {
+      ...base,
+      tracks: [
+        {
+          song_name: 'Yuco',
+          artist: 'Kyntral',
+          time_in_mix: '00:10:16',
+          hits: 2,
+          ...extra,
+        },
+        ...base.tracks.slice(1),
+      ],
+    };
+  };
+  const good = {
+    origin: 'trackid',
+    trackid: { slug: 'a-mix', span_start: 616, span_end: 857, references: 31 },
+    shazam_check: {
+      outcome: 'differs',
+      artist: 'Other',
+      song_name: 'Track',
+      confidence: 0.7,
+    },
+  };
+  it('maps the span and the Shazam check, with no confidence', () => {
+    const r = resultToRows(tid(good));
+    if (!r.ok) throw new Error(r.message);
+    const row = r.rows.find((x) => x.origin === 'trackid');
+    expect(row).toMatchObject({
+      origin: 'trackid',
+      trackid: { slug: 'a-mix', spanStart: 616, spanEnd: 857, references: 31 },
+      shazamCheck: {
+        outcome: 'differs',
+        artist: 'Other',
+        title: 'Track',
+        confidence: 0.7,
+      },
+    });
+    expect(row?.hits).toBeUndefined();
+    expect(row?.validated).toBeUndefined();
+  });
+  it('drops a trackid object outside the bounds and a bad check', () => {
+    const r = resultToRows(
+      tid({
+        origin: 'trackid',
+        trackid: { slug: 'a', span_start: 900, span_end: 800 },
+        shazam_check: { outcome: 'maybe' },
+      })
+    );
+    if (!r.ok) throw new Error(r.message);
+    const row = r.rows.find((x) => x.origin === 'trackid');
+    expect(row?.trackid).toBeUndefined();
+    expect(row?.shazamCheck).toBeUndefined();
+  });
+  it('maps agrees and a result without the fields as before', () => {
+    const r = resultToRows(
+      tid({ ...good, shazam_check: { outcome: 'agrees' } })
+    );
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows.find((x) => x.origin === 'trackid')?.shazamCheck).toEqual({
+      outcome: 'agrees',
+    });
+    const plain = resultToRows(resultFixture());
+    if (!plain.ok) throw new Error(plain.message);
+    expect(plain.rows.some((x) => x.trackid || x.shazamCheck)).toBe(false);
+  });
+});

@@ -718,3 +718,62 @@ describe('validateSharedReachFact', () => {
     expect(validateSharedReachFact(row(), new Set(['y']), NOW).ok).toBe(false);
   });
 });
+
+describe('validateMix — round 016 TrackId.net rows', () => {
+  const r0 = mixRow.rows[0];
+  const trackid = {
+    slug: 'a-mix',
+    spanStart: 616,
+    spanEnd: 857,
+    references: 31,
+  };
+  const t = { ...r0, origin: 'trackid', trackid };
+  const ok = (row: object) => validateMix({ ...mixRow, rows: [row] }).ok;
+  it('accepts a trackid row and each Shazam check', () => {
+    expect(ok(t)).toBe(true);
+    expect(ok({ ...t, trackid: { ...trackid, references: undefined } })).toBe(
+      true
+    );
+    for (const outcome of ['agrees', 'no_match', 'not_asked'])
+      expect(ok({ ...t, shazamCheck: { outcome } })).toBe(true);
+    expect(
+      ok({
+        ...t,
+        shazamCheck: {
+          outcome: 'differs',
+          artist: 'A',
+          title: 'T',
+          confidence: 0.7,
+        },
+      })
+    ).toBe(true);
+    expect(ok({ ...r0, origin: 'clue' })).toBe(true);
+  });
+  it('refuses bad bounds, a stray object and an unknown outcome', () => {
+    const bad = (over: object) =>
+      ok({ ...t, trackid: { ...trackid, ...over } });
+    expect(bad({ spanStart: 900 })).toBe(false);
+    expect(bad({ spanStart: -1 })).toBe(false);
+    expect(bad({ spanEnd: Number.POSITIVE_INFINITY })).toBe(false);
+    expect(bad({ spanEnd: 100001 })).toBe(false);
+    expect(bad({ slug: 'x'.repeat(201) })).toBe(false);
+    expect(bad({ slug: 3 })).toBe(false);
+    expect(bad({ references: 1.5 })).toBe(false);
+    expect(bad({ references: -1 })).toBe(false);
+    expect(ok({ ...r0, trackid })).toBe(false);
+    expect(ok({ ...r0, origin: 'replay', trackid })).toBe(false);
+    expect(ok({ ...r0, shazamCheck: { outcome: 'agrees' } })).toBe(false);
+    expect(ok({ ...t, shazamCheck: { outcome: 'maybe' } })).toBe(false);
+    expect(ok({ ...t, shazamCheck: { outcome: 'agrees', artist: 'A' } })).toBe(
+      false
+    );
+    expect(
+      ok({ ...t, shazamCheck: { outcome: 'no_match', confidence: 0.5 } })
+    ).toBe(false);
+    const d = { outcome: 'differs', artist: 'A', title: 'T' };
+    expect(ok({ ...t, shazamCheck: { ...d, confidence: 1.1 } })).toBe(false);
+    expect(ok({ ...t, shazamCheck: { ...d, title: 'x'.repeat(201) } })).toBe(
+      false
+    );
+  });
+});

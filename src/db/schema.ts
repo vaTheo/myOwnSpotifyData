@@ -254,7 +254,24 @@ export interface TracklistRow {
   /** Round 003: how a worker row was found when not on the first listen —
    *  'replay' (second pass, at `speedPercent`), 'clue' (a candidate named by a
    *  comment, a chapter or the description, never heard). Absent otherwise. */
-  origin?: 'replay' | 'clue';
+  origin?: 'replay' | 'clue' | 'trackid';
+  /** Round 016: only with `origin 'trackid'`. The Shazam probe's answer on a
+   *  TrackId.net span; `artist`, `title` and `confidence` only with
+   *  'differs'. The row itself stays TrackId.net's. */
+  shazamCheck?: {
+    outcome: 'agrees' | 'differs' | 'no_match' | 'not_asked';
+    artist?: string;
+    title?: string;
+    confidence?: number;
+  };
+  /** Round 016: only with `origin 'trackid'`. The TrackId.net span (seconds)
+   *  and how many corpus mixes reference it. */
+  trackid?: {
+    slug: string;
+    spanStart: number;
+    spanEnd: number;
+    references?: number;
+  };
   /** Round 004: how many 12 s clips matched this heard row (first and
    *  second pass); its best score is `confidence`. Absent for candidates
    *  and rows from before. */

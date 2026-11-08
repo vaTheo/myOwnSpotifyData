@@ -109,6 +109,32 @@ export function originText(row: TracklistRow): string | null {
       ? `from a comment by ${row.clue.author}`
       : 'from a comment';
   }
+  if (row.origin === 'trackid') {
+    const t = row.trackid;
+    if (!t) return 'from TrackId.net';
+    const span = `${formatClock(t.spanStart)} to ${formatClock(t.spanEnd)}`;
+    const refs =
+      t.references !== undefined
+        ? ` · ${plural(t.references, 'reference')}`
+        : '';
+    return `from TrackId.net · ${span}${refs}`;
+  }
+  return null;
+}
+
+/**
+ * Round 016: the Shazam probe's line under a TrackId.net row; null for
+ * 'not_asked', a row without a check and every other row.
+ */
+export function checkText(row: TracklistRow): string | null {
+  const c = row.shazamCheck;
+  if (row.origin !== 'trackid' || !c) return null;
+  if (c.outcome === 'agrees') return 'Shazam agrees';
+  if (c.outcome === 'no_match') return 'Shazam: no match';
+  if (c.outcome === 'differs')
+    return c.artist && c.title
+      ? `Shazam heard ${c.artist} - ${c.title} instead`
+      : 'Shazam heard something else';
   return null;
 }
 
@@ -119,7 +145,7 @@ export function originText(row: TracklistRow): string | null {
  * gap, which were not heard.
  */
 export function confidenceText(row: TracklistRow): string | null {
-  if (row.gap || row.origin === 'clue') return null;
+  if (row.gap || row.origin === 'clue' || row.origin === 'trackid') return null;
   if (row.source !== 'tracklistify' || row.confidence == null) return null;
   const best = Math.round(row.confidence);
   return row.hits !== undefined

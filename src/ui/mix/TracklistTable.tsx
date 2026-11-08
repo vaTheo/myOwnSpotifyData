@@ -57,6 +57,7 @@ import { markAfter, type RowMarkEvent } from './rowMark';
 import {
   confidenceShort,
   confidenceText,
+  checkText,
   gapCluesSummary,
   listenIcons,
   originText,
@@ -133,16 +134,19 @@ function TitleCell(p: { line: Line }) {
   const origin = originText(row);
   const refs = referencesLine(p.line);
   const quote = row.origin === 'clue' && row.clue ? row.clue.text : null;
-  const second = row.origin === 'clue' || origin !== null || refs !== null;
+  const notHeard = row.origin === 'clue' || row.origin === 'trackid';
+  const check = checkText(row);
+  const second = notHeard || origin !== null || refs !== null || check !== null;
   return (
     <span class="mix-title-cell">
       <span class="dt-text mix-name">{nameOf(row)}</span>
       {second && (
         <span class="mix-second">
-          {row.origin === 'clue' && <Flag kind="todo">not heard</Flag>}
+          {notHeard && <Flag kind="todo">not heard</Flag>}
           {origin !== null && <span class="mix-origin">{origin}</span>}
           {quote !== null && <span class="mix-quote">“{quote}”</span>}
           {refs !== null && <span class="mix-refs">{refs}</span>}
+          {check !== null && <span class="mix-origin">{check}</span>}
         </span>
       )}
     </span>

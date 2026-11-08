@@ -77,7 +77,8 @@ function trackExtras(track: unknown): Partial<TracklistRow> {
     typeof t.hits === 'number' &&
     Number.isInteger(t.hits) &&
     t.hits >= 1 &&
-    t.origin !== 'clue'
+    t.origin !== 'clue' &&
+    t.origin !== 'trackid'
       ? { hits: t.hits }
       : {};
   if (t.origin === 'replay') {
@@ -95,7 +96,64 @@ function trackExtras(track: unknown): Partial<TracklistRow> {
     const clue = toClue(t.clue);
     return { origin: 'clue', ...(clue ? { clue } : {}) };
   }
+  if (t.origin === 'trackid') {
+    const trackid = toTrackid(t.trackid);
+    const shazamCheck = toShazamCheck(t.shazam_check);
+    return {
+      origin: 'trackid',
+      ...(trackid ? { trackid } : {}),
+      ...(shazamCheck ? { shazamCheck } : {}),
+    };
+  }
   return { ...hits, ...yearExtras(t.metadata) };
+}
+
+const TRACKID_SECONDS_MAX = 100_000;
+const TRACKID_TEXT_MAX = 200;
+
+/** Round 016: the worker's `trackid` object, or null outside the bounds. */
+function toTrackid(v: unknown): TracklistRow['trackid'] | null {
+  if (typeof v !== 'object' || v === null) return null;
+  const o = v as Record<string, unknown>;
+  const a = o.span_start;
+  const b = o.span_end;
+  if (typeof o.slug !== 'string' || o.slug.length > TRACKID_TEXT_MAX)
+    return null;
+  if (typeof a !== 'number' || typeof b !== 'number') return null;
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  if (a < 0 || b < a || b > TRACKID_SECONDS_MAX) return null;
+  const refs = o.references;
+  return {
+    slug: o.slug,
+    spanStart: a,
+    spanEnd: b,
+    ...(typeof refs === 'number' && Number.isInteger(refs) && refs >= 0
+      ? { references: refs }
+      : {}),
+  };
+}
+
+/** Round 016: the worker's `shazam_check` (`song_name` is the title). */
+function toShazamCheck(v: unknown): TracklistRow['shazamCheck'] | null {
+  if (typeof v !== 'object' || v === null) return null;
+  const o = v as Record<string, unknown>;
+  const outcome = o.outcome;
+  if (outcome === 'agrees' || outcome === 'no_match' || outcome === 'not_asked')
+    return { outcome };
+  if (outcome !== 'differs') return null;
+  const text = (x: unknown): string | null =>
+    typeof x === 'string' && x.length <= TRACKID_TEXT_MAX ? x : null;
+  const artist = text(o.artist);
+  const title = text(o.song_name);
+  const c = o.confidence;
+  const confidence =
+    typeof c === 'number' && Number.isFinite(c) && c >= 0 && c <= 1 ? c : null;
+  return {
+    outcome,
+    ...(artist !== null ? { artist } : {}),
+    ...(title !== null ? { title } : {}),
+    ...(confidence !== null ? { confidence } : {}),
+  };
 }
 
 /**
