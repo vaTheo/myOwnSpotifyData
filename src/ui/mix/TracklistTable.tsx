@@ -377,7 +377,8 @@ function columns(on: {
       id: 'review',
       header: 'Review',
       priority: 1,
-      width: '48px',
+      // Wide enough for the word "Review" in the header (48 px cut it to "Reviev").
+      width: '72px',
       cell: (l) => <ReviewCell line={l} onRemove={() => on.remove(l.index)} />,
       compact: 'hidden',
     },
