@@ -1,5 +1,12 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import {
+  SHARED_BPM_MAX,
+  SHARED_BPM_MIN,
+  SHARED_ID_PATTERN,
+  SHARED_MAX_IDS,
+} from './sharedFacts';
+import { SHARED_KEY_MAX, SHARED_REACH_MAX } from './validate';
 
 /**
  * The server rules audit (round 011, T013, FR-002): the database is the
@@ -725,20 +732,21 @@ describe('the shared store (0004_shared_facts.sql)', () => {
   });
 
   it('the numbers in the SQL are the client numbers', () => {
-    // Round 014 T009 moves these to imports of src/server/sharedFacts.ts
-    // (SHARED_BPM_MIN/MAX, SHARED_MAX_IDS): until then they are pinned here.
-    const BPM_MIN = 30;
-    const BPM_MAX = 300;
-    const MAX_IDS = 200;
     const { sql, bodies } = normalise(
       readFileSync(new URL('0004_shared_facts.sql', DIR), 'utf8')
     );
-    expect(sql).toContain(`bpm between ${BPM_MIN} and ${BPM_MAX}`);
+    expect(sql).toContain(
+      `bpm between ${SHARED_BPM_MIN} and ${SHARED_BPM_MAX}`
+    );
     expect(bodies).toHaveLength(2);
     for (const b of bodies) {
-      expect(b).toContain(`cardinality(ids) > ${MAX_IDS} then`);
+      expect(b).toContain(`cardinality(ids) > ${SHARED_MAX_IDS} then`);
     }
-    expect(sql).toContain('key between 0 and 11');
-    expect(sql.match(/\^\[0-9a-za-z\]\{22\}\$/g)).toHaveLength(2);
+    expect(sql).toContain(`key between 0 and ${SHARED_KEY_MAX}`);
+    expect(sql).toContain(`value between 0 and ${SHARED_REACH_MAX}`);
+    // The id shape: the client pattern's source is the SQL's, lower-cased by
+    // the normaliser, once per shared table.
+    const shape = SHARED_ID_PATTERN.source.toLowerCase();
+    expect(sql.split(shape).length - 1).toBe(2);
   });
 });
