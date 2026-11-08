@@ -1406,10 +1406,32 @@ a {
   );
 }
 
+/* Selected (a list–detail row, the marked Mix row, spec 013) beats hover:
+   same specificity as the hover rule, declared after it. Status marks
+   (not found, warning flags) keep their own colours. */
 .dt-row[aria-selected='true'],
-.dt-item[aria-selected='true'] {
+.dt-item[aria-selected='true'],
+.dt-body .dt-row[aria-selected='true'] {
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
+}
+
+/* Hover over a selected row is a layer over the selected fill. */
+.dt-body .dt-row[aria-selected='true']:hover,
+.dt-body .dt-item[aria-selected='true']:hover {
+  background: linear-gradient(
+      color-mix(
+        in srgb,
+        var(--md-sys-color-on-primary-container) var(--md-sys-state-hover),
+        transparent
+      ),
+      color-mix(
+        in srgb,
+        var(--md-sys-color-on-primary-container) var(--md-sys-state-hover),
+        transparent
+      )
+    ),
+    var(--md-sys-color-primary-container);
 }
 
 .dt-row:focus-visible,

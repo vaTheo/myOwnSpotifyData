@@ -23,6 +23,7 @@ import {
   mixCheckSaved,
   mixError,
   mixRows,
+  mixState,
   model,
   saveMix,
   unlinkMixRowSpotify,
@@ -51,6 +52,7 @@ import {
 } from './tracklistSort';
 import { tracklistView } from './tracklistView';
 import { RowMenu, type RowMenuItem } from './RowMenu';
+import { markAfter, type RowMarkEvent } from './rowMark';
 import {
   confidenceShort,
   confidenceText,
@@ -631,6 +633,13 @@ export function TracklistTable() {
   const compact = windowClass.value === 'compact';
   const [editing, setEditing] = useState<number | null>(null);
   const [linking, setLinking] = useState<number | null>(null);
+  // Spec 013: the last row clicked stays marked, an index into `mixRows`.
+  const [marked, setMarked] = useState<number | null>(null);
+  const mark = (event: RowMarkEvent): void =>
+    setMarked((m) => markAfter(m, event));
+  const ms = mixState.value;
+  const mixUrl = ms.status === 'ready' ? ms.view.url : null;
+  useEffect(() => mark({ type: 'open-mix' }), [mixUrl]);
   const [saved, setSaved] = useState(false);
   // Check on Spotify saves the mix when it ends (ruling R1): the same
   // "Saved ✓" as Save mix says so.
@@ -693,6 +702,7 @@ export function TracklistTable() {
   }));
   const remove = (i: number): void => {
     deleteMixRow(i);
+    mark({ type: 'delete', index: i });
     edit(null);
   };
 
@@ -731,6 +741,8 @@ export function TracklistTable() {
         columns={columns({ edit, remove, link, unlink, compact })}
         rows={lines}
         rowKey={(l) => keyOf(l.index, editing, linking)}
+        markedKey={marked === null ? null : keyOf(marked, editing, linking)}
+        onMark={(l) => mark({ type: 'click', index: l.index })}
         sort={sortNow}
         onSort={setSort}
         noun="track"
@@ -786,7 +798,9 @@ export function TracklistTable() {
             addMixRow();
             // A new row has no clip count: show it.
             setFilter('all');
-            edit(mixRows.value.length - 1);
+            const added = mixRows.value.length - 1;
+            mark({ type: 'add', index: added });
+            edit(added);
           }}
         >
           Add track
