@@ -53,13 +53,17 @@ export function lookupDoneLine(d: {
 export const SHARED_NOTICE_BPM =
   'BPM and key found by a lookup are shared with the other people on this server; your library, plays, rekordbox values and mixes never are.';
 
+export const SHARED_NOTICE_REACH =
+  'Listeners and fans found by a lookup are shared with the other people on this server; your library, plays, rekordbox values and mixes never are.';
+
 /**
  * Round 014: what a run took from and gave to the shared store, or null when
  * there is nothing to say (no port, or the store knew nothing and took
  * nothing). An error is a line of its own, never a banner.
  */
 export function sharedRunLine(
-  shared: { fromStore: number; sent: number; error: string | null } | undefined
+  shared: { fromStore: number; sent: number; error: string | null } | undefined,
+  what: 'tracks' | 'artists' = 'tracks'
 ): { kind: 'success' | 'error'; text: string } | null {
   if (!shared) return null;
   if (shared.error !== null) {
@@ -71,7 +75,7 @@ export function sharedRunLine(
   if (shared.fromStore === 0 && shared.sent === 0) return null;
   return {
     kind: 'success',
-    text: `From the shared store: ${plural(shared.fromStore, 'track')}, no lookup needed. Shared: ${shared.sent.toLocaleString()} new.`,
+    text: `From the shared store: ${what === 'tracks' ? plural(shared.fromStore, 'track') : `${shared.fromStore.toLocaleString()} ${shared.fromStore === 1 ? "artist's" : "artists'"} numbers`}, no lookup needed. Shared: ${shared.sent.toLocaleString()} new.`,
   };
 }
 

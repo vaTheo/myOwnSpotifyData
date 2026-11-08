@@ -13,6 +13,7 @@ import {
   reachRunLine,
   rekordboxLine,
   SHARED_NOTICE_BPM,
+  SHARED_NOTICE_REACH,
   sharedRunLine,
   signedInLine,
   usedShare,
@@ -174,6 +175,18 @@ describe('sharedRunLine (round 014)', () => {
   it('is silent without a port or with nothing exchanged', () => {
     expect(sharedRunLine(undefined)).toBeNull();
     expect(sharedRunLine({ fromStore: 0, sent: 0, error: null })).toBeNull();
+  });
+  it('says artists numbers for the reach card', () => {
+    expect(
+      sharedRunLine({ fromStore: 40, sent: 2, error: null }, 'artists')
+    ).toEqual({
+      kind: 'success',
+      text: "From the shared store: 40 artists' numbers, no lookup needed. Shared: 2 new.",
+    });
+    expect(SHARED_NOTICE_REACH).toContain('Listeners and fans');
+    expect(SHARED_NOTICE_REACH).toContain(
+      'rekordbox values and mixes never are'
+    );
   });
   it('the notice names what is never shared', () => {
     expect(SHARED_NOTICE_BPM).toContain('other people on this server');

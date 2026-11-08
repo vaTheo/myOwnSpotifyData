@@ -6,6 +6,7 @@ import {
   reachState,
   chainView,
   requestJob,
+  sharedPort,
 } from '../../model/state';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -17,6 +18,8 @@ import {
   pausedLine,
   reachCoverageLine,
   reachRunLine,
+  SHARED_NOTICE_REACH,
+  sharedRunLine,
 } from './lines';
 import { isWaiting, otherStepRuns } from './chain';
 import { sectionDomId } from './sections';
@@ -28,6 +31,9 @@ export function ReachSection() {
   const summary = artistReachSummary.value;
   const busy = jobsBusy();
   const cov = m ? reachCoverage(m) : null;
+  const sharedLine =
+    state.status === 'done' ? sharedRunLine(state.shared, 'artists') : null;
+  const sharing = sharedPort() !== undefined;
   return (
     <Card
       id={sectionDomId('reach')}
@@ -55,6 +61,9 @@ export function ReachSection() {
       {state.status === 'done' && state.run.lookedUp > 0 && (
         <StatusLine kind="success">{reachRunLine(state.run)}</StatusLine>
       )}
+      {sharedLine && (
+        <StatusLine kind={sharedLine.kind}>{sharedLine.text}</StatusLine>
+      )}
       {state.status !== 'idle' &&
         state.paused.map((step) => (
           <StatusLine key={step} kind="warning">
@@ -64,6 +73,7 @@ export function ReachSection() {
       {state.status === 'error' && (
         <StatusLine kind="error">Last error: {state.message}</StatusLine>
       )}
+      {sharing && <p class="muted settings-credit">{SHARED_NOTICE_REACH}</p>}
       <div class="actions">
         <Button
           variant="filled"

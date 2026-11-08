@@ -1499,6 +1499,7 @@ export async function startReach(opts: JobOptions = {}): Promise<void> {
       },
       acquireWakeLock:
         !auto && 'wakeLock' in navigator ? acquireWakeLock : undefined,
+      shared: sharedPort(),
     },
     reachCandidates(m),
     [...m.identities.values()],
