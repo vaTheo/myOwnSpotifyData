@@ -80,6 +80,13 @@ def hhmmss(seconds: int) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
+def second_pass_order(speeds: tuple[float, ...]) -> tuple[float, ...]:
+    """The speeds of the second pass, in order. Normal speed comes first,
+    unless the list names ×1 itself: its place in the list is then kept (owner,
+    2026-11-08: `0.91,1.09,1` tries both shifted speeds before normal speed)."""
+    return speeds if 1.0 in speeds else (1.0, *speeds)
+
+
 def probe_times(duration: int | None, step: int) -> list[int]:
     """Probe starts for a known duration; `[0]` when unknown (the scan then
     continues until a probe comes back short)."""
@@ -559,15 +566,16 @@ async def scan(
             say(f"  second pass · {len(misses) - len(open_misses)} probes skipped: between two probes of the same track")
         positions = gap_positions(open_misses, gap_step, gap_offset)
         second["places"] = len(positions)
+        order = second_pass_order(speeds)
         say(
             f"  second pass · {len(misses)} probes found nothing · {len(positions)} places heard again"
-            f" (+{gap_offset} s, speed ×1{''.join(f' then ×{s:g}' for s in speeds)})"
+            f" (+{gap_offset} s, speed {' then '.join(f'×{s:g}' for s in order)})"
         )
         try:
             # Round 004 (R6): every place at ×1 first, then the still-empty ones
             # at each other speed, in the order of the test day's yield.
             remaining = list(positions)
-            for speed in (1.0, *speeds):
+            for speed in order:
                 still: list[int] = []
                 prog["done"], prog["total"] = 0, len(remaining)
                 publish(f"second ×{speed:g}")

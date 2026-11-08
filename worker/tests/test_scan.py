@@ -18,6 +18,7 @@ from mix_worker.scan import (
     hhmmss,
     merge,
     probe_times,
+    second_pass_order,
     scan,
     track_entry,
     write_result,
@@ -469,6 +470,32 @@ class CutProbeSpeed(unittest.TestCase):
         self.assertEqual(fast[fast.index("-af") + 1], "aresample=16000,asetrate=16640,aresample=16000")
         self.assertEqual(slow[slow.index("-t") + 1], "11.52")
         self.assertEqual(slow[slow.index("-af") + 1], "aresample=16000,asetrate=15360,aresample=16000")
+
+
+class SecondPassOrder(unittest.TestCase):
+    def test_normal_speed_first_by_default(self):
+        self.assertEqual(second_pass_order((0.96, 1.04)), (1.0, 0.96, 1.04))
+        self.assertEqual(second_pass_order(()), (1.0,))
+
+    def test_listing_normal_speed_keeps_its_place(self):
+        self.assertEqual(second_pass_order((0.91, 1.09, 1.0)), (0.91, 1.09, 1.0))
+
+    def test_second_pass_hears_the_listed_order(self):
+        speeds_heard = []
+
+        async def recognise(data, skew):
+            return NO_MATCH
+
+        async def sleep(s):
+            pass
+
+        def cut_at(t, speed):
+            speeds_heard.append(speed)
+            return b"x" * 5000
+
+        run(scan(60, step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=cut_at, speeds=(0.91, 1.09, 1.0), sleep=sleep, classify=classify, clock=lambda: 0.0))
+        firsts = [s for i, s in enumerate(speeds_heard) if i == 0 or s != speeds_heard[i - 1]]
+        self.assertEqual(firsts, [0.91, 1.09, 1.0])
 
 
 class LessCalls(unittest.TestCase):
