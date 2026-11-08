@@ -60,8 +60,8 @@
 **Independent test**: the same run with no port, a failing port and an offline port gives byte-identical stored rows.
 
 - [x] T027 [P] [US5] Tests in `src/features/lookup.test.ts` and `src/features/reachRun.test.ts`: with `shared` absent the stored rows, `fetchFn` calls and final state (no `shared` field) equal the pre-round run; with a port whose first read answers `{ ok: false, message: 'offline' }` the run ends `done` (not `error`), makes no further port call, stored rows equal the no-port run, and `done.shared.error` carries the message; with a port that never resolves, the run is not delayed beyond the port's own timeout (injected, fake timers not needed: the port enforces it, tested at T009)
-- [ ] T028 [P] [US5] Test in `src/model/` (a small pure test next to `pushAfter.test.ts`, or `sharedPort` factored so it is testable) that `sharedPort()` returns `undefined` with no server settings, with no session and in the demo
-- [ ] T029 [US5] Check that no test, file or path reads the store outside `runLookup` and `runReach`: a test in `src/server/rules.test.ts` or `src/features/shared.test.ts` that greps `src/` for `readTracks(`/`readReach(` and finds only those two files (FR-009, ADR-02)
+- [x] T028 [P] [US5] Test in `src/model/` (a small pure test next to `pushAfter.test.ts`, or `sharedPort` factored so it is testable) that `sharedPort()` returns `undefined` with no server settings, with no session and in the demo
+- [x] T029 [US5] Check that no test, file or path reads the store outside `runLookup` and `runReach`: a test in `src/server/rules.test.ts` or `src/features/shared.test.ts` that greps `src/` for `readTracks(`/`readReach(` and finds only those two files (FR-009, ADR-02)
 
 ## Phase 8: Polish and docs
 
