@@ -36,6 +36,10 @@ signs in with their email, then connects their own Spotify account (the owner al
 - **Unchanged.** The server schema and rules, the worker (it reads its signed-in user's queue), ADR-02/03/04 per user, the
   quota lock-out (device-wide, it belongs to the app's Client ID).
 
+**Amended by [ADR-15](ADR-15-shared-track-facts.md).** "A user never sees or changes another user's data" stays true for every
+personal table. The shared store of public track and artist facts (BPM, key, reach) is the one named exception: it has no user
+column, is insert-only and read by id.
+
 ## Consequences
 
 **Positive:** the owner's data stays where it is; a second person starts empty; isolation is by database name and by the server's row rules.
@@ -49,6 +53,7 @@ is readable with devtools on a shared browser profile, no stronger than today.
 
 - Spec: [`specs/011-multi-user-data/spec.md`](../../../specs/011-multi-user-data/spec.md)
 - Amends [ADR-08](ADR-08-owner-server-free-tier.md) ("for the owner alone"); keeps [ADR-05](ADR-05-additive-indexeddb.md)
+- Amended by [ADR-15](ADR-15-shared-track-facts.md): one shared store of public facts
 - Constitution Principle I
 - [How the app works](../000-how-it-works.md) §6, §13, §14, §16 "Users" · [Feature inventory](../100-features.md) F27 · [Limits and roadmap](../800-limits-roadmap.md) §2
 - [ADR index](README.md)
