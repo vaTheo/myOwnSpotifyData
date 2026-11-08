@@ -39,7 +39,7 @@ description: "Task list for adding a Spotify link to a not-found track"
 
 **Independent Test**: tests below; quickstart step 2 Create playlist bullet.
 
-- [ ] T009 [US2] In `src/features/mix/createPlaylist.ts` push each URI once (keep order; a `Set` of seen URIs around both `uris.push(stored)` and `uris.push(match.uri)`); `added` counts distinct URIs; tests in `createPlaylist.test.ts`: a hand-linked row is added from `storedUri` with no search call, two rows with the same id add it once, a not-found row is skipped as before
+- [x] T009 [US2] In `src/features/mix/createPlaylist.ts` push each URI once (keep order; a `Set` of seen URIs around both `uris.push(stored)` and `uris.push(match.uri)`); `added` counts distinct URIs; tests in `createPlaylist.test.ts`: a hand-linked row is added from `storedUri` with no search call, two rows with the same id add it once, a not-found row is skipped as before
 
 ## Phase 4: User Story 3 - Fix or remove a link (P2)
 
@@ -47,8 +47,8 @@ description: "Task list for adding a Spotify link to a not-found track"
 
 **Independent Test**: quickstart step 2 Replace/Remove bullet.
 
-- [ ] T010 [US3] In `src/ui/mix/TracklistTable.tsx` add "Replace link" and "Remove link" items to the row's More menu, shown only when `row.spotifyBy === 'owner'`; Replace opens `LinkForm` with the current id's URL; Remove calls `unlinkMixRowSpotify` (the form's Remove link button does the same); the Spotify cell of a hand-linked row stays the found app link
-- [ ] T011 [P] [US3] Test `unlinkedRow` and a replace (`linkedRow` over a hand-linked row) in `src/features/mix/spotifyLink.test.ts`; confirm the sort and counts treat the unlinked row as not found
+- [x] T010 [US3] In `src/ui/mix/TracklistTable.tsx` add "Replace link" and "Remove link" items to the row's More menu, shown only when `row.spotifyBy === 'owner'`; Replace opens `LinkForm` with the current id's URL; Remove calls `unlinkMixRowSpotify` (the form's Remove link button does the same); the Spotify cell of a hand-linked row stays the found app link
+- [x] T011 [P] [US3] Test `unlinkedRow` and a replace (`linkedRow` over a hand-linked row) in `src/features/mix/spotifyLink.test.ts`; confirm the sort and counts treat the unlinked row as not found
 
 ## Phase 5: Polish and docs
 

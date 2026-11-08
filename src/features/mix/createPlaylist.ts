@@ -122,7 +122,15 @@ export async function runCreatePlaylist(
   // 1. Resolve identified rows in order; inert rows are skipped silently.
   const identified = rows.filter(isIdentified);
   const total = identified.length;
+  // Round 011: each track once, at its first place in the set (two rows can
+  // name the same track, say a hand link pasted on a second row).
   const uris: string[] = [];
+  const seen = new Set<string>();
+  const pushUri = (uri: string) => {
+    if (seen.has(uri)) return;
+    seen.add(uri);
+    uris.push(uri);
+  };
   const unmatched: UnmatchedRow[] = [];
   const years = new Map<TracklistRow, number>();
   const outcome = (
@@ -142,7 +150,7 @@ export async function runCreatePlaylist(
     // Check on Spotify already found it (T117): no search again.
     const stored = storedUri(row);
     if (stored !== null) {
-      uris.push(stored);
+      pushUri(stored);
       onState({ status: 'resolving', done: ++done, total });
       continue;
     }
@@ -156,7 +164,7 @@ export async function runCreatePlaylist(
     // A dated row keeps its year (Shazam's or a catalogue's).
     if (match.year !== null && typeof row.year !== 'number')
       years.set(row, match.year);
-    if (match.uri !== null) uris.push(match.uri);
+    if (match.uri !== null) pushUri(match.uri);
     else
       unmatched.push({
         artist: row.artist,

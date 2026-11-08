@@ -325,6 +325,72 @@ describe('runCreatePlaylist', () => {
     ]);
   });
 
+  it('adds a hand-linked row from its stored id, no search (round 011)', async () => {
+    const linked: TracklistRow = {
+      ...id(t(0)),
+      spotify: {
+        id: '1qGibBSuprByJCYMC4zRUG',
+        url: 'https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG',
+      },
+      spotifyBy: 'owner',
+      checkedAt: 1,
+    };
+    const { client, get, post } = makeClient({ matchable: [] });
+    const { states, onState } = record();
+
+    await runCreatePlaylist({ client, onState }, input([linked]));
+
+    expect(get).not.toHaveBeenCalled();
+    expect(itemsBatches(post)).toEqual([
+      ['spotify:track:1qGibBSuprByJCYMC4zRUG'],
+    ]);
+    expect(states.at(-1)).toMatchObject({ status: 'done', added: 1, total: 1 });
+  });
+
+  it('adds a track two rows name once, at its first place (round 011)', async () => {
+    const found = (title: string, trackId: string): TracklistRow => ({
+      ...id(title),
+      spotify: { id: trackId, url: `https://open.spotify.com/track/${trackId}` },
+      checkedAt: 1,
+    });
+    const rows = [
+      found(t(0), 'X1'),
+      { ...found(t(1), 'X1'), spotifyBy: 'owner' as const },
+      id(t(2)),
+      id(t(3)),
+      found(t(4), 'T002'), // a stored id equal to an earlier searched match
+    ];
+    const { client, post } = makeClient({ matchable: [t(2), t(3)] });
+    const { states, onState } = record();
+
+    await runCreatePlaylist({ client, onState }, input(rows));
+
+    expect(itemsBatches(post)).toEqual([
+      ['spotify:track:X1', 'spotify:track:T002', 'spotify:track:T003'],
+    ]);
+    expect(states.at(-1)).toMatchObject({ status: 'done', added: 3, total: 5 });
+  });
+
+  it('still skips a not-found row the search misses (round 011)', async () => {
+    const notFound: TracklistRow = {
+      ...id(t(1)),
+      spotify: 'not-found',
+      checkedAt: 1,
+    };
+    const { client, post } = makeClient({
+      matchable: [t(0), t(1)],
+      misses: new Set([t(1)]),
+    });
+    const { states, onState } = record();
+
+    await runCreatePlaylist({ client, onState }, input([id(t(0)), notFound]));
+
+    expect(itemsBatches(post)).toEqual([['spotify:track:T000']]);
+    const done = states.at(-1);
+    expect(done).toMatchObject({ status: 'done', added: 1, total: 2 });
+    expect(done?.status === 'done' && done.unmatched.length).toBe(1);
+  });
+
   it('remembers a quota lock-out met by a search; nothing is written', async () => {
     const rows = ids(2);
     const { client, post } = makeClient({

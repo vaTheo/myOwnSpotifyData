@@ -25,6 +25,7 @@ import {
   mixRows,
   model,
   saveMix,
+  unlinkMixRowSpotify,
 } from '../../model/state';
 import { Button } from '../components/Button';
 import { Flag } from '../components/Flag';
@@ -276,6 +277,7 @@ function columns(on: {
   edit: (index: number) => void;
   remove: (index: number) => void;
   link: (index: number) => void;
+  unlink: (index: number) => void;
   compact: boolean;
 }): Column<Line>[] {
   const { compact } = on;
@@ -391,6 +393,13 @@ function columns(on: {
         // A found track opens from the Listen menu's Play on Spotify.
         if (typeof row.spotify !== 'object' && isIdentified(row)) {
           items.push({ label: 'Search on Spotify', href: searchUrl(row) });
+        }
+        // Round 011: a link the owner pasted can be replaced or removed.
+        if (row.spotifyBy === 'owner') {
+          items.push(
+            { label: 'Replace link', onSelect: () => on.link(l.index) },
+            { label: 'Remove link', onSelect: () => on.unlink(l.index) }
+          );
         }
         // On a phone one "Listen…" item opens the Listen links in the same
         // list, so More stays short (fix round 1, R3).
@@ -609,7 +618,8 @@ function keyOf(
  * 1 row layout) on `DataTable`. Rows keep their place in `mixRows`, so
  * Edit, Delete and Review act on the real row whatever the filter or the
  * Sort. Each row: Spotify status, Listen menu, ✕, and More (Edit,
- * Delete, Search on Spotify). Library matches are computed here, at
+ * Delete, Search on Spotify; Replace link and Remove link on a row the
+ * owner linked, round 011). Library matches are computed here, at
  * render, never stored. Under the table: Add track and Save mix ("Saved ✓"
  * for 2 s). A save failure shows once: under Save mix, unless `mixError`
  * already shows the same words elsewhere on the screen.
@@ -664,6 +674,10 @@ export function TracklistTable() {
     setEditing(null);
     setLinking(i);
   };
+  const unlink = (i: number): void => {
+    unlinkMixRowSpotify(i);
+    link(null);
+  };
   const open = editing ?? linking;
   // The Sort, the decade and the chip, with their fallbacks (round 005).
   const view = tracklistView(rows, { decade, filter }, open);
@@ -714,7 +728,7 @@ export function TracklistTable() {
       />
       <DataTable
         label="Tracklist"
-        columns={columns({ edit, remove, link, compact })}
+        columns={columns({ edit, remove, link, unlink, compact })}
         rows={lines}
         rowKey={(l) => keyOf(l.index, editing, linking)}
         sort={sortNow}
@@ -724,15 +738,26 @@ export function TracklistTable() {
         revealKey={open === null ? null : keyOf(open, editing, linking)}
         fullRow={(l) => {
           if (linking === l.index) {
+            // Replace link: the form opens on the pasted track, with Remove.
+            const owned =
+              l.row.spotifyBy === 'owner' && typeof l.row.spotify === 'object'
+                ? l.row.spotify.id
+                : null;
             return (
               <LinkForm
                 name={nameOf(l.row)}
+                initial={
+                  owned === null
+                    ? undefined
+                    : `https://open.spotify.com/track/${owned}`
+                }
                 onLink={(text) => {
                   const refused = linkMixRowSpotify(l.index, text);
                   if (refused === null) link(null);
                   return refused;
                 }}
                 onCancel={() => link(null)}
+                onRemove={owned === null ? undefined : () => unlink(l.index)}
               />
             );
           }

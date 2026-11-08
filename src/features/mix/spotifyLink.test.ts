@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { linkedRow, parseSpotifyTrackLink, unlinkedRow } from './spotifyLink';
 import type { TracklistRow } from '../../db/schema';
+import { sortValue } from '../../ui/mix/tracklistSort';
+import { inFilter, reviewLine, spotifyStatus } from './review';
 
 const ID = '1qGibBSuprByJCYMC4zRUG';
 
@@ -88,5 +90,18 @@ describe('linkedRow / unlinkedRow', () => {
     expect(out.spotify).toBe('not-found');
     expect('spotifyBy' in out).toBe(false);
     expect(out.checkedAt).toBe(9);
+  });
+
+  it('a removed link counts and sorts as not found again', () => {
+    const linked = linkedRow(row, ID, 9);
+    expect(spotifyStatus(linked)).toBe('found');
+    expect(reviewLine([linked])).toBe('1 track · 1 on Spotify · 0 not found');
+    const out = unlinkedRow(linked);
+    expect(spotifyStatus(out)).toBe('notFound');
+    expect(inFilter(out, 'notOnSpotify')).toBe(true);
+    expect(reviewLine([out])).toBe('1 track · 0 on Spotify · 1 not found');
+    expect(sortValue('spotify', { row: out })).toBe(
+      sortValue('spotify', { row })
+    );
   });
 });
