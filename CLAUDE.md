@@ -54,7 +54,7 @@ Details: [Contributing](docs/dev-guide/000-contributing.md).
 
 - No client secret, no proxy, no token off the browser (ADR-01). The one server is the owner's free-tier database with sign-in (accounts the owner creates, one data set each: ADR-14),
   declared by a public URL and key beside `VITE_SPOTIFY_CLIENT_ID`; it stores (also one shared store of public track and artist facts, written only through `add_*` functions, read only through `get_*`: ADR-15), never computes, never calls Spotify; the app works without it;
-  workers run on the owner's computer (ADR-08).
+  workers run on the owner's computer (ADR-08); a listed shared worker has no table privilege and reaches the queue only through five functions (ADR-16).
 - Never open `localhost`: Spotify rejects it as a redirect URI; use `http://127.0.0.1:5173/myOwnSpotifyData/` (ADR-01).
 - Never read Spotify on load outside the automatic chain: it syncs only when the library is older than 12 hours, not while locked, at
   most once a session; a new Spotify read joins that gate (ADR-02, ADR-11). The one other automatic read: opening a saved mix checks its

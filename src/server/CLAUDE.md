@@ -32,6 +32,9 @@ project reached with plain `fetch`. The server stores and never computes (it als
 - A new table or column: `supabase/migrations/` gains a file, `contracts/server-schema.md` the row, the grants block stays last.
 - Per-user scope (ADR-14): the user is the server account; `userScope.ts` (pure) and `scopeBrowser.ts` (the pinned page scope,
   `watchScope`/`watchSession`) name each user's database and Spotify keys; a switch or a sign-out reloads, never asks.
+- Shared worker (ADR-16): the list `shared_workers` is written only by the owner in the SQL editor (no policy, no grant); the worker
+  account reaches the queue only through `is_shared_worker`, `claim_any_job`, `worker_set_progress`, `worker_finish_job` and
+  `worker_release_job` (the claim returns only `id` and `payload`); `claim_job` and the `jobs` policies stay as they are.
 - Shared track facts (ADR-15): `sharedFacts.ts` is the one client of the shared store, written only through `add_track_facts` and `add_artist_reach` and read only
   through `get_*` (the tables allow nothing else), never throws; its
   ranges must match `0004_shared_facts.sql` and the 200 cap `0005_shared_add_functions.sql` (pinned by a test); nothing personal, never a rekordbox value, goes into it.

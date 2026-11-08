@@ -400,10 +400,14 @@ Nothing else: the worker signs in with the same magic link as the app,
 returned to a local address the project already allows. Requests wait while
 the computer is off;
 the audio never leaves your computer; the worker never talks to Spotify.
-The worker serves one account, the one that signed it in (yours): a friend's
-**Identify on my computer** is recorded on the server but never taken, and
-waits as Queued in their Mixes list until they Cancel it, so the button is
-your feature.
+By default the worker serves one account, the one that signed it in (yours): a
+friend's **Identify on my computer** is recorded on the server but not taken,
+and waits as Queued in their Mixes list until they Cancel it. To serve every
+user, set `WORKER_MODE=shared` (worker 0.6.0): create a user with a dedicated
+email in the Supabase dashboard, run `supabase/migrations/0006_shared_worker.sql`,
+list that user (`insert into public.shared_workers (user_id, label) values
+('<id>', 'my PC');`), and sign the worker in with that email. It then takes
+one request per user in turn; delete the row to switch it off.
 
 ## Server (optional)
 
