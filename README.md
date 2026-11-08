@@ -419,7 +419,9 @@ device and on the server.
   their email, auto-confirm, no password. Leave **Allow new users to sign up**
   off: an email you did not add gets no account and sees nothing. Then add
   their Spotify account to the Spotify app's User Management (one-time setup,
-  step 1); they need Premium too.
+  step 1). Only you, the app's owner, need Premium; they do not. Spotify
+  lets a Development Mode app list only a small number of people, set by
+  Spotify.
 - **They sign in** with their email on the sign-in screen, then **Connect
   Spotify** with their own account. Their screens start empty and fill from
   their own syncs; yours do not change.

@@ -375,8 +375,8 @@ screen, grouped by role under `src/ui/`.
   long jobs start only here; Disconnect alone in `DangerZone.tsx`), `Import.tsx` (a `FileDrop`) and `Connect.tsx`.
 - **Sign-in screen** (round 009, `ui/signin/`): with server settings and no server session, `App` renders only `SignInGate.tsx`
   (`serverSignInRequired()`, live, so a session that ends mid-use brings it back; `bootPhase` `'signedout'`, or `'linking'` with
-  "Signing you in…" while a magic link is exchanged); boot then reads, syncs and starts nothing, and the automatic chain
-  refuses to run. Never in the demo, never without the settings. It shows the link errors kept
+  "Signing you in…" while a magic link is exchanged); boot then reads, syncs and starts nothing, and `main.tsx` starts
+  neither the automatic chain nor auto-sync while signed out (`runChain` and the `installAutoSync` `enabled` checks). Never in the demo, never without the settings. It shows the link errors kept
   in `serverState`, offline and paused notices and "Sign in to the app first, then connect Spotify again." for a dropped Spotify
   return (`gateNotices`, `gate.ts`); the field stays usable. `ServerLinkForm.tsx` (email, **Send me a link**, Enter sends, "If
   this email has an account, a link was sent to …") is shared with the Settings server card, which shows "Signed in as <email>.",
