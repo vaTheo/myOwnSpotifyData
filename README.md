@@ -304,6 +304,14 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   **Shazam** when known; then store and preview searches (Beatport,
   Bandcamp, Discogs, SoundCloud, YouTube), which are search pages because
   the app never looks a track up by name.
+- **The last track you clicked stays highlighted.** Click anywhere on a
+  row (its title, the Spotify play icon, a Shazam or SoundCloud icon, the
+  menu) and it keeps the selected colour with a chartreuse bar on its left
+  and glowing lines above and below it, so when you come back from Spotify
+  or another tab you see where you were. It follows the track when you sort
+  or filter and stays while you edit or link it. Deleting a row, opening
+  another mix, or replacing the whole list (a paste, the description,
+  reopening the mix) clears it; it is not saved.
 - **Link a track Spotify did not find.** Find it on Spotify yourself and
   copy its link (Share › Copy song link). Then tap the red "not found" mark
   in the **Spotify** column (on a phone, the "Not found on Spotify" words),

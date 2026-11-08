@@ -286,6 +286,10 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   added once); `rowsToCheck` skips it and `applyAnswers` never puts a Check answer on it; `keepStoredAnswers` keeps it; a rename
   drops `spotifyBy` with `spotify` (`editTracklistRow`), a label edit keeps both. `validateMix` accepts `spotifyBy` only as
   `'owner'` beside an object `spotify`.
+- `ui/mix/rowMark.ts` (round 013, the table's side of this list, §13 "Marked row"): `markAfter(marked, event)` is the marked
+  row after a `click` (that row), `add` (the new row), `delete` (none: the rows after it shift), `open-mix` (another mix URL) or
+  `rows-replaced` (none). `mixRowsReplaced` (`model/state.ts`) counts the whole-list replaces that keep the URL (a lookup, a
+  Tracklistify import, a paste, the description, `openMix`), and `TracklistTable` sends `rows-replaced` when it moves.
 - `worker.ts` `toRun`/`runLine` (T124, owner's D3): `mix_info.second_pass` (`places` or round 003's `replays`), `resumed`,
   `stopped_early` and `warnings` kept as the optional `MixRow.run`, replaced wholesale by each result, shown under the open mix's header
   ("Second pass: 41 places · 3 found", "Resumed (120 clips kept)", "Stopped early at 01:12:00 (rate limited)" with Ask again, the
@@ -368,6 +372,10 @@ screen, grouped by role under `src/ui/`.
   alone leave too little (`titleRoom`/`widthLevel` in `table/layout.ts`); Top and the Crate views do so beside the docked sheet too (`besideSheet`,
   below 960 px). `DataTable` keeps only that level, not the pixel width, so a resize re-renders a table only when it changes.
   The visual loop checks every table at 1440, 1024 and 768 for a title cut under 160 px (`checks.ts` "title-cut"). Sort state is a signal per screen, for the session.
+  A list–detail table passes `selectedKey` and `onOpen`; a table may instead mark its last row clicked (round 013, the Mix
+  tracklist): `markedKey` (passed, even null, every row says `aria-selected` and the marked one is drawn selected) and `onMark`,
+  called from a capture-phase click on every row element (table row, phone item, full row), neither stopped nor prevented, so a
+  link or button inside still acts. Selected beats hover (`styles.css`): hovering a selected row lays a hover layer over its fill.
 - **Details and list–detail**: `layout/SideSheet.tsx` docks the sheet at 400 px on large windows, a modal on medium and
   expanded, full screen on compact; `details/TrackDetails.tsx` with the pure `trackFacts.ts` shows everything the app holds for a
   track. `layout/ListDetail.tsx` puts Playlists, Artists and the Mixes list beside the open item from 840 px; on compact the item
@@ -470,6 +478,12 @@ screen, grouped by role under `src/ui/`.
   Remove link when the row is already hand-linked; a refusal shows under the field ("Paste a Spotify track link.", "That is not a
   Spotify track link.", "This row has no track name to link."). On a hand-linked row, More adds **Replace link** (the form opens on the current link) and **Remove
   link**. The Spotify cell of a hand-linked row is the found app link.
+- **Marked row** (round 013, `specs/013-mix-row-last-clicked/`): the last row clicked stays selected, so the owner finds it on
+  coming back from Spotify or a new tab. `TracklistTable.tsx` keeps `marked` (component state, an index into `mixRows`, never
+  saved or synced) through the pure `markAfter` of `ui/mix/rowMark.ts` (§10) and hands `DataTable` `markedKey` (through `keyOf`, so
+  the Edit and Link form rows stay marked) and `onMark`. Sort, filter and decade keep it on the same track; a filter that hides it
+  marks nothing. Look: §13 Tables and the design guide "One selected look" (fill, `--app-mark-*` bar, lines and glow, hover as a
+  layer, neutral form row, a forced-colours outline); `aria-selected="true"` on the marked row.
 
 ## 14. Jobs and state (`model/state.ts`)
 

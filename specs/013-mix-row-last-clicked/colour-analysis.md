@@ -23,7 +23,7 @@ Ratios are WCAG 2.x, computed with the project's formula (`src/ui/theme/contrast
 | Selected text role | `on-primary-container` #7fff00 | what `.dt-row[aria-selected]` sets today | 7.20 | 4.5 | pass |
 | Muted text | `on-surface-variant` #bdcbae | confidence, second lines, meta | 5.47 | 4.5 | pass |
 | Found mark and icons | `primary` #7fff00 | Spotify play icon, found text | 7.20 | 3 | pass |
-| Not-found mark | `error` #ffb4ab | red mark and text | 5.49 | 3 | pass |
+| Not-found mark and text | `error` #ffb4ab | red mark, and the phone "Not found on Spotify" text button | 5.49 | 4.5 (it is text) | pass |
 | Warning | `app-color-warning` #ffb95c | not-heard flags | 5.48 | 4.5 | pass |
 | Secondary | `secondary` #8eda58 | secondary text | 5.47 | 4.5 | pass |
 | Row separator | `outline-variant` #3e4a34 | decorative line | n/a | none (decorative) | ok |
@@ -68,6 +68,6 @@ The form replaces the row (`.dt-full`). It keeps the neutral surface (field outl
 
 ## 7. Tests the colour work needs
 
-- Add the pairs of section 2 (`on-surface`, `on-surface-variant`, `error`, `app-color-warning`, `secondary` on `primary-container`) to `src/ui/theme/contrast.test.ts` (text 4.5, marks 3). `outline` on `primary-container` is deliberately not asserted: the form does not use that fill.
+- Add the pairs of section 2 (`on-surface`, `on-surface-variant`, `error`, `app-color-warning`, `secondary` on `primary-container`) to `src/ui/theme/contrast.test.ts` (text 4.5, marks 3; `error` is held to 4.5 because the phone "Not found on Spotify" button is text). `outline` on `primary-container` is deliberately not asserted: the form does not use that fill.
 - A pure test of the selector rule: the mark is a single key and survives sort and filter.
 - Regression: a row is marked after a click on a cell, on the Spotify icon and on a menu button; the row has `aria-selected="true"`; hover keeps the selected background.

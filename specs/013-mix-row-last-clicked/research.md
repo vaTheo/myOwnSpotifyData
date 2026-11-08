@@ -4,7 +4,7 @@
 
 - **Decision**: `onClickCapture` on the row element. It runs before the target's own handler and before a link's default (new tab, `spotify:` app link) and never stops either.
 - **Rationale**: the owner clicks a link, another tab or the Spotify app takes over, and on return the row is already marked. The existing `onRowClick` ignores `a, button` (`DataTable.tsx` ~line 316) on purpose for opening a detail pane; marking is a separate path. Keyboard Enter/Space on a button fires `click`, so it is covered.
-- **Alternatives**: `pointerdown` (also fires for scroll drags on a phone, marks rows that were only swiped); bubbling `click` (a control that stops propagation would skip it; menu items in a popup outside the row are not inside the row anyway, the menu's own button already marked it).
+- **Alternatives**: `pointerdown` (also fires for scroll drags on a phone, marks rows that were only swiped); bubbling `click` (a control that stops propagation would skip it; the row menu's list is rendered inside the row (a child of `RowMenu`), so a click on a menu item also marks the row: harmless, the menu's own button already marked that same row).
 
 ## Which colour
 

@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-08
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "When I click anything on a row, put it in chartreuse colour mode until I click on another, like it is selected, so I can see which row I last clicked. Make a deep analysis of how the colours must be handled for this row."
 
@@ -78,7 +78,7 @@ On a phone the rows are compact items; with the Edit or Link form open the row i
 ### Functional Requirements
 
 - **FR-001**: Clicking anything inside a Mix tracklist row, including links, icon buttons and menu buttons, MUST mark that row as the last touched, and at most one row is marked at a time.
-- **FR-002**: The mark MUST stay until another row is clicked, the row is deleted, or another mix opens; clicks outside the tracklist and re-clicking the same row do not clear it.
+- **FR-002**: The mark MUST stay until another row is clicked, the row is deleted, another mix opens, or every row is replaced (a paste, the description, a lookup, the mix reopened); clicks outside the tracklist and re-clicking the same row do not clear it.
 - **FR-003**: A marked row MUST use the app's existing chartreuse selected colour pair (the same one list–detail rows use), so the app has one selected look.
 - **FR-004**: Every colour used inside a marked row MUST meet the contrast targets in colour-analysis.md: text 4.5:1, icons, marks and control outlines 3:1.
 - **FR-005**: Status colours MUST keep their meaning on a marked row (not found stays red, found stays chartreuse with its icon shape).
@@ -108,5 +108,6 @@ On a phone the rows are compact items; with the Edit or Link form open the row i
 - Scope is the Mix tracklist; the other tables keep their behaviour (they select a row only when it opens a detail pane). If the owner wants every table to behave this way, it is a follow-up on the shared table.
 - "Chartreuse colour mode" means the app's chartreuse selected role (the dark green container with chartreuse text, the same as a selected list–detail row), not the bright chartreuse as a fill: bright chartreuse behind chartreuse links and icons would make them unreadable (contrast 1:1).
 - The mark is a view state: not saved, not synced, reset when another mix opens or the page reloads.
+- A paste, Replace with description, a lookup or reopening the same mix replaces every row without changing the mix: the mark clears then too, since its place would now hold another track (review of round 013).
 - Clicking a button that deletes the row, or opens a menu that is then dismissed, still counts as a click on its row first.
 - The Mix table's mixes list (the saved mixes on the left) is not part of this feature.

@@ -46,6 +46,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 One design document per feature round, dated. The first one is the base model; later ones build on it.
 
+- 2026-11-08 — The last Mix row clicked stays marked (round 013): [`specs/013-mix-row-last-clicked/`](../specs/013-mix-row-last-clicked/spec.md)
 - 2026-11-08 — Link a Spotify track to a not-found row (round 012): [`specs/012-mix-manual-spotify-link/`](../specs/012-mix-manual-spotify-link/spec.md)
 - 2026-11-08 — Simpler Mix tracklist (round 010): [`specs/010-mix-table-simplify/`](../specs/010-mix-table-simplify/spec.md)
 - 2026-11-07 — Sortable Mix tracklist (round 009): [`specs/009-mix-sortable-columns/`](../specs/009-mix-sortable-columns/spec.md)

@@ -3,6 +3,17 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-08 — The last Mix row clicked stays marked
+
+Spec: `specs/013-mix-row-last-clicked/`. In the open mix, the last row you click (its title, the Spotify icon that opens the app, a
+Shazam or SoundCloud icon that opens a new tab, a menu) stays highlighted, so coming back to the app you see where you were: the
+selected colour (`primary-container`), a chartreuse bar on its left edge and glowing chartreuse lines at its top and bottom, said
+"selected" to a screen reader. It follows the track when you sort or filter, stays while the row is in Edit or Link, moves to the row
+Add track makes, and clears on Delete, on opening another mix and when a paste, the description, a lookup or reopening the mix replaces
+every row. Fixed on the way: hovering a selected row (the playlist, artist or mix open beside its list) showed the grey hover instead
+of the selected colour; selected now wins and hover is a light layer over it. New size tokens `--app-mark-bar`, `--app-mark-line` and
+`--app-mark-halo`; no stored field, no `DB_VERSION` bump, no request, no new ADR.
+
 ## 2026-11-08 — Link a Spotify track to a not-found row
 
 Spec: `specs/012-mix-manual-spotify-link/`. In the open mix, the red "not found" mark of a track (on a phone, the "Not found on Spotify"

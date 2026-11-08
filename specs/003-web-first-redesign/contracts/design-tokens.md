@@ -96,6 +96,7 @@ Number cells: `font-variant-numeric: tabular-nums`, right-aligned. Prose blocks:
 | Side sheet | 400 px |
 | Touch target | ≥ 48 × 48 px for every control, whatever its drawn size |
 | Focus ring | 3 px `primary`, offset 2 px |
+| Selected row (round 013) | `primary-container` fill, `on-primary-container` text; hover is `on-primary-container` at the hover opacity over the fill. The marked Mix row adds `--app-mark-bar` 4 px (edge bar), `--app-mark-line` 2 px (top and bottom lines), `--app-mark-halo` 8 px (glow at 60% `primary`), all `primary` shadows; a form row keeps its neutral surface |
 
 ## Contrast pairs the test enforces
 
@@ -118,5 +119,12 @@ Number cells: `font-variant-numeric: tabular-nums`, right-aligned. Prose blocks:
 | `on-error-container` | `error-container` | 4.5 | 7.2 |
 | `#ffddb7` (warning text) | `--app-color-warning-container` | 4.5 | 10.2 |
 | `inverse-on-surface` | `inverse-surface` | 4.5 | 10.2 |
+| `on-surface` | `primary-container` (the marked Mix row, round 013) | 4.5 | 7.24 |
+| `on-surface-variant` | `primary-container` | 4.5 | 5.47 |
+| `error` | `primary-container` (the phone "Not found on Spotify" is text) | 4.5 | 5.49 |
+| `--app-color-warning` | `primary-container` | 4.5 | 5.48 |
+| `secondary` | `primary-container` | 4.5 | 5.47 |
+| `primary` | `primary-container` (found mark, edge bar, lines) | 3.0 | 7.2 |
 
-`outline-variant` on `surface` (1.98) is a divider: decorative, so not in the test.
+`outline-variant` on `surface` (1.98) is a divider: decorative, so not in the test. `outline` on `primary-container` (2.94) is not
+asserted: a form row never takes the selected fill.
