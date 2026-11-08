@@ -1,6 +1,6 @@
 # Feature Specification: Multi-user data
 
-**Feature Branch**: `009-multi-user-data` | **Created**: 2026-11-08 | **Status**: Draft
+**Feature Branch**: `009-multi-user-data` | **Created**: 2026-11-08 | **Status**: Implemented
 
 **Input**: "Could you imagine a multiuser setup. All data present now must be to the only registered user, and then if another user logs in it will have its own data."
 

@@ -2,7 +2,7 @@
 
 > **Status**: Living
 > **Last verified**: 2026-11-07 against `worktree-task-design`
-> **Last updated**: 2026-11-07
+> **Last updated**: 2026-11-08
 
 Every feature the app has today, where it lives and what state it is in. One row per feature the owner can see. Update this page in the
 same commit as any feature change ([Contributing](../dev-guide/000-contributing.md), "One change, several files"). How each piece works:
@@ -42,6 +42,7 @@ same commit as any feature change ([Contributing](../dev-guide/000-contributing.
 | F21 | Web-first redesign (Material Design 3, dark, chartreuse): five destinations (Overview, Listening, Library, Mix, Settings) in a rail or a bottom bar; sortable tables with column priorities and two-line phone items; the track details sheet (`?d=`); list–detail for Playlists, Artists and Mix; Crate charts; Compare periods; search (`/`, Ctrl+K); BPM and key filters; the Overview home; Settings in seven sections; the Mix workspace (Mixes list with the queue, run line, Check on Spotify, per-track review, Validated only / All tracks); one Spotify quota lock-out shared by every reader; the dev-only visual loop (`yarn shots`, `?demo`) | every screen; Overview at `#/` | `src/ui/layout/AppFrame.tsx`, `src/ui/table/DataTable.tsx`, `src/ui/details/TrackDetails.tsx`, `src/ui/overview/blocks.ts`, `src/ui/search/searchIndex.ts`, `src/ui/filters/trackFilter.ts`, `src/ui/mix/Workspace.tsx`, `src/spotify/quotaLock.ts`, `tools/shots/` | [Web-first redesign](../specs/2026-11-06-web-first-redesign-design.md), [ADR-11](700-adr/ADR-11-web-first-material-3.md) | 2026-11-07 (branch `worktree-task-design`) | 🚧 | Not on `main` yet; dark only (no light theme); WebKit shots need system libraries; the speed run on the real profile is the owner's |
 | F23 | Rarely played (round 007): a sixth Crate view listing the songs of your playlists played 0, 1, 2 or 3 times (Never, 1, 2, 3 chips, any combination), once per song with its playlists, a playlist menu, the usual BPM, key and year columns and filters | Listening · Crate · Rarely played, `#/crate/rarely-played` | `rarelyPlayed` `src/model/rarelyPlayed.ts`, `Rarely` `src/ui/crate/Rarely.tsx` | [`specs/007-rarely-played-tracks/`](../../specs/007-rarely-played-tracks/spec.md) | 2026-11-07 | ✅ | Needs the history import (Crate gate); counts are as of the last import; a relinked copy of a song with another id is a second row |
 | F22 | Automatic updates (round 006): after the server sync, the Spotify sync when the library is older than 12 hours, then BPM and key, then Artist reach, one at a time; a Settings Updates section with one line per job and a per-device switch | Settings · Updates | `createChain` `src/model/autoChain.ts`, `updateLines` `src/model/updateLines.ts`, `runAutoChain`/`requestJob` in `src/model/state.ts`, `UpdatesSection` `src/ui/settings/UpdatesSection.tsx` | [`specs/006-automatic-updates/`](../../specs/006-automatic-updates/spec.md), [ADR-12](700-adr/ADR-12-automatic-updates.md) | 2026-11-07 | ✅ | Spotify at most once a session and only past 12 hours; history and rekordbox still need a file; no wake lock when automatic |
+| F24 | Several people, one app (round 009): the server account is the user; the owner adds accounts in the Supabase dashboard; each user has their own database and Spotify login on the device and their own rows on the server; the first sign-in on a device claims the data already there; with a server set up, nobody signed in sees only a sign-in screen; Sign out returns to it, asks nothing and removes nothing; switching users reloads the page | the sign-in screen; Settings · Server (Signed in as, N people use this device, Sign out) | `src/server/userScope.ts`, `src/server/scopeBrowser.ts`, `activateServerUser`/`startServerSignOut` in `src/model/state.ts`, `src/ui/signin/SignInGate.tsx`, `src/ui/signin/gate.ts` | [`specs/009-multi-user-data/`](../../specs/009-multi-user-data/spec.md), [ADR-13](700-adr/ADR-13-users-by-server-account.md) | 2026-11-08 (branch `task/general-dev`) | 🚧 | Not on `main` yet; pre-update data goes to whoever signs in first on a device; no button to remove another person's copy from a device; free-tier storage and Spotify's read quota are shared by every user; a new sign-in needs the network |
 
 ## 2. What leaves the browser
 
@@ -77,6 +78,8 @@ Nothing else writes to the owner's Spotify account ([ADR-03](700-adr/ADR-03-libr
   F18 (2026-11-06, the server). F21, the web-first redesign, is built on `worktree-task-design` (2026-11-07), has `origin/main`
   through F20 merged in (S13b) and waits for the owner's OK to merge.
 - Round 006 (2026-11-07, automatic updates, F22) is rebased on the redesign: its Updates section is `src/ui/settings/UpdatesSection.tsx`.
+- Round 009 (2026-11-08, several people, F24) is built on `task/general-dev`; the review of every user-data path (T022–T024) and
+  the owner's manual run on the real project (T021) are still open.
 - `DB_VERSION` 4; `SCOPES` include the two write scopes, so a pre-2026-09-25 session needs **Connect again** once.
 
 ## Links

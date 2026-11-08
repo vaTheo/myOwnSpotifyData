@@ -5,50 +5,50 @@
 
 ## Phase 1: Setup (decision first, docs lead)
 
-- [ ] T001 Write `docs/architecture/700-adr/ADR-13-users-by-server-account.md` (user = server account, claim by first sign-in, per-user database and Spotify keys, reload on switch; amends ADR-08 "owner alone"); link it from `docs/architecture/700-adr/README.md`, `docs/README.md` and ADR-08
-- [ ] T002 Amend Principle I in `.specify/memory/constitution.md` ("for the owner and the accounts the owner creates"), bump to 2.3.0 with the Sync Impact Report; mirror the line in `CLAUDE.md` (root) non-negotiable rules
+- [x] T001 Write `docs/architecture/700-adr/ADR-13-users-by-server-account.md` (user = server account, claim by first sign-in, per-user database and Spotify keys, reload on switch; amends ADR-08 "owner alone"); link it from `docs/architecture/700-adr/README.md`, `docs/README.md` and ADR-08
+- [x] T002 Amend Principle I in `.specify/memory/constitution.md` ("for the owner and the accounts the owner creates"), bump to 2.3.0 with the Sync Impact Report; mirror the line in `CLAUDE.md` (root) non-negotiable rules
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T003 Write failing tests in `src/server/userScope.test.ts`: `dbNameFor` and `keyFor` (claimer and no-server give the unscoped name, others `spotify-dj-u-<id>` / `base:<id>`), `claim` (first sign-in sets `deviceOwner`, a second never changes it), `userIdFromToken` (valid `sub`, malformed, missing), a non-UUID id is rejected
-- [ ] T004 Implement `src/server/userScope.ts` (pure, storage injected as `StorageLike`): `claim`, `dbNameFor`, `keyFor`, `userIdFromToken`, `readActive`, `writeActive`, `recordDeviceUser`, UUID check `/^[0-9a-f-]{36}$/` until T003 passes
-- [ ] T005 Add `userId` to `ServerSession` in `src/server/session.ts`: set from the token exchange, and for a session stored without it read the `sub` of the access token; extend `src/server/session.test.ts` (old stored session gains its id, no network call)
+- [x] T003 Write failing tests in `src/server/userScope.test.ts`: `dbNameFor` and `keyFor` (claimer and no-server give the unscoped name, others `spotify-dj-u-<id>` / `base:<id>`), `claim` (first sign-in sets `deviceOwner`, a second never changes it), `userIdFromToken` (valid `sub`, malformed, missing), a non-UUID id is rejected
+- [x] T004 Implement `src/server/userScope.ts` (pure, storage injected as `StorageLike`): `claim`, `dbNameFor`, `keyFor`, `userIdFromToken`, `readActive`, `writeActive`, `recordDeviceUser`, UUID check `/^[0-9a-f-]{36}$/` until T003 passes
+- [x] T005 Add `userId` to `ServerSession` in `src/server/session.ts`: set from the token exchange, and for a session stored without it read the `sub` of the access token; extend `src/server/session.test.ts` (old stored session gains its id, no network call)
 
 ## Phase 3: User Story 1 - My current data stays mine (P1) MVP
 
 **Independent test**: with a populated library on the device, open the updated app: same data, no new link, no re-sync.
 
-- [ ] T006 [US1] Failing test in `src/db/repo.test.ts` (`fake-indexeddb/auto`): with the claimer active, `openDb` opens `spotify-dj` and an existing version 4 database keeps every row
-- [ ] T007 [US1] Make `dbName()` in `src/db/repo.ts` resolve through `userScope` (demo rule first, unchanged); `DB_NAME` and `DB_VERSION` stay
-- [ ] T008 [US1] Scope the Spotify session keys in `src/auth/browser.ts` / `src/auth/session.ts` with `keyFor` (the claimer keeps `session` and `pkce`)
-- [ ] T009 [US1] In `src/model/state.ts` `completeServerLink`: on success `claim`, `writeActive`, `recordDeviceUser`; reload only when the active user changed. On boot with a stored session, activate it the same way (no new link for the owner)
+- [x] T006 [US1] Failing test in `src/db/repo.test.ts` (`fake-indexeddb/auto`): with the claimer active, `openDb` opens `spotify-dj` and an existing version 4 database keeps every row
+- [x] T007 [US1] Make `dbName()` in `src/db/repo.ts` resolve through `userScope` (demo rule first, unchanged); `DB_NAME` and `DB_VERSION` stay
+- [x] T008 [US1] Scope the Spotify session keys in `src/auth/browser.ts` / `src/auth/session.ts` with `keyFor` (the claimer keeps `session` and `pkce`)
+- [x] T009 [US1] In `src/model/state.ts` `completeServerLink`: on success `claim`, `writeActive`, `recordDeviceUser`; reload only when the active user changed. On boot with a stored session, activate it the same way (no new link for the owner)
 
 ## Phase 4: User Story 2 - A second person starts empty (P1)
 
 **Independent test**: a second user signs in, sees every screen empty, connects their own Spotify and syncs; the owner's data is unchanged.
 
-- [ ] T010 [US2] Failing test in `src/db/repo.test.ts`: a non-claimer opens `spotify-dj-u-<id>` (empty), writes a row, and the claimer's database does not contain it
-- [ ] T011 [US2] Create `src/ui/signin/SignInGate.tsx` (email field, Send me a link, "If this email has an account, a link was sent", inline link errors, offline and paused notices) per `contracts/ui.md`
-- [ ] T012 [US2] In `src/main.tsx` and `src/app.tsx`: when `VITE_SUPABASE_URL` and key are set and there is no server session, `bootPhase = 'signedout'` renders only `SignInGate` and nothing of any user; without the settings nothing changes
-- [ ] T013 [US2] Audit the server rules in a test or SQL review note: every table in `supabase/migrations/` has `owner_id = auth.uid()` policies and no `anon` grant (extend an existing migrations test if one exists, else add `src/server/rules.test.ts` reading the SQL)
+- [x] T010 [US2] Failing test in `src/db/repo.test.ts`: a non-claimer opens `spotify-dj-u-<id>` (empty), writes a row, and the claimer's database does not contain it
+- [x] T011 [US2] Create `src/ui/signin/SignInGate.tsx` (email field, Send me a link, "If this email has an account, a link was sent", inline link errors, offline and paused notices) per `contracts/ui.md`
+- [x] T012 [US2] In `src/main.tsx` and `src/app.tsx`: when `VITE_SUPABASE_URL` and key are set and there is no server session, `bootPhase = 'signedout'` renders only `SignInGate` and nothing of any user; without the settings nothing changes
+- [x] T013 [US2] Audit the server rules in a test or SQL review note: every table in `supabase/migrations/` has `owner_id = auth.uid()` policies and no `anon` grant (extend an existing migrations test if one exists, else add `src/server/rules.test.ts` reading the SQL)
 
 ## Phase 5: User Story 3 - Two people, one browser (P2)
 
 **Independent test**: sign out, sign in as another user, sign back in: each sees only their own data, no wipe, no question.
 
-- [ ] T014 [US3] `startServerSignOut` in `src/model/state.ts`: remove the server session and the `activeUser` pointer, then reload; remove nothing else and ask nothing
-- [ ] T015 [US3] Sign-in as a different user while another is remembered: write the new pointer and reload, no `confirm()`; a test on the pure decision "reload needed" in `userScope.test.ts`
-- [ ] T016 [US3] `disconnect` and `removeServerData` in `src/model/state.ts` act on the active scope only (`wipeDb` uses the scoped name; `auth.clearAll` clears the scoped keys); test `wipeDb` removes only the active user's database
-- [ ] T017 [US3] Settings server card in `src/ui/settings/`: signed-in email, "N people use this device" when N > 1, Sign out; wording "your" on Remove server data and Disconnect
+- [x] T014 [US3] `startServerSignOut` in `src/model/state.ts`: remove the server session and the `activeUser` pointer, then reload; remove nothing else and ask nothing
+- [x] T015 [US3] Sign-in as a different user while another is remembered: write the new pointer and reload, no `confirm()`; a test on the pure decision "reload needed" in `userScope.test.ts`
+- [x] T016 [US3] `disconnect` and `removeServerData` in `src/model/state.ts` act on the active scope only (`wipeDb` uses the scoped name; `auth.clearAll` clears the scoped keys); test `wipeDb` removes only the active user's database
+- [x] T017 [US3] Settings server card in `src/ui/settings/`: signed-in email, "N people use this device" when N > 1, Sign out; wording "your" on Remove server data and Disconnect
 
 ## Phase 6: User Story 4 - Without the server, nothing changes (P3)
 
-- [ ] T018 [US4] Test in `userScope.test.ts`: with no server configured every name and key equals today's; build once without the settings and confirm no sign-in screen (quickstart step 6)
+- [x] T018 [US4] Test in `userScope.test.ts`: with no server configured every name and key equals today's; build once without the settings and confirm no sign-in screen (quickstart step 6)
 
 ## Phase 7: Polish and docs
 
-- [ ] T019 Run `yarn typecheck && yarn lint && yarn test`, judged by exit code
-- [ ] T020 Docs: how-it-works §6, §13, §14, §16 and a new short note on users; inventory row in `docs/architecture/100-features.md`; README (owner's manual: add a user, sign in, sign out, what a shared device keeps); CHANGELOG ("Several people, one app" plus the claim warning); `docs/architecture/800-limits-roadmap.md` (no remove-from-this-device button, free-tier storage shared, shared Spotify quota); `src/server/CLAUDE.md` and `src/db/CLAUDE.md` one line each
+- [x] T019 Run `yarn typecheck && yarn lint && yarn test`, judged by exit code
+- [x] T020 Docs: how-it-works §6, §13, §14, §16 and a new short note on users; inventory row in `docs/architecture/100-features.md`; README (owner's manual: add a user, sign in, sign out, what a shared device keeps); CHANGELOG ("Several people, one app" plus the claim warning); `docs/architecture/800-limits-roadmap.md` (no remove-from-this-device button, free-tier storage shared, shared Spotify quota); `src/server/CLAUDE.md` and `src/db/CLAUDE.md` one line each
 - [ ] T021 (after Phase 8) Manual run on the real project, quickstart steps 2 to 7 (two users, two Spotify accounts); report what was and was not checked
 
 ## Phase 8: Full review of everything that touches user data and sync (last, before the manual run)

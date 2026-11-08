@@ -150,4 +150,4 @@ When the two disagree, the ADR index is corrected first and this file follows.
 - Runtime guidance for agents stays in `CLAUDE.md` and the local `CLAUDE.md` files;
   this file does not duplicate their routing.
 
-**Version**: 2.2.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-07
+**Version**: 2.3.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-08

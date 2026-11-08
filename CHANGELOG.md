@@ -3,6 +3,19 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-08 — Several people, one app
+
+With the server set up, each person who signs in is a user with data of their own: library, history, BPM and key, artist reach
+and saved mixes, on the device and on the server. You add a person in the Supabase dashboard (sign-ups stay off) and their Spotify
+account in the Spotify app's User Management; they sign in with their email and connect their own Spotify. The app now opens on a
+sign-in screen while nobody is signed in to the server, and shows nothing of anyone behind it. **Sign out** returns to it, asks
+nothing and removes nothing; the next person sees only their data, and yours is back at once when you sign in again. Settings ·
+Server says "Signed in as …" and "N people use this device"; Disconnect and Remove server data touch only your data.
+**Sign in first on each of your own devices:** the first person to sign in on a device after this update gets the data already
+stored there. Your session from before the update counts, so a browser you were already signed in on stays yours with no new link.
+A new sign-in needs the network. Decision: ADR-13 (amends ADR-08; constitution 2.3.0). Spec: `specs/009-multi-user-data/`. No
+`DB_VERSION` bump: other users get a database of their own beside yours; no server change.
+
 ## 2026-11-07 — Lists keep loading as you scroll
 
 Every long list (Top, Playlists, a playlist, Artists, the Crate views, Under the radar, a mix) now shows 100 more rows by itself when

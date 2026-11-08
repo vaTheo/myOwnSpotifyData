@@ -1,7 +1,7 @@
 # 800 — Limits and roadmap
 
 > **Status**: Living
-> **Last updated**: 2026-11-07
+> **Last updated**: 2026-11-08
 
 What the app cannot do, what was decided against, and the ideas not built yet. A row moves to the
 [feature inventory](100-features.md) once it ships. The decisions that cause most of these limits are in the
@@ -50,6 +50,20 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   the newer dataset wins; a step that failed waits for the next open or its button; Spotify's lock-out is known per device only, so
   another device's chain may try one sync during a lock (then it is locked too) ([ADR-12](700-adr/ADR-12-automatic-updates.md)).
 - Server rows are stored in clear (the owner declined client-side encryption): whoever holds the supabase.com login can read them.
+- Several people, one app (F24, round 009, [ADR-13](700-adr/ADR-13-users-by-server-account.md)):
+  - No "remove this person from this device" button: every user's copy stays on a shared device until the browser's data is
+    cleared (the spec's out of scope for now).
+  - The Free project's storage and Spotify's daily read quota belong to the app and are shared by every user; the lock-out on a
+    device stops every user there.
+  - The data stored on a device before the update goes to whoever signs in there first.
+  - When the server session ends mid-use (a refused refresh), the sign-in screen replaces the app at once; whether unsaved Mix
+    Workspace edits survive that is not verified, and a job already running continues in the background until it ends.
+  - Sign out checks for a running job or push and then awaits the server sign-out: a push that starts in that short window can
+    run while the session is removed.
+  - Another tab's sign-out, or a failed refresh there, reloads this tab even while a Spotify job runs here.
+  - `scopedStorage` in `src/server/userScope.ts` is used by its tests only (the app uses `scopedView`, `scopeBrowser.ts`).
+  - The server rules audit (`src/server/rules.test.ts`) does not see a `create table` inside a `do` body (dollar-quoted bodies are
+    set aside), and reads a function declared `returns table (…)` as an unrecognised table statement (a false alarm, never a miss).
 
 ## 3. Out of scope, decided (not to be re-litigated without the owner)
 

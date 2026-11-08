@@ -20,3 +20,5 @@ the `upgrade` callback and every read and write. The owner's data here took hour
 - A store the `Model` does not need stays out of `AllRows`/`getAllRows`/`buildModel` and gets its own repo functions (as `mixes` does).
 - Keep `blocking`/`blocked` reporting through `setDbEvents`; a version bump must not hang an old tab.
 - Update the store table in How the app works §6 and the feature's `CHANGELOG.md` entry ("the database upgrades itself").
+- The database name is per server user (ADR-13): `dbName()` asks `scopedDbName` (`../server/scopeBrowser.ts`) after the demo rule;
+  `spotify-dj` stays the device claimer's. Never rename or copy a user's database.
