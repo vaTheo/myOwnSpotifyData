@@ -49,6 +49,32 @@ export function lookupDoneLine(d: {
   ].join(' · ');
 }
 
+/** Round 014 (FR-011): shown with the server set up and a session. */
+export const SHARED_NOTICE_BPM =
+  'BPM and key found by a lookup are shared with the other people on this server; your library, plays, rekordbox values and mixes never are.';
+
+/**
+ * Round 014: what a run took from and gave to the shared store, or null when
+ * there is nothing to say (no port, or the store knew nothing and took
+ * nothing). An error is a line of its own, never a banner.
+ */
+export function sharedRunLine(
+  shared: { fromStore: number; sent: number; error: string | null } | undefined
+): { kind: 'success' | 'error'; text: string } | null {
+  if (!shared) return null;
+  if (shared.error !== null) {
+    return {
+      kind: 'error',
+      text: `The shared store could not be used (${shared.error}); everything was looked up outside as before.`,
+    };
+  }
+  if (shared.fromStore === 0 && shared.sent === 0) return null;
+  return {
+    kind: 'success',
+    text: `From the shared store: ${plural(shared.fromStore, 'track')}, no lookup needed. Shared: ${shared.sent.toLocaleString()} new.`,
+  };
+}
+
 /** "parsed 1,204 · with BPM 1,190 · with key 1,050 · matched 820 · …" */
 export function rekordboxLine(s: RekordboxSummary): string {
   return [

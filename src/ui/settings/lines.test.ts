@@ -12,6 +12,8 @@ import {
   reachCoverageLine,
   reachRunLine,
   rekordboxLine,
+  SHARED_NOTICE_BPM,
+  sharedRunLine,
   signedInLine,
   usedShare,
   yearsLine,
@@ -153,5 +155,28 @@ describe('signedInLine (Settings server card and Connect)', () => {
 
   it('falls back to "the owner" when the session has no email', () => {
     expect(signedInLine('')).toBe('Signed in as the owner.');
+  });
+});
+
+describe('sharedRunLine (round 014)', () => {
+  it('says what came from the store and what was given', () => {
+    expect(sharedRunLine({ fromStore: 1200, sent: 3, error: null })).toEqual({
+      kind: 'success',
+      text: 'From the shared store: 1,200 tracks, no lookup needed. Shared: 3 new.',
+    });
+  });
+  it('says the store could not be used, with the reason', () => {
+    expect(sharedRunLine({ fromStore: 0, sent: 0, error: 'timeout' })).toEqual({
+      kind: 'error',
+      text: 'The shared store could not be used (timeout); everything was looked up outside as before.',
+    });
+  });
+  it('is silent without a port or with nothing exchanged', () => {
+    expect(sharedRunLine(undefined)).toBeNull();
+    expect(sharedRunLine({ fromStore: 0, sent: 0, error: null })).toBeNull();
+  });
+  it('the notice names what is never shared', () => {
+    expect(SHARED_NOTICE_BPM).toContain('other people on this server');
+    expect(SHARED_NOTICE_BPM).toContain('rekordbox values and mixes never are');
   });
 });

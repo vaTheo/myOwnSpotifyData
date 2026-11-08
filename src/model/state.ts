@@ -1421,6 +1421,7 @@ export async function startLookup(opts: JobOptions = {}): Promise<void> {
       onState: (state) => {
         lookupState.value = state;
       },
+      shared: sharedPort(),
     },
     candidateIds(m),
     [...m.features.values()],
