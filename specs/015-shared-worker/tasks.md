@@ -21,9 +21,9 @@
 
 **Independent test**: with the worker's server faked as one queue holding requests of two users, a shared-mode run takes both, one at a time, and sends each result through `worker_finish_job` on the request it holds; no personal call is made.
 
-- [ ] T009 [US1] Failing tests in `worker/tests/test_cli.py`: in shared mode the start asks `is_shared_worker` once; `true` → the start line ends with "shared worker" and the run claims through `claim_any_job`; the run loop, progress writes, the Stop reading, the release on Ctrl-C and the "queue empty" lines are the personal ones; personal mode makes no `is_shared_worker` call and prints its present line
-- [ ] T010 [US1] Implement in `worker/mix_worker/cli.py`: pick the client by `settings.worker_mode`, the shared start check, the start line naming the mode (`mix-worker <version> · <url> · as <email> · on <name> · shared worker`); T009 green
-- [ ] T011 [US1] Test in `worker/tests/test_pipeline.py` that a shared-mode client run (fake HTTP) still sees only the project's host and writes the F15 result unchanged through `worker_finish_job`
+- [x] T009 [US1] Failing tests in `worker/tests/test_cli.py`: in shared mode the start asks `is_shared_worker` once; `true` → the start line ends with "shared worker" and the run claims through `claim_any_job`; the run loop, progress writes, the Stop reading, the release on Ctrl-C and the "queue empty" lines are the personal ones; personal mode makes no `is_shared_worker` call and prints its present line
+- [x] T010 [US1] Implement in `worker/mix_worker/cli.py`: pick the client by `settings.worker_mode`, the shared start check, the start line naming the mode (`mix-worker <version> · <url> · as <email> · on <name> · shared worker`); T009 green
+- [x] T011 [US1] Test in `worker/tests/test_pipeline.py` that a shared-mode client run (fake HTTP) still sees only the project's host and writes the F15 result unchanged through `worker_finish_job`
 
 ## Phase 4: User Story 2 - The worker sees only what it needs (P1)
 
@@ -36,20 +36,20 @@
 
 **Independent test**: an ordinary account is refused every shared function; removing a worker from the list stops it at the next call.
 
-- [ ] T014 [US3] Failing tests then implement in `worker/mix_worker/cli.py`: `is_shared_worker` answers `false` → log "this account is not a shared worker: ask the owner to add it to shared_workers", return exit code **7** (`EXIT_NOT_SHARED`), add it to the exit-code list and the docstring; a `42501` from any shared call during a run → "this account is no longer a shared worker", exit 7, no release attempt; the console stays open on code 7 for a double-clicked Windows `.exe` (the 0.5.3 rule applies to every non-zero code: add a test)
+- [x] T014 [US3] Failing tests then implement in `worker/mix_worker/cli.py`: `is_shared_worker` answers `false` → log "this account is not a shared worker: ask the owner to add it to shared_workers", return exit code **7** (`EXIT_NOT_SHARED`), add it to the exit-code list and the docstring; a `42501` from any shared call during a run → "this account is no longer a shared worker", exit 7, no release attempt; the console stays open on code 7 for a double-clicked Windows `.exe` (the 0.5.3 rule applies to every non-zero code: add a test)
 - [ ] T015 [US3] Document the owner steps in `worker/README.md` (create the worker user in the dashboard with a dedicated email, apply 0006, `insert into public.shared_workers`, set `WORKER_MODE=shared`, remove the row to disable, exit code 7) and in the "Before the first login" section; no secret is shown
 
 ## Phase 6: User Story 4 - A personal worker keeps working (P2)
 
 **Independent test**: with `WORKER_MODE` unset, every existing worker test passes unchanged and the personal client's requests are the same as before.
 
-- [ ] T016 [US4] Confirm no existing worker test was edited except to add cases; add one test in `worker/tests/test_cli.py` that personal mode with the default setting never calls any `rpc/*` of 0006 and still calls `rpc/claim_job` and the `PATCH` on `jobs`; add the "personal worker and shared worker at once never take one request twice" case to the fake queue (held rows are invisible to the other claim)
+- [x] T016 [US4] Confirm no existing worker test was edited except to add cases; add one test in `worker/tests/test_cli.py` that personal mode with the default setting never calls any `rpc/*` of 0006 and still calls `rpc/claim_job` and the `PATCH` on `jobs`; add the "personal worker and shared worker at once never take one request twice" case to the fake queue (held rows are invisible to the other claim)
 
 ## Phase 7: User Story 5 - Fair turns between users (P2)
 
 **Independent test**: the audit pins the order; the real order is checked on the real project (quickstart step 3).
 
-- [ ] T017 [US5] Add a worker-side test with a fake queue that two requests of one user and one of another come back A, B, A when the fake applies the documented order (documents the contract; the SQL itself is verified in T023), and the "Move to top" note in `docs/architecture/000-how-it-works.md` §17 (priority orders within a user only in shared mode)
+- [x] T017 [US5] Add a worker-side test with a fake queue that two requests of one user and one of another come back A, B, A when the fake applies the documented order (documents the contract; the SQL itself is verified in T023), and the "Move to top" note in `docs/architecture/000-how-it-works.md` §17 (priority orders within a user only in shared mode)
 
 ## Phase 8: Polish and docs
 

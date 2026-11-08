@@ -117,6 +117,7 @@ queue. The scanned JSON stays in your music folder, so you can also import it by
 | 4 | not signed in, or the session expired | `mix-worker login` |
 | 5 | a setting is missing or ffmpeg cannot start | the message names the setting and the file |
 | 6 | the settings template was just written (packaged form) | fill the two values, start again |
+| 7 | `WORKER_MODE=shared` and the account is not (or no longer) in `shared_workers` | ask the owner to add it, or set `WORKER_MODE=personal` |
 | 130 | stopped with Ctrl-C | the current request was released |
 
 ## Settings

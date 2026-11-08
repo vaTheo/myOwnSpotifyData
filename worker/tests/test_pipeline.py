@@ -231,6 +231,51 @@ class Failures(unittest.TestCase):
             self.assertEqual(run_one(job(), settings, "tok", deps).server.kind, "paused")
 
 
+
+class SharedMode(unittest.TestCase):
+    """Round 015 T011: the shared client under the same pipeline."""
+
+    def test_only_the_project_host_and_the_f15_result_through_worker_finish_job(self):
+        from urllib.parse import urlsplit
+
+        from mix_worker.server import SharedServerClient
+
+        seen = []
+
+        class Resp:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b"true" if seen[-1][1].endswith("/rpc/worker_finish_job") else b"[]"
+
+        def opener(req, timeout=None):
+            seen.append((req.get_method(), req.full_url, json.loads(req.data.decode()) if req.data else None))
+            return Resp()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            client = SharedServerClient("https://abc.supabase.co", "k", opener=opener, sleep=lambda s: None)
+            settings, deps, log = make(tmp, client=client)
+            outcome = run_one(job(), settings, "tok", deps)
+            self.assertEqual(outcome.status, "done")
+            kept = list((Path(tmp) / "json").iterdir())
+            self.assertEqual(len(kept), 1)
+            self.assertTrue(all(urlsplit(url).netloc == "abc.supabase.co" for _, url, _ in seen))
+            finishes = [c for c in seen if c[1].endswith("/rpc/worker_finish_job")]
+            self.assertEqual(len(finishes), 1)
+            body = finishes[0][2]
+            self.assertEqual(body["p_id"], JOB_ID)
+            self.assertEqual(body["p_worker"], "laptop")
+            self.assertEqual(body["p_body"]["status"], "done")
+            self.assertEqual(body["p_body"]["result"], json.loads(kept[0].read_text(encoding="utf-8")))
+            self.assertEqual(body["p_body"]["result"]["tracks"], [TRACK])
+            self.assertFalse(any("/rest/v1/jobs" in url for _, url, _ in seen))
+
 if __name__ == "__main__":
     unittest.main()
 

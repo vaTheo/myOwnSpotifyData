@@ -3,9 +3,10 @@ import unittest
 from pathlib import Path
 
 from mix_worker import __version__
-from mix_worker.cli import PRESS_ENTER, CliDeps, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, main
-from mix_worker.config import SettingsError
-from mix_worker.server import Result
+from mix_worker.cli import PRESS_ENTER, CliDeps, EXIT_NOT_SHARED, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, code_for, main, make_client, run_queue
+from mix_worker.config import Settings, SettingsError
+from mix_worker.pipeline import Deps
+from mix_worker.server import Result, ServerClient, SharedServerClient
 from mix_worker.session import Session, load, save
 
 GOOD = "SUPABASE_URL=https://abc.supabase.co\nSUPABASE_KEY=sb_publishable_1234567890\n"
@@ -293,6 +294,194 @@ class DoubleClickConsole(unittest.TestCase):
     def test_a_crash_off_the_double_click_still_raises(self):
         with self.assertRaises(RuntimeError):
             self.run_main(["check"], boom=True)
+
+    def test_code_7_holds_the_console(self):
+        code, out, reads = self.run_main([], code=EXIT_NOT_SHARED)
+        self.assertEqual(code, 7)
+        self.assertIn(PRESS_ENTER, out)
+        self.assertEqual(len(reads), 1)
+
+
+class QueueClient:
+    """A queue client that records its calls; `shared_answer` is what is_shared_worker says."""
+
+    def __init__(self, claims, shared_answer=None):
+        self.claims = list(claims)
+        self.shared_answer = shared_answer
+        self.calls = []
+
+    def refresh(self, token):
+        self.calls.append(("refresh",))
+        return Result("ok", {"access_token": "a2", "refresh_token": "r2", "expires_in": 3600})
+
+    def is_shared_worker(self, token):
+        self.calls.append(("is_shared_worker",))
+        return self.shared_answer
+
+    def claim(self, token, worker, stale):
+        self.calls.append(("claim", token))
+        return self.claims.pop(0)
+
+    def finish(self, token, job_id, worker, body):
+        self.calls.append(("finish", body["status"]))
+        return Result("ok", "done", 200)
+
+    def release(self, token, job_id, worker):
+        self.calls.append(("release",))
+        return Result("ok", None, 200)
+
+
+class RunLog:
+    def __init__(self):
+        self.lines = []
+
+    def line(self, text):
+        self.lines.append(text)
+
+    def step(self, *a):
+        pass
+
+    def exception(self, err):
+        self.lines.append(repr(err))
+
+
+def queue_settings(tmp, mode):
+    work = Path(tmp) / "work"
+    return Settings(
+        supabase_url="https://abc.supabase.co", supabase_key="k", worker_name="laptop",
+        session_file=Path(tmp) / "s.json", work_dir=work, json_dir=Path(tmp) / "json", log_file=work / "w.log",
+        ffmpeg="ffmpeg", ytdlp_cookies=None, proxy=None, stale_seconds=4321, poll_seconds=7, heartbeat_seconds=30,
+        max_duration_seconds=14400, probe_step_seconds=60, probe_seconds=10, cooldown_seconds=0.0,
+        rate_limit_pause_seconds=0.0, rate_limit_pauses=3, shazam_device="android", max_skew=0.0, merge_gap_seconds=180,
+        result_max_bytes=900000, worker_mode=mode,
+    )
+
+
+def queue_run(tmp, client, mode):
+    settings = queue_settings(tmp, mode)
+    session = Session(email="dj@example.com", access_token="a", refresh_token="r", expires_at=9e12)
+    save(settings.session_file, session)
+
+    def download(url, dest):
+        from mix_worker.download import Downloaded
+
+        dest.mkdir(parents=True, exist_ok=True)
+        p = dest / "a.webm"
+        p.write_bytes(b"x")
+        return Downloaded(path=p, title="t", uploader=None, duration=60)
+
+    row = [{"song_name": "T", "artist": "A", "time_in_mix": "00:00:00", "confidence": 1.0, "duration": None}]
+    deps = Deps(client=client, download=download, scan=lambda p, d: row, now=lambda: 1_000.0, today=lambda: "2026-11-08", log=RunLog())
+    code = run_queue(settings, deps, session, once=True, interval=1, sleep=lambda s: None)
+    return code, deps.log.lines
+
+
+def a_job():
+    return {"id": "00000000-0000-4000-8000-000000000001", "payload": {"url": "https://x.y/1"}}
+
+
+class SharedStart(unittest.TestCase):
+    def test_the_mode_picks_the_client(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIs(type(make_client(queue_settings(tmp, "personal"))), ServerClient)
+            self.assertIs(type(make_client(queue_settings(tmp, "shared"))), SharedServerClient)
+
+    def test_shared_asks_once_then_names_the_mode_and_runs_the_personal_loop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = QueueClient([Result("ok", a_job()), Result("ok", None)], Result("ok", True, 200))
+            code, lines = queue_run(tmp, client, "shared")
+            self.assertEqual(code, EXIT_OK)
+            self.assertEqual([c[0] for c in client.calls].count("is_shared_worker"), 1)
+            self.assertTrue(lines[0].startswith("mix-worker "))
+            self.assertTrue(lines[0].endswith(" · on laptop · shared worker"))
+            self.assertIn(("finish", "done"), client.calls)
+            self.assertEqual(lines[-1], "queue empty")
+
+    def test_personal_never_asks_and_keeps_its_line(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = QueueClient([Result("ok", None)])
+            code, lines = queue_run(tmp, client, "personal")
+            self.assertEqual(code, EXIT_OK)
+            self.assertNotIn("is_shared_worker", [c[0] for c in client.calls])
+            self.assertTrue(lines[0].endswith(" · on laptop"))
+            self.assertNotIn("shared", lines[0])
+
+    def test_not_a_shared_worker_exits_7_before_any_claim(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = QueueClient([], Result("ok", False, 200))
+            code, lines = queue_run(tmp, client, "shared")
+            self.assertEqual(code, EXIT_NOT_SHARED)
+            self.assertEqual(code, 7)
+            self.assertIn("this account is not a shared worker: ask the owner to add it to shared_workers", lines)
+            self.assertNotIn("claim", [c[0] for c in client.calls])
+
+    def test_code_for_maps_the_new_status(self):
+        self.assertEqual(code_for(Result("not_shared_worker")), 7)
+
+    def test_refused_claim_during_a_run_exits_7(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = QueueClient([Result("not_shared_worker", None, 403, "denied")], Result("ok", True, 200))
+            code, lines = queue_run(tmp, client, "shared")
+            self.assertEqual(code, 7)
+            self.assertIn("this account is no longer a shared worker", lines)
+
+    def test_refused_finish_exits_7_without_a_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = QueueClient([Result("ok", a_job())], Result("ok", True, 200))
+            client.finish = lambda token, job_id, worker, body: client.calls.append(("finish", body["status"])) or Result("not_shared_worker", None, 403, "denied")
+            code, lines = queue_run(tmp, client, "shared")
+            self.assertEqual(code, 7)
+            self.assertIn("this account is no longer a shared worker", lines)
+            self.assertNotIn("release", [c[0] for c in client.calls])
+
+
+class PersonalUntouched(unittest.TestCase):
+    """Round 015 T016: the default setting never reaches an rpc of migration 0006."""
+
+    def test_default_mode_is_personal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(Settings.__dataclass_fields__["worker_mode"].default, "personal")
+            self.assertIs(type(make_client(queue_settings(tmp, Settings.__dataclass_fields__["worker_mode"].default))), ServerClient)
+
+    def test_personal_run_calls_claim_job_and_patches_jobs_only(self):
+        import json
+
+        class Opener:
+            def __init__(self):
+                self.calls = []
+
+            def __call__(self, req, timeout=None):
+                self.calls.append((req.get_method(), req.full_url))
+                opener = self
+
+                class Resp:
+                    status = 200
+
+                    def __enter__(self):
+                        return self
+
+                    def __exit__(self, *a):
+                        return False
+
+                    def read(self):
+                        if req.full_url.endswith("/rpc/claim_job"):
+                            first = sum(1 for m, u in opener.calls if u.endswith("/rpc/claim_job")) == 1
+                            return json.dumps([a_job()] if first else []).encode()
+                        return b"[{\"id\": \"x\"}]"
+
+                return Resp()
+
+        opener = Opener()
+        with tempfile.TemporaryDirectory() as tmp:
+            client = ServerClient("https://abc.supabase.co", "k", opener=opener, sleep=lambda s: None)
+            code, _ = queue_run(tmp, client, Settings.__dataclass_fields__["worker_mode"].default)
+        self.assertEqual(code, EXIT_OK)
+        urls = [u for _, u in opener.calls]
+        for name in ("is_shared_worker", "claim_any_job", "worker_finish_job", "worker_set_progress", "worker_release_job"):
+            self.assertFalse(any(name in u for u in urls), name)
+        self.assertTrue(any(u.endswith("/rpc/claim_job") for u in urls))
+        self.assertTrue(any(m == "PATCH" and "/rest/v1/jobs?" in u for m, u in opener.calls))
+
 
 if __name__ == "__main__":
     unittest.main()

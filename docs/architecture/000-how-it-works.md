@@ -695,8 +695,11 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
 - `cli.py`: `check`, `login` (the app's magic link in the PKCE flow, caught on `127.0.0.1:5173/myOwnSpotifyData/` → `session.json`
   at mode 600; `--code` for a typed six-digit code), `logout`, `run --once|--watch`, `--config`, `--version`;
   no command = the double-click: login if needed, then watch; a packaged start without a settings file writes `mix-worker.env`
-  and exits 6. Exit codes 0/2/3/4/5/6/130 (`contracts/worker.md`). Every dependency (environment, terminal, clock, client, the
+  and exits 6. Exit codes 0/2/3/4/5/6/7/130 (`contracts/worker.md`; 7 = not, or no longer, a shared worker). Every dependency (environment, terminal, clock, client, the
   queue loop) is a `CliDeps` field, so `tests/test_cli.py` runs every command offline.
+- Round 015 (shared mode, `WORKER_MODE=shared`): `cli.make_client` picks `SharedServerClient`, the start asks `is_shared_worker`
+  once, and the claim takes the next request of any user in turns. **Move to top** orders a user's own requests only in shared
+  mode: the fair turn between users comes before `priority`. Personal mode and `claim_job` are unchanged.
 - `config.py`: the one reader of the settings file and the environment (`Settings`, defaults per OS, `SettingsError` naming
   the setting). `server.py`: `ServerClient` over `urllib` (`send_otp`, `verify`, `refresh`, `logout`, `claim` → `rpc/claim_job`,
   `finish` → `PATCH jobs?id=eq.&status=eq.claimed&claimed_by=eq.` with `return=representation` ("taken" when it answers no
