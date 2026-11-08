@@ -94,7 +94,22 @@ def make_client(settings: Settings) -> Any:
     return cls(settings.supabase_url, settings.supabase_key)
 
 
+def http_get(url: str, headers: dict[str, str], timeout: float) -> tuple[int, bytes]:
+    """The real TrackId.net seam: one GET; an HTTP error status comes back as
+    `(status, body)`, a network error or timeout raises (the client turns it into "unknown")."""
+    import urllib.error
+    import urllib.request
+
+    req = urllib.request.Request(url, headers={**headers, "User-Agent": f"mix-worker/{__version__}"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:  # noqa: S310 - the fixed https host
+            return res.status, res.read()
+    except urllib.error.HTTPError as err:
+        return err.code, err.read()
+
+
 def build_deps(settings: Settings) -> Deps:
+    from .trackid import fetch_trackid
     from .download import download as do_download
     from .log import Log
     from .scan import run_scan, spread
@@ -111,6 +126,7 @@ def build_deps(settings: Settings) -> Deps:
         log=log,
         jitter=spread,
         scan_hooks=True,
+        trackid=(lambda link: fetch_trackid(link, http_get, time.sleep, lambda text: log.line("  " + text))) if settings.trackid else None,
         clues=(lambda url, gaps, rows: gather_clues(settings, log, url, gaps, rows, per_set)) if settings.clues else None,
         years=(lambda tracks: fill_years(settings, log, tracks, per_set)) if settings.lookups > 0 else None,
     )

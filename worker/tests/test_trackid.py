@@ -16,6 +16,9 @@ from mix_worker.trackid import (
     Record,
     Span,
     check_of,
+    merge_rows,
+    span_rows,
+    uncovered,
     plan_guides,
     fetch_trackid,
     parse_clock,
@@ -332,3 +335,40 @@ class Guides(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Rows(unittest.TestCase):
+    def test_a_full_row(self):
+        rows = span_rows([Span(616.9, 857.2, "Kyntral", "Yuco", "Kyntral", 31)], {0: {"outcome": "agrees"}}, "slug-1")
+        self.assertEqual(rows, [{
+            "song_name": "Yuco", "artist": "Kyntral", "time_in_mix": "00:10:16", "origin": "trackid",
+            "trackid": {"slug": "slug-1", "span_start": 616, "span_end": 857, "references": 31},
+            "shazam_check": {"outcome": "agrees"}, "metadata": {"label": "Kyntral"}, "hits": 0,
+        }])
+        self.assertNotIn("confidence", rows[0])
+
+    def test_optional_parts_are_left_out(self):
+        row = span_rows([Span(3700, 3800, "A", "T")], {}, "s")[0]
+        self.assertEqual(row["time_in_mix"], "01:01:40")
+        self.assertNotIn("references", row["trackid"])
+        self.assertNotIn("metadata", row)
+        self.assertEqual(row["shazam_check"], {"outcome": "not_asked"})
+
+    def test_a_differing_check_keeps_only_its_four_keys(self):
+        span = Span(0, 100, "A", "T")
+        check = check_of(span, [{"artist": "Other", "song_name": "Track", "confidence": 0.7}])
+        row = span_rows([span], {0: check}, "s")[0]
+        self.assertEqual(row["shazam_check"], {"outcome": "differs", "artist": "Other", "song_name": "Track", "confidence": 0.7})
+        self.assertEqual((row["artist"], row["song_name"]), ("A", "T"))
+
+    def test_merge_sorts_by_seconds_and_is_stable(self):
+        heard = [{"song_name": "h1", "time_in_mix": "00:05:00"}, {"song_name": "h2", "time_in_mix": "00:20:00"}]
+        tid = span_rows([Span(300, 400, "A", "t1"), Span(60, 90, "A", "t0")], {}, "s")
+        names = [r["song_name"] for r in merge_rows(heard, tid)]
+        self.assertEqual(names, ["t0", "h1", "t1", "h2"])
+
+    def test_uncovered_clips_gaps_and_drops_slivers(self):
+        spans = [Span(100, 400, "A", "x"), Span(900, 1000, "A", "y")]
+        self.assertEqual(uncovered([(0, 200), (350, 500), (950, 1000), (1100, 1200)], spans), [(0, 100), (400, 500), (1100, 1200)])
+        self.assertEqual(uncovered([(0, 100)], [Span(0, 99.5, "A", "z")]), [])
+        self.assertEqual(uncovered([(0, 500)], [Span(100, 200, "A", "a"), Span(300, 400, "A", "b")]), [(0, 100), (200, 300), (400, 500)])

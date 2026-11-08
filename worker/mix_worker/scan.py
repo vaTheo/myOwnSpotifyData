@@ -624,16 +624,16 @@ async def scan(
             prog["done"] = index
             publish()
     except StopRequested:
-        if not hits:
-            raise
+        if not hits and not span_list:
+            raise  # with spans the rows come from the record (round 016)
         stopped = {"at": hhmmss(t), "reason": "by you"}
         say(f"  scan · stopped by you at {stopped['at']} · the {len(hits)} hits so far are kept")
     except (ScanRefused, ScanUnreachable) as err:
         # Owner, 2026-11-06: a refusal on the first pass keeps what was found;
         # the request is sent as done, marked as stopped early. With nothing
         # found it still fails as before.
-        if not hits:
-            raise
+        if not hits and not span_list:
+            raise  # with spans the rows come from the record (round 016)
         stopped = {"at": hhmmss(t), "reason": "rate limited" if isinstance(err, ScanRefused) else "no answer"}
         say(f"  scan · stopped early at {stopped['at']} ({stopped['reason']}) · the {len(hits)} hits so far are kept")
 

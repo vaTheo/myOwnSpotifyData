@@ -531,11 +531,33 @@ class GuidedScan(unittest.TestCase):
 
     def test_h_refusal_and_cooldown_unchanged(self):
         with self.assertRaises(ScanRefused):
-            self.go(RateLimited(), max_pauses=1)
+            self.go(RateLimited(), max_pauses=1, spans=[])  # no spans: nothing changed
         self.assertTrue(all(s in (2.0, 0.0) for s in self.sleeps))
         self.setUp()
         rows, rep = self.go(lambda t: CASSETTE if t == 0 else NO_MATCH)
         self.assertTrue(all(s == 2.0 for s in self.sleeps))
+
+    def test_i_a_refusal_or_stop_with_spans_returns_instead_of_raising(self):
+        # Batch E ruling: with spans the rows come from the record, so nothing found is not a failure.
+        rows, rep = self.go(RateLimited(), max_pauses=1)
+        self.assertEqual(rows, [])
+        self.assertEqual(rep["stopped"]["reason"], "rate limited")
+        self.assertEqual(rep["span_checks"][0]["outcome"], "not_asked")
+        self.setUp()
+        rows, rep = self.go(NO_MATCH, progress=lambda p: (_ for _ in ()).throw(StopRequested()), clock=iter(range(0, 10_000, 100)).__next__)
+        self.assertEqual(rep["stopped"]["reason"], "by you")
+
+    def test_j_trackid_rows_keep_the_f15_pin_with_the_optional_fields(self):
+        from mix_worker.trackid import span_rows
+
+        with tempfile.TemporaryDirectory() as tmp:
+            rows = span_rows([Span(616, 857, "Kyntral", "Yuco", "Kyntral", 31)], {0: {"outcome": "agrees"}}, "temple-rat")
+            data = write_result(Path(tmp) / "o.json", title="t", artist=None, audio_filename="a", source_url="u", duration=None, date="d", tracks=rows)
+        self.assertEqual(data["tracks"][0], {
+            "song_name": "Yuco", "artist": "Kyntral", "time_in_mix": "00:10:16", "origin": "trackid",
+            "trackid": {"slug": "temple-rat", "span_start": 616, "span_end": 857, "references": 31},
+            "shazam_check": {"outcome": "agrees"}, "metadata": {"label": "Kyntral"}, "hits": 0,
+        })
 
 
 if __name__ == "__main__":

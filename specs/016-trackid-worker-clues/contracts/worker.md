@@ -36,6 +36,8 @@ Complements `specs/002-mix-analysis-worker/contracts/worker.md` and `specs/003-f
 
 Rows after the scan: one `origin: "trackid"` row per trusted span with its check, whatever the check says; heard rows only outside every span; sorted by start time; then the clue step runs on the gaps left (a stretch a span covers is not a gap).
 
+As built (batch E): `trackid.span_rows(spans, checks, slug)` (the slug comes from the `Record`), `merge_rows` (stable sort by start second), `uncovered(gaps, spans)` (clips each gap, drops what is left under 1 s). `Deps.trackid` defaults to `None`; a Stop is read by the `trackid` progress step before and after the lookup like the other steps outside the scan (it changes nothing there; the scan sees it). The client's own line is the reason when it knows nothing (the pipeline adds none), and an exception from the seam is logged as `trackid · failed (<ErrorName>)`. With spans, a Stop, a refusal or an unreachable first pass does not raise in `scan` even when only absorbed hits were found: the TrackId.net rows are sent, `stopped_early` as today; with no spans it raises as before. A record with no spans is not used. The real fetch is `cli.http_get` (`urllib.request`, an HTTP error status returned as `(status, body)`, a network error raised).
+
 ## Unchanged
 
 One probe at a time; the cooldown and its spread; the breaks and the refusal handling; no Spotify host; the clue step's rules; the result is sent whole or not at all. The outbound host list gains `trackid.net` (asserted by the host test).

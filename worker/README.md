@@ -73,6 +73,8 @@ claimed 6f1c2d3e · https://soundcloud.com/…
   second pass · 210 probes found nothing · 104 places heard again (+7 s, speed ×1 then ×0.96 then ×1.04)
   gap 1/104 · 00:00:37 ×1 · shazam 1.2 s · no match
   gap 1/104 · 00:00:37 ×0.96 · shazam 1.0 s · NEW · Someone — Pitched Track · … · 91 %
+  trackid · Temple Rat @ Off The Map · 14 spans · 11 guided
+  trackid · 9 agree · 1 differ · 1 no match
   …
   second pass · found 9 in 104 places
   shazam · 524 answers · median 1.1 s · 31 over 5 s (6 %)
@@ -161,6 +163,10 @@ Only the first two are required.
 | `WORKER_CLUE_SECONDS` | 90 | reading them may take this long, then it is dropped |
 | `WORKER_LOOKUPS` | 100 | catalogue lookups per set (Deezer, then MusicBrainz): clues by name first, then years by ISRC; 0 = none, clues still shown |
 | `WORKER_TRACKID` | on | ask TrackId.net about the exact mix link (never by name) before the first probe; what it already names is not probed again, one confirming Shazam probe per span; `off` = never, the scan is as before; anything else exits 5 |
+
+## TrackId.net: a known mix and an unknown one
+
+With `WORKER_TRACKID` on (the default) the worker asks TrackId.net about the exact mix link, once per request, before the first probe. A **known** mix (TrackId.net has a record whose length is within 5 % of the audio's) is scanned faster: the log shows `trackid · <title> · <n> spans · <m> guided`, the first pass skips the middle of each span it names and makes one confirming probe per span, and each span becomes a row marked "from TrackId.net" with what Shazam said (`agree`, `differ`, `no match`; the line `trackid · <a> agree · <d> differ · <n> no match` totals them). TrackId.net is the source of truth: a Shazam answer that differs never replaces or removes a span's row. An **unknown** mix (no record, `trackid · not known`; or a failure such as `trackid · HTTP 503`; or `trackid · record length differs from the audio, not used`) is scanned exactly as before, and TrackId.net never fails or delays a request. `off` never asks.
 
 ## Where things go, what leaves the computer
 

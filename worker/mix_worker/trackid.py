@@ -13,6 +13,7 @@ injected (the real one lives in the pipeline wiring), as are `sleep` and `log`.
 from __future__ import annotations
 
 import json
+import math
 import re
 import urllib.parse
 from collections.abc import Callable
@@ -235,3 +236,66 @@ def check_of(span: Span, entries: list[dict[str, Any]], probed: bool = False) ->
         best = max(entries, key=lambda e: e.get("confidence") or 0)
         return {"outcome": "differs", "artist": best.get("artist"), "song_name": best.get("song_name"), "confidence": best.get("confidence")}
     return {"outcome": "no_match" if probed else "not_asked"}
+
+
+def _clock(seconds: float) -> str:
+    h, rest = divmod(int(seconds), 3600)
+    m, s = divmod(rest, 60)
+    return f"{h:02d}:{m:02d}:{s:02d}"
+
+
+def span_rows(spans: list[Span], checks: dict[int, dict[str, Any]], slug: str) -> list[dict[str, Any]]:
+    """One result row per span (contracts/result-shape.md): the span is the
+    truth, the Shazam check rides along; no `confidence` of its own."""
+    rows: list[dict[str, Any]] = []
+    for i, span in enumerate(spans):
+        info: dict[str, Any] = {"slug": slug, "span_start": int(span.start), "span_end": int(span.end)}
+        if span.references is not None:
+            info["references"] = span.references
+        row: dict[str, Any] = {
+            "song_name": span.title,
+            "artist": span.artist,
+            "time_in_mix": _clock(span.start),
+            "origin": "trackid",
+            "trackid": info,
+            "shazam_check": dict(checks.get(i) or {"outcome": "not_asked"}),
+        }
+        if span.label:
+            row["metadata"] = {"label": span.label}
+        row["hits"] = 0
+        rows.append(row)
+    return rows
+
+
+def _seconds_of(row: dict[str, Any]) -> int:
+    parts = str(row.get("time_in_mix") or "").split(":")
+    try:
+        h, m, s = (int(p) for p in parts)
+    except ValueError:
+        return 0
+    return h * 3600 + m * 60 + s
+
+
+def merge_rows(heard: list[dict[str, Any]], trackid_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Both lists by start time (stable: a heard row before a TrackId.net row at the same second)."""
+    return sorted([*heard, *trackid_rows], key=_seconds_of)
+
+
+def uncovered(gaps: list[tuple[int, int]], spans: list[Span]) -> list[tuple[int, int]]:
+    """The gaps minus the stretches the spans cover; a piece under 1 s is dropped."""
+    out: list[tuple[int, int]] = []
+    for start, end in gaps:
+        pieces = [(float(start), float(end))]
+        for span in spans:
+            nxt: list[tuple[float, float]] = []
+            for a, b in pieces:
+                if span.end <= a or span.start >= b:
+                    nxt.append((a, b))
+                    continue
+                if span.start > a:
+                    nxt.append((a, span.start))
+                if span.end < b:
+                    nxt.append((span.end, b))
+            pieces = nxt
+        out.extend((math.ceil(a), int(b)) for a, b in pieces if int(b) - math.ceil(a) >= 1)
+    return out
