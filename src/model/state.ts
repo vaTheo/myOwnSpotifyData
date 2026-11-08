@@ -446,23 +446,31 @@ export function deviceUserCount(): number {
 
 export const SIGN_OUT_BUSY_MESSAGE =
   'Wait for the current job to finish before signing out.';
+export const SIGN_OUT_PUSH_MESSAGE =
+  'Wait for the current sync to finish before signing out.';
 
 /**
  * Signs out of the server on this browser (round 009, FR-006): the server
  * session and the `activeUser` pointer go, then the page loads again, which
  * drops every signal so the next person sees nothing of this user (FR-002).
  * Nothing else is removed (data, Spotify keys, the claim, the device's
- * people) and nothing is asked. Refused while a job runs, like Disconnect:
+ * people) and nothing is asked. Refused while a job or a server push runs:
  * the reload would cut it half way. The session goes first: clearing the
  * pointer first would let another tab, still holding the session, activate
  * it again.
  */
 export async function startServerSignOut(): Promise<void> {
-  autoChain.stop();
   if (jobsBusy()) {
     banner.value = warnBanner(SIGN_OUT_BUSY_MESSAGE);
     return;
   }
+  // A push joins no jobsBusy(), but it needs the session to its end.
+  if (pushRunning) {
+    banner.value = warnBanner(SIGN_OUT_PUSH_MESSAGE);
+    return;
+  }
+  // Only once the sign-out goes ahead: a refusal keeps the chain running.
+  autoChain.stop();
   try {
     await serverAuth.signOut();
     const storage = scopeStorage();

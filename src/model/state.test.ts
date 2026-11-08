@@ -1107,6 +1107,39 @@ describe('startServerSignOut (round 009 T014)', () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
+  it('a refused sign-out leaves the automatic chain alone', async () => {
+    state.syncState.value = {
+      status: 'running',
+    } as unknown as typeof state.syncState.value;
+    const before = { current: null, waiting: ['reach'], failed: [] };
+    state.chainView.value = before as unknown as typeof state.chainView.value;
+    await state.startServerSignOut();
+    expect(state.chainView.value).toBe(before);
+  });
+
+  it('is refused while a server push runs: the push keeps its session', async () => {
+    const repo = await import('../db/repo');
+    let release!: (v: undefined) => void;
+    vi.mocked(repo.getMeta).mockImplementationOnce(
+      () => new Promise((r) => (release = r))
+    );
+    const push = state.queueServerPush([]);
+    await state.startServerSignOut();
+    expect(state.banner.value).toEqual(
+      expect.objectContaining({
+        text: 'Wait for the current sync to finish before signing out.',
+      })
+    );
+    expect(serverAuth.signOut).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+    release(undefined);
+    await push;
+    // Once the push is done, sign-out goes ahead.
+    await state.startServerSignOut();
+    expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
   it('a storage that refuses the pointer shows why on the card, no reload', async () => {
     setScopeForTests({
       storage: {
