@@ -39,6 +39,9 @@ Every page of the docs: [docs/README.md](docs/README.md). What is built and the 
 4. After any change: `yarn typecheck`, `yarn lint`, `yarn test` (CI runs the same three).
 5. A round ends with its docs: spec, inventory row, how-it-works section, README (owner's manual), CHANGELOG, an ADR when a decision lasts,
    Limits and roadmap when a limit is found or lifted.
+   Every plan and every approved change carries a documentation task: the docs of everything it touches (folder `CLAUDE.md`, how-it-works
+   section, READMEs, the round's contracts, inventory, limits, CHANGELOG) are updated in the same batch and commit as the code, then
+   swept once more at the end (a file-to-doc map), and the final review checks the docs against the code.
 
 ## Commands
 
