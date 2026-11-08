@@ -144,6 +144,7 @@ import {
   type SyncState,
 } from '../sync/runner';
 import { formatDateTime } from '../ui/format';
+import { signInRequired } from '../ui/signin/gate';
 import { describeError, storageMessage } from '../util/errors';
 import { buildModel, type Model } from './aggregate';
 import {
@@ -495,11 +496,29 @@ export async function recordConnectedAccount(): Promise<void> {
 export async function startServerLink(email: string): Promise<void> {
   if (!serverConfigured) return;
   const res = await serverAuth.requestLink(email.trim());
-  if (res.ok) return;
+  if (res.ok) {
+    // An earlier offline, paused or link error no longer applies.
+    if (!serverAuth.session.value) serverState.value = serverBaseState();
+    return;
+  }
   serverState.value =
     res.kind === 'paused'
       ? { status: 'paused', dashboardUrl: SUPABASE_DASHBOARD_URL }
       : { status: 'offline', message: res.message };
+}
+
+/**
+ * The sign-in gate (round 009, FR-002): a server is set up and nobody is
+ * signed in to it, so the app shows only the sign-in screen and runs nothing.
+ * Never in the demo, which never talks to the server; never without server
+ * settings (FR-008). Reads the session signal, so a render follows it.
+ */
+export function serverSignInRequired(): boolean {
+  return signInRequired({
+    configured: serverConfigured,
+    demo: import.meta.env.DEV && demoVariant() !== null,
+    signedIn: serverAuth.session.value !== null,
+  });
 }
 
 /** Shown when a sign-in's token does not name its account (no `sub`). */

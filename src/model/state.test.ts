@@ -47,6 +47,7 @@ vi.mock('../server/browser', async () => {
       lastError: s(null),
       getAccessToken: vi.fn(),
       completeLink: vi.fn(async () => 'ok'),
+      requestLink: vi.fn(async () => ({ ok: true, value: undefined })),
       signOut: vi.fn(async () => undefined),
     },
   };
@@ -955,5 +956,48 @@ describe('activateServerUser', () => {
     session.value = { userId: OWNER, email: 'me@x.y' };
     expect(state.activateServerUser()).toBe('none');
     expect(map.size).toBe(0);
+  });
+});
+
+describe('the sign-in gate (round 009, FR-002)', () => {
+  const session = serverAuth.session as unknown as {
+    value: { userId: string | null; email: string } | null;
+  };
+
+  afterEach(() => {
+    mocks.serverConfigured = false;
+    session.value = null;
+    state.serverState.value = { status: 'unset' };
+  });
+
+  it('is required with a server set up and nobody signed in', () => {
+    mocks.serverConfigured = true;
+    expect(state.serverSignInRequired()).toBe(true);
+    session.value = {
+      userId: 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',
+      email: 'me@x.y',
+    };
+    expect(state.serverSignInRequired()).toBe(false);
+  });
+
+  it('is never required without server settings (FR-008)', () => {
+    expect(state.serverSignInRequired()).toBe(false);
+  });
+
+  it('a link sent clears an earlier offline notice; a failed one shows why', async () => {
+    mocks.serverConfigured = true;
+    state.serverState.value = { status: 'offline', message: 'No network.' };
+    await state.startServerLink('me@x.y');
+    expect(state.serverState.value).toEqual({ status: 'signedOut' });
+    vi.mocked(serverAuth.requestLink).mockResolvedValueOnce({
+      ok: false,
+      kind: 'offline',
+      message: 'Still no network.',
+    });
+    await state.startServerLink('me@x.y');
+    expect(state.serverState.value).toEqual({
+      status: 'offline',
+      message: 'Still no network.',
+    });
   });
 });

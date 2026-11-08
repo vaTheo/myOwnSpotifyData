@@ -1,10 +1,11 @@
 import { signal } from '@preact/signals';
 import { auth } from './auth/browser';
 import { visibleBanner } from './model/banner';
-import { banner, dismissBanner } from './model/state';
+import { banner, dismissBanner, serverSignInRequired } from './model/state';
 import { parseRoute, sameScreen, visitEntry, type Route } from './router';
 import { SettingsPage } from './ui/settings/SettingsPage';
 import { Connect } from './ui/Connect';
+import { SignInGate } from './ui/signin/SignInGate';
 import { Artists } from './ui/Artists';
 import { CrateHub } from './ui/crate/CrateHub';
 import { CrateView } from './ui/crate/CrateView';
@@ -21,9 +22,13 @@ export const route = signal<Route>(parseRoute(location.hash));
 /**
  * What boot is still doing. `main.tsx` is the only writer: it renders the
  * shell before it loads anything, so it sets the phase before the first
- * render and again as each step finishes.
+ * render and again as each step finishes. `linking`: a server magic link is
+ * being exchanged; `signedout`: a server is set up and nobody is signed in
+ * to it, so boot stopped before any read (round 009, FR-002).
  */
-export const bootPhase = signal<'signin' | 'loading' | 'ready'>('loading');
+export const bootPhase = signal<
+  'signin' | 'linking' | 'signedout' | 'loading' | 'ready'
+>('loading');
 
 export function installRouter(): void {
   // The entry the app booted on counts as visited, so a later back to it
@@ -78,6 +83,10 @@ function Screen({ route }: { route: Route }) {
 
 export function App() {
   const phase = bootPhase.value;
+  // Only the sign-in screen, nothing of any user behind it (FR-002). Live:
+  // a server session that ends while the app is open brings it back too.
+  if (phase === 'linking') return <SignInGate linking />;
+  if (phase === 'signedout' || serverSignInRequired()) return <SignInGate />;
   if (phase === 'signin') return <Connect signingIn />;
   if (!auth.session.value) return <Connect />;
   const current = route.value;
