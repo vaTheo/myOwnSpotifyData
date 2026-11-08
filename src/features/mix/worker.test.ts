@@ -8,6 +8,7 @@ import {
   rowYear,
   viewRows,
   progressLine,
+  stepName,
   requestStatusText,
   resultToRows,
   runLine,
@@ -653,6 +654,9 @@ describe('progressLine', () => {
         now
       )
     ).toBe('Second pass ×0.96 · 50 %');
+  });
+  it('names the TrackId.net step', () => {
+    expect(stepName('trackid')).toBe('TrackId.net');
   });
   it('says a pause, the network warning, stale news and a stop', () => {
     expect(

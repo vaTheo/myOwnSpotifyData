@@ -423,6 +423,7 @@ screen, grouped by role under `src/ui/`.
   "Mixes" button. No banner: every failure inline. `mixError` shows under the Mixes list's header, or under the open mix's
   header when the Mixes pane is folded or the window has one column (one copy), and the "Mixes" button then carries an error
   indicator (ruling S08b, constitution VII).
+- Round 016: a TrackId.net row (`origin: "trackid"`) shows "from TrackId.net · mm:ss to mm:ss · n references" (`rowText.ts`) and, under it, the Shazam check line (`checkText`: "Shazam agrees", "Shazam: no match", "Shazam heard A - B instead"; nothing for `not_asked`); `TracklistTable.tsx` renders it like a clue row, no new token. The progress step `trackid` reads "TrackId.net" (`stepName`).
 - **Search and filters**: `search/searchIndex.ts` (pure `buildSearchIndex` over the model and the saved mixes, which are read
   again on each opening; `searchAll` with the existing `normalize`), `SearchView.tsx` (`/`, Ctrl+K or ⌘K, or the top bar field;
   results grouped, five a group with Show all), `choose.ts` (what a result opens; Escape clears the text, then closes).
@@ -605,6 +606,7 @@ round's full record is under `specs/001-backend-data-sync/`, the users round und
   (newer wins, never by push time), `batches` (500), `rowKey`, and `planMixes` (per row by `savedAt`, with tombstones).
 - `validate.ts` (pure): every pulled row and summary checked before it is written or rendered (keys, finite numbers, `https:` links,
   `open.spotify.com` links, `SC_PLAYER_PREFIX`, the gate versions); a failing row is dropped and counted (security review S3).
+  Round 016: `origin` may be `trackid`; `trackid {slug, spanStart, spanEnd, references?}` and `shazamCheck` are accepted only on such a row and bounded (seconds 0 to 100000, texts 200, confidence 0 to 1, the check's extras only on `differs`); a row failing them is dropped.
   The one exception (round 005): an invalid optional year field (`albumYear`, `releaseYear`, `reccobeats.rid`, a mix row's
   `year`/`yearFrom`) is removed from a copy of the row and the row is kept: a year is display data and must not cost its BPM,
   plays or tracklist.

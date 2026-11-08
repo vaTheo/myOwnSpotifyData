@@ -466,6 +466,7 @@ const STEP_NAMES: Record<string, string> = {
   download: 'Downloading',
   first: 'First pass',
   clues: 'Reading the comments',
+  trackid: 'TrackId.net',
   send: 'Sending',
   paused: 'Paused by Shazam',
 };

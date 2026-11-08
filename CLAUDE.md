@@ -66,7 +66,7 @@ Details: [Contributing](docs/dev-guide/000-contributing.md).
   retried; a refresh never widens a scope, so a new scope means **Connect again** (ADR-03).
 - External sources: keyless, keyed on Spotify ids or ISRCs, never name search; clients never throw; long jobs start from Settings or the
   automatic chain (ADR-12) and resume; the reach pacing split is pinned by a test (ADR-04). The one exception: the worker may look up by name a clue that carries no
-  identifier, exact equality only, the row marked "not heard" (ADR-10); the app's external sources never search by name.
+  identifier, exact equality only, the row marked "not heard" (ADR-10); the app's external sources never search by name. The worker also asks TrackId.net by the exact mix link only, never its keyword endpoint, and TrackId.net never changes a request when it knows nothing or fails (ADR-17).
 - IndexedDB upgrades only add stores; optional fields need no bump; `mixes` stays out of `buildModel` (ADR-05).
 - Play counts come only from the history export; the Crate gates on `historySummary.version === 2`, Under the radar on
   `artistReachSummary.version === 1`, never on rows (ADR-07).

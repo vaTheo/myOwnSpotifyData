@@ -22,6 +22,11 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 ## 2. Known limits of what is built
 
 - Mix tracklist is a draft with holes: TrackId identified 32.6% of one measured 190-minute mix; a fresh upload is often absent.
+- TrackId.net with the Shazam probes (round 016, [ADR-17](700-adr/ADR-17-trackid-worker.md)): coverage is partial (a mix TrackId.net does not know is scanned as before); a
+  wrong TrackId.net timeline is shown as `differs` on the row, never corrected; the keyword endpoint is not used (a mix is found by its exact link only); a record
+  is fetched once per request, no per-run cache; an old app refuses the new rows (update and hard-reload the app first); the Shazam check of a span with no
+  confirming probe is `not_asked`; a refusal, a Stop or an unreachable first pass with only absorbed hits sends the TrackId.net rows instead of failing; the worker
+  reports a progress step `trackid`.
 - Artist reach covers only artists with a Spotify id who appear in a synced playlist; plays shown are plays of saved tracks.
 - `N languages` (Wikidata sitelinks) is a floor, not an exact count.
 - Playlist name and description caps (100 / 300) are defensive guesses, not measured Spotify maxima.

@@ -49,8 +49,8 @@
 
 ## Phase 7: Polish and docs
 
-- [ ] T019 Bump the worker to 0.7.0: `worker/pyproject.toml`, `worker/mix_worker/__init__.py` (tested equal), `uv lock`, a `worker/RELEASE_NOTES.md` entry (TrackId.net, `WORKER_TRACKID`, no probe inside a span, release order: app first)
-- [ ] T020 Documentation sweep: every file a task touched has its docs updated **in the same batch** (a standing rule for batches C to F, see `.superpowers/sdd/tasks-016-trackid-worker-clues/common.md`), and T020 is the final check that nothing was missed. Run `git diff --name-only $(git merge-base HEAD origin/main)` and tick each row of this map; a row with no doc change needs a one-line reason in the report:
+- [x] T019 Bump the worker to 0.7.0: `worker/pyproject.toml`, `worker/mix_worker/__init__.py` (tested equal), `uv lock`, a `worker/RELEASE_NOTES.md` entry (TrackId.net, `WORKER_TRACKID`, no probe inside a span, release order: app first)
+- [x] T020 Documentation sweep: every file a task touched has its docs updated **in the same batch** (a standing rule for batches C to F, see `.superpowers/sdd/tasks-016-trackid-worker-clues/common.md`), and T020 is the final check that nothing was missed. Run `git diff --name-only $(git merge-base HEAD origin/main)` and tick each row of this map; a row with no doc change needs a one-line reason in the report:
   | Touched | Docs that must say it |
   |---|---|
   | `src/db/schema.ts`, `src/server/validate.ts`, `src/features/mix/worker.ts` | `docs/architecture/000-how-it-works.md` §10 (row origin, the check) and §16 (validation of pulled rows), `src/server/CLAUDE.md`, `src/features/mix/CLAUDE.md`, `specs/016-trackid-worker-clues/data-model.md` and `contracts/result-shape.md` |

@@ -3,7 +3,11 @@ import unittest
 from pathlib import Path
 
 from mix_worker import __version__
-from mix_worker.cli import PRESS_ENTER, SHARED_LINK_REASON, shared_link_allowed, CliDeps, EXIT_NOT_SHARED, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, code_for, main, make_client, run_queue
+from unittest import mock
+import io
+import urllib.error
+
+from mix_worker.cli import http_get, PRESS_ENTER, SHARED_LINK_REASON, shared_link_allowed, CliDeps, EXIT_NOT_SHARED, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, code_for, main, make_client, run_queue
 from mix_worker.config import Settings, SettingsError
 from mix_worker.pipeline import Deps
 from mix_worker.server import Result, ServerClient, SharedServerClient
@@ -483,6 +487,39 @@ class PersonalUntouched(unittest.TestCase):
             self.assertFalse(any(name in u for u in urls), name)
         self.assertTrue(any(u.endswith("/rpc/claim_job") for u in urls))
         self.assertTrue(any(m == "PATCH" and "/rest/v1/jobs?" in u for m, u in opener.calls))
+
+
+class HttpGetTest(unittest.TestCase):
+    class Res:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"body"
+
+    def test_sends_headers_user_agent_and_timeout(self):
+        with mock.patch("urllib.request.urlopen", return_value=self.Res()) as op:
+            self.assertEqual(http_get("https://x.test/a", {"Accept": "application/json"}, 7.5), (200, b"body"))
+        req = op.call_args.args[0]
+        self.assertEqual(req.full_url, "https://x.test/a")
+        self.assertEqual(req.get_header("Accept"), "application/json")
+        self.assertEqual(req.get_header("User-agent"), f"mix-worker/{__version__}")
+        self.assertEqual(op.call_args.kwargs["timeout"], 7.5)
+
+    def test_http_error_returns_status_and_body(self):
+        err = urllib.error.HTTPError("https://x.test/a", 404, "nf", {}, io.BytesIO(b"gone"))
+        with mock.patch("urllib.request.urlopen", side_effect=err):
+            self.assertEqual(http_get("https://x.test/a", {}, 5), (404, b"gone"))
+
+    def test_network_error_raises(self):
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.URLError("down")):
+            with self.assertRaises(urllib.error.URLError):
+                http_get("https://x.test/a", {}, 5)
 
 
 if __name__ == "__main__":
