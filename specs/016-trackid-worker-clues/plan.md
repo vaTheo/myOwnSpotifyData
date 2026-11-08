@@ -4,11 +4,11 @@
 
 **Numbering** (checked on `origin/main`, 2026-11-08): round **016** (main holds specs up to 015), **ADR-17** (main holds ADR-16), inventory row **F32** (main holds F31), no migration, worker **0.7.0** (a new source; main holds 0.6.0), constitution unchanged (no principle changes; ADR-17 amends ADR-10 and names one new host).
 
-Owner's picks (2026-11-08): both ways (guide the probes, then fill the gaps); a **new origin `trackid`**; a confirmed row **starts at TrackId.net's span start**; **no probe at all inside a TrackId.net span** (later message, replaces the one confirming probe).
+Owner's picks (2026-11-08): both ways; a **new origin `trackid`**; a TrackId.net row **starts at the span's start**; **one confirming probe per guided span and TrackId.net is the source of truth** (third message: both answers are shown, a disagreement never changes the row).
 
 ## Summary
 
-For each request the worker asks TrackId.net once (two calls: list by the exact link, then detail by slug, the app's own guards) before the first probe. A found record gives timed spans. **Guide**: inside a span (shrunk 10 s at each edge) the first-pass probes are **skipped, with no confirming probe** (owner, 2026-11-08: "when TrackId.net has a match we should not search a probe at this place"). **Rows**: each guided span becomes a row `origin: "trackid"`, not heard, unvalidated, with the span's own times; a probe at a span's edge that names the same track makes it a heard row flagged `confirmed_by: "trackid"` starting at the span's start; an edge probe naming another track withdraws the span (start edge) or clips its row (end edge). **Fill**: spans too short to guide fill any stretch still unidentified after the scan. TrackId.net unknown, down, slow or switched off (`WORKER_TRACKID=off`) leaves the scan exactly as today. The app learns the new origin first (validator, row text, badge), then worker 0.7.0 is released.
+For each request the worker asks TrackId.net once (two calls: list by the exact link, then detail by slug, the app's own guards) before the first probe. A found, trusted record gives timed spans. **Guide**: inside a span (shrunk 10 s at each edge, core at least 40 s) the first-pass probes are skipped except **one confirming probe at the middle of the core**. **Rows**: every trusted span becomes a row `origin: "trackid"`, not heard, unvalidated, with the span's own times and a **Shazam check** (`agrees`, `differs` with the other track, `no_match`, `not_asked`). TrackId.net is the source of truth: a Shazam answer inside a span never replaces, clips or removes its row, and a hit inside a span is not a separate row; hits outside every span stay rows as today. TrackId.net unknown, down, slow or switched off (`WORKER_TRACKID=off`) leaves the scan exactly as today. The app learns the new origin first, then worker 0.7.0 is released.
 
 ## Technical Context
 
@@ -46,12 +46,12 @@ specs/016-trackid-worker-clues/
 ```
 
 ```text
-src/db/schema.ts                         EDIT  TracklistRow.origin gains 'trackid'; optional confirmedBy: 'trackid'; optional trackid {slug, spanStart, spanEnd, references}
-src/server/validate.ts                   EDIT  accept origin 'trackid', confirmedBy, trackid (shape-checked, bounded)
-src/features/mix/worker.ts               EDIT  map the worker's rows: origin trackid, confirmed_by, trackid object
-src/ui/mix/rowText.ts, TracklistTable.tsx EDIT  "from TrackId.net · not heard" badge, "confirmed by TrackId.net" mark, validated state like a clue
+src/db/schema.ts                         EDIT  TracklistRow.origin gains 'trackid'; optional shazamCheck {outcome, artist?, title?, confidence?}; optional trackid {slug, spanStart, spanEnd, references}
+src/server/validate.ts                   EDIT  accept origin 'trackid', shazamCheck, trackid (shape-checked, bounded)
+src/features/mix/worker.ts               EDIT  map the worker's rows: origin trackid, shazam_check, trackid object
+src/ui/mix/rowText.ts, TracklistTable.tsx EDIT  "from TrackId.net · not heard" badge, Shazam-check line, unvalidated like a clue
 src/**/*.test.ts                         EDIT  accepted and refused cases for each
-worker/mix_worker/trackid.py             NEW   fetch_trackid (two calls, guards), parse_spans (port of tidSpansToRows), plan_guides, fill_rows
+worker/mix_worker/trackid.py             NEW   fetch_trackid (two calls, guards), parse_spans (port of tidSpansToRows), plan_guides, span_rows (rows and Shazam checks)
 worker/mix_worker/scan.py                EDIT  scan() takes guides; guided first pass; report gains guided counts
 worker/mix_worker/pipeline.py            EDIT  call the lookup before the scan; fill after it; result rows and the log lines
 worker/mix_worker/config.py, env examples EDIT  WORKER_TRACKID (on|off, default on); constants stay in code

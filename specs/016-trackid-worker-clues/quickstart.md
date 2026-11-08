@@ -11,8 +11,8 @@ Prerequisites: round 015 merged (worker 0.6.0), a SoundCloud mix that TrackId.ne
 
 | # | Do | Expect |
 |---|---|---|
-| 1 | Worker with `WORKER_TRACKID=on`, request the known mix | log shows `trackid · <title> · <n> spans · <m> guided`; `scan` line shows fewer probes than `duration/15`; no probe inside a guided core |
-| 2 | Open the mix in the app | rows "from TrackId.net · not heard"; at least one heard row with "confirmed by TrackId.net" if an edge probe agreed; every row's time ascending |
+| 1 | Worker with `WORKER_TRACKID=on`, request the known mix | log shows `trackid · <title> · <n> spans · <m> guided`; the scan makes far fewer probes than `duration/15`, one per guided span plus the stretches TrackId.net does not cover |
+| 2 | Open the mix in the app | rows "from TrackId.net · not heard", each with a Shazam line (agrees, heard another track, or no match); heard rows only outside the spans; every row's time ascending; no stretch has two rows |
 | 3 | Request the unknown mix | log `trackid · not known`; the scan, probe count and rows are exactly as with `WORKER_TRACKID=off` |
 | 4 | Same known mix with `WORKER_TRACKID=off` | today's scan; compare the Shazam call counts of 1 and 4 (expect at least 60 % fewer on 1 if TrackId.net covers 80 %) |
 | 5 | Block `trackid.net` (offline or a bad host) and request the known mix | one log line, the scan is today's, the request finishes |

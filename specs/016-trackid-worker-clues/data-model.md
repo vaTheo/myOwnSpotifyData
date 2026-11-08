@@ -6,12 +6,12 @@ No table, no migration, no `DB_VERSION` bump. Only the mix row's optional fields
 
 | Field | Type | Rule |
 |---|---|---|
-| `origin` | `'replay' \| 'clue' \| 'trackid'` (optional) | `'trackid'` = a track only TrackId.net gave: not heard, unvalidated, no confidence |
-| `confirmedBy` (worker JSON `confirmed_by`) | `'trackid'` (optional) | set on a heard row that a guided span agrees with; absent otherwise |
+| `origin` | `'replay' \| 'clue' \| 'trackid'` (optional) | `'trackid'` = a trusted TrackId.net span: not heard, unvalidated, no confidence, the source of truth for its stretch |
+| `shazamCheck` (worker JSON `shazam_check`) | object (optional) | only on `origin 'trackid'` rows: `outcome` one of `agrees`, `differs`, `no_match`, `not_asked`; `artist`, `title` (worker `song_name`) strings ≤ 200 and `confidence` a finite number 0..1, only with `differs` |
 | `trackid` | object (optional) | only on `origin 'trackid'` rows: `slug` (string, ≤ 200), `spanStart`, `spanEnd` (seconds, finite, ≥ 0, `spanEnd ≥ spanStart`, ≤ 100 000), `references` (integer ≥ 0, optional) |
 | `confidence` | absent on `trackid` rows | never invented |
 
-Worker JSON (F15) additions, all optional: a track's `origin: "trackid"`, `confirmed_by: "trackid"`, `trackid: {slug, span_start, span_end, references}`. `time_in_mix` stays `HH:MM:SS`.
+Worker JSON (F15) additions, all optional: a track's `origin: "trackid"`, `shazam_check: {outcome, artist?, song_name?, confidence?}`, `trackid: {slug, span_start, span_end, references}`. `time_in_mix` stays `HH:MM:SS`.
 
 ## Worker (nothing stored)
 

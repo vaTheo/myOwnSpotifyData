@@ -1,6 +1,6 @@
 # Research: TrackId.net with the Shazam probes (round 016)
 
-Decisions for [plan.md](plan.md). Owner's picks: both ways; a new origin `trackid`; a confirmed row starts at the span's start; no probe at all inside a span.
+Decisions for [plan.md](plan.md). Owner's picks: both ways; a new origin `trackid`; a row starts at the span's start; one confirming probe per span and TrackId.net is the source of truth.
 
 ## D1 What TrackId.net returns (checked 2026-11-08 with plain `curl`, no key)
 
@@ -14,20 +14,21 @@ Decisions for [plan.md](plan.md). Owner's picks: both ways; a new origin `tracki
 
 List by the exact link; accept only `rowCount === 1` with one record whose `url` equals the link; call two by the record's own slug, accept only when the detail's `url` and `slug` both match. Anything else is unknown. `parse_spans` ports `tidSpansToRows` (flatten processes, merge a same-`musicTrackId` span that starts within 5 s of the earlier end, drop an unparseable or reversed span, drop a span with no artist or title). One fixture, a trimmed real detail record, is read by both the worker test and a new app-side check if cheap; otherwise the worker keeps its own copy and the port is pinned by cases listed in the contract.
 
-## D3 Skip, never probe, inside a span (owner's rule)
+## D3 One confirming probe per span, never more (owner's rule)
 
-- A span is **guided** when, shrunk by `TRACKID_EDGE_SECONDS = 10` at each edge, it still holds at least `TRACKID_MIN_CORE_SECONDS = 40`. The first-pass probe at time `t` is skipped when its window `[t, t+step)` lies inside a guided core.
-- Skipped probes are neither hits nor misses: they never open a gap and never feed the second pass. They count as done in progress.
-- The 10 s edges absorb a small offset between TrackId.net's timeline and the audio. The edge probes are ordinary probes, so a heard track at an edge is free evidence: the same track confirms the span (`confirmed_by`), another track at the start edge withdraws the span (the stretch is then probed normally from the start), another track at the end edge clips the span's row at the heard track's start.
-- The one guard inside the skipped core is the record's length: a record whose `duration` differs from the audio's by more than 5 % is distrusted as a whole (a different cut of the set).
-- Resume: the run state key gains the record's slug and a hash of the guided cores; a changed record starts the first pass over.
+- A span is **guided** when, shrunk by `TRACKID_EDGE_SECONDS = 10` at each edge, it still holds at least `TRACKID_MIN_CORE_SECONDS = 40`. Inside a guided core the first-pass probes are skipped except **one confirming probe** at the middle of the core (`start + 10 + core/2`, cut with the same `cut(t)`; the Shazam pacing, errors and progress are the ordinary ones).
+- Skipped probes are neither hits nor misses: they never open a gap and never feed the second pass. They count as done in progress. The confirming probe is an ordinary probe whose answer goes to the span's check instead of the hits list when it falls inside a core.
+- Edge probes and probes outside every core are ordinary. A Shazam hit whose time falls inside a span's times (unshrunk) is **absorbed** into that span's check and does not become a row; hits outside every span stay rows.
+- A span whose core is below 40 s is not guided: probed normally; its check comes from the ordinary hits inside its times (same track ⇒ `agrees`, only other tracks ⇒ `differs`, none ⇒ `no_match`).
+- **TrackId.net is the source of truth** (owner): the row of a trusted span is TrackId.net's whatever the check says; no Shazam answer replaces, clips or removes it.
+- The one guard on the record as a whole: its `duration` within 5 % of the audio's, else the record is not trusted (a different cut of the set).
+- Resume: the run state key gains the record's slug and a hash of the guided cores; the confirming probes are remembered like any first-pass probe. A changed record starts the first pass over.
 
-## D4 Rows
+## D4 Rows and the Shazam check
 
-- A guided span's row: `origin: "trackid"`, `artist`, `song_name`, `time_in_mix` = the span's start (clipped), `metadata.label` when given, `trackid: {slug, span_start, span_end, references}`, no `confidence`, `hits` 0.
-- A heard row confirmed by an edge probe keeps its Shazam fields and gains `confirmed_by: "trackid"`; its `time_in_mix` is the span's start (owner's pick), the probe time is only in the log.
-- A span too short to guide (`< 40 s` core) is used only to fill a stretch still unidentified after both passes (a gap from `gaps_of`): a `trackid` row clipped to the gap.
-- Order of steps: scan (guided) → TrackId.net rows → clues (so the clue step sees the smaller gap list) → write. A track already placed by a heard row for the same key within the span is not duplicated.
+- A span's row: `origin: "trackid"`, `artist`, `song_name`, `time_in_mix` = the span's start, `metadata.label` when given, `trackid: {slug, span_start, span_end, references}`, `shazam_check`, no `confidence`, `hits` 0.
+- `shazam_check` = `{"outcome": "agrees" | "differs" | "no_match" | "not_asked", "artist"?, "song_name"?, "confidence"?}`; the last three only for `differs` (the track Shazam named at the best hit inside the span). `agrees` uses the match rule of `match.py` (artist core shared, cleaned title equal). `not_asked` when the confirming probe was never made (a refusal or Stop ended the scan before it, or it was skipped as undecodable).
+- Order of steps: scan (guided) → span rows (absorbing the hits inside spans) → clues (on the gaps left, a stretch covered by a span row is not a gap) → write. Rows are sorted by `time_in_mix`.
 
 ## D5 Failure and pacing
 
@@ -35,7 +36,7 @@ Two calls, each with a 10 s timeout, 250 ms apart, no retry, `User-Agent: mix-wo
 
 ## D6 App side
 
-`origin: 'trackid'` is a third value. `src/server/validate.ts` accepts it, `confirmedBy: 'trackid'` and a bounded `trackid` object; `worker.ts` maps the worker's snake_case fields; the Mix row shows "from TrackId.net · not heard" and starts unvalidated like a clue, a confirmed heard row shows "confirmed by TrackId.net". Results from before this round show as today. The app is deployed before the worker is released.
+`origin: 'trackid'` is a third value. `src/server/validate.ts` accepts it, a bounded `shazamCheck` and a bounded `trackid` object; `worker.ts` maps the worker's snake_case fields; the Mix row shows "from TrackId.net · not heard" and a line for the check ("Shazam agrees", "Shazam heard <artist> - <title> instead", "Shazam: no match"), and starts unvalidated like a clue. Results from before this round show as today. The app is deployed before the worker is released.
 
 ## D7 Not in this round
 
