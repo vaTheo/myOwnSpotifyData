@@ -20,6 +20,8 @@ export const PKCE_KEY = 'server-pkce';
 /** The query marker `main.tsx` branches on; the Spotify callback has none. */
 export const LINK_MARKER = 'server';
 const REFRESH_MARGIN_MS = 60_000;
+export const PERSON_CHANGED_MESSAGE =
+  'The signed-in person changed in another tab. Reload.';
 
 export interface ServerSession {
   accessToken: string;
@@ -81,6 +83,12 @@ export function createServerSessionStore(
   const linkSent = signal<string | null>(null);
   const lastError = signal<string | null>(null);
   let refreshing: Promise<ServerResult<string>> | null = null;
+  /**
+   * The person this page belongs to (ADR-13): the session it loaded with, or
+   * the one it signed in. A refresh never adopts a stored session of anyone
+   * else (audit Finding 2): another tab's sign-in reloads this page instead.
+   */
+  let pinnedUser: string | null = session.value?.userId ?? null;
 
   function save(
     next: (Omit<ServerSession, 'userId'> & { userId?: string | null }) | null
@@ -132,6 +140,7 @@ export function createServerSessionStore(
       return 'invalid';
     }
     save(res.value);
+    pinnedUser = session.value?.userId ?? null;
     lastError.value = null;
     linkSent.value = null;
     return 'ok';
@@ -150,6 +159,15 @@ export function createServerSessionStore(
           ok: false,
           kind: 'unauthorized',
           message: 'Signed out of the server.',
+        };
+      }
+      if (current.userId !== pinnedUser) {
+        // Another person signed in in another tab: keep their session out of
+        // this page and leave storage to them; the pointer watcher reloads.
+        return {
+          ok: false,
+          kind: 'unauthorized',
+          message: PERSON_CHANGED_MESSAGE,
         };
       }
       if (fresh(current)) {
