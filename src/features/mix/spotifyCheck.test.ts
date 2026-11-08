@@ -250,7 +250,7 @@ describe('keepStoredAnswers (S13 B3)', () => {
   });
 });
 
-describe('a link the owner pasted (round 011, FR-006)', () => {
+describe('a link the owner pasted (round 012, FR-006)', () => {
   const ID = '1qGibBSuprByJCYMC4zRUG';
   const linked = row('One', {
     spotify: { id: ID, url: `https://open.spotify.com/track/${ID}` },

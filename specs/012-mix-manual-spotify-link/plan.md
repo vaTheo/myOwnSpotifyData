@@ -2,7 +2,7 @@
 
 **Branch**: `worktree-sortable-table` | **Date**: 2026-11-08 | **Spec**: [spec.md](spec.md)
 
-**Input**: Feature specification from `/specs/011-mix-manual-spotify-link/spec.md`
+**Input**: Feature specification from `/specs/012-mix-manual-spotify-link/spec.md`
 
 ## Summary
 
@@ -54,7 +54,7 @@ Post-design re-check: same. Complexity Tracking empty.
 ### Documentation (this feature)
 
 ```text
-specs/011-mix-manual-spotify-link/
+specs/012-mix-manual-spotify-link/
 ├── plan.md
 ├── research.md
 ├── data-model.md

@@ -648,7 +648,7 @@ describe('the Mix wiring in state.ts (S13, B5)', () => {
   });
 });
 
-describe('a pasted Spotify link (round 011)', () => {
+describe('a pasted Spotify link (round 012)', () => {
   const LINK = 'https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG?si=x';
 
   it('links a named row; refuses empty text and a non-track link', () => {

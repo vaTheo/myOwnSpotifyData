@@ -217,7 +217,7 @@ describe('mergeKeepingReview (T125, owner D1)', () => {
     ]);
   });
 
-  it('keeps the owner’s hand link: carried to the matching row, or the row kept when nothing matches (round 011)', () => {
+  it('keeps the owner’s hand link: carried to the matching row, or the row kept when nothing matches (round 012)', () => {
     const LINKED = { ...FOUND, spotifyBy: 'owner' } as const;
     const carried = mergeKeepingReview(
       [scan({ startSec: 60, ...LINKED })],

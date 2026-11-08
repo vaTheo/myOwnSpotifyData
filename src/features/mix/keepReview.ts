@@ -109,7 +109,7 @@ export function byTime(rows: TracklistRow[]): TracklistRow[] {
  * - an untouched scan row that an incoming row matches is replaced by it,
  *   which carries `validated`, `spotify`, `spotifyBy` and `checkedAt`;
  * - an untouched scan row nothing matches goes, as before, unless the
- *   owner validated it or linked it by hand (round 011) (a review is never
+ *   owner validated it or linked it by hand (round 012) (a review is never
  *   lost to a shorter result);
  * - every other incoming row arrives To review. Gap rows are replaced.
  */

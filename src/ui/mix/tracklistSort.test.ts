@@ -70,7 +70,7 @@ describe('sortValue', () => {
   });
 });
 
-describe('a pasted Spotify link (round 011)', () => {
+describe('a pasted Spotify link (round 012)', () => {
   it('a hand-linked row sorts as found; a removed link sorts as not found again', () => {
     const notFound = r({ spotify: 'not-found', checkedAt: 5 });
     const found = r({

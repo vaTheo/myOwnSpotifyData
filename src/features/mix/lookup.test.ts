@@ -283,7 +283,7 @@ describe('editTracklistRow', () => {
     expect(renamed.validated).toBe(true);
   });
 
-  it('drops the owner’s hand link on a rename, keeps it on a label edit (round 011)', () => {
+  it('drops the owner’s hand link on a rename, keeps it on a label edit (round 012)', () => {
     const linked: TracklistRow = {
       ...base,
       spotify: { id: 'abc', url: 'https://open.spotify.com/track/abc' },

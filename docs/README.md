@@ -46,7 +46,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 One design document per feature round, dated. The first one is the base model; later ones build on it.
 
-- 2026-11-08 — Link a Spotify track to a not-found row (round 011): [`specs/011-mix-manual-spotify-link/`](../specs/011-mix-manual-spotify-link/spec.md)
+- 2026-11-08 — Link a Spotify track to a not-found row (round 012): [`specs/012-mix-manual-spotify-link/`](../specs/012-mix-manual-spotify-link/spec.md)
 - 2026-11-08 — Simpler Mix tracklist (round 010): [`specs/010-mix-table-simplify/`](../specs/010-mix-table-simplify/spec.md)
 - 2026-11-07 — Sortable Mix tracklist (round 009): [`specs/009-mix-sortable-columns/`](../specs/009-mix-sortable-columns/spec.md)
 - 2026-11-08 — Multi-user data (round 011): [`specs/011-multi-user-data/`](../specs/011-multi-user-data/spec.md), decision [ADR-14](architecture/700-adr/ADR-14-users-by-server-account.md)

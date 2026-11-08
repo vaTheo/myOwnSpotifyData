@@ -325,7 +325,7 @@ describe('runCreatePlaylist', () => {
     ]);
   });
 
-  it('adds a hand-linked row from its stored id, no search (round 011)', async () => {
+  it('adds a hand-linked row from its stored id, no search (round 012)', async () => {
     const linked: TracklistRow = {
       ...id(t(0)),
       spotify: {
@@ -347,7 +347,7 @@ describe('runCreatePlaylist', () => {
     expect(states.at(-1)).toMatchObject({ status: 'done', added: 1, total: 1 });
   });
 
-  it('adds a track two rows name once, at its first place (round 011)', async () => {
+  it('adds a track two rows name once, at its first place (round 012)', async () => {
     const found = (title: string, trackId: string): TracklistRow => ({
       ...id(title),
       spotify: { id: trackId, url: `https://open.spotify.com/track/${trackId}` },
@@ -371,7 +371,7 @@ describe('runCreatePlaylist', () => {
     expect(states.at(-1)).toMatchObject({ status: 'done', added: 3, total: 5 });
   });
 
-  it('still skips a not-found row the search misses (round 011)', async () => {
+  it('still skips a not-found row the search misses (round 012)', async () => {
     const notFound: TracklistRow = {
       ...id(t(1)),
       spotify: 'not-found',

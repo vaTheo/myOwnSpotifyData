@@ -5,7 +5,7 @@ description: "Task list for adding a Spotify link to a not-found track"
 
 # Tasks: Add a Spotify link to a track that was not found
 
-**Input**: Design documents from `/specs/011-mix-manual-spotify-link/`
+**Input**: Design documents from `/specs/012-mix-manual-spotify-link/`
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/link-paste.md, quickstart.md
 
@@ -53,7 +53,7 @@ description: "Task list for adding a Spotify link to a not-found track"
 ## Phase 5: Polish and docs
 
 - [x] T012 Update `tools/shots/regression.spec.ts` and `specs/003-web-first-redesign/regression.md` with row M03: link the demo's not-found row with the example link (the row shows found, its Spotify href is `spotify:track:1qGibBSuprByJCYMC4zRUG`, counts move), an album link is refused with the message, Remove link returns it to not found; run `yarn regression` (A05 is a known stale failure; stop and report if port 5173 is held)
-- [x] T013 Docs round: `src/features/mix/CLAUDE.md` (local rule: a pasted link is stored by id, never verified or looked up), `docs/architecture/000-how-it-works.md` (§ mix: `spotifyLink.ts`, `spotifyBy`, the form), `docs/architecture/100-features.md` (new F27 row; check F26 is the last), `README.md` (owner's manual: how to link a not-found track), `CHANGELOG.md` (2026-11-08 entry), `docs/README.md` (specs map lists 011); no new ADR (state it in the CHANGELOG)
+- [x] T013 Docs round: `src/features/mix/CLAUDE.md` (local rule: a pasted link is stored by id, never verified or looked up), `docs/architecture/000-how-it-works.md` (§ mix: `spotifyLink.ts`, `spotifyBy`, the form), `docs/architecture/100-features.md` (new F28 row; check F26 is the last), `README.md` (owner's manual: how to link a not-found track), `CHANGELOG.md` (2026-11-08 entry), `docs/README.md` (specs map lists 012); no new ADR (state it in the CHANGELOG)
 - [x] T014 Run `yarn typecheck`, `yarn lint`, `yarn test` (exit codes) and walk quickstart step 2 on `?demo`
 
 ## Dependencies

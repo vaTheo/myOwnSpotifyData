@@ -5,7 +5,7 @@ by feature, newest first, and name their spec under `docs/specs/`. Entries befor
 
 ## 2026-11-08 — Link a Spotify track to a not-found row
 
-Spec: `specs/011-mix-manual-spotify-link/`. In the open mix, the red "not found" mark of a track (on a phone, the "Not found on Spotify"
+Spec: `specs/012-mix-manual-spotify-link/`. In the open mix, the red "not found" mark of a track (on a phone, the "Not found on Spotify"
 words) opens a field in place of the row: paste the track's Spotify link (`https://open.spotify.com/track/<id>`, with or without `?si=`
 or a locale segment, or `spotify:track:<id>`) and tap **Link**; the row counts as on Spotify, its play icon opens that track and
 **Create playlist from mix** adds it. Album, artist, playlist and short `spotify.link` links, and other text, are refused with a message.
