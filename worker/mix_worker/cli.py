@@ -419,9 +419,35 @@ def _tolerant_console() -> None:
                 pass
 
 
+PRESS_ENTER = "Press Enter to close this window."
+
+
 def main(argv: list[str] | None = None, deps: CliDeps | None = None) -> int:
-    _tolerant_console()
+    """Runs the worker. A double-click of the Windows executable (no arguments) keeps
+    its console open when it stops with a problem, so the message can be read."""
     deps = deps or CliDeps()
+    given = list(sys.argv[1:] if argv is None else argv)
+    double_click = not given and deps.frozen_dir is not None and deps.platform == "win32"
+    try:
+        code = _main(given if argv is not None else None, deps)
+    except Exception:  # noqa: BLE001 - the console must stay open on any failure
+        if not double_click:
+            raise
+        import traceback
+
+        deps.out(traceback.format_exc())
+        code = 1
+    if double_click and code not in (EXIT_OK, EXIT_INTERRUPTED):
+        deps.out(PRESS_ENTER)
+        try:
+            deps.read("")
+        except (EOFError, OSError):  # no console to read from
+            pass
+    return code
+
+
+def _main(argv: list[str] | None, deps: CliDeps) -> int:
+    _tolerant_console()
     args = parser().parse_args(argv)
     if args.version:
         deps.out(f"mix-worker {__version__}")
