@@ -89,7 +89,7 @@ Nothing else writes to the owner's Spotify account ([ADR-03](700-adr/ADR-03-libr
   row marked, automatic Check on Spotify; F24 to F26, F28, F29) are on `main`; `task/general-dev` has merged them in.
 - round 011 (2026-11-08, several people, F27) is built on `task/general-dev`; the review of every user-data path (T022–T024) and
   the owner's manual run on the real project (T021) are still open.
-- Round 014 (2026-11-08, shared track facts, F30) is built on `task/general-dev`; migration `0004_shared_facts.sql` must be applied and
+- Round 014 (2026-11-08, shared track facts, F30) is built on `task/general-dev`; migrations `0004_shared_facts.sql` and `0005_shared_add_functions.sql` must be applied and
   the owner's manual run on the real project (T033) is still open.
 - `DB_VERSION` 4; `SCOPES` include the two write scopes, so a pre-2026-09-25 session needs **Connect again** once.
 

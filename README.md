@@ -506,7 +506,7 @@ lookup is much shorter than the first person's.
   your side), play counts, library, playlists, history, saved mixes, release
   years. The store is never asked when the app opens.
 - **One step, once**: in the Supabase dashboard, SQL Editor, run
-  `supabase/migrations/0004_shared_facts.sql`. Without it the lookups run as
+  `supabase/migrations/0004_shared_facts.sql`, then `0005_shared_add_functions.sql`. Without them the lookups run as
   before and Settings shows the store's error.
 - **Correct or remove a shared row**: nobody in the app can change or delete
   one (the first value for a track wins, and a wrong first value stays).

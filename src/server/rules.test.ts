@@ -27,18 +27,33 @@ const RULE: Record<(typeof CMDS)[number], string> = {
   update: `using \\(${OWNER}\\) with check \\(${OWNER}\\)`,
   delete: `using \\(${OWNER}\\)`,
 };
-/** Definer functions allowed: storage_used reads no table, the other two read only their shared table. */
-const DEFINERS = ['storage_used', 'get_track_facts', 'get_artist_reach'];
+/** Definer functions allowed: storage_used reads no table, the get_* read and the add_* write only their own shared table. */
+const DEFINERS = [
+  'storage_used',
+  'get_track_facts',
+  'get_artist_reach',
+  'add_track_facts',
+  'add_artist_reach',
+];
 /**
  * The two shared tables (round 014, ADR-15): public facts with no owner,
- * insert-only for `authenticated`, read only through a definer function.
- * The one exception to the owner rule; a name added here is a decision.
+ * no policy and no privilege for `authenticated` (0005: the plain insert is
+ * refused by Postgres), written only through an add_* definer function and
+ * read only through a get_* one. The one exception to the owner rule; a name added here is a decision.
  */
 const SHARED_TABLES = ['shared_track_facts', 'shared_artist_reach'];
 /** Each shared read function and the one table it may read. */
 const SHARED_READERS: Record<string, string> = {
   get_track_facts: 'shared_track_facts',
   get_artist_reach: 'shared_artist_reach',
+};
+/** Each shared write function, the one table it may write, and its conflict key. */
+const SHARED_WRITERS: Record<string, { table: string; key: string }> = {
+  add_track_facts: { table: 'shared_track_facts', key: 'track_id' },
+  add_artist_reach: {
+    table: 'shared_artist_reach',
+    key: 'artist_id, source, measured_on',
+  },
 };
 /** What each shared table must carry (checks), matched on the normalised body. */
 const SHARED_CHECKS: Record<string, [string, RegExp][]> = {
@@ -188,7 +203,10 @@ function audit(raw: string): string[] {
       for (const cmd of cmds) grant(t, cmd);
     }
   }
-  const sharedInserts = new Map<string, number>();
+  // Shared tables end with no policy and no privilege for authenticated: what
+  // is created or granted is tracked in statement order, a drop or revoke removes it.
+  const sharedPolicies = new Map<string, Set<string>>();
+  const sharedGrants = new Set<string>();
   for (const s of stmts) {
     if (/row level security/.test(s)) {
       const m = new RegExp(
@@ -199,26 +217,52 @@ function audit(raw: string): string[] {
     }
     if (/^create policy/.test(s)) {
       const m = new RegExp(
-        `^create policy "?\\w+"? on ${NAME} for (select|insert|update|delete) to authenticated (.*)$`
+        `^create policy "?(\\w+)"? on ${NAME} for (select|insert|update|delete) to authenticated (.*)$`
       ).exec(s);
-      const cmd = m?.[2] as (typeof CMDS)[number] | undefined;
+      const cmd = m?.[3] as (typeof CMDS)[number] | undefined;
       const ok = (t: string, c: (typeof CMDS)[number], rule: string) =>
         SHARED_TABLES.includes(t)
           ? c === 'insert' && rule === 'with check (true)'
           : new RegExp(`^${RULE[c]}$`).test(rule);
-      if (m && cmd && ok(m[1]!, cmd, m[3]!)) {
-        if (SHARED_TABLES.includes(m[1]!)) {
-          sharedInserts.set(m[1]!, (sharedInserts.get(m[1]!) ?? 0) + 1);
+      if (m && cmd && ok(m[2]!, cmd, m[4]!)) {
+        if (SHARED_TABLES.includes(m[2]!)) {
+          if (!sharedPolicies.has(m[2]!)) sharedPolicies.set(m[2]!, new Set());
+          sharedPolicies.get(m[2]!)!.add(m[1]!);
         }
-        grant(m[1]!, cmd);
+        grant(m[2]!, cmd);
       } else findings.push(`not an owner policy: ${s.slice(0, 60)}`);
+    }
+    if (/^drop policy/.test(s)) {
+      const m = new RegExp(
+        `^drop policy (?:if exists )?"?(\\w+)"? on ${NAME}$`
+      ).exec(s);
+      if (m) sharedPolicies.get(m[2]!)?.delete(m[1]!);
+      else findings.push(`unrecognised drop policy: ${s.slice(0, 60)}`);
+    }
+    // Privileges on a shared table, in order: an insert grant stands until a
+    // revoke all from authenticated clears it.
+    const ig = /^grant insert on (?:table )?(.*) to authenticated$/.exec(s);
+    if (ig) {
+      for (const t of SHARED_TABLES) {
+        if (new RegExp(`\\b${t}\\b`).test(ig[1]!)) sharedGrants.add(t);
+      }
+    }
+    if (
+      /^revoke all on (?!function|all)/.test(s) &&
+      /from .*\bauthenticated\b/.test(s)
+    ) {
+      for (const t of SHARED_TABLES) {
+        if (new RegExp(`\\b${t}\\b`).test(s)) sharedGrants.delete(t);
+      }
     }
   }
   for (const t of tables) {
     if (!rls.has(t)) findings.push(`${t}: row level security not enabled`);
     if (SHARED_TABLES.includes(t)) {
-      if ((sharedInserts.get(t) ?? 0) !== 1)
-        findings.push(`${t}: not exactly one insert policy`);
+      if ((sharedPolicies.get(t)?.size ?? 0) !== 0)
+        findings.push(`${t}: a policy remains after the last migration`);
+      if (sharedGrants.has(t))
+        findings.push(`${t}: a privilege for authenticated remains`);
       // Default privileges give authenticated everything on a new table.
       const revoked = stmts.some(
         (x) =>
@@ -292,6 +336,7 @@ function audit(raw: string): string[] {
       findings.push(`${name}: security definer`);
     }
     const own = SHARED_READERS[name];
+    const writer = SHARED_WRITERS[name];
     if (definer && !/\bset search_path = ''/.test(s)) {
       findings.push(`${name}: definer without search_path = ''`);
     }
@@ -313,6 +358,36 @@ function audit(raw: string): string[] {
       if (
         !stmts.includes(
           `grant execute on function public.${name}(ids text[]) to authenticated`
+        )
+      ) {
+        findings.push(`${name}: not granted to authenticated`);
+      }
+    } else if (definer && writer) {
+      for (const t of new Set(
+        [...body.matchAll(/\bpublic\.(\w+)/g)].map((x) => x[1]!)
+      )) {
+        if (t !== writer.table) findings.push(`${name}: definer touches ${t}`);
+      }
+      if (
+        !new RegExp(`\\binsert into public\\.${writer.table}\\b`).test(body)
+      ) {
+        findings.push(`${name}: does not insert into ${writer.table}`);
+      }
+      if (
+        !body.includes(`on conflict (${writer.key}) do nothing`) ||
+        /\bdo update\b/.test(body)
+      ) {
+        findings.push(`${name}: not on conflict do nothing`);
+      }
+      if (
+        !/jsonb_array_length\(rows\) > 200\b/.test(body) ||
+        !body.includes("'too many rows'")
+      ) {
+        findings.push(`${name}: no 200 row cap`);
+      }
+      if (
+        !stmts.includes(
+          `grant execute on function public.${name}(rows jsonb) to authenticated`
         )
       ) {
         findings.push(`${name}: not granted to authenticated`);
@@ -543,7 +618,41 @@ grant insert on public.shared_track_facts, public.shared_artist_reach to authent
 grant execute on function public.get_track_facts(ids text[]) to authenticated;
 grant execute on function public.get_artist_reach(ids text[]) to authenticated;
 `;
-const WITH_SHARED = `${BASE}\n${SHARED}`;
+/** 0005, as the migration gives it: the insert grant and policies go, two add functions come. */
+const ADDED = `
+revoke all on public.shared_track_facts, public.shared_artist_reach from authenticated, anon, public;
+drop policy if exists shared_track_facts_insert on public.shared_track_facts;
+drop policy if exists shared_artist_reach_insert on public.shared_artist_reach;
+create function public.add_track_facts(rows jsonb)
+returns integer
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if rows is null or jsonb_typeof(rows) <> 'array' then raise exception 'rows must be a json array' using errcode = '22023'; end if;
+  if jsonb_array_length(rows) = 0 then return 0; end if;
+  if jsonb_array_length(rows) > 200 then raise exception 'too many rows' using errcode = '54000'; end if;
+  insert into public.shared_track_facts (track_id, bpm, key, major) select r.track_id, r.bpm, r.key, r.major from jsonb_to_recordset(rows) as r(track_id text, bpm real, key smallint, major boolean) on conflict (track_id) do nothing;
+  return jsonb_array_length(rows);
+end
+$$;
+create function public.add_artist_reach(rows jsonb)
+returns integer
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if rows is null or jsonb_typeof(rows) <> 'array' then raise exception 'rows must be a json array' using errcode = '22023'; end if;
+  if jsonb_array_length(rows) = 0 then return 0; end if;
+  if jsonb_array_length(rows) > 200 then raise exception 'too many rows' using errcode = '54000'; end if;
+  insert into public.shared_artist_reach (artist_id, source, measured_on, value) select r.artist_id, r.source, r.measured_on, r.value from jsonb_to_recordset(rows) as r(artist_id text, source text, measured_on date, value bigint) on conflict (artist_id, source, measured_on) do nothing;
+  return jsonb_array_length(rows);
+end
+$$;
+revoke all on function public.add_track_facts(jsonb) from public, anon;
+revoke all on function public.add_artist_reach(jsonb) from public, anon;
+grant execute on function public.add_track_facts(rows jsonb) to authenticated;
+grant execute on function public.add_artist_reach(rows jsonb) to authenticated;
+`;
+const WITH_SHARED = `${BASE}\n${SHARED}\n${ADDED}`;
 
 describe('the shared store (0004_shared_facts.sql)', () => {
   it('the sound fixture passes', () => {
@@ -578,7 +687,7 @@ describe('the shared store (0004_shared_facts.sql)', () => {
       from,
       'for insert to authenticated with check (auth.uid() is not null);\ncreate policy shared_artist'
     );
-    expect(audit(sql)).toHaveLength(2); // the bad policy, and no insert policy left
+    expect(audit(sql)).toHaveLength(1); // the bad policy (0005 drops it by name)
   });
 
   it('a select or broader grant on a shared table', () => {
@@ -607,15 +716,26 @@ describe('the shared store (0004_shared_facts.sql)', () => {
     const revoke =
       'revoke all on public.shared_track_facts, public.shared_artist_reach from authenticated, anon, public;';
     expect(WITH_SHARED).toContain(revoke);
-    expect(audit(WITH_SHARED.replace(revoke, ''))).toEqual([
+    // The revoke is in 0004 and again in 0005: without both, it is missing,
+    // and the insert grant of 0004 is left standing.
+    expect(audit(WITH_SHARED.replaceAll(revoke, ''))).toEqual([
+      'shared_track_facts: a privilege for authenticated remains',
       'shared_track_facts: default privileges not revoked from authenticated',
+      'shared_artist_reach: a privilege for authenticated remains',
       'shared_artist_reach: default privileges not revoked from authenticated',
+    ]);
+    // Without the 0005 revoke alone, the insert grant stays.
+    expect(audit(`${BASE}\n${SHARED}`)).toEqual([
+      'shared_track_facts: a policy remains after the last migration',
+      'shared_track_facts: a privilege for authenticated remains',
+      'shared_artist_reach: a policy remains after the last migration',
+      'shared_artist_reach: a privilege for authenticated remains',
     ]);
     const half = revoke.replace(
       'from authenticated, anon, public',
       'from anon'
     );
-    expect(audit(WITH_SHARED.replace(revoke, half))).toHaveLength(2);
+    expect(audit(WITH_SHARED.replaceAll(revoke, half))).toHaveLength(4);
     const dup =
       'create policy shared_track_facts_insert on public.shared_track_facts for insert to authenticated with check (true);';
     expect(WITH_SHARED).toContain(dup);
@@ -626,7 +746,9 @@ describe('the shared store (0004_shared_facts.sql)', () => {
           `${dup}\n${dup.replace('_insert', '_insert2')}`
         )
       )
-    ).toEqual(['shared_track_facts: not exactly one insert policy']);
+    ).toEqual([
+      'shared_track_facts: a policy remains after the last migration',
+    ]);
   });
 
   it('a user or owner column on a shared table', () => {
@@ -714,7 +836,7 @@ describe('the shared store (0004_shared_facts.sql)', () => {
     expect(SHARED).toContain('> 200');
     expect(
       audit(
-        `${BASE}\n${SHARED.replaceAll(
+        `${BASE}\n${`${SHARED}\n${ADDED}`.replaceAll(
           "security definer set search_path = ''",
           'security definer'
         )}`
@@ -722,10 +844,14 @@ describe('the shared store (0004_shared_facts.sql)', () => {
     ).toEqual([
       "get_track_facts: definer without search_path = ''",
       "get_artist_reach: definer without search_path = ''",
+      "add_track_facts: definer without search_path = ''",
+      "add_artist_reach: definer without search_path = ''",
     ]);
-    expect(audit(`${BASE}\n${SHARED.replaceAll('> 200', '> 2000')}`)).toEqual([
+    expect(audit(WITH_SHARED.replaceAll('> 200', '> 2000'))).toEqual([
       'get_track_facts: no 200 id cap',
       'get_artist_reach: no 200 id cap',
+      'add_track_facts: no 200 row cap',
+      'add_artist_reach: no 200 row cap',
     ]);
     const exec =
       'grant execute on function public.get_artist_reach(ids text[]) to authenticated;';
@@ -812,5 +938,131 @@ describe('the shared store (0004_shared_facts.sql)', () => {
     expect(body).toContain(
       'order by r.artist_id, r.source, r.measured_on desc'
     );
+  });
+});
+
+describe('the add functions (0005_shared_add_functions.sql)', () => {
+  const read = () =>
+    normalise(
+      readFileSync(new URL('0005_shared_add_functions.sql', DIR), 'utf8')
+    );
+
+  it('the real migration, alone after 0004, leaves no policy and no privilege', () => {
+    const f = audit(
+      [
+        readFileSync(new URL('0001_init.sql', DIR), 'utf8'),
+        readFileSync(new URL('0004_shared_facts.sql', DIR), 'utf8'),
+        readFileSync(new URL('0005_shared_add_functions.sql', DIR), 'utf8'),
+      ].join('\n')
+    );
+    expect(f.filter((x) => /shared|add_/.test(x))).toEqual([]);
+  });
+
+  it('revokes every privilege on both tables and drops both insert policies', () => {
+    const { stmts } = { stmts: statements(read().sql) };
+    expect(stmts).toContain(
+      'revoke all on public.shared_track_facts, public.shared_artist_reach from authenticated, anon, public'
+    );
+    expect(stmts).toContain(
+      'drop policy if exists shared_track_facts_insert on public.shared_track_facts'
+    );
+    expect(stmts).toContain(
+      'drop policy if exists shared_artist_reach_insert on public.shared_artist_reach'
+    );
+    expect(
+      stmts.filter((s) => /^create policy|^grant .* on public\.shared_/.test(s))
+    ).toEqual([]);
+  });
+
+  it('pins both bodies: definer, empty search_path, the cap, do nothing on conflict', () => {
+    const { sql, bodies } = read();
+    expect(bodies).toHaveLength(2);
+    const defs = statements(sql).filter((s) => /^create function/.test(s));
+    expect(defs).toHaveLength(2);
+    for (const d of defs) {
+      expect(d).toContain('security definer');
+      expect(d).toContain("set search_path = ''");
+      expect(d).toContain('returns integer');
+    }
+    for (const b of bodies) {
+      expect(b).toContain(`jsonb_array_length(rows) > ${SHARED_MAX_IDS} then`);
+      expect(b).toContain("errcode = '22023'");
+      expect(b).toContain("errcode = '54000'");
+      expect(b).not.toContain('do update');
+    }
+    expect(bodies[0]).toContain('on conflict (track_id) do nothing');
+    expect(bodies[1]).toContain(
+      'on conflict (artist_id, source, measured_on) do nothing'
+    );
+    expect(bodies[0]).toContain(
+      'insert into public.shared_track_facts (track_id, bpm, key, major)'
+    );
+    expect(bodies[1]).toContain(
+      'insert into public.shared_artist_reach (artist_id, source, measured_on, value)'
+    );
+  });
+
+  it('execute goes to authenticated only', () => {
+    const stmts = statements(read().sql);
+    for (const fn of [
+      'add_track_facts(jsonb) from public, anon',
+      'add_artist_reach(jsonb) from public, anon',
+    ]) {
+      expect(stmts).toContain(`revoke all on function public.${fn}`);
+    }
+    const grants = stmts.filter((s) => /^grant /.test(s));
+    expect(grants).toEqual([
+      'grant execute on function public.add_track_facts(rows jsonb) to authenticated',
+      'grant execute on function public.add_artist_reach(rows jsonb) to authenticated',
+    ]);
+  });
+
+  it('a write function that updates on conflict, writes another table, or is not capped', () => {
+    const swap = (a: string, b: string) => {
+      expect(WITH_SHARED).toContain(a);
+      return audit(WITH_SHARED.replace(a, b));
+    };
+    expect(
+      swap(
+        'on conflict (track_id) do nothing',
+        'on conflict (track_id) do update set bpm = excluded.bpm'
+      )
+    ).toEqual(['add_track_facts: not on conflict do nothing']);
+    expect(
+      swap(
+        'insert into public.shared_artist_reach (artist_id',
+        'insert into public.shared_track_facts (artist_id'
+      )
+    ).toEqual(
+      expect.arrayContaining([
+        'add_artist_reach: definer touches shared_track_facts',
+        'add_artist_reach: does not insert into shared_artist_reach',
+      ])
+    );
+    const exec =
+      'grant execute on function public.add_track_facts(rows jsonb) to authenticated;';
+    expect(audit(WITH_SHARED.replace(exec, ''))).toEqual([
+      'add_track_facts: not granted to authenticated',
+    ]);
+    expect(
+      audit(
+        `${WITH_SHARED}\ngrant execute on function public.add_track_facts(rows jsonb) to anon;`
+      )
+    ).toHaveLength(1);
+  });
+
+  it('a policy or an insert grant put back after the revoke is a finding', () => {
+    expect(
+      audit(
+        `${WITH_SHARED}\ncreate policy back on public.shared_track_facts for insert to authenticated with check (true);`
+      )
+    ).toEqual([
+      'shared_track_facts: a policy remains after the last migration',
+    ]);
+    expect(
+      audit(
+        `${WITH_SHARED}\ngrant insert on public.shared_artist_reach to authenticated;`
+      )
+    ).toEqual(['shared_artist_reach: a privilege for authenticated remains']);
   });
 });
