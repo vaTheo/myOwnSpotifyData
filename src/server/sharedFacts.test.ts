@@ -1,4 +1,8 @@
+import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getFeatures, wipeDb } from '../db/repo';
+import { runLookup, type LookupState } from '../features/lookup';
+import { RECCOBEATS_TRACK_URL, RECCOBEATS_URL } from '../features/reccobeats';
 import type { ServerResult } from './client';
 import { createServerClient } from './client';
 import {
@@ -284,5 +288,133 @@ describe('reach', () => {
         value: 99,
       },
     ]);
+  });
+});
+
+describe('two users, one shared store (SC-001, SC-002)', () => {
+  it('B asks ReccoBeats only for what A did not find, and reads nothing beyond four columns', async () => {
+    await wipeDb();
+    // The in-memory fake of the two RPCs and the ignore-duplicates insert.
+    const store = new Map<string, Record<string, unknown>>();
+    const tokensSeen = new Set<string>();
+    const readAnswers: unknown[] = [];
+    const respond = (url: string, init?: RequestInit): Response => {
+      const auth = new Headers(init?.headers).get('Authorization') ?? '';
+      tokensSeen.add(auth);
+      if (url.endsWith('/rpc/get_track_facts')) {
+        const rows = (bodyOf(init).ids as string[]).flatMap((i) =>
+          store.has(i) ? [store.get(i)!] : []
+        );
+        readAnswers.push(rows);
+        return ok(rows);
+      }
+      if (url.includes('/rest/v1/shared_track_facts')) {
+        for (const row of bodyOf(init) as Record<string, unknown>[]) {
+          const t = row.track_id as string;
+          if (!store.has(t)) store.set(t, row);
+        }
+        return new Response(null, { status: 201 });
+      }
+      return ok({ message: 'unexpected' }, 404);
+    };
+    const serverFetch = vi.fn<FetchLike>(async (url, init) =>
+      respond(url, init)
+    );
+    const client = createServerClient({
+      fetchFn: serverFetch as unknown as typeof fetch,
+      baseUrl: 'https://p.supabase.co',
+      apiKey: 'k',
+      now: () => NOW,
+    });
+    const portFor = (token: string) =>
+      createSharedFactsPort({
+        client,
+        getToken: async () => ({ ok: true, value: token }),
+        now: () => NOW,
+      });
+
+    const known = (lo: number, hi: number) => (n: number) => n >= lo && n < hi;
+    async function runUser(
+      token: string,
+      from: number,
+      knownByRb: (n: number) => boolean
+    ) {
+      await wipeDb();
+      const asked: string[] = [];
+      const fetchFn = vi.fn<FetchLike>(async (url) => {
+        if (url.startsWith(RECCOBEATS_TRACK_URL)) return ok({ content: [] });
+        if (!url.startsWith(RECCOBEATS_URL)) throw new Error(url);
+        const ids = new URL(url).searchParams.get('ids')!.split(',');
+        asked.push(...ids);
+        return ok({
+          content: ids
+            .filter((t) => knownByRb(Number(t.slice(5))))
+            .map((t) => ({
+              href: `https://open.spotify.com/track/${t}`,
+              isrc: null,
+              tempo: 100 + (Number(t.slice(5)) % 50),
+              key: Number(t.slice(5)) % 12,
+              mode: 1,
+              energy: 0.5,
+            })),
+        });
+      });
+      const states: LookupState[] = [];
+      await runLookup(
+        {
+          fetchFn: fetchFn as unknown as typeof fetch,
+          sleep: async () => {},
+          now: () => NOW,
+          onState: (st) => states.push(st),
+          shared: portFor(token),
+        },
+        Array.from({ length: 100 }, (_, i) => ({
+          id: id(from + i),
+          isrc: null,
+        })),
+        []
+      );
+      const rows = new Map(
+        (await getFeatures()).map((r) => [r.trackId, r.reccobeats])
+      );
+      return { asked, rows, last: states.at(-1) };
+    }
+
+    // A looks up 0..99; ReccoBeats knows 0..79.
+    const a = await runUser('tokA', 0, known(0, 80));
+    expect(a.asked).toHaveLength(100);
+    expect(store.size).toBe(80);
+
+    // B looks up 50..149; ReccoBeats knows all of them.
+    const b = await runUser('tokB', 50, () => true);
+    const stored = Array.from({ length: 30 }, (_, i) => id(50 + i));
+    expect(b.asked.some((t) => stored.includes(t))).toBe(false);
+    expect(new Set(b.asked)).toEqual(
+      new Set(Array.from({ length: 70 }, (_, i) => id(80 + i)))
+    );
+    expect(b.last).toMatchObject({
+      status: 'done',
+      found: 100,
+      shared: { fromStore: 30, sent: 70, error: null },
+    });
+    // The values B got from the store equal what A found.
+    for (const t of stored) {
+      const av = a.rows.get(t) as Record<string, unknown>;
+      const bv = b.rows.get(t) as Record<string, unknown>;
+      expect([bv.bpm, bv.key, bv.major]).toEqual([av.bpm, av.key, av.major]);
+    }
+    expect(store.size).toBe(150);
+    // Both users' tokens reached the server; reads were lists of four columns.
+    expect(tokensSeen).toEqual(new Set(['Bearer tokA', 'Bearer tokB']));
+    for (const rows of readAnswers as Record<string, unknown>[][]) {
+      for (const row of rows) {
+        expect(Object.keys(row).sort()).toEqual([
+          'bpm',
+          'key',
+          'major',
+          'track_id',
+        ]);
+      }
+    }
   });
 });
