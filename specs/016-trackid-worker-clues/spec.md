@@ -21,7 +21,7 @@ As the owner, when I ask the worker to identify a mix that TrackId.net has alrea
 **Independent Test**: a mix whose TrackId.net record has spans covering most of it: the scan makes one probe inside each span and normal probes elsewhere; compare the probe count with the same mix scanned without TrackId.net.
 
 **Acceptance Scenarios**:
-1. **Given** TrackId.net has a span for a stretch, **When** the scan reaches it, **Then** it makes one confirming probe inside the span (at the middle of the span shrunk by 10 s at each edge) and no other probe whose window lies inside it.
+1. **Given** TrackId.net has a span for a stretch, **When** the scan reaches it, **Then** it makes one confirming probe inside the span (its window centered on the middle of the span) and no other probe whose window lies inside it.
 2. **Given** the confirming probe names the same track as the span, **Then** the span's row shows that Shazam agrees.
 3. **Given** the confirming probe names another track, or finds nothing, **Then** the span's row is still TrackId.net's track and shows that Shazam heard something else, or nothing.
 4. **Given** TrackId.net does not know the mix, **Then** the scan makes exactly the probes it makes today.
@@ -94,7 +94,7 @@ As the owner, I can turn TrackId.net off in the worker settings and get today's 
 ### Functional Requirements
 
 - **FR-001**: For each identification request the worker MUST ask TrackId.net for the request's link before the first probe, using only the exact link (never a keyword or a name search), and MUST accept a record only when exactly one record answers and its link equals the request's link and its slug matches on the detail call.
-- **FR-002**: When TrackId.net knows the mix, the scan MUST make exactly one confirming probe inside each guided span (a span still at least 40 s long once shrunk by 10 s at each edge), at the middle of that core, and MUST NOT make any other first-pass probe whose window lies inside the core; every stretch not covered by a core MUST be probed as today.
+- **FR-002**: When TrackId.net knows the mix, the scan MUST make exactly one confirming probe inside each guided span (a span still at least 40 s long once shrunk by 10 s at each edge), with its window centered on the middle of the span, and MUST NOT make any other first-pass probe whose window lies inside the core; every stretch not covered by a core MUST be probed as today.
 - **FR-003**: TrackId.net is the source of truth: every trusted span MUST give a row for its track whatever Shazam answers. A Shazam answer inside a span's times MUST NOT replace, shorten, clip or remove the span's row; it is recorded on the row as a check (agrees, differs with the other track, or no match).
 - **FR-004**: A trusted span's row MUST carry the origin TrackId.net, the span's artist, title, label and own times, no confidence, the check, and MUST be marked not heard and start unvalidated; a Shazam hit inside the span's times MUST NOT also appear as a separate row; hits outside every span remain rows as today.
 - **FR-005**: The check MUST be one of `agrees`, `differs` (with the other track's artist, title and confidence), `no_match`, or `not_asked` (a span whose probe was refused or skipped by a stop), so the app can show both sources.

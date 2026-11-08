@@ -27,7 +27,7 @@ Complements `specs/002-mix-analysis-worker/contracts/worker.md` and `specs/003-f
 |---|---|
 | No record, `off`, or untrusted | `scan()` is called with no guides and behaves exactly as today (equivalence test) |
 | A first-pass probe window `[t, t+step)` inside a guided core (start + 10 s to end − 10 s, core ≥ 40 s) | skipped: no cut, no cooldown, no Shazam call; counts as done in progress; neither a hit nor a miss |
-| The middle of each guided core | exactly one confirming probe, an ordinary probe (cooldown, refusals, errors as today); its answer goes to the span's check |
+| The middle of each guided span | exactly one confirming probe whose window is centered on the span's middle (`t = (start + end) / 2 − probe_seconds / 2`), an ordinary probe (cooldown, refusals, errors as today); its answer goes to the span's check |
 | A probe at an edge or outside every core | an ordinary probe; a hit whose time is inside some span's times (unshrunk) is absorbed into that span's check, not a row |
 | A span with a core below 40 s | not guided: probed normally; its check comes from the ordinary hits inside its times |
 | Check outcome | `agrees` (a hit inside the span names the same track by the `match.py` rule), `differs` (only other tracks heard inside it: the best hit's artist, title, confidence), `no_match` (probes made, none matched), `not_asked` (the confirming probe was not made) |

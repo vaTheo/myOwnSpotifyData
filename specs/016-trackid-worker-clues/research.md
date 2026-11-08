@@ -16,7 +16,7 @@ List by the exact link; accept only `rowCount === 1` with one record whose `url`
 
 ## D3 One confirming probe per span, never more (owner's rule)
 
-- A span is **guided** when, shrunk by `TRACKID_EDGE_SECONDS = 10` at each edge, it still holds at least `TRACKID_MIN_CORE_SECONDS = 40`. Inside a guided core the first-pass probes are skipped except **one confirming probe** at the middle of the core (`start + 10 + core/2`, cut with the same `cut(t)`; the Shazam pacing, errors and progress are the ordinary ones).
+- A span is **guided** when, shrunk by `TRACKID_EDGE_SECONDS = 10` at each edge, it still holds at least `TRACKID_MIN_CORE_SECONDS = 40`. Inside a guided core the first-pass probes are skipped except **one confirming probe** with its 12 s window **centered on the span's middle** (`t = (start + end) / 2 − probe_seconds / 2`, which is also the middle of the core since the core is symmetric; cut with the same `cut(t)`; the Shazam pacing, errors and progress are the ordinary ones).
 - Skipped probes are neither hits nor misses: they never open a gap and never feed the second pass. They count as done in progress. The confirming probe is an ordinary probe whose answer goes to the span's check instead of the hits list when it falls inside a core.
 - Edge probes and probes outside every core are ordinary. A Shazam hit whose time falls inside a span's times (unshrunk) is **absorbed** into that span's check and does not become a row; hits outside every span stay rows.
 - A span whose core is below 40 s is not guided: probed normally; its check comes from the ordinary hits inside its times (same track ⇒ `agrees`, only other tracks ⇒ `differs`, none ⇒ `no_match`).
