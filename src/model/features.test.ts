@@ -58,6 +58,18 @@ describe('resolveFeature', () => {
     });
   });
 
+  it('prefers rekordbox over a value that came from the shared store', () => {
+    // A store hit carries no energy and no rid (round 014).
+    const shared = recco({ bpm: 120, key: 7, major: true, energy: null });
+    expect(shared).not.toHaveProperty('rid');
+    expect(resolveFeature(row({ reccobeats: shared, rekordbox }))).toEqual({
+      bpm: 128,
+      key: 5,
+      major: false,
+      source: 'rekordbox',
+    });
+  });
+
   it('fills a missing rekordbox BPM from ReccoBeats', () => {
     expect(
       resolveFeature(

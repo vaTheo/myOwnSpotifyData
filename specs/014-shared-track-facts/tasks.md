@@ -34,9 +34,9 @@
 
 **Independent test**: a row with a rekordbox value, a run, an import: the store receives no rekordbox byte, the row's rekordbox is unchanged.
 
-- [ ] T017 [US2] Failing tests in `src/features/lookup.test.ts`: a candidate whose row holds a `rekordbox` value of bpm 99 / key 3 and whose ReccoBeats answer is bpm 128 / key 5: every body passed to the port's `shareTracks` contains 128 and 5, never 99, 3 or the word `rekordbox`; after the run the row's `rekordbox` is deep-equal to before; the same when the value comes from the store (the `reccobeats` field gets the shared value, `rekordbox` untouched); `rekordboxImport.ts` has no import of `features/shared` (test reads the file text)
-- [ ] T018 [US2] Make T017 pass with no code path from `row.rekordbox` to the port: confirm in `src/features/lookup.ts` that submissions are built from `FetchedFeature` only; add a comment at the queue naming this rule (FR-005, SC-005)
-- [ ] T019 [US2] Test in `src/model/features.test.ts` that `valueOf`-style display (`src/model/features.ts`) still prefers the rekordbox BPM and key over a `reccobeats` value that came from the store (acceptance scenario 2)
+- [x] T017 [US2] Failing tests in `src/features/lookup.test.ts`: a candidate whose row holds a `rekordbox` value of bpm 99 / key 3 and whose ReccoBeats answer is bpm 128 / key 5: every body passed to the port's `shareTracks` contains 128 and 5, never 99, 3 or the word `rekordbox`; after the run the row's `rekordbox` is deep-equal to before; the same when the value comes from the store (the `reccobeats` field gets the shared value, `rekordbox` untouched); `rekordboxImport.ts` has no import of `features/shared` (test reads the file text)
+- [x] T018 [US2] Make T017 pass with no code path from `row.rekordbox` to the port: confirm in `src/features/lookup.ts` that submissions are built from `FetchedFeature` only; add a comment at the queue naming this rule (FR-005, SC-005)
+- [x] T019 [US2] Test in `src/model/features.test.ts` that `valueOf`-style display (`src/model/features.ts`) still prefers the rekordbox BPM and key over a `reccobeats` value that came from the store (acceptance scenario 2)
 
 ## Phase 5: User Story 3 - One wrong client cannot poison everyone (P1)
 

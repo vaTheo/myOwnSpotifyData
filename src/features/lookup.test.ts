@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getFeatures, putFeatures, wipeDb } from '../db/repo';
 import type { FeatureRow, PlayRow, TrackRow } from '../db/schema';
@@ -806,40 +807,62 @@ describe('runLookup - shared store (round 014)', () => {
   });
 
   it('switches the port off after the first failed read, and the run ends as without it', async () => {
-    const candidates = [{ id: 'a', isrc: null }];
+    const ids = Array.from({ length: 250 }, (_, i) => `t${i}`);
     const { port } = fakePort([], { read: 'boom' });
-    const { deps, states } = setup([
-      () => json({ content: [feature('a', null, 126)] }),
-    ]);
-    await runLookup({ ...deps, shared: port }, candidates, []);
+    const { deps, states } = setup(
+      Array.from(
+        { length: Math.ceil(250 / MAX_IDS) },
+        (_, b) => () =>
+          json({
+            content: ids
+              .slice(b * MAX_IDS, (b + 1) * MAX_IDS)
+              .map((i) => feature(i, null, 126)),
+          })
+      )
+    );
+    await runLookup(
+      { ...deps, shared: port },
+      ids.map((id) => ({ id, isrc: null })),
+      []
+    );
+    // 250 ids make two read chunks: the second is never asked.
     expect(port.readTracks).toHaveBeenCalledTimes(1);
     expect(port.shareTracks).not.toHaveBeenCalled();
     expect(states.at(-1)).toEqual({
       status: 'done',
-      found: 1,
+      found: 250,
       notFound: 0,
-      total: 1,
+      total: 250,
       years: 0,
       shared: { fromStore: 0, sent: 0, error: 'boom' },
     });
   });
 
   it('switches the port off after the first failed share', async () => {
-    const ids = Array.from({ length: 45 }, (_, i) => `t${i}`);
-    const { port } = fakePort([], { share: 'nope' });
-    const { deps, states } = setup([
-      () =>
-        json({ content: ids.slice(0, 40).map((i) => feature(i, null, 124)) }),
-      () => json({ content: ids.slice(40).map((i) => feature(i, null, 124)) }),
-    ]);
+    // 250 found tracks: a flush happens at 200, before the end of the run.
+    const ids = Array.from({ length: 250 }, (_, i) => `t${i}`);
+    const { port, shared } = fakePort([], { share: 'nope' });
+    const { deps, states } = setup(
+      Array.from(
+        { length: Math.ceil(250 / MAX_IDS) },
+        (_, b) => () =>
+          json({
+            content: ids
+              .slice(b * MAX_IDS, (b + 1) * MAX_IDS)
+              .map((i) => feature(i, null, 124)),
+          })
+      )
+    );
     await runLookup(
       { ...deps, shared: port },
       ids.map((id) => ({ id, isrc: null })),
       []
     );
+    // One failed call of 200, then no second call (not even for the last 50).
     expect(port.shareTracks).toHaveBeenCalledTimes(1);
+    expect(shared[0]).toHaveLength(200);
     const last = states.at(-1);
-    expect(last).toMatchObject({ status: 'done', found: 45 });
+    expect(last).toMatchObject({ status: 'done', found: 250 });
     expect(last).toMatchObject({ shared: { sent: 0, error: 'nope' } });
   });
 
@@ -864,10 +887,106 @@ describe('runLookup - shared store (round 014)', () => {
     );
     await runLookup({ ...deps, shared: port }, [{ id: 'x', isrc: null }], []);
     expect(featureCalls(fetchFn)).toEqual([]);
-    expect(
-      fetchFn.mock.calls.filter((c) => c[0].startsWith(RECCOBEATS_TRACK_URL))
-        .length
-    ).toBeGreaterThanOrEqual(2);
+    const trackCalls = fetchFn.mock.calls
+      .map((c) => c[0])
+      .filter((u) => u.startsWith(RECCOBEATS_TRACK_URL));
+    expect(trackCalls).toHaveLength(2);
+    // The album request carries the rid the id lookup returned.
+    expect(trackCalls[1]).toContain(`${RECCOBEATS_TRACK_URL}/rb1/album`);
     expect(states.at(-1)).toMatchObject({ status: 'done', years: 1 });
+  });
+});
+
+// T017 (FR-005, SC-005): a rekordbox value has no path to the store.
+describe('runLookup - rekordbox never reaches the store (round 014)', () => {
+  const rb = {
+    bpm: 99,
+    key: 3,
+    major: true,
+    energy: null,
+    fetchedAt: 5,
+    matchedBy: 'title-artist' as const,
+    rbTitle: 'Song',
+    rbArtist: 'Artist',
+  };
+
+  it('sends what ReccoBeats said, not the rekordbox value, and leaves the row alone', async () => {
+    await putFeatures([
+      { trackId: 'r1', isrc: null, rekordbox: rb, updatedAt: 1 },
+    ]);
+    const { port, shared } = fakePort([]);
+    const { deps } = setup([
+      () =>
+        json({
+          content: [{ ...feature('r1', null, 128), key: 5, mode: 0 }],
+        }),
+    ]);
+    await runLookup(
+      { ...deps, shared: port },
+      [{ id: 'r1', isrc: null }],
+      await getFeatures()
+    );
+    expect(shared.flat()).toEqual([fact('r1', 128, 5, false)]);
+    const body = JSON.stringify(shared);
+    expect(body).not.toContain('rekordbox');
+    expect(body).not.toContain('99');
+    const row = (await getFeatures())[0]!;
+    expect(row.rekordbox).toEqual(rb);
+    expect(row.reccobeats).toMatchObject({ bpm: 128, key: 5 });
+  });
+
+  it('sends nothing for a row that holds rekordbox and an older reccobeats value', async () => {
+    const old: FeatureRow = {
+      trackId: 'r2',
+      isrc: null,
+      rekordbox: rb,
+      reccobeats: {
+        bpm: 90,
+        key: 2,
+        major: false,
+        energy: 0.5,
+        fetchedAt: 1,
+        rid: 'rb2',
+      },
+      releaseYear: { year: 2001, checkedAt: NOW },
+      updatedAt: 1,
+    };
+    await putFeatures([old]);
+    const { port, shared } = fakePort([]);
+    const { deps, fetchFn } = setup([]);
+    await runLookup(
+      { ...deps, shared: port },
+      [{ id: 'r2', isrc: null }],
+      await getFeatures()
+    );
+    expect(shared).toEqual([]);
+    expect(port.shareTracks).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect((await getFeatures())[0]).toEqual(old);
+  });
+
+  it('a shared value fills reccobeats and never replaces the rekordbox value', async () => {
+    await putFeatures([
+      { trackId: 'r3', isrc: null, rekordbox: rb, updatedAt: 1 },
+    ]);
+    const { port, shared } = fakePort([fact('r3', 120, 7, false)]);
+    const { deps } = setup([]);
+    await runLookup(
+      { ...deps, shared: port },
+      [{ id: 'r3', isrc: null }],
+      await getFeatures()
+    );
+    const row = (await getFeatures())[0]!;
+    expect(row.rekordbox).toEqual(rb);
+    expect(row.reccobeats).toMatchObject({ bpm: 120, key: 7, major: false });
+    expect(shared).toEqual([]);
+  });
+
+  it('rekordboxImport.ts does not import the shared port', () => {
+    const text = readFileSync(
+      new URL('./rekordboxImport.ts', import.meta.url),
+      'utf8'
+    );
+    expect(text).not.toMatch(/features\/shared|from '\.\/shared'|sharedFacts/);
   });
 });
