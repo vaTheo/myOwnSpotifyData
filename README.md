@@ -355,6 +355,10 @@ Nothing else: the worker signs in with the same magic link as the app,
 returned to a local address the project already allows. Requests wait while
 the computer is off;
 the audio never leaves your computer; the worker never talks to Spotify.
+The worker serves one account, the one that signed it in (yours): a friend's
+**Identify on my computer** is recorded on the server but never taken, and
+waits as Queued in their Mixes list until they Cancel it, so the button is
+your feature.
 
 ## Server (optional)
 
@@ -398,7 +402,8 @@ Using it:
   dataset was fetched here and on the server, the rows held, and the used
   share of the 500 MB.
 - **Sign out** keeps everything here and on the server, asks nothing and
-  returns to the sign-in screen. **Remove server data** deletes all your data
+  returns to the sign-in screen. It is also on the Connect screen, beside
+  "Signed in as …", while Spotify is not connected. **Remove server data** deletes all your data
   on the server and keeps this browser's copy, after a question.
 - Offline, the app works from local data and sends the pending changes on the
   next open. A Free project **pauses after a week without traffic**: the card
@@ -428,8 +433,9 @@ device and on the server.
   account it names, and use "Not you?" if the browser is still logged in to
   Spotify as someone else. Their screens start empty and fill from their own
   syncs; yours do not change.
-- **Sign out** before handing over a shared browser. It signs you out of that
-  browser only: your other devices and the worker stay signed in. Signing out
+- **Sign out** before handing over a shared browser (Settings → Server, or
+  the Connect screen when Spotify is not connected, which also says who is
+  signed in). It signs you out of that browser only: your other devices and the worker stay signed in. Signing out
   of Spotify there too (on spotify.com) is wise. The next person signs in
   and sees only their data; when you sign back in, yours is there at once,
   with no question and no new sync. Every person's copy stays on that device

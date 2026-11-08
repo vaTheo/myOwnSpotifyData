@@ -382,6 +382,11 @@ screen, grouped by role under `src/ui/`.
   this email has an account, a link was sent to …") is shared with the Settings server card, which shows "Signed in as <email>.",
   "N people use this device." when N > 1 (`deviceUsersLine`, `settings/lines.ts`), **Sign out** and **Remove server data**; the
   Danger zone's words say "your" data once a server is set up (`dangerDescription`).
+- **Connect screen** (`Connect.tsx`): signed in to the server without a Spotify session (a new person, or after Disconnect,
+  which keeps the server session), Settings is out of reach, so Connect also shows "Signed in as <email>." (`signedInLine`,
+  `settings/lines.ts`, shared with the server card) and **Sign out** (`startServerSignOut`) when `connectSignOutVisible()`
+  (`connectSignOutShown`, `gate.ts`: server configured, a session, not the demo); never on the "Signing you in…" step. With no
+  banner slot there, a refusal (`banner`) and a failed sign-out (`serverState` `error`) print inline on the card (final review I1).
 - **Mix** (`ui/mix/`, §10): `Workspace.tsx` lays out `MixListPane.tsx` (the link field, Identify on my computer, the JSON import,
   the Mixes list with the queue) beside `MixDetail.tsx` (the header with `RunLine.tsx`, the review line, `TracklistTable.tsx` on
   `DataTable`, `CreatePlaylistCard.tsx`, `Clues.tsx`); from 840 to 1599 px the Mixes pane folds while a mix is open, behind a
@@ -503,7 +508,9 @@ is refused while `jobsBusy()` with `warnBanner` "Wait for the current job to fin
 runs (`pushRunning`, which joins no `jobsBusy()`) with "Wait for the current sync to finish before signing out."; a refusal leaves
 the automatic chain alone. Otherwise it stops the chain, signs the server session out, clears the `activeUser` pointer (session
 first, so another tab never activates a session being removed) and reloads, which drops every signal; it removes no data. A
-storage that refuses the pointer shows "Could not sign out on this device: …" on the card and does not reload.
+storage that refuses the pointer shows "Could not sign out on this device: …" on the card and does not reload. Sign out is on the
+Settings server card and on the Connect screen while Spotify is not connected (§13), where both refusals and that failure print
+inline, the Connect screen having no banner.
 
 ## 15. Build, CI and deploy
 

@@ -16,7 +16,8 @@ stored there. Your session from before the update counts, so a browser you were 
 A new sign-in needs the network. Three fixes from the round's user-data audit: on a device more than one person uses,
 **Connect Spotify** shows Spotify's account screen, so nobody is connected to the previous person's Spotify login by accident; a tab
 left open never takes over the session of a person who signed in in another tab (it asks for a reload instead); and **Sign out**
-signs out of this browser only, so your other devices and the worker on your computer stay signed in (`mix-worker logout` likewise).
+signs out of this browser only, so your other devices and the worker on your computer stay signed in (`mix-worker logout` likewise),
+and is also on the Connect screen, which says who is signed in, so a person who never connected Spotify can still hand over the device.
 Decision: ADR-13 (amends ADR-08; constitution 2.3.0). Spec: `specs/009-multi-user-data/`. No
 `DB_VERSION` bump: other users get a database of their own beside yours; no server change.
 
