@@ -340,12 +340,23 @@ const migrations = files
   .join('\n');
 
 describe('server rules (supabase/migrations)', () => {
-  it('reads the migrations, with the six known tables', () => {
+  const createdTables = () =>
+    [...normalise(migrations).sql.matchAll(/create table (?:public\.)?(\w+)/g)]
+      .map((m) => m[1]!)
+      .sort();
+
+  it('reads the migrations, with the four known tables', () => {
     expect(files.length).toBeGreaterThan(0);
-    const created = [
-      ...normalise(migrations).sql.matchAll(/create table (?:public\.)?(\w+)/g),
-    ].map((m) => m[1]);
-    expect(created.sort()).toEqual([
+    expect(createdTables().filter((t) => !SHARED_TABLES.includes(t))).toEqual([
+      'dataset_rows',
+      'datasets',
+      'jobs',
+      'mixes',
+    ]);
+  });
+
+  it('reads the migrations, with the two shared tables besides (six in all)', () => {
+    expect(createdTables()).toEqual([
       'dataset_rows',
       'datasets',
       'jobs',
