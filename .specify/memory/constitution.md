@@ -1,6 +1,8 @@
 <!--
 Sync Impact Report
-- Version change: 2.4.0 → 2.5.0 (MINOR: Principle I's server also holds one shared store of public facts, per ADR-15)
+- Version change: 2.5.0 → 2.6.0 (MINOR: Principle I's server also lets a named worker role take any user's identification request through functions, per ADR-16)
+- Modified principles: I
+- Previous: 2.4.0 → 2.5.0 (MINOR: Principle I's server also holds one shared store of public facts, per ADR-15)
 - Modified principles: I
 - Previous: 2.3.0 → 2.4.0 (MINOR: Principle I's server is for the owner and the accounts the owner creates, per ADR-14)
 - Modified principles: I
@@ -34,7 +36,7 @@ The settings are `VITE_SPOTIFY_CLIENT_ID` and the public URL and publishable key
 owner's server. That server is a hosted database with sign-in on a free tier, for the owner and the accounts the owner creates (ADR-14):
 it stores the app's datasets and a job queue, plus one shared store of public facts about
 tracks and artists (BPM, key, reach: no user column, insert-only, read by id; ADR-15), it never computes, never calls Spotify, and
-the app MUST work in full without it. Any worker runs outside it, on the owner's computer.
+the app MUST work in full without it. A named worker role the owner lists may take any user's identification request, only through functions and with no privilege on any table (ADR-16); the app holds no secret for it. Any worker runs outside the server, on the owner's computer.
 The working copy stays the browser's IndexedDB. The dev redirect URI is
 `http://127.0.0.1:5173/myOwnSpotifyData/`; `localhost` MUST NOT be used because Spotify
 rejects it.
@@ -155,4 +157,4 @@ When the two disagree, the ADR index is corrected first and this file follows.
 - Runtime guidance for agents stays in `CLAUDE.md` and the local `CLAUDE.md` files;
   this file does not duplicate their routing.
 
-**Version**: 2.5.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-08
+**Version**: 2.6.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-08

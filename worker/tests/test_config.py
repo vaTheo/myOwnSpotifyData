@@ -155,3 +155,17 @@ class Round003Settings(unittest.TestCase):
             load({**GOOD, "WORKER_SECOND_PASS_SPEEDS": "2"})
         with self.assertRaises(SettingsError):
             load({**GOOD, "WORKER_SECOND_PASS_SPEEDS": "fast"})
+
+
+class WorkerMode(unittest.TestCase):
+    def test_default_is_personal(self):
+        self.assertEqual(load().worker_mode, "personal")
+
+    def test_shared(self):
+        self.assertEqual(load({"WORKER_MODE": "shared"}).worker_mode, "shared")
+
+    def test_other_value_is_a_settings_error(self):
+        with self.assertRaises(SettingsError) as ctx:
+            load({"WORKER_MODE": "both"})
+        self.assertEqual(ctx.exception.setting, "WORKER_MODE")
+        self.assertEqual(ctx.exception.message, "must be personal or shared")

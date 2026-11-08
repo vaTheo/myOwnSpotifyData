@@ -3,6 +3,19 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-08 — One worker for every user (worker 0.6.0)
+
+A friend's **Identify on my computer** was recorded but never taken, because the worker served only the account that signed it in. The
+worker now has a **shared mode** (`WORKER_MODE=shared`; `personal`, the default, is as before): it takes the requests of every user,
+one request per user in turn, and each result reaches the person who asked. The worker signs in as an account of its own that you list
+in a new table `shared_workers`; it has no access to any table and reaches the queue only through five server functions, and deleting
+its row stops it at the next call. It stops with exit code 7 when its account is not listed. Spec `specs/015-shared-worker/`,
+[ADR-16](docs/architecture/700-adr/ADR-16-shared-worker.md). No `DB_VERSION` bump. **Once, by you:** (1) in the Supabase dashboard,
+Authentication, Users, add a user with a dedicated email for the worker; (2) in the SQL editor apply
+`supabase/migrations/0006_shared_worker.sql`, then `notify pgrst, 'reload schema';`, and
+`insert into public.shared_workers (user_id, label) values ('<worker user id>', 'owner PC');`; (3) download worker 0.6.0, set
+`WORKER_MODE=shared` in its `mix-worker.env` and sign in with the worker email. The app needs no update.
+
 ## 2026-11-08 — Worker 0.5.3: the default second-pass speeds are 0.91, 1.09, 1
 
 `worker-v0.5.2` still wrote `WORKER_SECOND_PASS_SPEEDS=0.96,1.04` in the new `mix-worker.env` and used it as the default. 0.5.3 makes

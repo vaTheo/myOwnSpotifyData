@@ -95,6 +95,20 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
       rows, which is the point); each user's data stays separate and nothing merges. The spec now says so.
     - F13: the key notation and the Automatic updates switch are per device, so a second person inherits them, and the device
       keeps every user's email in clear; the fix would be per-user preferences (a `meta` row each), only if the owner wants it.
+- One worker for every user (F31, round 015, [ADR-16](700-adr/ADR-16-shared-worker.md)):
+  - No cap on how many requests one user can queue; the fair turn only orders users, so one user with many requests takes every
+    other turn, never more.
+  - Two users who ask the same link are identified twice; no result is shared.
+  - No app screen for workers: the list is edited in the SQL editor, and a user cannot see which worker took a request.
+  - An owner can set `claimed_by_user` on their own request through the app's update policy; the only effect is on that request
+    (a shared worker will not write to a row it does not hold, so it is left stalled until the stale limit).
+  - Shared mode fetches SoundCloud links only (`https` on `soundcloud.com`, `www.` or `m.`); a request with any other link fails
+    with "link not allowed in shared mode". Personal mode fetches whatever yt-dlp can.
+  - After a personal worker takes over a stale request, `jobs.claimed_by_user` can still hold the earlier shared worker's id;
+    harmless, since a write also needs the same worker name.
+  - A 42501 on a progress write (a worker removed from the list) is only logged, so a disabled worker stops one step later, at its
+    next claim or finish.
+  - Not verified on the real project until the owner's run (T023).
 - Shared track and artist facts (F30, round 014, [ADR-15](700-adr/ADR-15-shared-track-facts.md)):
   - A wrong shared value is fixed in the Supabase dashboard (Table Editor); no user can change or delete a row, and a valid but
     wrong first value stays for everyone until then. `added_at` is client-writable but harmless.

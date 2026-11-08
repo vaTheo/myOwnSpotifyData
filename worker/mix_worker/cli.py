@@ -3,6 +3,10 @@
 Everything the commands touch (environment, terminal, clock, the server
 client, the queue loop) comes through `CliDeps`, so `tests/test_cli.py` runs
 every command without a network, a real home folder or a real ffmpeg.
+
+Exit codes: 0 ok or queue empty, 2 unreachable, 3 paused, 4 not signed in,
+5 missing setting or tool, 6 template written, 7 not (or no longer) a shared
+worker, 130 Ctrl-C.
 """
 
 from __future__ import annotations
@@ -22,8 +26,8 @@ from typing import Any
 
 from . import __version__
 from .config import Settings, SettingsError, load_settings, write_template
-from .pipeline import Deps, Outcome, run_one
-from .server import Result, ServerClient
+from .pipeline import Deps, Outcome, _fail, run_one
+from .server import Result, ServerClient, SharedServerClient
 from .session import Session, challenge_for, clear, code_from_redirect, ensure_fresh, load, new_verifier, save
 
 EXIT_OK = 0
@@ -32,8 +36,11 @@ EXIT_PAUSED = 3
 EXIT_SIGNED_OUT = 4
 EXIT_SETTINGS = 5
 EXIT_TEMPLATE = 6
+EXIT_NOT_SHARED = 7
 EXIT_INTERRUPTED = 130
 
+NOT_SHARED = "this account is not a shared worker: ask the owner to add it to shared_workers"
+NO_LONGER_SHARED = "this account is no longer a shared worker"
 NOT_SIGNED_IN = "not signed in — run `mix-worker login`"
 # The dev redirect URL every project already allows (ADR-01): the worker
 # listens there for the link's code during `login`, nothing to configure.
@@ -54,8 +61,37 @@ def frozen_dir() -> Path | None:
     return None
 
 
+SHARED_LINK_REASON = "link not allowed in shared mode"
+SHARED_HOSTS = ("soundcloud.com", "www.soundcloud.com", "m.soundcloud.com")
+
+
+def shared_link_allowed(url: Any) -> bool:
+    """Shared mode fetches only https links on SoundCloud's own hosts (the
+    ones the app creates requests for): a friend's request must never make
+    this computer fetch an arbitrary address."""
+    if not isinstance(url, str):
+        return False
+    try:
+        parts = urllib.parse.urlsplit(url)
+        host, port = parts.hostname, parts.port
+    except ValueError:
+        return False
+    return parts.scheme == "https" and host in SHARED_HOSTS and parts.username is None and parts.password is None and port in (None, 443)
+
+
 def code_for(result: Result) -> int:
-    return {"offline": EXIT_OFFLINE, "paused": EXIT_PAUSED, "unauthorized": EXIT_SIGNED_OUT}.get(result.kind, EXIT_OFFLINE)
+    return {
+        "offline": EXIT_OFFLINE,
+        "paused": EXIT_PAUSED,
+        "unauthorized": EXIT_SIGNED_OUT,
+        "not_shared_worker": EXIT_NOT_SHARED,
+    }.get(result.kind, EXIT_OFFLINE)
+
+
+def make_client(settings: Settings) -> Any:
+    """`personal` (default): the owner's own queue; `shared`: every user's, through the definer functions."""
+    cls = SharedServerClient if settings.worker_mode == "shared" else ServerClient
+    return cls(settings.supabase_url, settings.supabase_key)
 
 
 def build_deps(settings: Settings) -> Deps:
@@ -69,7 +105,7 @@ def build_deps(settings: Settings) -> Deps:
     # takes them (same budget, clues first) or makes its own (clues off).
     per_set: dict[str, Any] = {}
     return Deps(
-        client=ServerClient(settings.supabase_url, settings.supabase_key),
+        client=make_client(settings),
         download=lambda url, dest: do_download(url, dest, settings, line=log.line, max_duration=settings.max_duration_seconds or None),
         scan=lambda path, duration, **hooks: run_scan(path, duration, settings, line=log.line, shared=shazam_calls, **hooks),
         log=log,
@@ -203,7 +239,25 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
     forever (`--watch`), with the exit codes of the contract."""
     log = deps.log
     client = deps.client
-    log.line(f"mix-worker {__version__} · {settings.supabase_url} · as {session.email} · on {settings.worker_name}")
+    start = f"mix-worker {__version__} · {settings.supabase_url} · as {session.email} · on {settings.worker_name}"
+    if settings.worker_mode == "shared":
+        fresh = ensure_fresh(session, client, settings.session_file)
+        if fresh is None:
+            log.line(NOT_SIGNED_IN)
+            return EXIT_SIGNED_OUT
+        if isinstance(fresh, Result):
+            log.line(f"server: {fresh.message}")
+            return code_for(fresh)
+        session = fresh
+        known = client.is_shared_worker(session.access_token)
+        if not known.ok:
+            log.line(NO_LONGER_SHARED if known.kind == "not_shared_worker" else f"server: {known.message}")
+            return code_for(known)
+        if known.value is not True:
+            log.line(NOT_SHARED)
+            return EXIT_NOT_SHARED
+        start += " · shared worker"
+    log.line(start)
     while True:
         fresh = ensure_fresh(session, client, settings.session_file)
         if fresh is None:
@@ -215,7 +269,7 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
         session = fresh
         claimed = client.claim(session.access_token, settings.worker_name, settings.stale_seconds)
         if not claimed.ok:
-            log.line(f"server: {claimed.message}")
+            log.line(NO_LONGER_SHARED if claimed.kind == "not_shared_worker" else f"server: {claimed.message}")
             return code_for(claimed)
         job = claimed.value
         if job is None:
@@ -244,14 +298,18 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
             return current.access_token
 
         try:
-            outcome: Outcome = run_one(job, settings, token, deps)
+            if settings.worker_mode == "shared" and not shared_link_allowed(url):
+                outcome: Outcome = _fail(deps, settings, token, job_id, SHARED_LINK_REASON)
+            else:
+                outcome = run_one(job, settings, token, deps)
         except KeyboardInterrupt:
             client.release(token(), job_id, settings.worker_name)
             log.line(f"released {job_id[:8]} · stopped")
             return EXIT_INTERRUPTED
         session = current
         if outcome.status == "server" and outcome.server is not None:
-            log.line(f"server: {outcome.server.message}")
+            kind = outcome.server.kind
+            log.line(NO_LONGER_SHARED if kind == "not_shared_worker" else f"server: {outcome.server.message}")
             return code_for(outcome.server)
         log.line(f"{outcome.status} {job_id[:8]}" + (f" · {outcome.reason}" if outcome.reason else ""))
 

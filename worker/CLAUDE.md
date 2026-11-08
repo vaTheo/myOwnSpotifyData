@@ -36,6 +36,9 @@ one PyInstaller executable per system.
 - A change meant for the owner's computer bumps the version in `pyproject.toml` and `mix_worker/__init__.py` (tested equal),
   then `uv lock`: the push to `main` releases `worker-v<version>` with the four executables; an unchanged version builds nothing.
 - Exit codes: 0 ok / queue empty, 2 unreachable, 3 paused, 4 not signed in, 5 missing setting or tool, 6 config template
-  written, 130 Ctrl-C (after releasing the request). A failed request never fails the run.
+  written, 7 not (or no longer) a shared worker, 130 Ctrl-C (after releasing the request). A failed request never fails the run.
+- Mode (`WORKER_MODE`, round 015, ADR-16): `personal` (default, unchanged) or `shared`. Shared mode never reads a personal table:
+  it uses only `is_shared_worker`, `claim_any_job`, `worker_set_progress`, `worker_finish_job`, `worker_release_job`; the start check
+  and a 42501 during a run end with exit code 7.
 - Settings: `config.py` is the one reader; every setting has a default in `.env.example` (shipped as `mix_worker/env.example`,
   kept byte-identical by `test_config.py`). The session file is 0600 and never in the repo; the `service_role` key is never used.

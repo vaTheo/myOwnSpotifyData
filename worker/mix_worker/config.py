@@ -61,6 +61,7 @@ class Settings:
     refusal_warn_calls: int = 150
     resume_days: int = 7
     break_seconds: float = 120.0
+    worker_mode: str = "personal"
 
 
 def template_text() -> str:
@@ -177,6 +178,13 @@ def _device(values: Mapping[str, str]) -> str:
     return value
 
 
+def _mode(values: Mapping[str, str]) -> str:
+    value = values.get("WORKER_MODE", "personal").strip().lower()
+    if value not in ("personal", "shared"):
+        raise SettingsError("WORKER_MODE", "must be personal or shared")
+    return value
+
+
 def load_settings(
     path: Path | None,
     env: Mapping[str, str],
@@ -250,4 +258,5 @@ def load_settings(
         refusal_warn_calls=_int(values, "WORKER_REFUSAL_WARN_CALLS", 150, 0),
         resume_days=_int(values, "WORKER_RESUME_DAYS", 7, 0),
         break_seconds=_float(values, "WORKER_BREAK_SECONDS", 120.0, 0.0),
+        worker_mode=_mode(values),
     )

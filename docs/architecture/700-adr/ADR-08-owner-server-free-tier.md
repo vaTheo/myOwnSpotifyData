@@ -1,6 +1,6 @@
 # ADR-08 — One server for the owner, on a free tier, holding the app's data and a job queue
 
-> **Status**: Accepted; "for the owner alone" amended by [ADR-14](ADR-14-users-by-server-account.md) (the owner's accounts)
+> **Status**: Accepted; "for the owner alone" amended by [ADR-14](ADR-14-users-by-server-account.md) (the owner's accounts); the worker may serve every user per [ADR-16](ADR-16-shared-worker.md)
 > **Date**: 2026-11-05
 
 ## Context
@@ -64,7 +64,8 @@ the used share); a hosted service can change its free tier; a worker that only r
 - Constitution: `.specify/memory/constitution.md` Principle I
 - Amended by [ADR-14](ADR-14-users-by-server-account.md): several accounts, each with data of its own
 - [ADR-15](ADR-15-shared-track-facts.md): one shared store of public facts beside the per-user tables (still stores, never computes)
-- [ADR-02](ADR-02-no-spotify-reads-on-load.md), [ADR-03](ADR-03-library-writes-on-tap.md), [ADR-04](ADR-04-keyless-sources-by-id.md)
+- Amended by [ADR-16](ADR-16-shared-worker.md): the worker may serve every user (a named shared worker, five functions, no table privilege)
+- [ADR-02-no-spotify-reads-on-load.md), [ADR-03](ADR-03-library-writes-on-tap.md), [ADR-04](ADR-04-keyless-sources-by-id.md)
 - [ADR index](README.md)
 - [Limits and roadmap](../800-limits-roadmap.md)
 - [Contributing](../../dev-guide/000-contributing.md)

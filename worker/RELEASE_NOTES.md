@@ -11,6 +11,13 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.6.0: a **shared mode**. With `WORKER_MODE=shared` (default `personal`, today's behaviour) the worker takes the identification
+  requests of every user of the app, one request per user in turn, and sends each result to the person who asked. The account it
+  signs in with must be listed by the owner in `shared_workers`; at start it asks the server and stops with **exit code 7** when it is
+  not listed (also when the listing is removed during a run). The start line ends with "shared worker". Personal mode and its
+  server calls are unchanged. Owner steps, once: create the worker user in the Supabase dashboard (a dedicated email) and add it to
+  `shared_workers`; apply `supabase/migrations/0006_shared_worker.sql`; set `WORKER_MODE=shared` in `mix-worker.env` and sign in with
+  the worker email. A `mix-worker.env` you already have is kept as it is, so add that line by hand.
 - 0.5.3: the default of `WORKER_SECOND_PASS_SPEEDS` is `0.91,1.09,1` (both shifted speeds first, then normal speed), in the code, the
   packaged `mix-worker.env` template and `.env.example`. 0.5.2 still wrote `0.96,1.04`. A `mix-worker.env` you already have is kept
   as it is.

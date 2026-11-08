@@ -34,7 +34,41 @@ const DEFINERS = [
   'get_artist_reach',
   'add_track_facts',
   'add_artist_reach',
+  // Round 015 (ADR-16): the shared worker's five functions and their helper.
+  'require_shared_worker',
+  'is_shared_worker',
+  'claim_any_job',
+  'worker_set_progress',
+  'worker_finish_job',
+  'worker_release_job',
 ];
+/**
+ * The shared worker list (round 015, ADR-16): a table with no policy and no
+ * privilege for anyone but the owner role and the definer functions below.
+ * `args` is the signature in the revoke and grant statements.
+ */
+const WORKER_TABLE = 'shared_workers';
+/** The list and the private turns table (0006): same rule, no policy, no grant. */
+const WORKER_TABLES = [WORKER_TABLE, 'shared_worker_turns'];
+const WORKER_FUNCS: Record<
+  string,
+  { args: string; requires: boolean; granted: boolean }
+> = {
+  require_shared_worker: { args: '()', requires: false, granted: false },
+  is_shared_worker: { args: '()', requires: false, granted: true },
+  claim_any_job: { args: '(text, integer)', requires: true, granted: true },
+  worker_set_progress: {
+    args: '(uuid, text, jsonb)',
+    requires: true,
+    granted: true,
+  },
+  worker_finish_job: {
+    args: '(uuid, text, jsonb)',
+    requires: true,
+    granted: true,
+  },
+  worker_release_job: { args: '(uuid, text)', requires: true, granted: true },
+};
 /**
  * The two shared tables (round 014, ADR-15): public facts with no owner,
  * no policy and no privilege for `authenticated` (0005: the plain insert is
@@ -139,6 +173,26 @@ function audit(raw: string): string[] {
       continue;
     }
     tables.push(m[1]!);
+    if (m[1] === 'shared_worker_turns') {
+      if (
+        !/^\s*owner_id uuid primary key references auth\.users \(id\) on delete cascade, served_at timestamptz not null\s*$/.test(
+          m[2]!
+        )
+      ) {
+        findings.push('shared_worker_turns: not owner_id and served_at only');
+      }
+      continue;
+    }
+    if (m[1] === WORKER_TABLE) {
+      if (
+        !/user_id uuid primary key references auth\.users \(id\) on delete cascade/.test(
+          m[2]!
+        )
+      ) {
+        findings.push(`${WORKER_TABLE}: no user_id key`);
+      }
+      continue;
+    }
     if (SHARED_TABLES.includes(m[1]!)) {
       const cols = m[2]!;
       if (
@@ -219,6 +273,11 @@ function audit(raw: string): string[] {
       const m = new RegExp(
         `^create policy "?(\\w+)"? on ${NAME} for (select|insert|update|delete) to authenticated (.*)$`
       ).exec(s);
+      if (m && WORKER_TABLES.includes(m[2]!)) {
+        if (!sharedPolicies.has(m[2]!)) sharedPolicies.set(m[2]!, new Set());
+        sharedPolicies.get(m[2]!)!.add(m[1]!);
+        continue;
+      }
       const cmd = m?.[3] as (typeof CMDS)[number] | undefined;
       const ok = (t: string, c: (typeof CMDS)[number], rule: string) =>
         SHARED_TABLES.includes(t)
@@ -247,10 +306,23 @@ function audit(raw: string): string[] {
         if (new RegExp(`\\b${t}\\b`).test(ig[1]!)) sharedGrants.add(t);
       }
     }
+    const wg =
+      /^grant (?!execute\b)(.*?) on (?:table )?(.*) to authenticated$/.exec(s);
+    if (wg && /\ball tables\b/.test(wg[2]!)) {
+      for (const t of WORKER_TABLES) sharedGrants.add(t);
+    }
+    if (wg) {
+      for (const t of WORKER_TABLES) {
+        if (new RegExp(`\\b${t}\\b`).test(wg[2]!)) sharedGrants.add(t);
+      }
+    }
     if (
       /^revoke all on (?!function|all)/.test(s) &&
       /from .*\bauthenticated\b/.test(s)
     ) {
+      for (const t of WORKER_TABLES) {
+        if (new RegExp(`\\b${t}\\b`).test(s)) sharedGrants.delete(t);
+      }
       for (const t of SHARED_TABLES) {
         if (new RegExp(`\\b${t}\\b`).test(s)) sharedGrants.delete(t);
       }
@@ -258,7 +330,7 @@ function audit(raw: string): string[] {
   }
   for (const t of tables) {
     if (!rls.has(t)) findings.push(`${t}: row level security not enabled`);
-    if (SHARED_TABLES.includes(t)) {
+    if (SHARED_TABLES.includes(t) || WORKER_TABLES.includes(t)) {
       if ((sharedPolicies.get(t)?.size ?? 0) !== 0)
         findings.push(`${t}: a policy remains after the last migration`);
       if (sharedGrants.has(t))
@@ -335,6 +407,7 @@ function audit(raw: string): string[] {
     if (definer && !DEFINERS.includes(name)) {
       findings.push(`${name}: security definer`);
     }
+    const wf = WORKER_FUNCS[name];
     const own = SHARED_READERS[name];
     const writer = SHARED_WRITERS[name];
     if (definer && !/\bset search_path = ''/.test(s)) {
@@ -392,8 +465,105 @@ function audit(raw: string): string[] {
       ) {
         findings.push(`${name}: not granted to authenticated`);
       }
+    } else if (wf && definer) {
+      for (const t of new Set(
+        [...body.matchAll(/\bpublic\.(\w+)/g)].map((x) => x[1]!)
+      )) {
+        if (
+          ![
+            'jobs',
+            'shared_workers',
+            'shared_worker_turns',
+            'require_shared_worker',
+          ].includes(t)
+        ) {
+          findings.push(`${name}: definer touches ${t}`);
+        }
+      }
     } else if (definer && /\bpublic\./.test(body)) {
       findings.push(`${name}: definer reads a table`);
+    }
+    if (wf) {
+      if (!definer) findings.push(`${name}: not security definer`);
+      if (wf.requires) {
+        const call = body.indexOf('public.require_shared_worker()');
+        const jobs = body.indexOf('public.jobs');
+        if (call < 0) {
+          findings.push(`${name}: does not call require_shared_worker()`);
+        }
+        if (jobs >= 0 && (call < 0 || jobs < call)) {
+          findings.push(`${name}: touches jobs before require_shared_worker()`);
+        }
+      }
+      const head = `public.${name}${wf.args}`;
+      const revoke = `revoke all on function ${head} from public, anon${wf.granted ? '' : ', authenticated'}`;
+      const grantStmt = `grant execute on function ${head} to authenticated`;
+      const at = (x: string) => stmts.lastIndexOf(x);
+      if (at(revoke) < 0) {
+        findings.push(
+          `${name}: execute not revoked from ${wf.granted ? 'public, anon' : 'public, anon, authenticated'}`
+        );
+      }
+      const anyGrant = stmts.some(
+        (x) =>
+          /^grant execute on function /.test(x) &&
+          x.includes(`public.${name}(`) &&
+          /\bto authenticated$/.test(x)
+      );
+      if (wf.granted) {
+        if (at(grantStmt) < 0) {
+          findings.push(`${name}: not granted to authenticated`);
+        } else if (at(grantStmt) < at(revoke)) {
+          findings.push(`${name}: grant before the revoke`);
+        }
+      } else if (anyGrant) {
+        findings.push(`${name}: granted to authenticated`);
+      }
+    }
+    if (name === 'claim_any_job') {
+      if (!/\bfor update skip locked\b/.test(body)) {
+        findings.push('claim_any_job: no for update skip locked');
+      }
+      const order = /order by (.*?) limit 1/.exec(body)?.[1] ?? '';
+      if (
+        !/^\(select (\w+)\.served_at from public\.shared_worker_turns \1 where \1\.owner_id = (?!\1\.)\w+\.owner_id\) asc nulls first, \w+\.priority desc/.test(
+          order
+        )
+      ) {
+        findings.push(
+          "claim_any_job: order by does not start with the owner's turn"
+        );
+      }
+      if (/\bclaimed_at\b/.test(order)) {
+        findings.push('claim_any_job: the order reads claimed_at');
+      }
+      if (!/\bkind = 'identify-mix'/.test(body)) {
+        findings.push('claim_any_job: no identify-mix filter');
+      }
+      if (
+        !/\bstatus = 'queued' or \(\w+\.status = 'claimed' and \w+\.claimed_at < now\(\) - /.test(
+          body
+        )
+      ) {
+        findings.push('claim_any_job: no queued or stale predicate');
+      }
+      if (
+        !/insert into public\.shared_worker_turns \(owner_id, served_at\) values \(\w+, now\(\)\) on conflict \(owner_id\) do update set served_at = excluded\.served_at/.test(
+          body
+        )
+      ) {
+        findings.push('claim_any_job: does not record the owner turn');
+      }
+      if (!/returns table \(id uuid, payload jsonb\) /.test(s)) {
+        findings.push('claim_any_job: returns more than id and payload');
+      }
+      if (
+        !/returning \w+\.id, \w+\.payload, \w+\.owner_id into id, payload, \w+;/.test(
+          body
+        )
+      ) {
+        findings.push('claim_any_job: returning more than id and payload');
+      }
     }
   }
   for (const s of stmts.filter((s) => /^alter function/.test(s))) {
@@ -422,16 +592,15 @@ describe('server rules (supabase/migrations)', () => {
 
   it('reads the migrations, with the four known tables', () => {
     expect(files.length).toBeGreaterThan(0);
-    expect(createdTables().filter((t) => !SHARED_TABLES.includes(t))).toEqual([
-      'dataset_rows',
-      'datasets',
-      'jobs',
-      'mixes',
-    ]);
+    expect(
+      createdTables().filter(
+        (t) => !SHARED_TABLES.includes(t) && !WORKER_TABLES.includes(t)
+      )
+    ).toEqual(['dataset_rows', 'datasets', 'jobs', 'mixes']);
   });
 
   it('reads the migrations, with the two shared tables besides (six in all)', () => {
-    expect(createdTables()).toEqual([
+    expect(createdTables().filter((t) => !WORKER_TABLES.includes(t))).toEqual([
       'dataset_rows',
       'datasets',
       'jobs',
@@ -439,6 +608,16 @@ describe('server rules (supabase/migrations)', () => {
       'shared_artist_reach',
       'shared_track_facts',
     ]);
+  });
+
+  it('reads the migrations, with the shared worker list as the seventh table (0006)', () => {
+    expect(createdTables()).toContain(WORKER_TABLE);
+    expect(createdTables()).toHaveLength(8);
+  });
+
+  it('reads the migrations, with the private turns table as the eighth (0006)', () => {
+    expect(createdTables()).toContain('shared_worker_turns');
+    expect(createdTables()).toHaveLength(8);
   });
 
   it('every table keeps each row to its owner, anon gets nothing', () => {
@@ -1064,5 +1243,313 @@ describe('the add functions (0005_shared_add_functions.sql)', () => {
         `${WITH_SHARED}\ngrant insert on public.shared_artist_reach to authenticated;`
       )
     ).toEqual(['shared_artist_reach: a privilege for authenticated remains']);
+  });
+});
+
+/** 0006 as the migration gives it: the shared worker (round 015, ADR-16). */
+let M6 = '';
+try {
+  M6 = readFileSync(new URL('0006_shared_worker.sql', DIR), 'utf8');
+} catch {
+  /* the first test below reports it */
+}
+const WITH_WORKER = `${WITH_SHARED}\n${M6}`;
+
+/** The statement and the normalised body of one function of 0006. */
+function part(name: string) {
+  const { sql, bodies } = normalise(M6);
+  const stmt = statements(sql).find((x) =>
+    x.startsWith(`create function public.${name}(`)
+  );
+  if (!stmt) throw new Error(`no function ${name} in 0006`);
+  return { stmt, body: bodies[Number(/\$body(\d+)\$/.exec(stmt)![1])]! };
+}
+
+describe('the shared worker (0006_shared_worker.sql)', () => {
+  it('exists, and the audit accepts it beside the earlier files', () => {
+    expect(M6).not.toBe('');
+    expect(audit(WITH_WORKER)).toEqual([]);
+    expect(audit(migrations)).toEqual([]);
+  });
+
+  it('shared_workers: a policy or a grant to authenticated, anon or public', () => {
+    expect(
+      audit(
+        `${WITH_WORKER}\ncreate policy list_all on public.shared_workers for select to authenticated using (true);`
+      )
+    ).toEqual(['shared_workers: a policy remains after the last migration']);
+    for (const g of [
+      'grant select on public.shared_workers to authenticated',
+      'grant all on public.shared_workers to authenticated',
+      'grant select on all tables in schema public to authenticated',
+    ]) {
+      expect(audit(`${WITH_WORKER}\n${g};`), g).toContain(
+        'shared_workers: a privilege for authenticated remains'
+      );
+    }
+    for (const who of ['anon', 'public']) {
+      const f = audit(
+        `${WITH_WORKER}\ngrant select on public.shared_workers to ${who};`
+      );
+      expect(f, who).toHaveLength(1);
+      expect(f[0], who).toMatch(/^grant to someone other than authenticated/);
+    }
+    const revoke =
+      'revoke all on public.shared_workers from authenticated, anon, public;';
+    expect(M6).toContain(revoke);
+    expect(audit(`${WITH_SHARED}\n${M6.replace(revoke, '')}`)).toEqual([
+      'shared_workers: default privileges not revoked from authenticated',
+    ]);
+    const rls = 'alter table public.shared_workers enable row level security;';
+    expect(M6).toContain(rls);
+    expect(audit(`${WITH_SHARED}\n${M6.replace(rls, '')}`)).toEqual([
+      'shared_workers: row level security not enabled',
+    ]);
+  });
+
+  it('each shared function: definer, search_path, revoked, granted last, require first', () => {
+    const lower = (re: RegExp, to: string) =>
+      audit(`${WITH_SHARED}\n${M6.replace(re, to)}`);
+    expect(
+      lower(/set search_path = ''/g, '').filter((f) => /search_path/.test(f))
+        .length
+    ).toBe(Object.keys(WORKER_FUNCS).length);
+    expect(
+      lower(/security definer/g, 'security invoker').filter((f) =>
+        /not security definer/.test(f)
+      ).length
+    ).toBe(Object.keys(WORKER_FUNCS).length);
+    for (const [fn, f] of Object.entries(WORKER_FUNCS)) {
+      const head = `public.${fn}${f.args}`;
+      const revoke = `revoke all on function ${head} from public, anon${f.granted ? '' : ', authenticated'};`;
+      expect(M6, fn).toContain(revoke);
+      expect(
+        lower(new RegExp(revoke.replace(/[()]/g, '\\$&')), ''),
+        fn
+      ).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(`^${fn}: execute not revoked`),
+        ])
+      );
+      for (const who of ['anon', 'public']) {
+        expect(
+          audit(`${WITH_WORKER}\ngrant execute on function ${head} to ${who};`),
+          `${fn} ${who}`
+        ).toHaveLength(1);
+      }
+      const grant = `grant execute on function ${head} to authenticated;`;
+      if (f.granted) {
+        expect(M6, fn).toContain(grant);
+        expect(
+          lower(new RegExp(grant.replace(/[()]/g, '\\$&')), ''),
+          fn
+        ).toEqual([`${fn}: not granted to authenticated`]);
+      } else {
+        expect(M6, fn).not.toContain(grant);
+        expect(audit(`${WITH_WORKER}\n${grant}`), fn).toEqual([
+          `${fn}: granted to authenticated`,
+        ]);
+      }
+    }
+    const call = 'perform public.require_shared_worker();';
+    expect(part('claim_any_job').body).toContain(call);
+    expect(audit(`${WITH_SHARED}\n${M6.replace(call, '')}`)).toEqual(
+      expect.arrayContaining([
+        'claim_any_job: does not call require_shared_worker()',
+        'claim_any_job: touches jobs before require_shared_worker()',
+      ])
+    );
+  });
+
+  it('the definer allow-list is the earlier ones, the five and the helper', () => {
+    const expected = [
+      'add_artist_reach',
+      'add_track_facts',
+      'claim_any_job',
+      'get_artist_reach',
+      'get_track_facts',
+      'is_shared_worker',
+      'require_shared_worker',
+      'storage_used',
+      'worker_finish_job',
+      'worker_release_job',
+      'worker_set_progress',
+    ];
+    expect([...DEFINERS].sort()).toEqual(expected);
+    const found = statements(normalise(migrations).sql)
+      .filter((x) => /^create (?:or replace )?function /.test(x))
+      .filter((x) => /\bsecurity definer\b/.test(x))
+      .map(
+        (x) =>
+          new RegExp(`^create (?:or replace )?function ${NAME}\\(`).exec(x)![1]!
+      )
+      .sort();
+    expect(found).toEqual(expected);
+    expect(
+      audit(
+        `${WITH_WORKER}\ncreate function public.claim_any_job2() returns bigint language sql security definer set search_path = '' as $$ select 1; $$;`
+      )
+    ).toEqual(['claim_any_job2: security definer']);
+  });
+
+  it('claim_any_job pins the lock, the owner order and the two returned columns', () => {
+    const { stmt, body } = part('claim_any_job');
+    expect(body).toContain('for update skip locked');
+    expect(stmt).toContain('returns table (id uuid, payload jsonb)');
+    expect(body).toContain(
+      'returning j.id, j.payload, j.owner_id into id, payload, v_owner;'
+    );
+    const order = /order by (.*?) limit 1/.exec(body)![1]!;
+    expect(order).toContain('shared_worker_turns');
+    expect(order).not.toContain('claimed_at');
+    expect(order.indexOf('served_at')).toBeLessThan(
+      order.indexOf('priority desc')
+    );
+    expect(order).toContain('asc nulls first');
+    expect(body).toContain("c.kind = 'identify-mix'");
+    expect(body).toMatch(
+      /c\.status = 'queued' or \(c\.status = 'claimed' and c\.claimed_at </
+    );
+    expect(body).toContain('where t.owner_id = c.owner_id');
+    const swap = (a: string, b: string) => {
+      expect(M6).toContain(a);
+      return audit(`${WITH_SHARED}\n${M6.replace(a, b)}`);
+    };
+    const turn = "claim_any_job: order by does not start with the owner's turn";
+    expect(swap('for update skip locked\n  )', 'for update\n  )')).toEqual([
+      'claim_any_job: no for update skip locked',
+    ]);
+    expect(
+      swap(
+        'asc nulls first,\n      c.priority desc',
+        'asc nulls first,\n      c.created_at, c.priority desc'
+      )
+    ).toEqual([turn]); // the owner's turn, then priority
+    expect(
+      swap(
+        'asc nulls first,\n      c.priority desc',
+        'desc,\n      c.priority desc'
+      )
+    ).toEqual([turn]);
+    expect(
+      swap(
+        '(select t.served_at from public.shared_worker_turns t where t.owner_id = c.owner_id)',
+        '(select max(h.claimed_at) from public.jobs h where h.owner_id = c.owner_id)'
+      )
+    ).toEqual([turn, 'claim_any_job: the order reads claimed_at']);
+    expect(
+      swap("where c.kind = 'identify-mix'\n      and (", 'where (')
+    ).toEqual(['claim_any_job: no identify-mix filter']);
+    expect(
+      swap("(c.status = 'queued'\n        or", '(true\n        or')
+    ).toEqual(['claim_any_job: no queued or stale predicate']);
+    expect(
+      swap('where t.owner_id = c.owner_id', 'where t.owner_id = t.owner_id')
+    ).toEqual([turn]);
+    expect(
+      swap(
+        'on conflict (owner_id) do update set served_at = excluded.served_at;',
+        'on conflict (owner_id) do nothing;'
+      )
+    ).toEqual(['claim_any_job: does not record the owner turn']);
+    expect(
+      swap(
+        'returning j.id, j.payload, j.owner_id into id, payload, v_owner;',
+        'returning j.id, j.payload into id, payload;'
+      )
+    ).toEqual(['claim_any_job: returning more than id and payload']);
+    expect(
+      swap(
+        'returns table (id uuid, payload jsonb)',
+        'returns table (id uuid, payload jsonb, owner_id uuid)'
+      )
+    ).toEqual(['claim_any_job: returns more than id and payload']);
+  });
+
+  it('shared_worker_turns is private: RLS, no policy, no grant, revoked from all', () => {
+    expect(
+      audit(
+        `${WITH_WORKER}\ncreate policy t on public.shared_worker_turns for select to authenticated using (true);`
+      )
+    ).toEqual([
+      'shared_worker_turns: a policy remains after the last migration',
+    ]);
+    expect(
+      audit(
+        `${WITH_WORKER}\ngrant select on public.shared_worker_turns to authenticated;`
+      )
+    ).toContain('shared_worker_turns: a privilege for authenticated remains');
+    expect(
+      audit(
+        `${WITH_WORKER}\ngrant select on public.shared_worker_turns to anon;`
+      )[0]
+    ).toMatch(/^grant to someone other than authenticated/);
+    const revoke =
+      'revoke all on public.shared_worker_turns from authenticated, anon, public;';
+    expect(M6).toContain(revoke);
+    expect(audit(`${WITH_SHARED}\n${M6.replace(revoke, '')}`)).toEqual([
+      'shared_worker_turns: default privileges not revoked from authenticated',
+    ]);
+    const rls =
+      'alter table public.shared_worker_turns enable row level security;';
+    expect(M6).toContain(rls);
+    expect(audit(`${WITH_SHARED}\n${M6.replace(rls, '')}`)).toEqual([
+      'shared_worker_turns: row level security not enabled',
+    ]);
+  });
+
+  it('what the worker reads and writes is narrow, and a held row is filtered', () => {
+    expect(part('worker_set_progress').stmt).toContain(
+      'returns table (taken boolean, stop boolean)'
+    );
+    expect(part('worker_set_progress').body).toContain(
+      'return query select false,'
+    );
+    expect(part('worker_set_progress').body).toContain(
+      'return query select true, false;'
+    );
+    for (const fn of ['worker_finish_job', 'worker_release_job']) {
+      expect(part(fn).stmt, fn).toMatch(/\breturns boolean\b/);
+    }
+    for (const fn of [
+      'worker_set_progress',
+      'worker_finish_job',
+      'worker_release_job',
+    ]) {
+      const { body } = part(fn);
+      expect(body, fn).toMatch(/\bstatus = 'claimed'/);
+      expect(body, fn).toMatch(/\bclaimed_by = p_worker\b/);
+      expect(body, fn).toMatch(/\bclaimed_by_user = auth\.uid\(\)/);
+    }
+    const fin = part('worker_finish_job').body;
+    expect(fin).toContain("errcode = '22023'");
+    expect(fin).toContain(
+      "not in ('status', 'finished_at', 'result', 'error')"
+    );
+    expect(fin).toContain("not in ('done', 'failed')");
+    const code = M6.replace(/--[^\n]*/g, '');
+    expect(code).not.toMatch(/\bowner_id\b[^;]*\breturns\b/i);
+  });
+
+  it('0006 leaves claim_job and every jobs policy alone', () => {
+    const { sql } = normalise(M6);
+    expect(sql).not.toMatch(
+      /\b(?:create|alter|drop) policy\b.*?\bon (?:public\.)?"?jobs\b/
+    );
+    expect(sql).not.toMatch(/function (?:public\.)?"?claim_job\b/);
+    expect(sql).not.toMatch(/\bpolicy\b.*\bjobs\b/);
+    const jobsAlters = statements(sql).filter((x) =>
+      /^alter table (?:public\.)?jobs\b/.test(x)
+    );
+    expect(jobsAlters).toEqual([
+      'alter table public.jobs add column claimed_by_user uuid references auth.users (id) on delete set null',
+    ]);
+    // claim_job lives in 0002 and 0003 only, as before.
+    const owners = files.filter((f) =>
+      /function (?:public\.)?claim_job\b/.test(
+        readFileSync(new URL(f, DIR), 'utf8')
+      )
+    );
+    expect(owners).toEqual(['0002_jobs.sql', '0003_job_control.sql']);
   });
 });
