@@ -140,6 +140,30 @@ symlink to it (`ln -s CLAUDE.md AGENTS.md`), so Codex and Claude read one file. 
 **Checking by hand** (no checker): `wc -l CLAUDE.md src/**/CLAUDE.md`, `find . -name AGENTS.md -not -path './node_modules/*' -exec ls -l {} +`,
 and a look at every relative link of the pages you touched.
 
+## Keep it public-safe
+
+The repository is public, and git history is public forever: a secret or an email removed in a later commit is still readable. Rewriting
+history is the only cure (it was done once, 2026-11-08, to replace two work emails with the GitHub noreply address), so prevent it.
+
+- **Identity**: commit as `vaTheo <98275045+vaTheo@users.noreply.github.com>`. In every clone and worktree:
+  `git config user.email 98275045+vaTheo@users.noreply.github.com`. Never a work or personal email. Also keep GitHub's
+  Settings, Emails, "Keep my email addresses private" and "Block command line pushes that expose my email" on.
+- **Never commit**: tokens, keys, cookies, `.env` (only the empty `.env.example`), session files, a real Spotify export
+  (`Streaming_History_*.json`, `endsong*`: they carry IP addresses), a real playlist, the owner's data, home paths such as
+  `/home/<user>/...`. Fixtures and screenshots use the demo or synthetic rows (the `?demo` data), never the owner's account.
+- **Public by design** (fine to commit): the Spotify client ID, the Supabase URL and publishable key (`sb_publishable_...`), protected by
+  row-level security. Never the `service_role` key.
+- **Before a push**, from the repo root; all three must print nothing:
+
+  ```sh
+  git log origin/main..HEAD --format='%ae %ce' | grep -v 'users.noreply.github.com'
+  git diff origin/main..HEAD -- . ':!docs/dev-guide/000-contributing.md' | grep -E '^\+' | grep -iE 'BEGIN [A-Z ]*PRIVATE KEY|ghp_|github_pat_|sk-[A-Za-z0-9]{20}|AKIA[0-9A-Z]{16}|service_role.*eyJ|/home/[a-z]+/'
+  git diff --name-only origin/main..HEAD | grep -iE '\.env$|Streaming_History|endsong|cookies|session\.json'
+  ```
+
+- **If something slipped through**: revoke the secret first (it is already copied), then rewrite history with `git filter-repo` and
+  force-push every branch and tag. A leaked email cannot be recalled from forks or GitHub's cached pull-request refs.
+
 ## A feature round
 
 1. Discuss with the owner; the choice is theirs (options with a recommendation, then implement what was picked).
