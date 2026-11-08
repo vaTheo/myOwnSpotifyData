@@ -3,7 +3,7 @@ import json
 import unittest
 import urllib.error
 
-from mix_worker.server import ServerClient
+from mix_worker.server import ServerClient, SharedServerClient
 
 BASE = "https://abc.supabase.co"
 KEY = "sb_publishable_123"
@@ -233,3 +233,72 @@ class LinkFlow(unittest.TestCase):
         r = c.exchange_code("CODE", "VERIFIER")
         self.assertEqual(r.kind, "error")
         self.assertIn("flow state", r.message)
+
+
+def shared(*answers):
+    opener = FakeOpener(*answers)
+    return SharedServerClient(BASE, KEY, opener=opener, sleep=lambda s: None), opener
+
+
+class SharedClient(unittest.TestCase):
+    def test_claim_posts_claim_any_job(self):
+        c, op = shared(FakeResponse(200, [{"id": "j1", "payload": {"url": "u"}}]))
+        r = c.claim("tok", "laptop", 21600)
+        self.assertTrue(r.ok)
+        self.assertEqual(r.value, {"id": "j1", "payload": {"url": "u"}})
+        call = op.calls[0]
+        self.assertEqual(call["url"], BASE + "/rest/v1/rpc/claim_any_job")
+        self.assertEqual(call["body"], {"p_worker": "laptop", "p_stale_seconds": 21600})
+        self.assertEqual(call["headers"]["authorization"], "Bearer tok")
+
+    def test_claim_empty_queue_is_none(self):
+        c, _ = shared(FakeResponse(200, []))
+        r = c.claim("tok", "laptop", 1)
+        self.assertTrue(r.ok)
+        self.assertIsNone(r.value)
+
+    def test_finish_done_and_taken(self):
+        body = {"status": "done", "finished_at": "t", "result": {}}
+        c, op = shared(FakeResponse(200, True), FakeResponse(200, False))
+        self.assertEqual(c.finish("tok", "j1", "laptop", body).value, "done")
+        self.assertEqual(c.finish("tok", "j1", "laptop", body).value, "taken")
+        call = op.calls[0]
+        self.assertEqual(call["url"], BASE + "/rest/v1/rpc/worker_finish_job")
+        self.assertEqual(call["body"], {"p_id": "j1", "p_worker": "laptop", "p_body": body})
+
+    def test_progress_returns_stop_and_taken(self):
+        c, op = shared(
+            FakeResponse(200, [{"taken": False, "stop": True}]),
+            FakeResponse(200, [{"taken": True, "stop": False}]),
+        )
+        self.assertEqual(c.progress("tok", "j1", "laptop", {"n": 1}).value, {"stop": True, "taken": False})
+        self.assertEqual(c.progress("tok", "j1", "laptop", {"n": 2}).value, {"stop": False, "taken": True})
+        call = op.calls[0]
+        self.assertEqual(call["url"], BASE + "/rest/v1/rpc/worker_set_progress")
+        self.assertEqual(call["body"], {"p_id": "j1", "p_worker": "laptop", "p_progress": {"n": 1}})
+
+    def test_release_uses_short_timeout(self):
+        c, op = shared(FakeResponse(200, None))
+        c.release("tok", "j1", "laptop")
+        call = op.calls[0]
+        self.assertEqual(call["url"], BASE + "/rest/v1/rpc/worker_release_job")
+        self.assertEqual(call["body"], {"p_id": "j1", "p_worker": "laptop"})
+        self.assertEqual(call["timeout"], 3)
+
+    def test_42501_is_not_shared_worker(self):
+        err = http_error(403, json.dumps({"code": "42501", "message": "permission denied"}).encode())
+        c, _ = shared(err)
+        r = c.claim("tok", "laptop", 1)
+        self.assertEqual(r.kind, "not_shared_worker")
+        self.assertFalse(r.ok)
+
+    def test_other_403_stays_unauthorized(self):
+        c, _ = shared(http_error(403, b'{"message":"nope"}'))
+        self.assertEqual(c.claim("tok", "laptop", 1).kind, "unauthorized")
+
+    def test_is_shared_worker(self):
+        c, op = shared(FakeResponse(200, True), FakeResponse(200, False))
+        self.assertEqual(c.is_shared_worker("tok").value, True)
+        self.assertEqual(c.is_shared_worker("tok").value, False)
+        self.assertEqual(op.calls[0]["url"], BASE + "/rest/v1/rpc/is_shared_worker")
+        self.assertEqual(op.calls[0]["body"], {})

@@ -235,3 +235,58 @@ class ServerClient:
             prefer="return=representation",
             timeout=RELEASE_TIMEOUT_SECONDS,
         )
+
+
+class SharedServerClient(ServerClient):
+    """The shared worker's queue calls (round 015, contracts/worker.md): the
+    same four method names and return shapes, over the definer functions.
+
+    HTTP `42501` (the body's `code`) is `Result("not_shared_worker")`, which
+    the caller turns into exit 7; every other mapping is the personal client's.
+    """
+
+    @staticmethod
+    def _map_http_error(status: int, raw: bytes) -> Result:
+        try:
+            data = json.loads(raw.decode("utf-8", "replace"))
+        except ValueError:
+            data = None
+        if isinstance(data, dict) and data.get("code") == "42501":
+            return Result("not_shared_worker", None, status, _message_of(raw))
+        return ServerClient._map_http_error(status, raw)
+
+    def is_shared_worker(self, access_token: str) -> Result:
+        r = self._request("POST", "/rest/v1/rpc/is_shared_worker", {}, token=access_token)
+        if not r.ok:
+            return r
+        return Result("ok", r.value is True, r.status)
+
+    def claim(self, access_token: str, worker: str, stale_seconds: int) -> Result:
+        r = self._request("POST", "/rest/v1/rpc/claim_any_job", {"p_worker": worker, "p_stale_seconds": stale_seconds}, token=access_token)
+        if not r.ok:
+            return r
+        if r.value is None or (isinstance(r.value, list) and not r.value):
+            return Result("ok", None, r.status)
+        if isinstance(r.value, list) and isinstance(r.value[0], dict):
+            row = r.value[0]
+            return Result("ok", {"id": row.get("id"), "payload": row.get("payload")}, r.status)
+        return Result("error", None, r.status, "claim_any_job answered an unexpected shape")
+
+    def finish(self, access_token: str, job_id: str, worker: str, body: dict[str, Any]) -> Result:
+        r = self._request("POST", "/rest/v1/rpc/worker_finish_job", {"p_id": job_id, "p_worker": worker, "p_body": body}, token=access_token)
+        if not r.ok:
+            return r
+        return Result("ok", "done" if r.value is True else "taken", r.status)
+
+    def progress(self, access_token: str, job_id: str, worker: str, progress: dict[str, Any]) -> Result:
+        r = self._request("POST", "/rest/v1/rpc/worker_set_progress", {"p_id": job_id, "p_worker": worker, "p_progress": progress}, token=access_token)
+        if not r.ok:
+            return r
+        rows = r.value if isinstance(r.value, list) else []
+        row = rows[0] if rows and isinstance(rows[0], dict) else None
+        if row is None:
+            return Result("ok", {"stop": False, "taken": True}, r.status)
+        return Result("ok", {"stop": bool(row.get("stop")), "taken": bool(row.get("taken"))}, r.status)
+
+    def release(self, access_token: str, job_id: str, worker: str) -> Result:
+        return self._request("POST", "/rest/v1/rpc/worker_release_job", {"p_id": job_id, "p_worker": worker}, token=access_token, timeout=RELEASE_TIMEOUT_SECONDS)
