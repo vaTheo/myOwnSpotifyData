@@ -521,6 +521,12 @@ export function serverSignInRequired(): boolean {
   });
 }
 
+/**
+ * Spotify handed back to the app while nobody was signed in to the server:
+ * the return was not used, and the sign-in screen says so (main.tsx).
+ */
+export const spotifyReturnDropped = signal(false);
+
 /** Shown when a sign-in's token does not name its account (no `sub`). */
 export const SERVER_NO_USER_MESSAGE =
   'This sign-in did not say which account it is. Send yourself a new link.';

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { afterLink, gateNotice, signInRequired } from './gate';
+import {
+  SPOTIFY_BEFORE_SIGNIN_MESSAGE,
+  afterLink,
+  gateNotices,
+  signInRequired,
+  syncOnOpen,
+} from './gate';
 
 describe('signInRequired (round 009, FR-002, FR-008)', () => {
   it('gates a configured server with nobody signed in', () => {
@@ -39,31 +45,62 @@ describe('afterLink', () => {
   });
 });
 
-describe('gateNotice', () => {
+describe('gateNotices', () => {
   it('shows a link error as it is', () => {
     expect(
-      gateNotice({ status: 'error', message: 'Open the link in this browser.' })
-    ).toEqual({
-      kind: 'error',
-      text: 'Open the link in this browser.',
-    });
+      gateNotices(
+        { status: 'error', message: 'Open the link in this browser.' },
+        false
+      )
+    ).toEqual([{ kind: 'error', text: 'Open the link in this browser.' }]);
   });
 
   it('says the server is offline, with its reason', () => {
-    expect(gateNotice({ status: 'offline', message: 'No network.' })).toEqual({
-      kind: 'warning',
-      text: 'Server offline: No network. Send the link again once you are online.',
-    });
+    expect(
+      gateNotices({ status: 'offline', message: 'No network.' }, false)
+    ).toEqual([
+      {
+        kind: 'warning',
+        text: 'Server offline: No network. Send the link again once you are online.',
+      },
+    ]);
   });
 
   it('says the server is paused, with the dashboard', () => {
     expect(
-      gateNotice({ status: 'paused', dashboardUrl: 'https://d.example' })
-    ).toEqual({ kind: 'paused', dashboardUrl: 'https://d.example' });
+      gateNotices(
+        { status: 'paused', dashboardUrl: 'https://d.example' },
+        false
+      )
+    ).toEqual([{ kind: 'paused', dashboardUrl: 'https://d.example' }]);
   });
 
   it('says nothing when signed out with no failure', () => {
-    expect(gateNotice({ status: 'signedOut' })).toBeNull();
-    expect(gateNotice({ status: 'unset' })).toBeNull();
+    expect(gateNotices({ status: 'signedOut' }, false)).toEqual([]);
+    expect(gateNotices({ status: 'unset' }, false)).toEqual([]);
+  });
+
+  it('says a Spotify return was not used, beside a server error', () => {
+    expect(gateNotices({ status: 'signedOut' }, true)).toEqual([
+      { kind: 'error', text: SPOTIFY_BEFORE_SIGNIN_MESSAGE },
+    ]);
+    expect(
+      gateNotices({ status: 'error', message: 'Bad link.' }, true)
+    ).toEqual([
+      { kind: 'error', text: 'Bad link.' },
+      { kind: 'error', text: SPOTIFY_BEFORE_SIGNIN_MESSAGE },
+    ]);
+  });
+});
+
+describe('syncOnOpen', () => {
+  it('a failed link holds the open sync, so its message stays', () => {
+    expect(syncOnOpen('invalid')).toBe(false);
+  });
+
+  it('every other open syncs as before', () => {
+    expect(syncOnOpen(null)).toBe(true);
+    expect(syncOnOpen('none')).toBe(true);
+    expect(syncOnOpen('ok')).toBe(true);
   });
 });

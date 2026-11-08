@@ -31,19 +31,50 @@ export type GateNotice =
   | { kind: 'error' | 'warning'; text: string }
   | { kind: 'paused'; dashboardUrl: string };
 
-/** The line the sign-in screen shows for the server's state, or null. */
-export function gateNotice(state: ServerStatus): GateNotice | null {
+/** Shown when Spotify hands back to the app while nobody is signed in. */
+export const SPOTIFY_BEFORE_SIGNIN_MESSAGE =
+  'Sign in to the app first, then connect Spotify again.';
+
+/**
+ * The lines the sign-in screen shows: the server's state, then a Spotify
+ * return that arrived while nobody was signed in (it is not used: there is
+ * no user to keep it for, Principle VII says why).
+ */
+export function gateNotices(
+  state: ServerStatus,
+  spotifyDropped: boolean
+): GateNotice[] {
+  const out: GateNotice[] = [];
   switch (state.status) {
     case 'error':
-      return { kind: 'error', text: state.message };
+      out.push({ kind: 'error', text: state.message });
+      break;
     case 'offline':
-      return {
+      out.push({
         kind: 'warning',
         text: `Server offline: ${state.message} Send the link again once you are online.`,
-      };
+      });
+      break;
     case 'paused':
-      return { kind: 'paused', dashboardUrl: state.dashboardUrl };
+      out.push({ kind: 'paused', dashboardUrl: state.dashboardUrl });
+      break;
     default:
-      return null;
+      break;
   }
+  if (spotifyDropped) {
+    out.push({ kind: 'error', text: SPOTIFY_BEFORE_SIGNIN_MESSAGE });
+  }
+  return out;
+}
+
+/**
+ * Whether boot runs the open's server sync and jobs. Not after a failed
+ * link with someone still signed in: the pull would replace the link's
+ * message on the Settings card before it is read. The next return to the
+ * app, the network coming back or **Sync now** runs them as usual.
+ */
+export function syncOnOpen(
+  link: 'none' | 'ok' | 'reload' | 'invalid' | null
+): boolean {
+  return link !== 'invalid';
 }

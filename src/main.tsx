@@ -10,6 +10,7 @@ import {
   recordConnectedAccount,
   runAutoChain,
   serverSignInRequired,
+  spotifyReturnDropped,
   serverAutoSyncEnabled,
   startServerPull,
   startServerSync,
@@ -19,7 +20,7 @@ import { watchScope } from './server/scopeBrowser';
 import { LINK_MARKER } from './server/session';
 import { parseRoute } from './router';
 import { AuthError } from './spotify/errors';
-import { afterLink } from './ui/signin/gate';
+import { afterLink, syncOnOpen } from './ui/signin/gate';
 import './ui/theme/tokens.css';
 import './styles.css';
 
@@ -56,8 +57,10 @@ async function boot(): Promise<void> {
   installRouter();
   render(<App />, document.getElementById('app')!);
   if (signedOut) {
-    // A Spotify callback landing here has no user to belong to: dropped.
+    // A Spotify callback landing here has no user to belong to: not used,
+    // and the sign-in screen says so (Principle VII).
     if (returning) {
+      spotifyReturnDropped.value = true;
       history.replaceState(
         history.state,
         '',
@@ -66,8 +69,9 @@ async function boot(): Promise<void> {
     }
     return;
   }
+  let linked: Awaited<ReturnType<typeof completeServerLink>> | null = null;
   if (serverLink) {
-    const linked = await completeServerLink(params);
+    linked = await completeServerLink(params);
     if (afterLink(linked) === 'navigate') {
       // Drop the code from the URL and land on Settings. The navigation
       // loads the page again: under the new user's names when the account
@@ -129,7 +133,9 @@ async function boot(): Promise<void> {
   // After the first paint and the local load: a slow or paused server never
   // delays "Loading your library…" (US3). Whatever this device changed while
   // the server was unreachable goes first, then the pull.
-  if (auth.session.value) await startServerSync();
+  // Held after a failed link: the pull would replace its message (gate.ts).
+  const openSync = syncOnOpen(linked);
+  if (auth.session.value && openSync) await startServerSync();
   // Then the jobs that keep the library current (round 006, ADR-12): the
   // Spotify sync when the library is older than 12 hours, the BPM and key
   // run, Artist reach; one at a time, only what is missing. Never on the
@@ -140,7 +146,7 @@ async function boot(): Promise<void> {
     if (serverSignInRequired()) return;
     runAutoChain();
   };
-  runChain();
+  if (openSync) runChain();
   // Then the server keeps itself current: on return to the app, when the
   // network is back, and every minute while a request runs on the computer.
   installAutoSync({

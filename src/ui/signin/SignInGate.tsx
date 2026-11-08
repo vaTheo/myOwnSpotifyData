@@ -2,13 +2,14 @@ import { useState } from 'preact/hooks';
 import {
   serverLinkSent,
   serverState,
+  spotifyReturnDropped,
   startServerLink,
 } from '../../model/state';
 import { Button } from '../components/Button';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
 import { Icon } from '../icons';
-import { gateNotice } from './gate';
+import { gateNotices } from './gate';
 
 /**
  * The sign-in screen (round 009, contracts/ui.md): with a server set up and
@@ -20,7 +21,7 @@ import { gateNotice } from './gate';
 export function SignInGate(p: { linking?: boolean }) {
   const [email, setEmail] = useState('');
   const sent = serverLinkSent.value;
-  const notice = gateNotice(serverState.value);
+  const notices = gateNotices(serverState.value, spotifyReturnDropped.value);
   return (
     <main class="connect">
       <section class="connect-card">
@@ -34,20 +35,20 @@ export function SignInGate(p: { linking?: boolean }) {
           <StatusLine>Signing you in…</StatusLine>
         ) : (
           <>
-            {notice?.kind === 'error' && (
-              <StatusLine kind="error">{notice.text}</StatusLine>
-            )}
-            {notice?.kind === 'warning' && (
-              <StatusLine kind="warning">{notice.text}</StatusLine>
-            )}
-            {notice?.kind === 'paused' && (
-              <StatusLine kind="warning">
-                Server paused. Resume it from the{' '}
-                <a href={notice.dashboardUrl} target="_blank" rel="noopener">
-                  Supabase dashboard
-                </a>
-                , then send the link again.
-              </StatusLine>
+            {notices.map((n) =>
+              n.kind === 'paused' ? (
+                <StatusLine kind="warning" key="paused">
+                  Server paused. Resume it from the{' '}
+                  <a href={n.dashboardUrl} target="_blank" rel="noopener">
+                    Supabase dashboard
+                  </a>
+                  , then send the link again.
+                </StatusLine>
+              ) : (
+                <StatusLine kind={n.kind} key={n.text}>
+                  {n.text}
+                </StatusLine>
+              )
             )}
             <form
               class="settings-sign-in"
