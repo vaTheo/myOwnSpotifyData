@@ -423,9 +423,14 @@ device and on the server.
   lets a Development Mode app list only a small number of people, set by
   Spotify.
 - **They sign in** with their email on the sign-in screen, then **Connect
-  Spotify** with their own account. Their screens start empty and fill from
-  their own syncs; yours do not change.
-- **Sign out** before handing over a shared browser. The next person signs in
+  Spotify** with their own account. Once more than one person has signed in on
+  a device, Connect there always shows Spotify's account screen: check the
+  account it names, and use "Not you?" if the browser is still logged in to
+  Spotify as someone else. Their screens start empty and fill from their own
+  syncs; yours do not change.
+- **Sign out** before handing over a shared browser. It signs you out of that
+  browser only: your other devices and the worker stay signed in. Signing out
+  of Spotify there too (on spotify.com) is wise. The next person signs in
   and sees only their data; when you sign back in, yours is there at once,
   with no question and no new sync. Every person's copy stays on that device
   (Settings → Server says "N people use this device"); there is no button yet

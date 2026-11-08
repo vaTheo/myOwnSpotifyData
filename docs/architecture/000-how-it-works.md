@@ -524,7 +524,8 @@ round's full record is under `specs/001-backend-data-sync/`, the users round und
 - `session.ts` (`createServerSessionStore`): the magic link in the PKCE flow. `requestLink` stores a verifier under `server-pkce` and
   asks for a link whose `redirect_to` is the app plus `?link=server`; `main.tsx` branches on that marker (Spotify's callback is a bare
   `?code=`), `completeLink` exchanges the code with the verifier and stores `server-session`. A refresh re-reads storage first and retries
-  once on "already used"; a 401 signs out.
+  once on "already used"; a 401 signs out. Sign-out posts `/auth/v1/logout?scope=local` (this session only; GoTrue's default,
+  `global`, would also sign out the user's other devices and the worker; the worker's `logout` does the same).
 - `datasets.ts` (pure): the four datasets and their stores, each with its stamp (`library` = `lastSyncAt`; `history` =
   `historySummary.importedAt`, version 2 only; `features` = newest `updatedAt`; `reach` = `artistReachSummary.ranAt`), `compareStamps`
   (newer wins, never by push time), `batches` (500), `rowKey`, and `planMixes` (per row by `savedAt`, with tombstones).
@@ -571,7 +572,13 @@ payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history 
 were already per account (`owner_id = auth.uid()`, no `anon` grant), pinned by `rules.test.ts` (an audit of every migration).
 
 - `session.ts`: `ServerSession.userId`, the token's `sub` (`userIdFromToken`), stamped on read, save and refresh, so a session
-  stored before the round gains it with no call; null when the token carries none.
+  stored before the round gains it with no call; null when the token carries none. The store pins the user it loaded with (or
+  signed in, `completeLink`): a refresh that finds another person's session in storage (another tab signed in) never adopts it
+  nor refreshes it, and answers `unauthorized` "The signed-in person changed in another tab. Reload." with storage left alone;
+  the same person's rotated session is still adopted (S7).
+- `auth/browser.ts`: Connect adds `show_dialog=true` to Spotify's authorize URL when this device knows more than one person
+  (`readDeviceUsers(...).length > 1`, read at each tap), so a browser still logged in to Spotify as the previous person shows
+  Spotify's account screen instead of connecting that account silently; a one-person device keeps the URL unchanged.
 - `userScope.ts` (pure, storage injected): `claim` (the first sign-in on a device writes `deviceOwner`, never changed), `scopeOf`
   (`''` for the claimer, nobody or no server; the user id otherwise), `dbNameIn`/`keyIn` (`spotify-dj-u-<id>`, `session:<id>`,
   `pkce:<id>`), `activeUser` and `deviceUsers` in `localStorage`, `activate` (claim, pointer, device list; refuses an id that is

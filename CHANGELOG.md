@@ -13,7 +13,11 @@ nothing and removes nothing; the next person sees only their data, and yours is 
 Server says "Signed in as …" and "N people use this device"; Disconnect and Remove server data touch only your data.
 **Sign in first on each of your own devices:** the first person to sign in on a device after this update gets the data already
 stored there. Your session from before the update counts, so a browser you were already signed in on stays yours with no new link.
-A new sign-in needs the network. Decision: ADR-13 (amends ADR-08; constitution 2.3.0). Spec: `specs/009-multi-user-data/`. No
+A new sign-in needs the network. Three fixes from the round's user-data audit: on a device more than one person uses,
+**Connect Spotify** shows Spotify's account screen, so nobody is connected to the previous person's Spotify login by accident; a tab
+left open never takes over the session of a person who signed in in another tab (it asks for a reload instead); and **Sign out**
+signs out of this browser only, so your other devices and the worker on your computer stay signed in (`mix-worker logout` likewise).
+Decision: ADR-13 (amends ADR-08; constitution 2.3.0). Spec: `specs/009-multi-user-data/`. No
 `DB_VERSION` bump: other users get a database of their own beside yours; no server change.
 
 ## 2026-11-07 — Lists keep loading as you scroll

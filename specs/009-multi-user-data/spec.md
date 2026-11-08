@@ -48,7 +48,7 @@ If the server settings are absent, the app is the single-user browser-only app a
 
 ## Edge Cases
 
-- A user connects a Spotify account that another user already uses: each user's data stays separate; the app says so, it never merges.
+- A user connects a Spotify account that another user already uses: each user's data stays separate and nothing merges. The app does not say so: it cannot know, since the server never shows one user another user's rows (audit Finding 12).
 - A user connects a different Spotify account than the one they synced before: the existing account-switch question still applies, inside that user's data only.
 - The owner removes a user in the dashboard: that user's server data goes with the account; copies on devices stay until removed there.
 - Storage on a shared device: every user's copy counts; Settings shows what this device holds for the signed-in user.

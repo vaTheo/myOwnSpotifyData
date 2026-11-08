@@ -64,6 +64,31 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   - `scopedStorage` in `src/server/userScope.ts` is used by its tests only (the app uses `scopedView`, `scopeBrowser.ts`).
   - The server rules audit (`src/server/rules.test.ts`) does not see a `create table` inside a `do` body (dollar-quoted bodies are
     set aside), and reads a function declared `returns table (…)` as an unrecognised table statement (a false alarm, never a miss).
+  - The user-data audit (`specs/009-multi-user-data/audit.md`, T022) left ten Minor findings open; its three Important ones are
+    fixed (T023). Each with the fix it would take:
+    - F4: a refresh that finishes after another tab signed someone else in writes the old person's rotated tokens over the new
+      session (one round trip wide); the fix would be to re-read storage before saving and save only if the refreshed token is
+      still the stored one.
+    - F5: when the server session ends mid-use, the automatic chain's queued steps (BPM and key, reach) and a running Spotify sync
+      go on behind the sign-in screen, for the same person only; the fix would be to add the gate to the chain's `signedIn` and
+      stop the chain when the gate shows.
+    - F6: a friend's **Identify on my computer** request waits forever: the worker serves only the account that logged it in;
+      the fix would be to say so in the README or hide the button for other accounts (isolation itself is right).
+    - F7: a refused or full `localStorage` is not always shown: opening a sign-in link then stays on "Signing you in..." and
+      **Send me a link** fails silently; storage blocked outright stops the app at load; the fix would be to guard those writes
+      and the module-load reads and show the storage message.
+    - F8: the device's claim is one `localStorage` key: if it alone is lost, the next person to sign in becomes the claimer of the
+      pre-update data; the fix would be to refuse to claim when that data exists without the key (judged not worth it).
+    - F9: Disconnect does not reset the server pending line, the Mix screen's request history or the create choice, and does not
+      wait for a running push (same person, no leak); the fix would be to reset those three and refuse while a push runs.
+    - F10: signing out offline (or with an expired token) removes the session here but the server is not told, and nothing says
+      so; the fix would be a warning on the sign-in screen when the server sign-out did not succeed.
+    - F11: Settings' storage share is the whole project's database size, so every user sees the total and its changes; the fix
+      would be to sum the caller's own rows instead.
+    - F12: the app cannot tell a user that another user already uses the same Spotify account (the server hides other users'
+      rows, which is the point); each user's data stays separate and nothing merges. The spec now says so.
+    - F13: the key notation and the Automatic updates switch are per device, so a second person inherits them, and the device
+      keeps every user's email in clear; the fix would be per-user preferences (a `meta` row each), only if the owner wants it.
 
 ## 3. Out of scope, decided (not to be re-litigated without the owner)
 
