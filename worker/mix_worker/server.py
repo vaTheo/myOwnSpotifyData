@@ -165,7 +165,9 @@ class ServerClient:
         return self._session_triple(r)
 
     def logout(self, access_token: str) -> Result:
-        return self._request("POST", "/auth/v1/logout", token=access_token)
+        # scope=local: this session only; GoTrue's default (global) would also
+        # sign out the owner's browsers (audit Finding 3).
+        return self._request("POST", "/auth/v1/logout?scope=local", token=access_token)
 
     @staticmethod
     def _session_triple(r: Result) -> Result:

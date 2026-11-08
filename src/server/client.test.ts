@@ -117,12 +117,14 @@ describe('auth', () => {
     expect(JSON.parse(init?.body as string)).toEqual({ refresh_token: 'r1' });
   });
 
-  it('signOut posts to /logout with the bearer token', async () => {
+  it('signOut posts to /logout?scope=local with the bearer token (this browser only)', async () => {
     const { c, fetchFn } = client(() => new Response(null, { status: 204 }));
     const res = await c.signOut('tok');
     expect(res.ok).toBe(true);
     const [url, init] = fetchFn.mock.calls[0];
-    expect(url).toBe(`${BASE}/auth/v1/logout`);
+    // GoTrue's default scope is global: it would sign out the user's other
+    // devices and the worker (audit Finding 3).
+    expect(url).toBe(`${BASE}/auth/v1/logout?scope=local`);
     expect(headersOf(init).authorization).toBe('Bearer tok');
   });
 

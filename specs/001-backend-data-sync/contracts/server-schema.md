@@ -52,7 +52,7 @@ Every request carries `apikey: <publishable key>` and `Authorization: Bearer <ac
 | request a link | `POST /auth/v1/otp` `{ email, create_user: false, code_challenge, code_challenge_method: 's256' }` with query `redirect_to=<app URL>?link=server` → 200 empty; the email carries the link (PKCE flow, S2) |
 | complete | the link opens the app with `?link=server&code=<auth code>`; the app posts `POST /auth/v1/token?grant_type=pkce` `{ auth_code, code_verifier }` → `{ access_token, refresh_token, expires_in, user }` |
 | refresh | `POST /auth/v1/token?grant_type=refresh_token` `{ refresh_token }` → `{ access_token, refresh_token, expires_in, user }` |
-| sign out | `POST /auth/v1/logout` with the bearer token |
+| sign out | `POST /auth/v1/logout?scope=local` with the bearer token: this session only (the default, `global`, would sign the user out of every device and the worker; round 009 audit Finding 3) |
 
 Project settings required: "Allow new users to sign up" **off**; the one user created by the owner in the dashboard; URL
 Configuration with the app's public URL as Site URL and `<app URL>?link=server` plus the `127.0.0.1` equivalents as redirect URLs
