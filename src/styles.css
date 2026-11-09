@@ -1745,7 +1745,10 @@ a {
 }
 
 .dt-item-lead {
+  display: flex;
   grid-column: 1;
+  align-items: center;
+  gap: 4px;
   margin-right: 12px;
 }
 
@@ -2860,6 +2863,26 @@ a {
   text-decoration: none;
 }
 
+/* A track item (play-button round, specs/017-track-play-button): play
+   button (or its empty place), the link, the Listen menu, side by side;
+   the link takes the rest, with no hover bleed over the buttons. */
+.card .ov-items > li.ov-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ov-track > .ov-item {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.ov-play-space {
+  flex: none;
+  width: var(--app-target);
+}
+
 a.ov-item:hover {
   background: color-mix(
     in srgb,
@@ -2901,11 +2924,32 @@ a.ov-item:hover {
   height: 24px;
 }
 
-/* A narrow card keeps the titles and drops the bars; the details sheet the
-   row opens draws them. */
+/* A narrow card keeps the titles and drops the bars of an item that is not
+   a track; the details sheet the row opens draws them. */
 @container ov (max-width: 319.98px) {
-  .ov-item-chart {
+  li:not(.ov-track) > .ov-item .ov-item-chart {
     display: none;
+  }
+}
+
+/* A track item beside its play button and Listen menu (play-button round):
+   on a card under 400 px it takes two lines, the title and artists on the
+   first, the bars or the BPM and key pills and the value on the second, so
+   nothing is hidden and the title keeps the width. */
+@container ov (max-width: 399.98px) {
+  .ov-track > .ov-item {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .ov-track .ov-item-text {
+    flex-basis: 100%;
+  }
+
+  .ov-track .ov-item-value {
+    margin-left: auto;
   }
 }
 

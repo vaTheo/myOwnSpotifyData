@@ -39,9 +39,9 @@ describe('format helpers', () => {
     expect(artistNames([])).toBe('');
   });
 
-  it('links artists by id and not local-file artists', () => {
+  it('links artists to the Spotify app by id and not local-file artists', () => {
     expect(artistUrl('4tZwfgrHOc3mvqYlEYSvVi')).toBe(
-      'https://open.spotify.com/artist/4tZwfgrHOc3mvqYlEYSvVi'
+      'spotify:artist:4tZwfgrHOc3mvqYlEYSvVi'
     );
     expect(artistUrl(null)).toBeNull();
   });

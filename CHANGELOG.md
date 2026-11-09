@@ -3,6 +3,17 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-09 — Play button and Listen menu on every track list
+
+Every track list (Top tracks, a playlist, an artist's tracks, every Crate view, the Overview's Heavy rotation and Top this month)
+starts each row with the Mix tracklist's ▶: one tap opens the track in the Spotify app, without opening the details; a row without
+a Spotify id (a local file) has none. The small "Open in Spotify" icon at the end of those rows becomes the Mix headphones menu:
+Play on Spotify, the Spotify web page, then searches on Beatport, Bandcamp, Discogs, SoundCloud and YouTube. Artist and playlist
+lists keep their icon, and an artist's icon (and the "Open in Spotify" link on an artist's page) now opens the artist in the Spotify
+app, in place, like ▶; playlist links still open the web page in a new tab. The Mix tracklist is unchanged. On a phone ▶ comes first in each item and the menu last; on a narrow Overview
+card a track item takes two lines (the bars or BPM and key pills under the title), nothing hidden. Spec `specs/017-track-play-button/`. No Spotify read or write, no
+`DB_VERSION` bump, nothing to do.
+
 ## 2026-11-09 — Quick start for users, owner and the worker
 
 Documentation only. The README opens with **Quick start: what you have to do**: three short lists (use the app, identify a mix with

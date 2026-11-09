@@ -25,9 +25,12 @@ import { Card } from '../components/Card';
 import { FeaturePills } from '../components/FeaturePills';
 import { Flag } from '../components/Flag';
 import { NoData } from '../components/NoData';
+import { PlayOnSpotify } from '../components/PlayOnSpotify';
 import { StatusLine } from '../components/StatusLine';
 import { rotationMonths } from '../crate/selections';
+import { spotifyTrackId, trackListenItems } from '../listen';
 import { CHIP_FLAG } from '../mix/MixListPane';
+import { RowMenu } from '../mix/RowMenu';
 import { showTopTracksThisMonth } from '../Top';
 import {
   overviewBlocks,
@@ -55,7 +58,10 @@ function afterPaint(run: () => void): () => void {
 /**
  * One item: the whole row is the link to the track's details over its
  * screen, a 48 px target; the title and artists are cut with an ellipsis
- * and said in full on hover.
+ * and said in full on hover. A track (an item with `trackId`, play-button
+ * round) puts the play button before the link when Spotify knows it (else
+ * an empty place of the same width), and its Listen menu after: siblings
+ * of the link, never inside it.
  */
 function Item(p: {
   item: OverviewItem;
@@ -95,15 +101,36 @@ function Item(p: {
       )}
     </>
   );
+  const row = item.href ? (
+    <a class="ov-item" href={item.href} onClick={p.onClick}>
+      {body}
+    </a>
+  ) : (
+    <span class="ov-item">{body}</span>
+  );
+  if (!item.trackId) return <li>{row}</li>;
+  const track = {
+    id: spotifyTrackId(item.trackId),
+    artist: item.subtitle,
+    title: item.title,
+  };
   return (
-    <li>
-      {item.href ? (
-        <a class="ov-item" href={item.href} onClick={p.onClick}>
-          {body}
-        </a>
+    <li class="ov-track">
+      {track.id ? (
+        <PlayOnSpotify
+          id={track.id}
+          artist={track.artist}
+          title={track.title}
+        />
       ) : (
-        <span class="ov-item">{body}</span>
+        <span class="ov-play-space" aria-hidden="true" />
       )}
+      {row}
+      <RowMenu
+        icon="headphones"
+        label={`Listen to ${track.artist} – ${track.title}`}
+        items={() => trackListenItems(track)}
+      />
     </li>
   );
 }

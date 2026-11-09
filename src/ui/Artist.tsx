@@ -25,13 +25,15 @@ import {
 import { Icon } from './icons';
 import { DETAIL_COMPACT_BELOW } from './layout/ListDetail';
 import { windowClass } from './layout/windowClass';
+import { spotifyTrackId, type ListenTrack } from './listen';
 import {
   albumColumn,
   bpmColumn,
   countColumn,
   keyColumn,
+  listenColumn,
+  playColumn,
   playsColumn,
-  spotifyLinkColumn,
   titleColumn,
   yearColumn,
 } from './table/columns';
@@ -162,13 +164,19 @@ function ArtistReach(p: { m: Model; id: string | null }) {
 }
 
 /**
- * Title · album · plays · playlists · BPM · key · released · link (spec 003
- * §10, round 005).
+ * Play · title · album · plays · playlists · BPM · key · released · listen
+ * (spec 003 §10, round 005; play, listen: round 017).
  */
 function trackColumns(m: Model): Column<ArtistTrack>[] {
   const featureOf = (r: ArtistTrack) =>
     r.track.id ? featureFor(m, r.track.id) : null;
+  const trackOf = (r: ArtistTrack): ListenTrack => ({
+    id: spotifyTrackId(r.track.id),
+    artist: artistNames(r.track.artists),
+    title: r.track.name,
+  });
   return [
+    playColumn(trackOf),
     titleColumn((r) => r.track.name),
     albumColumn((r) => r.track.album || null, {
       priority: 2,
@@ -185,7 +193,7 @@ function trackColumns(m: Model): Column<ArtistTrack>[] {
     bpmColumn(featureOf),
     keyColumn(featureOf),
     yearColumn((r) => (r.track.id ? trackYear(m, r.track.id) : null)),
-    spotifyLinkColumn((r) => r.track.spotifyUrl),
+    listenColumn(trackOf),
   ];
 }
 

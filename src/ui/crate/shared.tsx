@@ -14,10 +14,13 @@ import { openDetail } from '../details/navigate';
 import { TrackSheet } from '../details/TrackDetails';
 import { besideSheet } from '../layout/SideSheet';
 import { windowClass } from '../layout/windowClass';
+import { spotifyTrackId, type ListenTrack } from '../listen';
 import { playLabel } from './labels';
 import {
   bpmColumn,
   keyColumn,
+  listenColumn,
+  playColumn,
   rankColumn,
   titleColumn,
   yearColumn,
@@ -125,12 +128,12 @@ export function chartColumn<Item extends CrateItem>(
 }
 
 /**
- * The columns every Crate view shares (spec 003, screens.md §6): #, Title,
- * Artist, then the view's own figures and chart, its flag, BPM, Key and
- * Released (round 005). The
- * flag's precedence belongs to each view (Heavy rotation's `New` beats
- * "not in a playlist"), so it is passed in already decided; `null` leaves
- * the cell empty.
+ * The columns every Crate view shares (spec 003, screens.md §6): Play
+ * (round 017), #, Title, Artist, then the view's own figures and chart, its
+ * flag, BPM, Key, Released (round 005) and Listen (round 017). The flag's
+ * precedence belongs to each view (Heavy rotation's `New` beats "not in a
+ * playlist"), so it is passed in already decided; `null` leaves the cell
+ * empty.
  */
 export function crateColumns<Item extends CrateItem>(spec: {
   metrics: Column<Item>[];
@@ -140,7 +143,16 @@ export function crateColumns<Item extends CrateItem>(spec: {
   const m = model.value;
   const featureOf = (item: Item) =>
     m ? featureFor(m, item.row.trackId) : null;
+  const trackOf = (item: Item): ListenTrack => {
+    const label = trackLabel(item.row);
+    return {
+      id: spotifyTrackId(item.row.trackId),
+      artist: label.subtitle,
+      title: label.title,
+    };
+  };
   return [
+    playColumn(trackOf),
     rankColumn({ compact: 'lead' }),
     titleColumn((item) => trackLabel(item.row).title),
     titleColumn(
@@ -169,6 +181,7 @@ export function crateColumns<Item extends CrateItem>(spec: {
     bpmColumn(featureOf),
     keyColumn(featureOf),
     yearColumn(crateYearOf),
+    listenColumn(trackOf),
   ];
 }
 

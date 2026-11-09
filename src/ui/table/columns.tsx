@@ -5,9 +5,12 @@ import type { ResolvedFeature } from '../../model/features';
 import { Flag } from '../components/Flag';
 import { BpmText, KeyPill } from '../components/KeyPill';
 import { NoData } from '../components/NoData';
+import { PlayOnSpotify } from '../components/PlayOnSpotify';
 import { SpotifyLink } from '../components/SpotifyLink';
 import { artistNames, formatDate, PERIOD_LABEL } from '../format';
 import { Icon } from '../icons';
+import { trackListenItems, type ListenTrack } from '../listen';
+import { RowMenu } from '../mix/RowMenu';
 import type { Column } from './DataTable';
 import { formatDuration, keySortValue } from './columnValues';
 
@@ -461,6 +464,67 @@ export function spotifyLinkColumn<Row>(
     priority: 1,
     width: '64px',
     cell: (row) => <SpotifyLink href={urlOf(row)} />,
+    compact: 'trail',
+    ...over,
+  };
+}
+
+/**
+ * Play the row's track in the Spotify app (round 017,
+ * contracts/track-listen.md): the first column of a track table, the lead of
+ * a phone's item. A row without a Spotify id (a local file) leaves the cell
+ * empty.
+ */
+export function playColumn<Row>(
+  trackOf: (row: Row) => ListenTrack | null,
+  over: Over<Row> = {}
+): Column<Row> {
+  return {
+    id: 'play',
+    header: 'Play',
+    headerHidden: true,
+    priority: 1,
+    width: '56px',
+    cell: (row) => {
+      const track = trackOf(row);
+      return track?.id ? (
+        <PlayOnSpotify
+          id={track.id}
+          artist={track.artist}
+          title={track.title}
+        />
+      ) : null;
+    },
+    compact: 'lead',
+    ...over,
+  };
+}
+
+/**
+ * The Listen menu of the row's track (round 017): Play on Spotify and its
+ * web page when the track has an id, then the search pages of `digLinks`.
+ * The last column, the trail of a phone's item.
+ */
+export function listenColumn<Row>(
+  trackOf: (row: Row) => ListenTrack | null,
+  over: Over<Row> = {}
+): Column<Row> {
+  return {
+    id: 'listen',
+    header: 'Listen',
+    headerHidden: true,
+    priority: 1,
+    width: '64px',
+    cell: (row) => {
+      const track = trackOf(row);
+      return track ? (
+        <RowMenu
+          icon="headphones"
+          label={`Listen to ${track.artist} – ${track.title}`}
+          items={() => trackListenItems(track)}
+        />
+      ) : null;
+    },
     compact: 'trail',
     ...over,
   };

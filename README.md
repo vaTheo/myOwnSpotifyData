@@ -143,6 +143,18 @@ phone. It is dark, with chartreuse marking what you act on.
   first; title, the main number, BPM and key stay. On a phone each row is two
   lines and there are no sort headers (the order controls, such as a
   playlist's order or Under the radar's sorts, stay).
+- **▶ plays a track in Spotify**: every track list (Top, a playlist, an
+  artist's tracks, every Crate view, the Overview's track cards) starts each
+  row with the same ▶ as the Mix tracklist; one tap opens the track in the
+  Spotify app, without opening the details. A row Spotify cannot open (a
+  local file) has no ▶.
+- **The headphones menu** at the end of each track row lists every way to
+  open it: Play on Spotify, the Spotify web page, then a search on Beatport,
+  Bandcamp, Discogs, SoundCloud and YouTube for its artist and title. It
+  replaces the small Spotify icon on track lists; artist and playlist lists
+  keep that icon. An artist's icon (Top artists, Artists, Under the radar,
+  and "Open in Spotify" on an artist's page) opens the artist in the Spotify
+  app, like ▶; a playlist's still opens the Spotify web page in a new tab.
 - Long lists say "Showing the top 100 of 2,431" and show 100 more by
   themselves as you scroll near the end; the **Show 100 more** button stays
   as a fallback. Arrow keys

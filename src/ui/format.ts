@@ -90,9 +90,13 @@ export function artistNames(artists: ArtistRef[]): string {
   return artists.map((a) => a.name).join(', ');
 }
 
-/** Playlist items only carry artist ids and names; the link is derived. */
+/**
+ * Playlist items only carry artist ids and names; the link is derived. It is
+ * the app's own `spotify:artist:<id>` (round 017 follow-up), opened in place
+ * like the track play button.
+ */
 export function artistUrl(id: string | null): string | null {
-  return id ? `https://open.spotify.com/artist/${id}` : null;
+  return id ? `spotify:artist:${id}` : null;
 }
 
 /**
