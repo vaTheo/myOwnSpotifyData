@@ -2863,6 +2863,25 @@ a {
   text-decoration: none;
 }
 
+/* A track item (round 017): play button, the link, the Listen menu, side
+   by side; the link takes the rest and keeps its hover bleed only on the
+   side with no button. */
+.card .ov-items > li.ov-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ov-track > .ov-item {
+  flex: 1;
+  min-width: 0;
+  margin-right: 0;
+}
+
+.ov-track > .ov-item:not(:first-child) {
+  margin-left: 0;
+}
+
 a.ov-item:hover {
   background: color-mix(
     in srgb,
@@ -2908,6 +2927,16 @@ a.ov-item:hover {
    row opens draws them. */
 @container ov (max-width: 319.98px) {
   .ov-item-chart {
+    display: none;
+  }
+}
+
+/* A track item also holds its play button and Listen menu (round 017): on a
+   card under 400 px the bars and the BPM and key pills give way so the title
+   stays readable; the details sheet the row opens shows them. */
+@container ov (max-width: 399.98px) {
+  .ov-track .ov-item-chart,
+  .ov-track .ov-item-pills {
     display: none;
   }
 }

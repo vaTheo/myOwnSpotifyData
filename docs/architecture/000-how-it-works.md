@@ -407,7 +407,9 @@ screen, grouped by role under `src/ui/`.
 - **Charts** (`ui/charts/`): inline SVG, no library. `series.ts` (pure: a month outside the history is a gap, zero is drawn as
   zero), `MonthBars.tsx`, `Meter.tsx` (the finish rate in its band), `YearMonthGrid.tsx` (By year's period picker). Every chart
   gives its values on hover, on focus and as text.
-- **Screens**: `overview/` (`blocks.ts`, pure, from stored data only, never Spotify, each block behind its screen's gate),
+- **Screens**: `overview/` (`blocks.ts`, pure, from stored data only, never Spotify, each block behind its screen's gate;
+  round 017: an item with `trackId` is `li.ov-track`, ▶ when `spotifyTrackId` gives an id, the `a.ov-item` link, then the
+  Listen `RowMenu`, siblings so no button sits in the link; on a card under 400 px its bars and pills give way),
   `Top.tsx` with `top/ComparePeriods.tsx` (the three periods side by side on large windows), `crate/` (`CrateHub` cards,
   `CrateView` dispatching to the five view tables, `shared.tsx`, `labels.ts`, `selections.ts`; gated on
   `historySummary.version === 2`, never on rows), `Playlists.tsx`, `Playlist.tsx` (one strip above the table: meta, Sync and

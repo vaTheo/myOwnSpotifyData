@@ -68,6 +68,9 @@ when something needs attention.
 
 **Phone**: one column, in the same order.
 
+**Round 017**: a track item (Heavy rotation, Top this month) is ▶ (only when Spotify knows the track), the link to its details, then
+the headphones Listen menu, three siblings; on a card under 400 px the bars and the BPM and key pills give way to the title.
+
 **Columns (controller ruling, S10 round 1)**: one column on compact windows, two from 600 px through 1,199 px (medium and
 expanded), three from 1,200 px. Three columns at 840–1,199 px would leave cards about 230–330 px wide: the Heavy rotation
 and Top rows would cut their titles to a few letters and drop their bars, so expanded keeps two.
@@ -785,4 +788,5 @@ header): the Mix tracklist's ▶ (`PlayOnSpotify`, "Play {artist} – {title} on
 row without a Spotify id. It ends with **Listen** (`listenColumn`, priority 1, 64 px): the Mix headphones menu, Play on Spotify and
 the Spotify web page when the track has an id, then Beatport, Bandcamp, Discogs, SoundCloud and YouTube searches. It replaces the
 Spotify link on those tables; Top artists, Artists, Under the radar and Playlists keep their link. On a phone ▶ is first in the
-item's lead (before the cover or the rank) and the menu is in its trail. The Mix tracklist is unchanged. Contract: `specs/017-track-play-button/contracts/track-listen.md`.
+item's lead (before the cover or the rank) and the menu is in its trail. The Overview's track items get the same pair around their
+link. The Mix tracklist is unchanged. Contract: `specs/017-track-play-button/contracts/track-listen.md`.
