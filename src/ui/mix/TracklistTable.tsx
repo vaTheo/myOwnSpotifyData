@@ -33,6 +33,7 @@ import { Button } from '../components/Button';
 import { Flag } from '../components/Flag';
 import { IconButton } from '../components/IconButton';
 import { NoData } from '../components/NoData';
+import { PlayOnSpotify } from '../components/PlayOnSpotify';
 import { SegmentedButtons } from '../components/SegmentedButtons';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
@@ -193,9 +194,7 @@ function SpotifyCell(p: {
   const { row } = p;
   if (!isIdentified(row)) return null;
   const status = spotifyStatus(row);
-  const app =
-    typeof row.spotify === 'object' ? `spotify:track:${row.spotify.id}` : null;
-  const play = `Play ${nameOf(row)} on Spotify`;
+  const found = typeof row.spotify === 'object' ? row.spotify.id : null;
   // Round 011: the red mark opens the form to paste a Spotify track link.
   const link = `Link a Spotify track to ${nameOf(row)}`;
   if (status === 'notFound') {
@@ -224,13 +223,13 @@ function SpotifyCell(p: {
       <span class={`mix-spotify-text ${status}`}>{STATUS_TEXT[status]}</span>
     );
   }
-  if (app !== null) {
+  if (found !== null) {
     return (
-      <IconButton
-        icon="play_arrow"
+      <PlayOnSpotify
+        id={found}
+        artist={row.artist}
+        title={row.title}
         class="mix-spotify found"
-        label={play}
-        href={app}
       />
     );
   }
