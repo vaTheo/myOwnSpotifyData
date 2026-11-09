@@ -2458,15 +2458,15 @@ test.describe('L. play button and Listen menu', () => {
       );
     }
 
-    // Top artists keep their Open in Spotify icon.
+    // Top artists keep their Open in Spotify icon, which opens the app in place.
     await app.open('#/top');
     await page.getByRole('tab', { name: 'Artists' }).click();
-    await expect(
-      page
-        .getByRole('grid', { name: /^Top artists/ })
-        .getByRole('link', { name: 'Open in Spotify' })
-        .first()
-    ).toHaveAttribute('href', /^https:\/\/open\.spotify\.com\/artist\//);
+    const artistLink = page
+      .getByRole('grid', { name: /^Top artists/ })
+      .getByRole('link', { name: 'Open in Spotify' })
+      .first();
+    await expect(artistLink).toHaveAttribute('href', /^spotify:artist:/);
+    await expect(artistLink).not.toHaveAttribute('target', '_blank');
 
     // An Overview track item: play, its text, then the Listen menu.
     await app.open('#/');

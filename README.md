@@ -152,7 +152,9 @@ phone. It is dark, with chartreuse marking what you act on.
   open it: Play on Spotify, the Spotify web page, then a search on Beatport,
   Bandcamp, Discogs, SoundCloud and YouTube for its artist and title. It
   replaces the small Spotify icon on track lists; artist and playlist lists
-  keep that icon.
+  keep that icon. An artist's icon (Top artists, Artists, Under the radar,
+  and "Open in Spotify" on an artist's page) opens the artist in the Spotify
+  app, like ▶; a playlist's still opens the Spotify web page in a new tab.
 - Long lists say "Showing the top 100 of 2,431" and show 100 more by
   themselves as you scroll near the end; the **Show 100 more** button stays
   as a fallback. Arrow keys

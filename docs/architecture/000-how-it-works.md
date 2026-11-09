@@ -395,7 +395,9 @@ screen, grouped by role under `src/ui/`.
   `listenColumn` draws `mix/RowMenu.tsx` with the `headphones` icon and `trackListenItems` (Play on Spotify and the web page
   when there is an id, then the five `digLinks` searches), passed as a function so the items are built only when the menu
   opens, not for every row on every page of "Show 100 more" (`RowMenu`'s `items` takes an array, the Mix's, or that function).
-  It replaces `spotifyLinkColumn` on those tables; artist and playlist tables keep it. On a phone ▶ leads the item
+  It replaces `spotifyLinkColumn` on those tables; artist and playlist tables keep it. An artist's link, in those tables and the
+  Artist header's text link, is `artistUrl(id)` (`ui/format.ts`), the app's `spotify:artist:<id>`; `components/SpotifyLink.tsx`
+  opens a `spotify:` href in place and any other (playlists) in a new tab. On a phone ▶ leads the item
   (`.dt-item-lead` lays its cells in a row: ▶ then the cover or the rank) and the
   menu is its trail. `DataTable` skips row clicks inside `a, button`, so neither opens the details. No request is made until
   a link is opened.

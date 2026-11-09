@@ -18,7 +18,7 @@ import { SegmentedButtons } from './components/SegmentedButtons';
 import { openDetail } from './details/navigate';
 import { TrackSheet } from './details/TrackDetails';
 import { besideSheet } from './layout/SideSheet';
-import { artistNames, TOP_PERIOD_LABEL } from './format';
+import { artistNames, artistUrl, TOP_PERIOD_LABEL } from './format';
 import { windowClass } from './layout/windowClass';
 import { spotifyTrackId, type ListenTrack } from './listen';
 import {
@@ -118,7 +118,7 @@ const ARTIST_COLUMNS: Column<AnnotatedTopArtist>[] = [
     { unit: ['playlist', 'playlists'] },
     { priority: 2 }
   ),
-  spotifyLinkColumn((r) => r.item.spotifyUrl),
+  spotifyLinkColumn((r) => artistUrl(r.item.id)),
 ];
 
 /**

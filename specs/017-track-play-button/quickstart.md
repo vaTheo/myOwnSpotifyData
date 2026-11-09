@@ -11,6 +11,6 @@ Prerequisites: `yarn` installed, Node 24. Demo data only, never the owner's.
 6. Repeat 3–5 on a Playlist, an Artist, each Crate view; on the Overview check ▶ and the menu on the track items.
 7. A local-file track on a demo playlist: empty first cell; its menu lists the five searches only.
 8. Narrow the window to a phone width: ▶ is the first control of each item; the menu is at the end.
-9. Top artists, Artists, Under the radar, Playlists: the "Open in Spotify" icon is still there.
+9. Top artists, Artists, Under the radar, Playlists: the "Open in Spotify" icon is still there; an artist's (and the Artist header's text link) is `spotify:artist:…` with no new tab, a playlist's still `https://open.spotify.com/…` in a new tab.
 10. A saved mix: its ▶ looks the same as on Top; its Listen menu is unchanged.
 11. Before a merge: `yarn regression` (new rows green) and `yarn invariants`. `yarn shots` only when the owner asks.

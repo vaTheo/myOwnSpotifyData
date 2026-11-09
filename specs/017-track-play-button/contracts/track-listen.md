@@ -42,6 +42,10 @@ renders this component.
 | Mix tracklist | unchanged (renders `PlayOnSpotify`) | unchanged | none |
 | Top artists, Artists, Under the radar, Playlists | unchanged | unchanged | keep `spotifyLinkColumn` |
 
+Artist links (FR-012 follow-up): `artistUrl(id)` (`ui/format.ts`) is `spotify:artist:{id}` (null without an id); Top artists, Artists,
+Under the radar and the Artist header's text link all use it. `SpotifyLink` drops `target="_blank"` and `rel` when its href starts with
+`spotify:`, so the app opens in place like `PlayOnSpotify`; a web href (playlists) keeps the new tab.
+
 ## Behaviour
 
 - A click on the button or the menu never runs the row's `onOpen` (`DataTable` skips clicks inside `a, button`).

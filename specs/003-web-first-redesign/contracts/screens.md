@@ -314,7 +314,8 @@ in Saved tracks follow the same gate.
 
 **Computer** (the detail pane):
 
-- **Header**: name, "14 saved tracks in 9 playlists · Open in Spotify".
+- **Header**: name, "14 saved tracks in 9 playlists · Open in Spotify" (the artist in the Spotify app, `spotify:artist:<id>`, in place;
+  round 017 follow-up).
 - **A reach card**: Listeners and Fans as two figures side by side, the Wikipedia profile line, "as of" and the credit, and the
   outbound links (ListenBrainz, Deezer, Wikipedia) as outlined buttons with `open_in_new`. When unresolved, it reads "No reach
   data" with Look up artists, under the same rules as today.

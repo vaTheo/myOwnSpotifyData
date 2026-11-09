@@ -94,7 +94,7 @@ At the end of each track row, the small "Open in Spotify" icon is replaced by th
 - **FR-006**: The rest of each row keeps its current behaviour: a click elsewhere opens the details panel as today.
 - **FR-007**: On every list of FR-001, the "Open in Spotify" icon at the end of track rows is replaced by the Mix headphones menu ("Listen to {artist} – {title}"). Its items, in order: Play on Spotify (the app) and Open Spotify web page, when the track has a Spotify id; then searches on Beatport, Bandcamp, Discogs, SoundCloud and YouTube for the track's artist and title.
 - **FR-011**: The menu items and their links are the ones the Mix tracklist builds, so a platform added or changed later changes on every page at once.
-- **FR-012**: Lists of artists and playlists keep their "Open in Spotify" icon (they are not track rows).
+- **FR-012**: Lists of artists and playlists keep their "Open in Spotify" icon (they are not track rows). An artist's icon (Top artists, Artists, Under the radar) and the Artist page header's "Open in Spotify" text link open the artist in the Spotify app (`spotify:artist:{id}`, opened in place, no new tab), the same icon and name as before; a missing artist id shows no link. Playlist links stay web pages in a new tab (owner's follow-up, 2026-11-09).
 - **FR-008**: The Mix tracklist is unchanged: its play button stays in its Spotify column, with its found / not found marks.
 - **FR-009**: Opening a track from the play button reads nothing from Spotify and writes nothing to Spotify; it is a plain link.
 - **FR-010**: The button works on the demo data the same way as on the owner's data.
