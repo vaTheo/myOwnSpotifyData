@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-10
 
-**Status**: Draft
+**Status**: Implemented (2026-11-10)
 
 **Input**: User description: "Can you separate the column ARTIST and track name in the mix section."
 

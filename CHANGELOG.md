@@ -3,6 +3,15 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-10 — Artist and Title columns in the Mix tracklist
+
+The Mix tracklist's one "Artist – Title" column is now two, **Artist** and **Title**, both always shown on a computer. A click on
+**Artist** orders the tracklist by artist, A to Z (again for Z to A); a click on **Title** orders it by the track name alone, no
+longer grouped by artist. The **Sort** menu offers "Artist" and "Title" in their place. The not heard badge, where a row was found,
+the clue in quotes, the references and the check line stay under the title. On a phone each track reads its title, the artist under
+it, then the rest. Screen readers still name a track "Artist – Title". Spec `specs/020-mix-artist-title-columns/`. No Spotify read
+or write, no stored data change, no `DB_VERSION` bump, nothing to do.
+
 ## 2026-11-09 — Play button and Listen menu on every track list
 
 Every track list (Top tracks, a playlist, an artist's tracks, every Crate view, the Overview's Heavy rotation and Top this month)

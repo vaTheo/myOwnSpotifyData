@@ -1,7 +1,7 @@
 # Documentation
 
 > **Status**: Living
-> **Last updated**: 2026-11-09
+> **Last updated**: 2026-11-10
 
 The map of the app's documentation, kept by hand: every page is listed here, in its section. How pages are named, headed and linked:
 [Contributing](dev-guide/000-contributing.md), section "Documentation".
@@ -49,6 +49,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 One design document per feature round, dated. The first one is the base model; later ones build on it.
 
+- [2026-11-10 — Artist and Title columns in the Mix tracklist](specs/2026-11-10-mix-artist-title-columns-design.md) (full round under [`specs/020-mix-artist-title-columns/`](../specs/020-mix-artist-title-columns/spec.md))
 - [2026-11-09 — Play button and Listen menu on every track list](specs/2026-11-09-track-play-button-design.md) (the play-button round, full round under [`specs/017-track-play-button/`](../specs/017-track-play-button/spec.md))
 - 2026-11-08 — TrackId.net with the Shazam probes (round 016): [`specs/016-trackid-worker-clues/`](../specs/016-trackid-worker-clues/spec.md), decision [ADR-17](architecture/700-adr/ADR-17-trackid-worker.md)
 - 2026-11-08 — One worker for every user (round 015): [`specs/015-shared-worker/`](../specs/015-shared-worker/spec.md), decision [ADR-16](architecture/700-adr/ADR-16-shared-worker.md)

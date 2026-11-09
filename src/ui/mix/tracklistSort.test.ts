@@ -48,7 +48,7 @@ describe('sortValue', () => {
 
   it('a gap has no value in the columns about a track', () => {
     const gap = line(r({ gap: true, startSec: 60 }));
-    for (const id of ['title', 'spotify', 'released'] as SortId[]) {
+    for (const id of ['artist', 'title', 'spotify', 'released'] as SortId[]) {
       expect(sortValue(id, gap)).toBeNull();
     }
     expect(sortValue('time', gap)).toBe(60);
@@ -67,6 +67,85 @@ describe('sortValue', () => {
     expect(sortValue('label', line(r({})))).toBeNull();
     expect(sortValue('released', line(r({ year: 1999 })))).toBe(1999);
     expect(sortValue('time', line(r({ startSec: null })))).toBeNull();
+  });
+});
+
+describe('the Artist and Title columns (spec 020)', () => {
+  it('artist is the artist text, title the track name only', () => {
+    const row = line(r({ artist: 'Moodymann', title: 'Shades of Jae' }));
+    expect(sortValue('artist', row)).toBe('Moodymann');
+    expect(sortValue('title', row)).toBe('Shades of Jae');
+  });
+
+  it('an empty artist or title is missing, never sorted as text', () => {
+    expect(sortValue('artist', line(r({ artist: ' ' })))).toBeNull();
+    expect(sortValue('title', line(r({ title: '' })))).toBeNull();
+  });
+
+  it('a gap has no artist and no title', () => {
+    const gap = line(r({ gap: true, artist: 'X', title: 'Y' }));
+    expect(sortValue('artist', gap)).toBeNull();
+    expect(sortValue('title', gap)).toBeNull();
+  });
+
+  it('both start A to Z', () => {
+    expect(SORT_FIRST.artist).toBe('asc');
+    expect(SORT_FIRST.title).toBe('asc');
+  });
+
+  it('the Sort select offers Artist then Title, never "Artist – Title"', () => {
+    const labels = sortChoices([r({})]).map((c) => c.label);
+    expect(labels).toEqual(['Time', 'Artist', 'Title', 'Label', 'Spotify']);
+    expect(labels).not.toContain('Artist – Title');
+  });
+
+  const rows = [
+    line(r({ artist: 'Zed', title: 'alpha' })),
+    line(r({ artist: 'Ann', title: 'Omega' })),
+    line(r({ artist: 'ann', title: 'beta' })),
+    line(r({ gap: true, artist: '', title: '' })),
+    line(r({ artist: 'Émile', title: 'Delta' })),
+  ];
+  const order = (id: SortId, d: 'asc' | 'desc') =>
+    sortRows(rows, (l) => sortValue(id, l), d).map(
+      (l) => `${l.row.artist}/${l.row.title}`
+    );
+
+  it('by artist: A to Z without case or accents, ties in set order, the gap last both ways', () => {
+    expect(order('artist', 'asc')).toEqual([
+      'Ann/Omega',
+      'ann/beta',
+      'Émile/Delta',
+      'Zed/alpha',
+      '/',
+    ]);
+    expect(order('artist', 'desc')).toEqual([
+      'Zed/alpha',
+      'Émile/Delta',
+      'Ann/Omega',
+      'ann/beta',
+      '/',
+    ]);
+  });
+
+  it('by title: the track name alone, no longer grouped by artist', () => {
+    expect(order('title', 'asc')).toEqual([
+      'Zed/alpha',
+      'ann/beta',
+      'Émile/Delta',
+      'Ann/Omega',
+      '/',
+    ]);
+  });
+
+  it('an old saved choice the rows do not offer falls back to the set order', () => {
+    const old = { columnId: 'artist-title', direction: 'desc' as const };
+    expect(effectiveSort(old, [r({})])).toEqual({
+      columnId: null,
+      direction: 'asc',
+    });
+    const artist = { columnId: 'artist', direction: 'asc' as const };
+    expect(effectiveSort(artist, [r({})])).toEqual(artist);
   });
 });
 
@@ -118,9 +197,10 @@ describe('sortChoices and effectiveSort', () => {
 
   it('offers confidence and released only when a row has them; no source, clips, library or review', () => {
     const ids = (rows: TracklistRow[]) => sortChoices(rows).map((c) => c.id);
-    expect(ids(plain)).toEqual(['time', 'title', 'label', 'spotify']);
+    expect(ids(plain)).toEqual(['time', 'artist', 'title', 'label', 'spotify']);
     expect(ids(rich)).toEqual([
       'time',
+      'artist',
       'title',
       'label',
       'confidence',

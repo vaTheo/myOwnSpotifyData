@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-09
+> **Last updated**: 2026-11-10
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -277,7 +277,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   answer joins the app's one lock-out (§4 `quotaLock.ts`), which disables the button with its message until it lapses.
 - `review.ts` (T118, T127, spec 010): the filter chips All, Not on Spotify and Heard once (N) (only when a row has `hits`), one at a
   time, gaps under All only; the header line "N tracks · M on Spotify · L not found". Every track is kept: there is no Validate and
-  no To review or Validated chip (spec 010). The Review column's ✕ (**Remove**) is `deleteMixRow`, like More › Delete. The optional
+  no To review or Validated chip (spec 010). The table's columns (Artist and Title apart since spec 020) and sorts: §13. The Review column's ✕ (**Remove**) is `deleteMixRow`, like More › Delete. The optional
   `TracklistRow.validated` stays in the schema for old saved mixes; nothing sets it any more.
 - `keepReview.ts` (T125, owner's D1): `mergeKeepingReview` replaces `mergeWorkerRows` when a result lands on a saved mix
   (`mixWithResult`, `server/sync.ts`). An untouched scan row matched by an incoming row (same ISRC, else `artistCore` and `sameTitle`)
@@ -485,7 +485,8 @@ screen, grouped by role under `src/ui/`.
     year or a Top item's), whose year still shows from the album; ReccoBeats' album list is asked only for the rest. Its ReccoBeats
     id lookups run first as their own counted pass (`PASS_RIDS`), so the line moves from the start instead of sitting at 0.
 - **Mix tracklist sort** (spec 009): the table's own `SortState` is the one sort. Every column with a comparable value has a
-  `sortValue` and a first direction in `ui/mix/tracklistSort.ts` (`sortValue`, `SORT_FIRST`): Time, Artist – Title, Label,
+  `sortValue` and a first direction in `ui/mix/tracklistSort.ts` (`sortValue`, `SORT_FIRST`): Time, Artist, Title (spec 020: the
+  artist text and the track name alone, A to Z first, an empty one missing), Label,
   Confidence (how many clips found the track, then the best %; highest first), Released and Spotify (not found, unchecked, found);
   Listen, Review and More do not sort. Spec 010 removed the Source, Clips, In your library and Validate columns and their sorts. `DataTable` sorts: missing values
   last in both directions, ties in set order. The Sort select (all widths, `TracklistTable.tsx`) is built by `sortChoices` from the
@@ -495,13 +496,21 @@ screen, grouped by role under `src/ui/`.
   `playLinks` (`ui/mix/rowText.ts`: Play on Spotify from the Check answer or the library match, never a local file, always the
   `spotify:track:` app link opened in place, on every device; Shazam while the row is the scan's) before the dig links' search
   pages; no lookup by name is made for the other platforms (ADR-04).
-- **Leaner tracklist** (spec 010): columns Time, Artist – Title, Label, Confidence, Released (when a row has a year), Spotify,
-  Listen, Review (✕ only). The Confidence cell merges the clip count: "×3 · 92%" (`confidenceShort`), the long "heard 3× · best
+- **Leaner tracklist** (spec 010): columns Time, Artist, Title (two columns since spec 020), Label, Confidence, Released (when a
+  row has a year), Spotify, Listen, Review (✕ only). The Confidence cell merges the clip count: "×3 · 92%" (`confidenceShort`), the long "heard 3× · best
   92 %" (`confidenceText`) its tooltip, screen-reader text and phone meta line. A found row's Spotify cell is an icon link to
   `spotify:track:<id>`, opened in place; on a phone the meta line says "On Spotify" as plain text and Play on Spotify is in
   More › Listen…. `listenIcons(row)` puts one-click icons beside the Listen menu (and on the phone meta line), each in a new tab:
   Shazam (the stored page, while the row is the scan's) and SoundCloud (the search page for artist and title, every identified
   row; gap and "ID" rows never).
+- **Artist and Title columns** (spec 020, `specs/020-mix-artist-title-columns/`): `TracklistTable.tsx` draws the artist and the
+  track name as two priority-1 columns, `artist` (`minmax(112px, 1fr)`) then `title` (`minmax(176px, 1.5fr)`; Label `minmax(0, 0.6fr)`),
+  so the title keeps `MIN_TITLE_PX` down to a 584 px table (two-line items below, `fitLevel`). `TitleCell` holds the track name and
+  the unchanged second line (not heard, origin, quote, references, check); its tooltip and every aria name ("Listen to …",
+  "More for …", "Remove …", "Link a Spotify track to …") keep `nameOf`, "Artist – Title". On a phone the Artist column is left
+  out of the item (`compact: 'hidden'`) and `TitleCell`'s `.mix-artist` line, shown only inside `.dt-item`, puts the artist right
+  under the title, before the second line; the label and the meta line follow as before. No stored field changes: rows keep
+  `artist` and `title`.
 - **Link a Spotify track** (round 012): a not-found row's red mark (computer: the Spotify column's icon button; phone: the "Not
   found on Spotify" text as a 48 px button, named "Not found on Spotify: link a Spotify track to <track>" so the words it shows start
   its name) is labelled "Link a Spotify track to <track>" and opens `ui/mix/LinkForm.tsx` in the
