@@ -43,6 +43,7 @@ import { StatusLine } from './components/StatusLine';
 import { artistNames, formatBpm, plural } from './format';
 import { DETAIL_COMPACT_BELOW } from './layout/ListDetail';
 import { windowClass } from './layout/windowClass';
+import { spotifyTrackId } from './listen';
 import { matchCells, type MatchCells } from './playlist/matchCells';
 import {
   addedColumn,
@@ -51,6 +52,7 @@ import {
   bpmColumn,
   durationColumn,
   keyColumn,
+  playColumn,
   playsColumn,
   rankColumn,
   spotifyLinkColumn,
@@ -164,14 +166,20 @@ const deltaColumn: Column<ListedRow> = {
 };
 
 /**
- * Spec 003 §8: # · title · artists · album · length · added · plays ·
- * (relation · ΔBPM in Match) · top · BPM · key · released · link. Match's
+ * Spec 003 §8: play · # · title · artists · album · length · added ·
+ * plays · (relation · ΔBPM in Match) · top · BPM · key · released · link
+ * (play: round 017). Match's
  * two columns take the place of Album and Added, priority-4 columns, so the
  * title stays readable at 1440 (review of S02).
  */
 function playlistColumns(m: Model, matching: boolean): Column<ListedRow>[] {
   const featureOf = (r: ListedRow) => r.feature;
   return [
+    playColumn((r) => ({
+      id: spotifyTrackId(r.row.track.id),
+      artist: artistNames(r.row.track.artists),
+      title: r.row.track.name,
+    })),
     rankColumn(),
     titleColumn((r) => r.row.track.name),
     // The Released column (round 005) takes 88 px: the artists give way

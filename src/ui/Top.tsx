@@ -20,12 +20,14 @@ import { TrackSheet } from './details/TrackDetails';
 import { besideSheet } from './layout/SideSheet';
 import { artistNames, TOP_PERIOD_LABEL } from './format';
 import { windowClass } from './layout/windowClass';
+import { spotifyTrackId } from './listen';
 import {
   artistsColumn,
   bpmColumn,
   countColumn,
   coverColumn,
   keyColumn,
+  playColumn,
   playlistsColumn,
   playsColumn,
   rankColumn,
@@ -54,8 +56,8 @@ const PERIOD_OPTIONS = (
 ).map((value) => ({ value, label: TOP_PERIOD_LABEL[value] }));
 
 /**
- * Tracks: # · cover · title · artists · plays · playlists · BPM · key ·
- * released · link.
+ * Tracks: play · # · cover · title · artists · plays · playlists · BPM ·
+ * key · released · link (play: round 017).
  */
 function trackColumns(
   hasPlaylists: boolean,
@@ -63,6 +65,11 @@ function trackColumns(
   yearOfRow: (row: AnnotatedTopTrack) => number | null
 ): Column<AnnotatedTopTrack>[] {
   return [
+    playColumn((r) => ({
+      id: spotifyTrackId(r.item.id),
+      artist: artistNames(r.item.artists),
+      title: r.item.name,
+    })),
     rankColumn(),
     coverColumn((r) => r.item.imageUrl),
     titleColumn((r) => r.item.name),

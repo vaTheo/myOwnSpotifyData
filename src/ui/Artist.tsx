@@ -25,11 +25,13 @@ import {
 import { Icon } from './icons';
 import { DETAIL_COMPACT_BELOW } from './layout/ListDetail';
 import { windowClass } from './layout/windowClass';
+import { spotifyTrackId } from './listen';
 import {
   albumColumn,
   bpmColumn,
   countColumn,
   keyColumn,
+  playColumn,
   playsColumn,
   spotifyLinkColumn,
   titleColumn,
@@ -162,13 +164,18 @@ function ArtistReach(p: { m: Model; id: string | null }) {
 }
 
 /**
- * Title · album · plays · playlists · BPM · key · released · link (spec 003
- * §10, round 005).
+ * Play · title · album · plays · playlists · BPM · key · released · link
+ * (spec 003 §10, round 005; play: round 017).
  */
 function trackColumns(m: Model): Column<ArtistTrack>[] {
   const featureOf = (r: ArtistTrack) =>
     r.track.id ? featureFor(m, r.track.id) : null;
   return [
+    playColumn((r) => ({
+      id: spotifyTrackId(r.track.id),
+      artist: artistNames(r.track.artists),
+      title: r.track.name,
+    })),
     titleColumn((r) => r.track.name),
     albumColumn((r) => r.track.album || null, {
       priority: 2,
