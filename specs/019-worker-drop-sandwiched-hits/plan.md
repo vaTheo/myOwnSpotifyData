@@ -4,10 +4,9 @@
 
 ## Summary
 
-A pure `drop_sandwiched(hits, gap)` in `worker/mix_worker/scan.py` next to `merge`: sort hits by time; for each hit whose `_key` differs
-from the key of both the nearest earlier hit of some song A and the nearest later hit of the same A... precisely: for a hit h, find the
-nearest earlier hit p and nearest later hit n **with the same key as each other** around h — i.e. scan the sorted list for runs
-`A, (non-A)+, A` with `time(second A) - time(first A) <= gap` and drop the non-A hits of the run. `scan()` calls it just before
+A pure `drop_sandwiched(hits, gap)` in `worker/mix_worker/scan.py`, next to `merge`: sort the hits by time and look for runs `A, (non-A)+, A`
+where both A hits are neighbours of that run (nearest A before, nearest A after) and `second_A.time - first_A.time <= gap`; the non-A hits of
+such a run are dropped. `scan()` calls it just before
 `return merge(hits, gap)` (scan.py:750) and counts the dropped hits into `report["sandwiched"]` (a line in the run's report and progress).
 `hits_out` (the run-state hits) stays the raw hits. Version 0.7.2.
 
