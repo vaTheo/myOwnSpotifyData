@@ -4,6 +4,7 @@ import { ACCOUNT_MISMATCH_NOTICE } from '../sync/runner';
 import type { Query, ServerClient, ServerResult } from './client';
 import {
   cancelRequest,
+  deleteLinkRequests,
   moveRequestToTop,
   readUsage,
   requestIdentify,
@@ -1479,6 +1480,24 @@ describe('queue control and progress (round 004)', () => {
       value: 'gone',
     });
     expect(fake.tables.jobs.map((r) => r.status)).toEqual(['claimed']);
+  });
+
+  it('deletes the finished requests of one link and leaves the others', async () => {
+    const link = 'https://soundcloud.com/a/1';
+    const fake = fakeServer({
+      jobs: [
+        queued(1, { status: 'failed' }),
+        queued(2, { status: 'done', payload: { url: link } }),
+        queued(1, { status: 'queued', payload: { url: link } }),
+        queued(3, { status: 'failed' }),
+      ].map((r, i) => ({ ...r, id: `00000000-0000-4000-8000-00000000009${i}` })),
+    });
+    fake.tables.jobs[0].payload = { url: link };
+    expect(await deleteLinkRequests(fake.client, 'tok', link)).toEqual({
+      ok: true,
+      value: 2,
+    });
+    expect(fake.tables.jobs.map((r) => r.status)).toEqual(['queued', 'failed']);
   });
 
   it('moves a waiting request above the others', async () => {

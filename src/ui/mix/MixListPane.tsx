@@ -9,6 +9,7 @@ import { requestKey } from '../../features/mix/url';
 import { requestStatusText } from '../../features/mix/worker';
 import {
   closeMix,
+  deleteMixForever,
   mixError,
   mixJobs,
   mixQueueNote,
@@ -182,6 +183,16 @@ function remove(url: string): void {
   })();
 }
 
+/** Delete forever: the open mix closes first, as with Remove. */
+async function removeForever(url: string): Promise<void> {
+  const wasOpen = openUrl() === url;
+  await deleteMixForever(url);
+  if (wasOpen && !savedMixes.value.some((m) => m.url === url)) {
+    closeMix();
+    location.replace(routeHref({ name: 'mix' }));
+  }
+}
+
 export const CHIP_FLAG: Record<MixChipKind, FlagKind | undefined> = {
   queued: undefined,
   identifying: 'plays',
@@ -263,6 +274,7 @@ function MixItem(p: { item: MixListItem; open: string | null }) {
     item.chip.kind === 'identifying' ||
     item.chip.kind === 'paused' ||
     item.chip.kind === 'stopping';
+  const busy = running || item.chip.kind === 'queued';
   return (
     <li class="mix-item">
       <div class="mix-item-head">
@@ -289,10 +301,22 @@ function MixItem(p: { item: MixListItem; open: string | null }) {
             </button>
           )}
         </div>
-        {item.saved && (
+        {(item.saved || !busy) && (
           <RowMenu
             label={`More for ${item.title}`}
-            items={[{ label: 'Remove', onSelect: () => remove(item.key) }]}
+            items={[
+              ...(item.saved
+                ? [{ label: 'Remove', onSelect: () => remove(item.key) }]
+                : []),
+              ...(busy
+                ? []
+                : [
+                    {
+                      label: 'Delete forever',
+                      onSelect: () => void removeForever(item.key),
+                    },
+                  ]),
+            ]}
           />
         )}
       </div>

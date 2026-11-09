@@ -138,6 +138,7 @@ import {
   requestIdentify,
   runPull,
   cancelRequest,
+  deleteLinkRequests,
   moveRequestToTop,
   stopRequest,
   runPush,
@@ -2463,6 +2464,38 @@ export async function removeMix(url: string): Promise<void> {
   }
   await loadSavedMixes();
   void queueServerPush(['mixes']);
+}
+
+export const DELETE_MIX_CONFIRM =
+  "Delete this mix forever? Its saved tracks and request history are removed and can't be restored.";
+
+/**
+ * Round 018: removes a link for good: its finished requests on the server,
+ * then its saved mix. A failed server delete leaves the saved mix alone.
+ */
+export async function deleteMixForever(url: string): Promise<void> {
+  if (!confirm(DELETE_MIX_CONFIRM)) return;
+  mixError.value = null;
+  mixQueueNote.value = null;
+  if (serverConfigured && serverAuth.session.value) {
+    const token = await serverAuth.getAccessToken();
+    if (!token.ok) {
+      serverState.value = serverFailure(token);
+      mixError.value = queueFailure('Could not delete the mix', token.message);
+      return;
+    }
+    const res = await deleteLinkRequests(serverClient, token.value, url);
+    if (!res.ok) {
+      serverState.value = serverFailure(res);
+      mixError.value = queueFailure('Could not delete the mix', res.message);
+      return;
+    }
+  } else if (Object.keys(mixJobs.value).includes(url)) {
+    mixError.value = 'Sign in to the server (Settings)';
+    return;
+  }
+  if (savedMixes.value.some((m) => m.url === url)) await removeMix(url);
+  await startServerPull();
 }
 
 export async function disconnect(): Promise<void> {
