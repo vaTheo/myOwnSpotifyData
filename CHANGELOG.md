@@ -8,6 +8,13 @@ by feature, newest first, and name their spec under `docs/specs/`. Entries befor
 Documentation only. The README opens with **Quick start: what you have to do**: three short lists (use the app, identify a mix with
 the worker, set everything up as the owner), and `worker/README.md` opens with a five-step quick start. No code, no migration, no
 worker version change.
+## 2026-11-09 — The worker's mode follows the account (worker 0.7.1)
+
+`WORKER_MODE` now defaults to `auto`: after sign-in the worker asks the server whether the account is listed in `shared_workers` and runs
+as a shared worker if it is, personal if not; the start line says which. `personal` and `shared` still force a mode; a failed check
+ends the run (exit 2) and never guesses. No app change, no migration. **What to do:** download worker 0.7.1; in an existing
+`mix-worker.env` change `WORKER_MODE=shared` (or `personal`) to `auto`, or delete the line.
+[ADR-16](docs/architecture/700-adr/ADR-16-shared-worker.md) amendment.
 
 ## 2026-11-08 — TrackId.net with the Shazam probes (worker 0.7.0)
 

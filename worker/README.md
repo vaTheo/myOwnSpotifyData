@@ -133,7 +133,7 @@ queue. The scanned JSON stays in your music folder, so you can also import it by
 | 4 | not signed in, or the session expired | `mix-worker login` |
 | 5 | a setting is missing or ffmpeg cannot start | the message names the setting and the file |
 | 6 | the settings template was just written (packaged form) | fill the two values, start again |
-| 7 | `WORKER_MODE=shared` and the account is not (or no longer) in `shared_workers` | ask the owner to add it, or set `WORKER_MODE=personal` |
+| 7 | `WORKER_MODE=shared` (forced) and the account is not (or no longer) in `shared_workers` | ask the owner to add it, or set `WORKER_MODE=personal` |
 | 130 | stopped with Ctrl-C | the current request was released |
 
 ## Settings
@@ -152,7 +152,7 @@ Only the first two are required.
 | `WORKER_FFMPEG` | the packaged ffmpeg | another ffmpeg to use instead |
 | `WORKER_YTDLP_COOKIES` | none | a Netscape cookies file for platforms that need your login |
 | `WORKER_PROXY` | none | an HTTP proxy for the recognition calls |
-| `WORKER_MODE` | personal | `personal` takes your own account's requests; `shared` takes every user's, for an account added to `shared_workers` (exit 7 when it is not). In shared mode only `https` SoundCloud links (`soundcloud.com`, `www.`, `m.`) are fetched; any other link fails with "link not allowed in shared mode". A stale `claimed_by_user` left after a personal takeover is harmless |
+| `WORKER_MODE` | auto | `auto` asks the server what the signed-in account is: listed in `shared_workers` means shared, otherwise personal; the start line says which and why. `personal` takes only your own account's requests; `shared` takes every user's, for an account added to `shared_workers` (exit 7 when it is not). A `mix-worker.env` that already says `personal` or `shared` forces it. In shared mode only `https` SoundCloud links (`soundcloud.com`, `www.`, `m.`) are fetched; any other link fails with "link not allowed in shared mode". A stale `claimed_by_user` left after a personal takeover is harmless |
 | `WORKER_STALE_SECONDS` | 21600 | a request left "running" longer than this (a crash, a power cut) is taken again |
 | `WORKER_POLL_SECONDS` | 60 | `--watch`: seconds between two looks at the queue |
 | `WORKER_HEARTBEAT_SECONDS` | 30 | `--watch`: an "alive" line this often while waiting, so you can see it still runs |

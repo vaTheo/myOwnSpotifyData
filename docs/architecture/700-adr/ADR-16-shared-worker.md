@@ -45,7 +45,7 @@ reaches the queue only through five functions.
   `m.soundcloud.com` (the hosts the app itself creates requests for); anything else is finished as failed, "link not allowed in
   shared mode", before any download, so a friend's request cannot make the owner's computer fetch an arbitrary address (the owner's
   cookies, the local network). Personal mode is unchanged.
-- **Both modes stay.** `WORKER_MODE=personal` (default) is today's worker and `claim_job` is untouched; `shared` checks
+- **Both modes stay.** `WORKER_MODE=personal` is today's worker and `claim_job` is untouched; `shared` checks
   `is_shared_worker()` at start and stops with exit code 7 when the account is not on the list.
 
 Still true: the server stores, never computes, never calls Spotify; no secret reaches the app.
@@ -59,6 +59,14 @@ count or another request; the owner switches a worker off with one deleted row; 
 owner's computer carries every user's identification load; a turn is recorded when a request is taken, so a request released or
 stalled still used its owner's turn; there is no per-user cap on queued requests, no shared result between two users who asked the same link, and no app
 screen for workers (see Limits and roadmap).
+
+## Amendment (round 017, worker 0.7.1): the mode follows the account
+
+`WORKER_MODE` defaults to `auto`: after sign-in the worker asks `is_shared_worker` and runs shared when the account is listed,
+personal when it is not. `personal` and `shared` stay as forced values (a forced `shared` on an unlisted account still exits 7). A
+failed check ends the run with its exit code and never guesses. The server, the five functions and the isolation are unchanged: the
+role is still granted only by the owner's row in `shared_workers`. Cost: an account the owner lists and also uses personally now
+takes everyone's requests; keep a dedicated account for the role (the start line names the mode).
 
 ## Links
 

@@ -441,12 +441,56 @@ class SharedStart(unittest.TestCase):
             self.assertNotIn("release", [c[0] for c in client.calls])
 
 
+class AutoMode(unittest.TestCase):
+    """Round 017: `auto` asks the server what the account is, then runs as shared or personal."""
+
+    def test_listed_account_switches_to_shared(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            job = a_job()
+            job["payload"]["url"] = "https://soundcloud.com/a/b"
+            first = QueueClient([], Result("ok", True, 200))
+            shared = QueueClient([Result("ok", job), Result("ok", None)], Result("ok", True, 200))
+            with mock.patch("mix_worker.cli.make_client", return_value=shared) as made:
+                code, lines = queue_run(tmp, first, "auto")
+            self.assertEqual(code, EXIT_OK)
+            self.assertEqual(made.call_args[0][0].worker_mode, "shared")
+            self.assertEqual([c[0] for c in first.calls].count("is_shared_worker"), 1)
+            self.assertTrue(any(l.endswith("shared worker (the account is listed)") for l in lines))
+            self.assertIn("finish", [c[0] for c in shared.calls])
+
+    def test_ordinary_account_runs_personal_on_the_first_client(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = QueueClient([Result("ok", a_job()), Result("ok", None)], Result("ok", False, 200))
+            code, lines = queue_run(tmp, client, "auto")
+            self.assertEqual(code, EXIT_OK)
+            self.assertTrue(any("personal worker (the account is not listed)" in l for l in lines))
+            self.assertEqual([c[0] for c in client.calls].count("is_shared_worker"), 1)
+            self.assertIn("finish", [c[0] for c in client.calls])
+
+    def test_ordinary_account_does_not_apply_the_soundcloud_only_rule(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = QueueClient([Result("ok", a_job()), Result("ok", None)], Result("ok", False, 200))
+            _, lines = queue_run(tmp, client, "auto")
+            self.assertFalse(any("not allowed in shared mode" in l for l in lines))
+
+    def test_a_failed_role_check_stops_without_guessing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = QueueClient([], Result("offline", None, 0, "no network"))
+            code, lines = queue_run(tmp, client, "auto")
+            self.assertEqual(code, 2)
+            self.assertNotIn("claim", [c[0] for c in client.calls])
+            self.assertIn("server: no network", lines)
+
+
 class PersonalUntouched(unittest.TestCase):
     """Round 015 T016: the default setting never reaches an rpc of migration 0006."""
 
     def test_default_mode_is_personal(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self.assertEqual(Settings.__dataclass_fields__["worker_mode"].default, "personal")
+            # Round 017: the default is now "auto", whose client starts personal; the run itself is pinned below.
+            self.assertEqual(Settings.__dataclass_fields__["worker_mode"].default, "auto")
             self.assertIs(type(make_client(queue_settings(tmp, Settings.__dataclass_fields__["worker_mode"].default))), ServerClient)
 
     def test_personal_run_calls_claim_job_and_patches_jobs_only(self):
@@ -480,7 +524,7 @@ class PersonalUntouched(unittest.TestCase):
         opener = Opener()
         with tempfile.TemporaryDirectory() as tmp:
             client = ServerClient("https://abc.supabase.co", "k", opener=opener, sleep=lambda s: None)
-            code, _ = queue_run(tmp, client, Settings.__dataclass_fields__["worker_mode"].default)
+            code, _ = queue_run(tmp, client, "personal")
         self.assertEqual(code, EXIT_OK)
         urls = [u for _, u in opener.calls]
         for name in ("is_shared_worker", "claim_any_job", "worker_finish_job", "worker_set_progress", "worker_release_job"):

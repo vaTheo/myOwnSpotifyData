@@ -712,11 +712,12 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   no command = the double-click: login if needed, then watch; a packaged start without a settings file writes `mix-worker.env`
   and exits 6. Exit codes 0/2/3/4/5/6/7/130 (`contracts/worker.md`; 7 = not, or no longer, a shared worker). Every dependency (environment, terminal, clock, client, the
   queue loop) is a `CliDeps` field, so `tests/test_cli.py` runs every command offline.
-- Round 015 (shared mode, `WORKER_MODE=shared`): `cli.make_client` picks `SharedServerClient`, the start asks `is_shared_worker`
+- Round 015 (shared mode, `WORKER_MODE=shared`, or chosen by `auto` since round 017): `cli.make_client` picks `SharedServerClient`, the start asks `is_shared_worker`
   once, and the claim takes the next request of any user in turns. **Move to top** orders a user's own requests only in shared
   mode: the fair turn between users comes before `priority`. Shared mode fetches only `https` SoundCloud links (`shared_link_allowed` in `cli.py`, checked before `run_one`; any other link is finished failed, "link not allowed in shared mode"). Personal mode and `claim_job` are unchanged.
-- Worker modes (`WORKER_MODE`, read by `config.py`; anything but `personal` or `shared` is a settings error, exit 5). **personal**
-  (default): the account that signed in, its own queue, `claim_job` and table reads and writes. **shared**: the account is listed in
+- Worker modes (`WORKER_MODE`, read by `config.py`; anything but `auto`, `personal` or `shared` is a settings error, exit 5). **auto** (default, round 017): after sign-in
+  `run_queue` asks `is_shared_worker` (on the base client) and runs as shared (`make_client` swaps the client) or personal; a failed
+  check exits with its code, never a guessed mode. **personal**: the account that signed in, its own queue, `claim_job` and table reads and writes. **shared**: the account is listed in
   `shared_workers`; `SharedServerClient` replaces `claim`, `finish`, `progress` and `release` with `claim_any_job`,
   `worker_finish_job`, `worker_set_progress` and `worker_release_job` (§16), never reads a personal table, and a 42501 during a run
   logs "no longer a shared worker" and exits 7. One probe at a time and no Spotify host in both.
