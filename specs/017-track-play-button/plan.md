@@ -77,9 +77,9 @@ src/
 │   ├── Playlist.tsx                   # same
 │   ├── Artist.tsx                     # same (its track table)
 │   ├── crate/shared.tsx               # play first, listen last (every Crate view)
-│   ├── overview/Overview.tsx          # play button beside the item link (R6)
+│   ├── overview/Overview.tsx          # ▶, the item link, then the Listen menu (R6)
 │   └── mix/TracklistTable.tsx         # SpotifyCell found case renders PlayOnSpotify
-└── styles.css                         # Overview item as button + link row
+└── styles.css                         # Overview item as button + link + menu row
 tools/shots/regression.spec.ts         # new rows
 specs/003-web-first-redesign/regression.md
 ```
@@ -93,10 +93,6 @@ compact layout places `lead` first and `trail` last, and its row click already i
 (row), `README.md` (owner's manual: ▶ and the Listen menu), `CHANGELOG.md`, `docs/specs/2026-11-09-track-play-button-design.md`
 (listed in `docs/README.md`), `specs/003-web-first-redesign/contracts/` where they list a track table's columns. No ADR: no lasting
 decision beyond the existing ones.
-
-## Open point for the owner
-
-Research R6: the Overview track items get the ▶ button; should they also get the headphones menu? The plan draws ▶ only.
 
 ## Complexity Tracking
 

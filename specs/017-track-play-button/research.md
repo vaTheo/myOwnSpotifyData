@@ -56,11 +56,10 @@ No NEEDS CLARIFICATION was left in the spec; these are the design choices, each 
 ## R6. The Overview list
 
 - **Decision**: an Overview item is one `<a>` over the whole row (`src/ui/overview/Overview.tsx:101`); a button inside a link is
-  invalid HTML. The item becomes a row of two siblings: the play button, then the existing link. The Overview gets no Listen menu
-  (its cards are short summaries; the menu is one tap away in the list the card links to).
-- **Rationale**: the spec's FR-001 names the Overview for the play button; FR-007 names "every list of FR-001" for the menu.
-  **This is a deviation to confirm with the owner** before tasks: options are (a) play button only on the Overview, (b) both.
-  The plan draws (a); (b) adds one 48 px menu per item on a narrow card.
+  invalid HTML. The item becomes a row of three siblings: the play button, the existing link, then the headphones menu
+  (`RowMenu`, the same items as the tables).
+- **Rationale**: FR-001 and FR-007 name the Overview; the owner picked both controls (2026-11-09, option B over ▶ only).
+- **Alternatives**: ▶ only on the Overview (rejected by the owner: every track row the same).
 
 ## R7. Tests and checks
 

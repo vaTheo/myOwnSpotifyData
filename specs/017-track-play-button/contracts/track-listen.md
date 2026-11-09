@@ -38,7 +38,7 @@ renders this component.
 | Playlist | first | last | `spotifyLinkColumn` |
 | Artist (tracks) | first | last | `spotifyLinkColumn` |
 | Crate views (one column list, `shared.tsx`) | first | last | none (had none) |
-| Overview track items | first, beside the link | no (R6, to confirm) | none |
+| Overview track items | first, before the link | last, after the link (R6) | none |
 | Mix tracklist | unchanged (renders `PlayOnSpotify`) | unchanged | none |
 | Top artists, Artists, Under the radar, Playlists | unchanged | unchanged | keep `spotifyLinkColumn` |
 
