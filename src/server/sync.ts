@@ -813,6 +813,30 @@ export async function cancelRequest(
   return ok(res.value.length > 0 ? 'cancelled' : 'gone');
 }
 
+/**
+ * Deletes every finished request (done or failed) of this link; a waiting or
+ * running one is never touched (Cancel or Stop comes first). Returns how many
+ * rows went.
+ */
+export async function deleteLinkRequests(
+  client: ServerClient,
+  token: string,
+  url: string
+): Promise<ServerResult<number>> {
+  const res = await client.removeReturning<unknown>(
+    'jobs',
+    {
+      kind: `eq.${JOB_KIND}`,
+      'payload->>url': `eq.${url}`,
+      status: 'in.(done,failed)',
+      select: 'id',
+    },
+    token
+  );
+  if (!res.ok) return res;
+  return ok(res.value.length);
+}
+
 /** Makes a waiting request the next one the worker takes. */
 export async function moveRequestToTop(
   client: ServerClient,
