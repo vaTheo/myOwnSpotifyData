@@ -64,7 +64,11 @@ function place(r: DOMRect, items: number): Place {
  */
 export function RowMenu(p: {
   label: string;
-  items: RowMenuItem[];
+  /**
+   * The items, or a function that builds them when the menu opens (a track
+   * table's Listen menu: nothing is built for a row whose menu stays shut).
+   */
+  items: RowMenuItem[] | (() => RowMenuItem[]);
   /** The button's icon: `more_vert` unless given (Listen: `headphones`). */
   icon?: IconName;
 }) {
@@ -75,6 +79,8 @@ export function RowMenu(p: {
   // page: that focus loss must not close the menu.
   const switching = useRef(false);
   const open = at !== null;
+  const itemsOf = (): RowMenuItem[] =>
+    typeof p.items === 'function' ? p.items() : p.items;
   const setAt = (next: Place | null): void => {
     if (next === null) setSub(null);
     setAtState(next);
@@ -126,7 +132,7 @@ export function RowMenu(p: {
     }
     const r = box.current?.getBoundingClientRect();
     if (!r) return;
-    setAt(place(r, p.items.length));
+    setAt(place(r, itemsOf().length));
   }
 
   return (
@@ -199,13 +205,13 @@ export function RowMenu(p: {
                 const r = box.current?.getBoundingClientRect();
                 switching.current = true;
                 setSub(null);
-                if (r) setAtState(place(r, p.items.length));
+                if (r) setAtState(place(r, itemsOf().length));
               }}
             >
               ‹ Back
             </button>
           )}
-          {(sub ?? p.items).map((item) =>
+          {(sub ?? itemsOf()).map((item) =>
             item.href ? (
               <a
                 key={item.label}

@@ -27,7 +27,7 @@ renders this component.
 | `priority` | 1 |
 | `width` | `64px` |
 | `compact` | `trail` |
-| cell | `<RowMenu icon="headphones" label="Listen to {artist} – {title}" items={trackListenItems(track)} />` |
+| cell | `<RowMenu icon="headphones" label="Listen to {artist} – {title}" items={() => trackListenItems(track)} />`: the items are built when the menu opens |
 | position | last entry, in place of `spotifyLinkColumn` |
 
 ## Pages

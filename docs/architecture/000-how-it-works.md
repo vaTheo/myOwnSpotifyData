@@ -393,8 +393,10 @@ screen, grouped by role under `src/ui/`.
   or a `spotify:local:` URI into `null`). `playColumn` draws `components/PlayOnSpotify.tsx` (an `IconButton` `play_arrow`,
   "Play {artist} – {title} on Spotify", the app's `spotify:track:<id>` opened in place, the Mix's found mark too) or nothing;
   `listenColumn` draws `mix/RowMenu.tsx` with the `headphones` icon and `trackListenItems` (Play on Spotify and the web page
-  when there is an id, then the five `digLinks` searches). It replaces `spotifyLinkColumn` on those tables; artist and playlist
-  tables keep it. On a phone ▶ leads the item (`.dt-item-lead` lays its cells in a row: ▶ then the cover or the rank) and the
+  when there is an id, then the five `digLinks` searches), passed as a function so the items are built only when the menu
+  opens, not for every row on every page of "Show 100 more" (`RowMenu`'s `items` takes an array, the Mix's, or that function).
+  It replaces `spotifyLinkColumn` on those tables; artist and playlist tables keep it. On a phone ▶ leads the item
+  (`.dt-item-lead` lays its cells in a row: ▶ then the cover or the rank) and the
   menu is its trail. `DataTable` skips row clicks inside `a, button`, so neither opens the details. No request is made until
   a link is opened.
 - **Details and list–detail**: `layout/SideSheet.tsx` docks the sheet at 400 px on large windows, a modal on medium and
@@ -409,8 +411,9 @@ screen, grouped by role under `src/ui/`.
   gives its values on hover, on focus and as text.
 - **Screens**: `overview/` (`blocks.ts`, pure, from stored data only, never Spotify, each block behind its screen's gate;
   the play-button round: an item with `trackId` is `li.ov-track`, ▶ when `spotifyTrackId` gives an id (else an `aria-hidden`
-  spacer of its width), the `a.ov-item` link, then the Listen `RowMenu`, siblings so no button sits in the link; on a card under
-  400 px the link wraps to two lines, bars or pills and value under the title, nothing hidden),
+  spacer of its width), the `a.ov-item` link, then the Listen `RowMenu` (its items built when it opens), siblings so no
+  button sits in the link; on a card under 400 px the link wraps to two lines, bars or pills and value under the title,
+  nothing hidden),
   `Top.tsx` with `top/ComparePeriods.tsx` (the three periods side by side on large windows), `crate/` (`CrateHub` cards,
   `CrateView` dispatching to the five view tables, `shared.tsx`, `labels.ts`, `selections.ts`; gated on
   `historySummary.version === 2`, never on rows), `Playlists.tsx`, `Playlist.tsx` (one strip above the table: meta, Sync and

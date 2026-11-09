@@ -129,7 +129,7 @@ function Item(p: {
       <RowMenu
         icon="headphones"
         label={`Listen to ${track.artist} – ${track.title}`}
-        items={trackListenItems(track)}
+        items={() => trackListenItems(track)}
       />
     </li>
   );

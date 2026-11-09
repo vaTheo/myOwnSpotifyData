@@ -232,11 +232,22 @@ function yearOrder(cells: string[], dir: 'asc' | 'desc'): string | null {
   return sorted ? null : `years not ${dir}: ${dated.slice(0, 12).join(', ')}`;
 }
 
-/** Pages a DataTable to its end ("Show 100 more" until it goes). */
+/**
+ * Pages a DataTable to its end ("Show 100 more" until it goes). The click
+ * is dispatched, not a pointer click: a pointer click scrolls the button
+ * into view, which brings the infinite-scroll sentinel near the viewport,
+ * and a page that sentinel adds can move the button away before the click
+ * lands; Playwright then scrolls again, chasing it to the last page, and
+ * waits for a button that is gone (Y01, round 017). A button the sentinel
+ * removes meanwhile ends the wait; the loop checks again.
+ */
 async function showAll(page: Page): Promise<void> {
   const more = page.getByRole('button', { name: /^Show [\d,]+ more$/ });
   for (let i = 0; i < 50 && (await more.count()) > 0; i += 1) {
-    await more.first().click();
+    await more
+      .first()
+      .dispatchEvent('click', undefined, { timeout: 5_000 })
+      .catch(() => undefined);
   }
 }
 
