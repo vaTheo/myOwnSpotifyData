@@ -3,6 +3,12 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-09 — Quick start for users, owner and the worker
+
+Documentation only. The README opens with **Quick start: what you have to do**: three short lists (use the app, identify a mix with
+the worker, set everything up as the owner), and `worker/README.md` opens with a five-step quick start. No code, no migration, no
+worker version change.
+
 ## 2026-11-08 — TrackId.net with the Shazam probes (worker 0.7.0)
 
 The worker now asks TrackId.net about the exact mix link (never a search by name) before it listens. For a mix TrackId.net knows, the

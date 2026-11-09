@@ -22,6 +22,47 @@ the BPM and key and the artist listener and fan numbers a lookup finds are also
 added to a store the people on your server share (nothing that says whose they
 are, nothing personal).
 
+## Quick start: what you have to do
+
+Pick the line that matches you. Each one is a short list; the rest of this page is the detail.
+
+### I only want to use the app
+
+1. Open <https://vatheo.github.io/myOwnSpotifyData/> in your computer's browser (on a phone: Chrome → **Add to Home Screen**).
+2. If it shows a **sign-in screen**, type your email, tap **Send me a link** and open the emailed link in the same browser within
+   10 minutes. (No account yet? Ask the owner to add your email.)
+3. Tap **Connect Spotify** and log in with your own Spotify account.
+4. In **Settings**, tap **Sync now**. Play counts need one more step: request _Extended streaming history_ on Spotify's privacy page,
+   and when the zip arrives import it in **Settings → Listening history**.
+
+That is all. Nothing to install.
+
+### I want to identify a DJ mix's tracks (the worker)
+
+The **Identify on my computer** button on the **Mix** screen only records a request. A small program, the **worker**, must be
+running on a computer to answer it. It is optional, and it needs the server (see below).
+
+1. **In the app**: open **Mix**, paste the set's link, tap **Identify on my computer**. The request shows as _Queued_.
+2. **On your computer**, download the file for your system from the
+   [latest `worker-v…` release](https://github.com/vaTheo/myOwnSpotifyData/releases/latest) and put it in a folder of its own.
+3. Start it once. It writes `mix-worker.env` and stops. Open that file and fill in `SUPABASE_URL` and `SUPABASE_KEY` (the same two
+   public values the app uses; the owner gives them to you).
+4. Start it again. It asks for your email: open the email **on that same computer** and click the link. Leave the window open.
+5. Back in the app, the request goes _Queued → Identifying → Found tracks_ (about 40 minutes for a 2-hour set). Open the mix, review
+   the tracks, then **Create playlist from mix**.
+
+Good to know: turn your VPN off (Shazam refuses far more often with one); the request waits while the computer is off; update the
+app (hard-reload) before a new worker version. Full manual: [`worker/README.md`](worker/README.md).
+
+### I am the owner and set everything up (once)
+
+1. **Spotify**: create a Web API app, add the two redirect URIs, add the users' accounts ([One-time setup](#one-time-setup), step 1).
+2. **GitHub**: Pages → Source _GitHub Actions_, repository secret `VITE_SPOTIFY_CLIENT_ID`, push to `main` ([One-time setup](#one-time-setup), steps 2–3).
+3. **Server (optional, needed for the worker and for several people)**: a free Supabase project, then run the migration files of
+   `supabase/migrations/` in order in its SQL editor ([Server](#server-optional)).
+4. **Add a person**: Supabase → Authentication → Users → Add user, then add their Spotify account to the Spotify app.
+5. **Worker for everyone**: only if friends should be served too, see _shared mode_ in [Identify a mix from your computer](#identify-a-mix-from-your-computer-optional-needs-the-server).
+
 ## Documentation
 
 The [documentation map](docs/README.md) lists every page; the [feature inventory](docs/architecture/100-features.md)

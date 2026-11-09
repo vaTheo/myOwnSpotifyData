@@ -8,6 +8,20 @@ playlist is still created by your tap there. Nothing here ever talks to Spotify.
 
 Design record: `../specs/002-mix-analysis-worker/` (the spec, the research, the contracts). Rules for changes: `CLAUDE.md`.
 
+## Quick start (five steps)
+
+1. **Update the app first**: open <https://vatheo.github.io/myOwnSpotifyData/> and hard-reload it (an old app refuses new worker results).
+2. **Download** the file for your system from the [latest `worker-v…` release](https://github.com/vaTheo/myOwnSpotifyData/releases/latest)
+   into a folder of its own (details and first-start warnings in form B below).
+3. **Start it once**: it writes `mix-worker.env` beside it and stops. Fill in `SUPABASE_URL` and `SUPABASE_KEY` (the two public values
+   of the app's `.env`).
+4. **Start it again**: type your email, open the email on **this computer**, click the link. Keep the window open; it checks the queue
+   every minute.
+5. **In the app**, Mix → paste the set's link → **Identify on my computer**. When the row says _Found tracks_, open it and review.
+
+If the window closes or prints an error, find the number in [Exit codes](#exit-codes). No VPN while it runs. Do not have `yarn dev`
+running at sign-in time (same port). Prefer Python? Use form A below instead of steps 2–3.
+
 ## Two ways to run it
 
 ### A. From this folder (Linux, macOS, Windows with Python)
