@@ -12,7 +12,7 @@ One row per feature and old address to exercise before the redesign merges, from
 - `yarn invariants` (T113): `DB_VERSION`, the `confirm()` texts, the external hosts (code, CSP, Vite config), the dependencies and `yarn.lock`, every unit test of main still running, and the
   model outputs (ranking, Crate, Match, Under the radar, release year) on the demo dataset, compared with `main`;
 - unit tests, for what the demo cannot drive (a network answer);
-- **owner (T115)**: what needs the real Spotify account, the network or the owner's server or computer, marked **owner (T115)**: 22 of the 93 rows name it; 6 rows only the owner can check (C01, C08, C09, their rows F10c and F12e, and Check on Spotify, F21f).
+- **owner (T115)**: what needs the real Spotify account, the network or the owner's server or computer, marked **owner (T115)**: 22 of the 102 rows name it; 6 rows only the owner can check (C01, C08, C09, their rows F10c and F12e, and Check on Spotify, F21f).
 
 Fixtures (fake data only): `tools/shots/fixtures/Streaming_History_Audio_2026_0.json` (8 plays of two made-up tracks, Sept–Oct 2026),
 `tracklist.json` (a Tracklistify file of three made-up tracks), `rekordbox.xml` (one demo track, one stranger).
