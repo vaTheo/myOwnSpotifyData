@@ -17,6 +17,9 @@ time ("not a problem if the span is not correct"). Owner's picks: merge **in the
   key the dig links group repeats by: case, accents, punctuation and "Original Mix" / "Extended Mix" ignored) become one row: the copy
   with the earliest time (no time last, ties in the result's order), every field its own except the clip count (`hits`, the sum of
   the copies', absent when none has one) and the confidence (the best of the copies' numbers). Gaps and `ID` rows never merge.
+  A heard copy outranks a not-heard one (a clue or a TrackId.net span, `origin` `clue` or `trackid`): the earliest heard copy is kept,
+  with the heard copies' clips and best confidence, and the not-heard copies are dropped; when none was heard, the earliest not-heard
+  copy is kept with no clip count added (review fix, 2026-11-09).
 - **Where**: a worker result (`resultToRows`, after the worker's extras are attached, before the time sort) and a hand-imported
   Tracklistify JSON (`startTracklistifyImport`). Rows already in the mix (added, pasted, edited, kept) never pass through it; saved mixes
   are not rewritten until scanned or imported again.

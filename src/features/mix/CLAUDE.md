@@ -25,7 +25,8 @@ import), library matching, Create playlist from mix, and dig links.
   the other's rows.
 - Spec 018 (`oneRowPerSong.ts`): a worker result and a hand-imported Tracklistify JSON hold one row per song (earliest time, `hits`
   summed, best `confidence`); it runs on the incoming rows only, never on rows already in a mix, and never inside
-  `parseTracklistifyJson` (the worker's extras line up with its rows by index).
+  `parseTracklistifyJson` (the worker's extras line up with its rows by index). A heard copy outranks a not-heard one (`origin`
+  `clue` or `trackid`): never a clip count on a not-heard row.
 - Library matches are computed at render time, never stored.
 - The mix and create jobs are not in `jobsBusy()` and never call `loadFromDb()`; failures show inline on the Mix screen, never as a banner.
 - The app never fetches or analyses mix audio; the worker on the owner's computer does (ADR-08, `specs/002-mix-analysis-worker/`).

@@ -152,6 +152,76 @@ describe('oneRowPerSong', () => {
     expect(out[0]).toMatchObject({ startSec: 100, hits: 7, confidence: 90 });
   });
 
+  it('keeps the earliest copy without clips and sums a later copy\'s', () => {
+    const out = oneRowPerSong([
+      row({ startSec: 10, label: 'kept' }),
+      row({ startSec: 20, hits: 4 }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ startSec: 10, label: 'kept', hits: 4 });
+  });
+
+  it('keeps a heard copy over an earlier clue copy, at its own time', () => {
+    const out = oneRowPerSong([
+      row({ startSec: 100, origin: 'clue', confidence: 99 }),
+      row({ startSec: 900, hits: 2, confidence: 80, isrc: 'GBAAA0000001' }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      startSec: 900,
+      hits: 2,
+      confidence: 80,
+      isrc: 'GBAAA0000001',
+    });
+    expect(out[0].origin).toBeUndefined();
+  });
+
+  it('keeps a heard copy over an earlier TrackId.net copy', () => {
+    const out = oneRowPerSong([
+      row({ startSec: 100, origin: 'trackid', confidence: 99 }),
+      row({ startSec: 900, hits: 3, confidence: 70, speedPercent: 4 }),
+      row({ startSec: 1200, hits: 1, confidence: 75 }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      startSec: 900,
+      hits: 4,
+      confidence: 75,
+      speedPercent: 4,
+    });
+    expect(out[0].origin).toBeUndefined();
+  });
+
+  it('drops a later TrackId.net copy of a heard song', () => {
+    const out = oneRowPerSong([
+      row({ startSec: 100, hits: 2, confidence: 60 }),
+      row({ startSec: 900, origin: 'trackid', confidence: 99 }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ startSec: 100, hits: 2, confidence: 60 });
+    expect(out[0].origin).toBeUndefined();
+  });
+
+  it('collapses TrackId.net copies to the earliest, with no clips', () => {
+    const out = oneRowPerSong([
+      row({ startSec: 900, origin: 'trackid', label: 'late' }),
+      row({ startSec: 100, origin: 'trackid', label: 'early' }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ startSec: 100, label: 'early', origin: 'trackid' });
+    expect('hits' in out[0]).toBe(false);
+  });
+
+  it('collapses clue copies to the earliest, with no clips', () => {
+    const out = oneRowPerSong([
+      row({ startSec: null, origin: 'clue', label: 'untimed' }),
+      row({ startSec: 300, origin: 'clue', label: 'timed' }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ startSec: 300, label: 'timed', origin: 'clue' });
+    expect('hits' in out[0]).toBe(false);
+  });
+
   it('leaves rows without copies untouched', () => {
     const only = row({ startSec: 10, hits: 1, confidence: 80 });
     expect(oneRowPerSong([only])[0]).toBe(only);

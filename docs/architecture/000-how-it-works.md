@@ -200,7 +200,9 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   `startTracklistifyImport` passes its rows through `oneRowPerSong` (spec 018, below).
 - `oneRowPerSong.ts` (spec 018): one row per song in an incoming result, the worker's (`resultToRows`) or a hand import. Identified
   rows with the same `nameKey(artist, stripMixMarkers(title))` keep the earliest copy (no time last, ties in input order), with `hits`
-  summed (absent when no copy has one) and the best `confidence`; gaps and `ID` rows pass. Rows already in a mix never go through it,
+  summed (absent when no copy has one) and the best `confidence`; gaps and `ID` rows pass. A heard copy outranks a not-heard one
+  (`origin` `clue` or `trackid`): the earliest heard copy is kept and the not-heard copies dropped; with no heard copy, the earliest
+  not-heard copy is kept, no `hits` added. Rows already in a mix never go through it,
   so the owner's rows are never merged and saved mixes are not rewritten.
 - `match.ts` (`libraryTitleIndex`/`matchMixRow`): each row joined to the library live at render time, memoised on `Model` identity.
   Library matches are never stored, because a resync would make a stored match stale.

@@ -1008,9 +1008,10 @@ describe('resultToRows — spec 018 one row per song', () => {
     const kept = mergeKeepingReview([manual, edited], r.rows, []);
     expect(kept).toContain(manual);
     expect(kept).toContain(edited);
+    // The incoming copy matches the owner's rows, so D1 drops it.
     expect(
       kept.filter((x) => x !== manual && x !== edited && x.artist === 'Artist')
-        .length
-    ).toBeLessThanOrEqual(1);
+    ).toHaveLength(0);
+    expect(kept).toHaveLength(3);
   });
 });

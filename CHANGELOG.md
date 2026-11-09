@@ -6,7 +6,8 @@ by feature, newest first, and name their spec under `docs/specs/`. Entries befor
 ## 2026-11-09 — One row per song in a scanned mix
 
 When a scan result (or a Tracklistify JSON imported by hand) names the same song at several times, the tracklist now shows it once, at
-its earliest time; its clip count adds up the copies' and its confidence is the best of them, so "Heard once" stays honest. Case,
+its earliest time; its clip count adds up the copies' and its confidence is the best of them, so "Heard once" stays honest. A copy the scan heard
+wins over one only named by a comment or TrackId.net, even an earlier one. Case,
 accents and "Original Mix" / "Extended Mix" do not make a different song; different artists do. Rows you added, pasted or edited are
 never merged, and a mix saved before keeps its copies until it is scanned or imported again. Spec `specs/018-mix-one-row-per-song/`.
 No Spotify read or write, no `DB_VERSION` bump, no new worker, nothing to do.

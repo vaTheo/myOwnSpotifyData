@@ -19,4 +19,4 @@ Every commit: `yarn typecheck && yarn lint && yarn test` exit 0; `type(scope): s
 
 ## Final
 
-- [ ] T007 `yarn typecheck && yarn lint && yarn test`, `yarn regression`, `yarn invariants` (the Mix model outputs must stay equal unless a demo mix has duplicates: report), public-safe check
+- [x] T007 `yarn typecheck && yarn lint && yarn test`, `yarn regression`, `yarn invariants` (the Mix model outputs must stay equal unless a demo mix has duplicates: report), public-safe check
