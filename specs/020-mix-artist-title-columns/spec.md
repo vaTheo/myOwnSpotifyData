@@ -62,7 +62,7 @@ On a phone the row is a compact item: the title on the first line and the artist
 
 ### Functional Requirements
 
-- **FR-001**: The Mix tracklist table has an Artist column and a Title column, replacing the single "Artist – Title" column, both always visible on a non-phone window.
+- **FR-001**: The Mix tracklist table has an Artist column and a Title column, replacing the single "Artist – Title" column, both always visible on a non-phone window (as columns, or, below a 584 px table, in the two-line item: title with the artist under it).
 - **FR-002**: Artist sorts by artist (case- and accent-insensitive, as the other text sorts), Title by track name; a missing value goes last in both directions; ties keep the set's order; the first click is A→Z.
 - **FR-003**: The Sort select offers "Artist" and "Title" instead of "Artist – Title", in column order.
 - **FR-004**: The lines under the title (badge, origin, quote, references, check) move to the Title cell with the same wording.
@@ -87,6 +87,11 @@ On a phone the row is a compact item: the title on the first line and the artist
 ## Assumptions
 
 - Artist comes before Title, left to right, as in "Artist – Title".
-- Both columns have priority 1 (never hide); widths are set so the table fits the narrowest non-phone window.
-- The Label column keeps its place and visibility rules.
-- The phone item copies the other track lists (title, artist underneath).
+- Both columns have priority 1 (never hide). A readable title (160 px) and a readable artist do not fit the narrowest non-phone
+  window: below a 584 px table (about a 712 px window; 472 px before) the tracklist shows its two-line items, the title with the
+  artist under it, both still visible, no horizontal scroll.
+- The Label column keeps its place and visibility rules; its share grows from 0.4fr to 0.6fr so it keeps about 100 px at 1440 px
+  beside two flexible columns.
+- The phone item copies the other track lists (title, artist underneath): the Title cell draws the artist on its second line
+  (`.mix-artist`, shown only in the item) and the Artist column is left out of the item (`compact: 'hidden'`), so the not heard
+  badge, origin, quote, references and check line never come between the title and the artist.

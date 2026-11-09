@@ -5,8 +5,11 @@
 ## Summary
 
 In `src/ui/mix/TracklistTable.tsx` the `title` column (`TitleCell`: `nameOf(row)` plus the second line) becomes two columns:
-`artist` (priority 1, the artist text, compact `subtitle`) and `title` (priority 1, the track name and the unchanged second line,
-compact `title`). `SortId` in `src/ui/mix/tracklistSort.ts` gains `'artist'`; `'title'` sorts by `row.title` only; both first
+`artist` (priority 1, `minmax(112px, 1fr)`, the artist text, compact `hidden`) and `title` (priority 1, `minmax(176px, 1.5fr)`,
+the track name, then a `.mix-artist` line shown only in a phone item, then the unchanged second line, compact `title`). The
+`subtitle` route would have put the artist under the second line (badge, quote, references) on a phone, so the Title cell draws
+it right under the name instead. Label goes from `minmax(0, 0.4fr)` to `minmax(0, 0.6fr)`: beside two flexible columns 0.4fr left
+it about 73 px at 1440, 0.6fr about 100 px. Below a 584 px table (about a 712 px window) the table draws two-line items. `SortId` in `src/ui/mix/tracklistSort.ts` gains `'artist'`; `'title'` sorts by `row.title` only; both first
 direction `asc`; `CHOICES` offers "Artist" and "Title". Gap rows (`row.gap`) keep returning `null` from `sortValue`. A saved choice the rows no
 longer allow already falls back through `effectiveSort`. The tooltip (`title:`) and every aria name keep `nameOf(row)`.
 
