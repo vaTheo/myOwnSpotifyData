@@ -244,7 +244,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   five store/preview search links (Beatport, Bandcamp, Discogs, SoundCloud, YouTube) plus Tracklistify's Shazam page (kept by the parser
   only when it is an https `shazam.com` URL, dropped once the row is edited), drawn as Simple Icons (CC0) by `ui/components/DigLinks.tsx`.
   Spec 003 (T118): every track's **Listen** menu holds the same links (plain search pages, no request until opened).
-  Round 017: `ui/listen.ts` (`trackListenItems`) builds the same menu from `digLinks` for every other track list (§13), and a
+  The play-button round (`specs/017-track-play-button/`): `ui/listen.ts` (`trackListenItems`) builds the same menu from `digLinks` for every other track list (§13), and a
   found row's Spotify cell is `ui/components/PlayOnSpotify.tsx`, the ▶ every track table starts with.
 
 **The Mixes list and the queue** (spec 003 §12, T116, T121–T123):
@@ -387,7 +387,7 @@ screen, grouped by role under `src/ui/`.
   tracklist): `markedKey` (passed, even null, every row says `aria-selected` and the marked one is drawn selected) and `onMark`,
   called from a capture-phase click on every row element (table row, phone item, full row), neither stopped nor prevented, so a
   link or button inside still acts; Enter or Space on the focused row element itself calls `onMark` too. Selected beats hover (`styles.css`): hovering a selected row lays a hover layer over its fill.
-- **Track rows: play and Listen** (round 017, `specs/017-track-play-button/`): every track table (Top tracks, Playlist, Artist,
+- **Track rows: play and Listen** (the play-button round): every track table (Top tracks, Playlist, Artist,
   the Crate views through `crateColumns`) starts with `playColumn` and ends with `listenColumn` (`table/columns.tsx`), both fed
   by the page's one `trackOf(row): ListenTrack` (`ui/listen.ts`: `{ id, artist, title }`, `spotifyTrackId` turning a missing id
   or a `spotify:local:` URI into `null`). `playColumn` draws `components/PlayOnSpotify.tsx` (an `IconButton` `play_arrow`,
@@ -408,8 +408,9 @@ screen, grouped by role under `src/ui/`.
   zero), `MonthBars.tsx`, `Meter.tsx` (the finish rate in its band), `YearMonthGrid.tsx` (By year's period picker). Every chart
   gives its values on hover, on focus and as text.
 - **Screens**: `overview/` (`blocks.ts`, pure, from stored data only, never Spotify, each block behind its screen's gate;
-  round 017: an item with `trackId` is `li.ov-track`, ▶ when `spotifyTrackId` gives an id, the `a.ov-item` link, then the
-  Listen `RowMenu`, siblings so no button sits in the link; on a card under 400 px its bars and pills give way),
+  the play-button round: an item with `trackId` is `li.ov-track`, ▶ when `spotifyTrackId` gives an id (else an `aria-hidden`
+  spacer of its width), the `a.ov-item` link, then the Listen `RowMenu`, siblings so no button sits in the link; on a card under
+  400 px the link wraps to two lines, bars or pills and value under the title, nothing hidden),
   `Top.tsx` with `top/ComparePeriods.tsx` (the three periods side by side on large windows), `crate/` (`CrateHub` cards,
   `CrateView` dispatching to the five view tables, `shared.tsx`, `labels.ts`, `selections.ts`; gated on
   `historySummary.version === 2`, never on rows), `Playlists.tsx`, `Playlist.tsx` (one strip above the table: meta, Sync and

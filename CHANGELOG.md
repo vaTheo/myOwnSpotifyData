@@ -10,7 +10,7 @@ starts each row with the Mix tracklist's ▶: one tap opens the track in the Spo
 a Spotify id (a local file) has none. The small "Open in Spotify" icon at the end of those rows becomes the Mix headphones menu:
 Play on Spotify, the Spotify web page, then searches on Beatport, Bandcamp, Discogs, SoundCloud and YouTube. Artist and playlist
 lists keep their icon; the Mix tracklist is unchanged. On a phone ▶ comes first in each item and the menu last; on a narrow Overview
-card the bars and BPM and key pills give way to the title. Spec `specs/017-track-play-button/`. No Spotify read or write, no
+card a track item takes two lines (the bars or BPM and key pills under the title), nothing hidden. Spec `specs/017-track-play-button/`. No Spotify read or write, no
 `DB_VERSION` bump, nothing to do.
 
 ## 2026-11-09 — Quick start for users, owner and the worker

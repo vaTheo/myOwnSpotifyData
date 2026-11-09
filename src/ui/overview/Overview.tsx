@@ -58,9 +58,10 @@ function afterPaint(run: () => void): () => void {
 /**
  * One item: the whole row is the link to the track's details over its
  * screen, a 48 px target; the title and artists are cut with an ellipsis
- * and said in full on hover. A track (an item with `trackId`, round 017)
- * puts the play button before the link when Spotify knows it, and its
- * Listen menu after: siblings of the link, never inside it.
+ * and said in full on hover. A track (an item with `trackId`, play-button
+ * round) puts the play button before the link when Spotify knows it (else
+ * an empty place of the same width), and its Listen menu after: siblings
+ * of the link, never inside it.
  */
 function Item(p: {
   item: OverviewItem;
@@ -115,12 +116,14 @@ function Item(p: {
   };
   return (
     <li class="ov-track">
-      {track.id && (
+      {track.id ? (
         <PlayOnSpotify
           id={track.id}
           artist={track.artist}
           title={track.title}
         />
+      ) : (
+        <span class="ov-play-space" aria-hidden="true" />
       )}
       {row}
       <RowMenu
