@@ -1379,11 +1379,12 @@ test.describe('F. features', () => {
         region.getByRole('heading', { name }).getByRole('link')
       ).toHaveAttribute('href', href);
     }
-    // A track opens its details over its screen.
+    // A track's text (not its ▶, round 017) opens its details over its
+    // screen.
     await region
       .getByRole('heading', { name: 'Top this month' })
       .locator('xpath=following-sibling::*[1]')
-      .getByRole('link')
+      .locator('a.ov-item')
       .first()
       .click();
     await expect(app.page).toHaveURL(/#\/top\?d=/);
@@ -2218,6 +2219,274 @@ test.describe('Y. release year', () => {
     await expect(
       app.page.getByText(/^Release years: [\d,]+ of [\d,]+ tracks$/)
     ).toBeVisible();
+  });
+});
+
+// ------------------------------ L. Round 017 · play button, Listen menu
+
+/** The play button of a track row (`PlayOnSpotify`). */
+const PLAY = /^Play .+ on Spotify$/;
+
+/**
+ * Records every link a click follows, then stops it here (every request
+ * leaving 127.0.0.1 fails a test, and `spotify:` has no handler): as M04.
+ * The app's own `#/…` links are followed.
+ */
+async function recordOpened(page: Page): Promise<() => Promise<string[]>> {
+  await page.evaluate(() => {
+    const w = window as unknown as { __opened: string[] };
+    w.__opened = [];
+    document.addEventListener('click', (e) => {
+      const a = (e.target as Element).closest('a');
+      const href = a?.getAttribute('href') ?? '';
+      if (!a || href.startsWith('#')) return;
+      if (!e.defaultPrevented) w.__opened.push(href);
+      e.preventDefault();
+    });
+  });
+  return () =>
+    page.evaluate(() => (window as unknown as { __opened: string[] }).__opened);
+}
+
+/** The first grid of the page that holds a play button. */
+async function trackGrid(page: Page): Promise<Locator> {
+  const grid = main(page)
+    .getByRole('grid')
+    .filter({ has: page.getByRole('link', { name: PLAY }) })
+    .first();
+  await grid.waitFor();
+  return grid;
+}
+
+/** The drawn track rows (or phone items) of a grid. */
+function trackRows(grid: Locator): Locator {
+  return grid
+    .locator('[role=rowgroup]')
+    .nth(1)
+    .locator('[role=row][data-row-id]');
+}
+
+/** The item texts of the open row menu, in order. */
+async function menuItems(page: Page): Promise<string[]> {
+  const items = page.getByRole('menu').getByRole('menuitem');
+  await items.first().waitFor();
+  return (await items.allTextContents()).map((t) => t.trim());
+}
+
+test.describe('L. play button and Listen menu', () => {
+  test('L01 every track table starts with Play on Spotify; it opens the app, the title the details', async ({
+    app,
+  }) => {
+    for (const hash of [
+      '#/top',
+      (ids: DemoIds) => `#/playlist/${enc(ids.playlist ?? '')}`,
+      (ids: DemoIds) => `#/artist/${enc(ids.artist ?? '')}`,
+      '#/crate/rotation',
+    ]) {
+      const at = await app.open(hash);
+      const opened = await recordOpened(app.page);
+      const grid = await trackGrid(app.page);
+      const heads = await headers(grid);
+      expect(heads[0], at).toBe('Play');
+      // Every play button of the table sits in its row's first cell.
+      const placed = await trackRows(grid).evaluateAll((rows) =>
+        rows.map((r) => {
+          const cells = [...r.querySelectorAll('[role=gridcell]')];
+          const links = [...r.querySelectorAll('a[href^="spotify:track:"]')];
+          return links.every((a) => cells[0]?.contains(a)) ? links.length : -1;
+        })
+      );
+      expect(placed.length, at).toBeGreaterThan(0);
+      expect(placed.includes(-1), at).toBe(false);
+      expect(placed.filter((n) => n === 1).length, at).toBeGreaterThan(0);
+      const row = trackRows(grid)
+        .filter({ has: app.page.getByRole('link', { name: PLAY }) })
+        .first();
+      const play = row.getByRole('gridcell').first().getByRole('link');
+      await expect(play, at).toHaveAccessibleName(PLAY);
+      await expect(play, at).toHaveAttribute('href', /^spotify:track:\w+$/);
+      await expect(play, at).not.toHaveAttribute('target', '_blank');
+      // The button opens the app in place; the row's details do not open.
+      await play.click();
+      expect(await opened(), at).toContainEqual(
+        expect.stringMatching(/^spotify:track:\w+$/)
+      );
+      expect(app.page.url(), at).not.toMatch(/\?d=/);
+      await expect(app.page.getByRole('complementary'), at).toHaveCount(0);
+      // The title still opens the details.
+      await row.getByRole('gridcell').nth(heads.indexOf('Title')).click();
+      await expect(app.page, at).toHaveURL(/\?d=/);
+    }
+  });
+
+  test('L02 on a phone the play button is first on each item, reached by Tab', async ({
+    app,
+  }) => {
+    await app.page.setViewportSize({ width: 390, height: 844 });
+    for (const hash of ['#/top', '#/crate/rotation']) {
+      await app.open(hash);
+      const grid = await trackGrid(app.page);
+      const items = trackRows(grid);
+      // The first link of each item is its play button, 48 px.
+      const firsts = await items.evaluateAll((rows) =>
+        rows.map((r) => {
+          const a = r.querySelector<HTMLElement>('a[href]');
+          const box = a?.getBoundingClientRect();
+          return {
+            href: a?.getAttribute('href') ?? '',
+            name: a?.getAttribute('aria-label') ?? '',
+            lead: a?.closest('.dt-item-lead') !== null,
+            size: Math.min(box?.width ?? 0, box?.height ?? 0),
+          };
+        })
+      );
+      expect(firsts.length, hash).toBeGreaterThan(0);
+      for (const f of firsts) {
+        expect(f.href, hash).toMatch(/^spotify:track:\w+$/);
+        expect(f.name, hash).toMatch(PLAY);
+        expect(f.lead, hash).toBe(true);
+        expect(f.size, hash).toBeGreaterThanOrEqual(48);
+      }
+      // Tab from the item reaches it first, named for its track.
+      const first = items.first();
+      const title = (
+        (await first.locator('.dt-item-title').textContent()) ?? ''
+      ).trim();
+      const artist = (
+        (await first.locator('.dt-item-sub').textContent()) ?? ''
+      ).trim();
+      await first.focus();
+      await app.page.keyboard.press('Tab');
+      const focused = app.page.locator(':focus');
+      await expect(focused, hash).toHaveAttribute(
+        'href',
+        /^spotify:track:\w+$/
+      );
+      await expect(focused, hash).toHaveAccessibleName(
+        `Play ${artist} – ${title} on Spotify`
+      );
+    }
+  });
+
+  test('L03 a local file: an empty first cell, no app link, the five searches only', async ({
+    app,
+  }) => {
+    await app.open((ids) => `#/playlist/${enc(ids.bigPlaylist ?? '')}`);
+    await app.page.getByRole('tab', { name: 'Playlist order' }).click();
+    const grid = await trackGrid(app.page);
+    const row = trackRows(grid).filter({ hasText: 'Untitled Bootleg' });
+    await expect(row).toHaveCount(1);
+    await expect(row.locator('a[href^="spotify:track:"]')).toHaveCount(0);
+    await expect(row.getByRole('gridcell').first()).toBeEmpty();
+    // Its cells line up with the other rows'.
+    const counts = await trackRows(grid).evaluateAll((rows) =>
+      rows.map((r) => r.querySelectorAll('[role=gridcell]').length)
+    );
+    expect(new Set(counts).size).toBe(1);
+    await row
+      .getByRole('button', {
+        name: 'Listen to Unknown Bootleg Artist – Untitled Bootleg (Live Recording)',
+      })
+      .click();
+    expect(await menuItems(app.page)).toEqual([
+      'Beatport',
+      'Bandcamp',
+      'Discogs',
+      'SoundCloud',
+      'YouTube',
+    ]);
+  });
+
+  test('L04 the Listen menu holds every way to open a track; Top artists keep Open in Spotify; Overview items too', async ({
+    app,
+  }) => {
+    const page = app.page;
+    await app.open((ids) => `#/playlist/${enc(ids.playlist ?? '')}`);
+    const grid = await trackGrid(page);
+    // The old end-of-row icon is gone from the track rows.
+    await expect(
+      grid.getByRole('link', { name: 'Open in Spotify' })
+    ).toHaveCount(0);
+    const row = trackRows(grid).first();
+    await row.getByRole('button', { name: /^Listen to .+ – .+$/ }).click();
+    expect(await menuItems(page)).toEqual([
+      'Play on Spotify',
+      'Open Spotify web page',
+      'Beatport',
+      'Bandcamp',
+      'Discogs',
+      'SoundCloud',
+      'YouTube',
+    ]);
+    const menu = page.getByRole('menu');
+    const item = (name: string) =>
+      menu.getByRole('menuitem', { name, exact: true });
+    await expect(item('Play on Spotify')).toHaveAttribute(
+      'href',
+      /^spotify:track:\w+$/
+    );
+    await expect(item('Play on Spotify')).not.toHaveAttribute(
+      'target',
+      '_blank'
+    );
+    await expect(item('Open Spotify web page')).toHaveAttribute(
+      'href',
+      /^https:\/\/open\.spotify\.com\/track\/\w+$/
+    );
+    for (const [name, host] of [
+      ['Open Spotify web page', 'open.spotify.com'],
+      ['Beatport', 'www.beatport.com'],
+      ['Bandcamp', 'bandcamp.com'],
+      ['Discogs', 'www.discogs.com'],
+      ['SoundCloud', 'soundcloud.com'],
+      ['YouTube', 'www.youtube.com'],
+    ]) {
+      await expect(item(name)).toHaveAttribute('target', '_blank');
+      expect(new URL((await item(name).getAttribute('href')) ?? '').host).toBe(
+        host
+      );
+    }
+
+    // Top artists keep their Open in Spotify icon.
+    await app.open('#/top');
+    await page.getByRole('tab', { name: 'Artists' }).click();
+    await expect(
+      page
+        .getByRole('grid', { name: /^Top artists/ })
+        .getByRole('link', { name: 'Open in Spotify' })
+        .first()
+    ).toHaveAttribute('href', /^https:\/\/open\.spotify\.com\/artist\//);
+
+    // An Overview track item: play, its text, then the Listen menu.
+    await app.open('#/');
+    const opened = await recordOpened(page);
+    const li = main(page)
+      .locator('li.ov-track')
+      .filter({ has: page.getByRole('link', { name: PLAY }) })
+      .first();
+    const order = await li.evaluate((el) =>
+      [...el.children].map((c) =>
+        c.matches('a[href^="spotify:track:"]')
+          ? 'play'
+          : c.matches('a.ov-item')
+            ? 'item'
+            : c.matches('.row-menu')
+              ? 'menu'
+              : c.className
+      )
+    );
+    expect(order).toEqual(['play', 'item', 'menu']);
+    await expect(
+      li.getByRole('button', { name: /^Listen to .+ – .+$/ })
+    ).toBeVisible();
+    await li.getByRole('link', { name: PLAY }).click();
+    expect(await opened()).toContainEqual(
+      expect.stringMatching(/^spotify:track:\w+$/)
+    );
+    expect(page.url()).not.toMatch(/\?d=/);
+    // Its text still opens the details.
+    await li.locator('a.ov-item').click();
+    await expect(page).toHaveURL(/\?d=/);
   });
 });
 
