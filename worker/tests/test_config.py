@@ -159,7 +159,9 @@ class Round003Settings(unittest.TestCase):
 
 class WorkerMode(unittest.TestCase):
     def test_default_is_personal(self):
-        self.assertEqual(load().worker_mode, "personal")
+        # Round 017: the default is "auto" (the server's role picks the mode); personal stays an explicit value.
+        self.assertEqual(load().worker_mode, "auto")
+        self.assertEqual(load({"WORKER_MODE": "personal"}).worker_mode, "personal")
 
     def test_shared(self):
         self.assertEqual(load({"WORKER_MODE": "shared"}).worker_mode, "shared")
@@ -168,7 +170,7 @@ class WorkerMode(unittest.TestCase):
         with self.assertRaises(SettingsError) as ctx:
             load({"WORKER_MODE": "both"})
         self.assertEqual(ctx.exception.setting, "WORKER_MODE")
-        self.assertEqual(ctx.exception.message, "must be personal or shared")
+        self.assertEqual(ctx.exception.message, "must be auto, personal or shared")
 
 
 class Round016Settings(unittest.TestCase):

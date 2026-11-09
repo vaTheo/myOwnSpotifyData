@@ -61,7 +61,7 @@ class Settings:
     refusal_warn_calls: int = 150
     resume_days: int = 7
     break_seconds: float = 120.0
-    worker_mode: str = "personal"
+    worker_mode: str = "auto"
     trackid: bool = True
 
 
@@ -180,9 +180,9 @@ def _device(values: Mapping[str, str]) -> str:
 
 
 def _mode(values: Mapping[str, str]) -> str:
-    value = values.get("WORKER_MODE", "personal").strip().lower()
-    if value not in ("personal", "shared"):
-        raise SettingsError("WORKER_MODE", "must be personal or shared")
+    value = values.get("WORKER_MODE", "auto").strip().lower()
+    if value not in ("auto", "personal", "shared"):
+        raise SettingsError("WORKER_MODE", "must be auto, personal or shared")
     return value
 
 

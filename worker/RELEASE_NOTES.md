@@ -11,6 +11,11 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.7.1: **the mode follows the account**. `WORKER_MODE` now defaults to `auto`: after sign-in the worker asks the server whether the
+  account is listed in `shared_workers` and runs as a shared worker if it is, as a personal worker if it is not (the start line says
+  which). `personal` and `shared` still force a mode. A failed check (no network) ends the run with exit code 2 and never guesses a
+  mode. A `mix-worker.env` you already have is kept: if it says `WORKER_MODE=shared` or `personal`, change it to `auto` (or delete the
+  line). The app needs no update.
 - 0.7.0: **TrackId.net**. The worker asks TrackId.net about the exact mix link (never a search by name; `WORKER_TRACKID=off` turns it
   off) once per request, before the first probe. When TrackId.net knows the mix, the first pass makes **one confirming Shazam probe
   per span** it names, centred on the span's middle, and **no other probe inside it**; each span becomes a row ("from TrackId.net",

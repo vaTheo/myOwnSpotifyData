@@ -185,6 +185,12 @@ class ServerClient:
 
     # -- the queue (contracts/server-schema.md) ------------------------------
 
+    def is_shared_worker(self, access_token: str) -> Result:
+        r = self._request("POST", "/rest/v1/rpc/is_shared_worker", {}, token=access_token)
+        if not r.ok:
+            return r
+        return Result("ok", r.value is True, r.status)
+
     def claim(self, access_token: str, worker: str, stale_seconds: int) -> Result:
         r = self._request("POST", "/rest/v1/rpc/claim_job", {"p_worker": worker, "p_stale_seconds": stale_seconds}, token=access_token)
         if not r.ok:
@@ -254,12 +260,6 @@ class SharedServerClient(ServerClient):
         if isinstance(data, dict) and data.get("code") == "42501":
             return Result("not_shared_worker", None, status, _message_of(raw))
         return ServerClient._map_http_error(status, raw)
-
-    def is_shared_worker(self, access_token: str) -> Result:
-        r = self._request("POST", "/rest/v1/rpc/is_shared_worker", {}, token=access_token)
-        if not r.ok:
-            return r
-        return Result("ok", r.value is True, r.status)
 
     def claim(self, access_token: str, worker: str, stale_seconds: int) -> Result:
         r = self._request("POST", "/rest/v1/rpc/claim_any_job", {"p_worker": worker, "p_stale_seconds": stale_seconds}, token=access_token)
