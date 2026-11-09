@@ -23,6 +23,9 @@ import), library matching, Create playlist from mix, and dig links.
 - Round 016 (`worker.ts`): rows with `origin: 'trackid'` come from the worker, are never edited by the app, and `stepName('trackid')` is "TrackId.net"; the worker's TrackId.net lookup is by the exact mix link (ADR-17), distinct from this folder's `trackid.ts`.
 - Fetches stay behind an injected `fetchFn`, return a discriminated result, never throw; `lookupMix` keeps one layer's failure from hiding
   the other's rows.
+- Spec 018 (`oneRowPerSong.ts`): a worker result and a hand-imported Tracklistify JSON hold one row per song (earliest time, `hits`
+  summed, best `confidence`); it runs on the incoming rows only, never on rows already in a mix, and never inside
+  `parseTracklistifyJson` (the worker's extras line up with its rows by index).
 - Library matches are computed at render time, never stored.
 - The mix and create jobs are not in `jobsBusy()` and never call `loadFromDb()`; failures show inline on the Mix screen, never as a banner.
 - The app never fetches or analyses mix audio; the worker on the owner's computer does (ADR-08, `specs/002-mix-analysis-worker/`).

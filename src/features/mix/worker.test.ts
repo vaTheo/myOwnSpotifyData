@@ -13,6 +13,7 @@ import {
   resultToRows,
   runLine,
 } from './worker';
+import { mergeKeepingReview } from './keepReview';
 
 /** The F15 shape as the worker writes it (data-model.md "Scan result"). */
 function resultFixture(over: Record<string, unknown> = {}): unknown {
@@ -940,5 +941,76 @@ describe('resultToRows — round 016 TrackId.net rows', () => {
     const plain = resultToRows(resultFixture());
     if (!plain.ok) throw new Error(plain.message);
     expect(plain.rows.some((x) => x.trackid || x.shazamCheck)).toBe(false);
+  });
+});
+
+describe('resultToRows — spec 018 one row per song', () => {
+  function twice(): unknown {
+    return resultFixture({
+      tracks: [
+        {
+          song_name: 'Song (Original Mix)',
+          artist: 'Artist',
+          time_in_mix: '00:41:10',
+          confidence: 97,
+          hits: 2,
+        },
+        {
+          song_name: 'Other',
+          artist: 'Someone Else',
+          time_in_mix: '00:20:00',
+          confidence: 80,
+          hits: 1,
+        },
+        {
+          song_name: 'Song',
+          artist: 'Artist',
+          time_in_mix: '00:12:30',
+          confidence: 88,
+          hits: 3,
+        },
+      ],
+    });
+  }
+
+  it('gives one row per song, at its earliest time, with the clips summed', () => {
+    const r = resultToRows(twice());
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows.map((x) => `${x.artist}@${x.startSec}`)).toEqual([
+      'Artist@750',
+      'Someone Else@1200',
+    ]);
+    expect(r.rows[0]).toMatchObject({ title: 'Song', hits: 5, confidence: 97 });
+  });
+
+  it('never touches rows already in the mix: an owner row stays, the copies collapse', () => {
+    const r = resultToRows(twice());
+    if (!r.ok) throw new Error(r.message);
+    const manual = row({
+      artist: 'Artist',
+      title: 'Song',
+      source: 'manual',
+      detected: null,
+      startSec: 3000,
+    });
+    const edited = row({
+      artist: 'Artist',
+      title: 'Song',
+      detected: { artist: 'Artsit', title: 'Song' },
+      startSec: 4000,
+    });
+    const merged = mergeWorkerRows([manual, edited], r.rows);
+    expect(merged).toContain(manual);
+    expect(merged).toContain(edited);
+    const fromScan = merged.filter((x) => x !== manual && x !== edited);
+    expect(fromScan.filter((x) => x.artist === 'Artist')).toHaveLength(1);
+    // A saved mix (D1): the owner's rows stay, and no scan copy comes twice.
+    const kept = mergeKeepingReview([manual, edited], r.rows, []);
+    expect(kept).toContain(manual);
+    expect(kept).toContain(edited);
+    expect(
+      kept.filter((x) => x !== manual && x !== edited && x.artist === 'Artist')
+        .length
+    ).toBeLessThanOrEqual(1);
   });
 });
