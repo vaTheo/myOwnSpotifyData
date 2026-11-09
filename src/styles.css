@@ -1745,7 +1745,10 @@ a {
 }
 
 .dt-item-lead {
+  display: flex;
   grid-column: 1;
+  align-items: center;
+  gap: 4px;
   margin-right: 12px;
 }
 

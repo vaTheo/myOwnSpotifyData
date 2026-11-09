@@ -97,6 +97,7 @@ and Top rows would cut their titles to a few letters and drop their bars, so exp
 
 | Tracks column                                        | Priority | Sort first          |
 | ---------------------------------------------------- | -------- | ------------------- |
+| Play (round 017: ▶, the Spotify app)                 | 1        | —                   |
 | # (Spotify rank)                                     | 1        | ascending (default) |
 | Cover                                                | 3        | —                   |
 | Title                                                | 1        | A→Z                 |
@@ -105,7 +106,7 @@ and Top rows would cut their titles to a few letters and drop their bars, so exp
 | Playlists (count; the "not in a playlist" flag at 0) | 2        | most first          |
 | BPM                                                  | 1        | ascending           |
 | Key                                                  | 1        | Camelot order       |
-| Spotify link                                         | 2        | —                   |
+| Listen (round 017: the headphones menu, was the link) | 1        | —                   |
 
 | Artists column | Priority | Sort first          |
 | -------------- | -------- | ------------------- |
@@ -184,6 +185,9 @@ The whole card is one link.
 
 **Phone**: two-line items with the view's main metric. The chart moves into the details.
 
+**Round 017**: every view starts with ▶ (Play on Spotify) and ends with the headphones Listen menu; on a phone ▶ sits before the rank
+in the item's lead and the menu in its trail.
+
 **Kept**: every rule, threshold, caption, the paging step of 100, `applyPeriod`, "Try 6 months", and the stale-history empty text.
 
 ---
@@ -226,6 +230,7 @@ The whole card is one link.
 
 | Column                                                      | Priority | Sort first     |
 | ----------------------------------------------------------- | -------- | -------------- |
+| Play (round 017: ▶, the Spotify app)                        | 1        | —              |
 | # (rank in the current order)                               | 1        | default        |
 | Title                                                       | 1        | A→Z            |
 | Artists                                                     | 2        | A→Z            |
@@ -236,7 +241,7 @@ The whole card is one link.
 | Top (flags for 4 weeks, 6 months, all time)                 | 3        | —              |
 | BPM                                                         | 1        | ascending      |
 | Key                                                         | 1        | Camelot order  |
-| Spotify link                                                | 2        | —              |
+| Listen (round 017: the headphones menu, was the link)       | 1        | —              |
 
 **Match mode**:
 
@@ -310,6 +315,7 @@ in Saved tracks follow the same gate.
   outbound links (ListenBrainz, Deezer, Wikipedia) as outlined buttons with `open_in_new`. When unresolved, it reads "No reach
   data" with Look up artists, under the same rules as today.
 - **Track table**: Title, Album, Plays, Playlists (count), BPM, Key. Selecting a track opens its details, with the playlists.
+  Round 017: ▶ (Play on Spotify) first, the headphones Listen menu last, in place of the Spotify link.
 - The open-the-first-three workaround goes, because the details sheet replaces it.
 
 **Phone**: the header, the reach card, then two-line items.
@@ -771,3 +777,12 @@ Window classes decide the frame and the layout. Table widths (container queries)
 
 Messages: no new message on the screens. A failure of the years pass is Settings' existing look-up error line. A pulled row's
 invalid year is dropped by `validate.ts`; main's rule removes the field, never the row.
+
+### Round 017 · Play button and Listen menu on every track list (`specs/017-track-play-button/`)
+
+Every track table (Top tracks, Playlist, Artist, the six Crate views) starts with **Play** (`playColumn`, priority 1, 56 px, hidden
+header): the Mix tracklist's ▶ (`PlayOnSpotify`, "Play {artist} – {title} on Spotify", `spotify:track:<id>`), an empty cell for a
+row without a Spotify id. It ends with **Listen** (`listenColumn`, priority 1, 64 px): the Mix headphones menu, Play on Spotify and
+the Spotify web page when the track has an id, then Beatport, Bandcamp, Discogs, SoundCloud and YouTube searches. It replaces the
+Spotify link on those tables; Top artists, Artists, Under the radar and Playlists keep their link. On a phone ▶ is first in the
+item's lead (before the cover or the rank) and the menu is in its trail. The Mix tracklist is unchanged. Contract: `specs/017-track-play-button/contracts/track-listen.md`.

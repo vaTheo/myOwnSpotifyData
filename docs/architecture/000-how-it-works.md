@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-08
+> **Last updated**: 2026-11-09
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -244,6 +244,8 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   five store/preview search links (Beatport, Bandcamp, Discogs, SoundCloud, YouTube) plus Tracklistify's Shazam page (kept by the parser
   only when it is an https `shazam.com` URL, dropped once the row is edited), drawn as Simple Icons (CC0) by `ui/components/DigLinks.tsx`.
   Spec 003 (T118): every track's **Listen** menu holds the same links (plain search pages, no request until opened).
+  Round 017: `ui/listen.ts` (`trackListenItems`) builds the same menu from `digLinks` for every other track list (§13), and a
+  found row's Spotify cell is `ui/components/PlayOnSpotify.tsx`, the ▶ every track table starts with.
 
 **The Mixes list and the queue** (spec 003 §12, T116, T121–T123):
 
@@ -385,6 +387,16 @@ screen, grouped by role under `src/ui/`.
   tracklist): `markedKey` (passed, even null, every row says `aria-selected` and the marked one is drawn selected) and `onMark`,
   called from a capture-phase click on every row element (table row, phone item, full row), neither stopped nor prevented, so a
   link or button inside still acts; Enter or Space on the focused row element itself calls `onMark` too. Selected beats hover (`styles.css`): hovering a selected row lays a hover layer over its fill.
+- **Track rows: play and Listen** (round 017, `specs/017-track-play-button/`): every track table (Top tracks, Playlist, Artist,
+  the Crate views through `crateColumns`) starts with `playColumn` and ends with `listenColumn` (`table/columns.tsx`), both fed
+  by the page's one `trackOf(row): ListenTrack` (`ui/listen.ts`: `{ id, artist, title }`, `spotifyTrackId` turning a missing id
+  or a `spotify:local:` URI into `null`). `playColumn` draws `components/PlayOnSpotify.tsx` (an `IconButton` `play_arrow`,
+  "Play {artist} – {title} on Spotify", the app's `spotify:track:<id>` opened in place, the Mix's found mark too) or nothing;
+  `listenColumn` draws `mix/RowMenu.tsx` with the `headphones` icon and `trackListenItems` (Play on Spotify and the web page
+  when there is an id, then the five `digLinks` searches). It replaces `spotifyLinkColumn` on those tables; artist and playlist
+  tables keep it. On a phone ▶ leads the item (`.dt-item-lead` lays its cells in a row: ▶ then the cover or the rank) and the
+  menu is its trail. `DataTable` skips row clicks inside `a, button`, so neither opens the details. No request is made until
+  a link is opened.
 - **Details and list–detail**: `layout/SideSheet.tsx` docks the sheet at 400 px on large windows, a modal on medium and
   expanded, full screen on compact; `details/TrackDetails.tsx` with the pure `trackFacts.ts` shows everything the app holds for a
   track. `layout/ListDetail.tsx` puts Playlists, Artists and the Mixes list beside the open item from 840 px; on compact the item

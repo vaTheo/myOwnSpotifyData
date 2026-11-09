@@ -20,13 +20,14 @@ import { TrackSheet } from './details/TrackDetails';
 import { besideSheet } from './layout/SideSheet';
 import { artistNames, TOP_PERIOD_LABEL } from './format';
 import { windowClass } from './layout/windowClass';
-import { spotifyTrackId } from './listen';
+import { spotifyTrackId, type ListenTrack } from './listen';
 import {
   artistsColumn,
   bpmColumn,
   countColumn,
   coverColumn,
   keyColumn,
+  listenColumn,
   playColumn,
   playlistsColumn,
   playsColumn,
@@ -55,9 +56,16 @@ const PERIOD_OPTIONS = (
   ['short_term', 'medium_term', 'long_term'] as const
 ).map((value) => ({ value, label: TOP_PERIOD_LABEL[value] }));
 
+/** A top track's play button and Listen menu (round 017). */
+const trackOf = (r: AnnotatedTopTrack): ListenTrack => ({
+  id: spotifyTrackId(r.item.id),
+  artist: artistNames(r.item.artists),
+  title: r.item.name,
+});
+
 /**
  * Tracks: play · # · cover · title · artists · plays · playlists · BPM ·
- * key · released · link (play: round 017).
+ * key · released · listen (play, listen: round 017).
  */
 function trackColumns(
   hasPlaylists: boolean,
@@ -65,11 +73,7 @@ function trackColumns(
   yearOfRow: (row: AnnotatedTopTrack) => number | null
 ): Column<AnnotatedTopTrack>[] {
   return [
-    playColumn((r) => ({
-      id: spotifyTrackId(r.item.id),
-      artist: artistNames(r.item.artists),
-      title: r.item.name,
-    })),
+    playColumn(trackOf),
     rankColumn(),
     coverColumn((r) => r.item.imageUrl),
     titleColumn((r) => r.item.name),
@@ -79,7 +83,7 @@ function trackColumns(
     bpmColumn(featureOf),
     keyColumn(featureOf),
     yearColumn(yearOfRow),
-    spotifyLinkColumn((r) => r.item.spotifyUrl),
+    listenColumn(trackOf),
   ];
 }
 

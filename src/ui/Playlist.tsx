@@ -43,7 +43,7 @@ import { StatusLine } from './components/StatusLine';
 import { artistNames, formatBpm, plural } from './format';
 import { DETAIL_COMPACT_BELOW } from './layout/ListDetail';
 import { windowClass } from './layout/windowClass';
-import { spotifyTrackId } from './listen';
+import { spotifyTrackId, type ListenTrack } from './listen';
 import { matchCells, type MatchCells } from './playlist/matchCells';
 import {
   addedColumn,
@@ -52,10 +52,10 @@ import {
   bpmColumn,
   durationColumn,
   keyColumn,
+  listenColumn,
   playColumn,
   playsColumn,
   rankColumn,
-  spotifyLinkColumn,
   titleColumn,
   topFlagsColumn,
   yearColumn,
@@ -167,19 +167,20 @@ const deltaColumn: Column<ListedRow> = {
 
 /**
  * Spec 003 §8: play · # · title · artists · album · length · added ·
- * plays · (relation · ΔBPM in Match) · top · BPM · key · released · link
- * (play: round 017). Match's
- * two columns take the place of Album and Added, priority-4 columns, so the
- * title stays readable at 1440 (review of S02).
+ * plays · (relation · ΔBPM in Match) · top · BPM · key · released · listen
+ * (play, listen: round 017). Match's two columns take the place of Album
+ * and Added, priority-4 columns, so the title stays readable at 1440 (review
+ * of S02).
  */
 function playlistColumns(m: Model, matching: boolean): Column<ListedRow>[] {
   const featureOf = (r: ListedRow) => r.feature;
+  const trackOf = (r: ListedRow): ListenTrack => ({
+    id: spotifyTrackId(r.row.track.id),
+    artist: artistNames(r.row.track.artists),
+    title: r.row.track.name,
+  });
   return [
-    playColumn((r) => ({
-      id: spotifyTrackId(r.row.track.id),
-      artist: artistNames(r.row.track.artists),
-      title: r.row.track.name,
-    })),
+    playColumn(trackOf),
     rankColumn(),
     titleColumn((r) => r.row.track.name),
     // The Released column (round 005) takes 88 px: the artists give way
@@ -206,7 +207,7 @@ function playlistColumns(m: Model, matching: boolean): Column<ListedRow>[] {
     bpmColumn(featureOf),
     keyColumn(featureOf),
     yearColumn((r) => yearOfListed(m, r)),
-    spotifyLinkColumn((r) => r.row.track.spotifyUrl),
+    listenColumn(trackOf),
   ];
 }
 
