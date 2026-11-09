@@ -20,7 +20,7 @@ import sys
 import time
 import urllib.parse
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -89,7 +89,8 @@ def code_for(result: Result) -> int:
 
 
 def make_client(settings: Settings) -> Any:
-    """`personal` (default): the owner's own queue; `shared`: every user's, through the definer functions."""
+    """`personal`: the account's own queue; `shared`: every user's, through the definer functions; `auto` (default) starts
+    with the personal client and `run_queue` switches once the server has said what the account is."""
     cls = SharedServerClient if settings.worker_mode == "shared" else ServerClient
     return cls(settings.supabase_url, settings.supabase_key)
 
@@ -284,6 +285,29 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
     log = deps.log
     client = deps.client
     start = f"mix-worker {__version__} · {settings.supabase_url} · as {session.email} · on {settings.worker_name}"
+    reason = ""
+    if settings.worker_mode == "auto":
+        # Round 017: the server says what the account is; the worker follows.
+        fresh = ensure_fresh(session, client, settings.session_file)
+        if fresh is None:
+            log.line(NOT_SIGNED_IN)
+            return EXIT_SIGNED_OUT
+        if isinstance(fresh, Result):
+            log.line(f"server: {fresh.message}")
+            return code_for(fresh)
+        session = fresh
+        role = client.is_shared_worker(session.access_token)
+        if not role.ok:
+            log.line(f"server: {role.message}")
+            return code_for(role)
+        if role.value is True:
+            settings = replace(settings, worker_mode="shared")
+            client = make_client(settings)
+            deps.client = client
+            reason = " (the account is listed)"
+        else:
+            settings = replace(settings, worker_mode="personal")
+            start += " · personal worker (the account is not listed)"
     if settings.worker_mode == "shared":
         fresh = ensure_fresh(session, client, settings.session_file)
         if fresh is None:
@@ -300,7 +324,7 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
         if known.value is not True:
             log.line(NOT_SHARED)
             return EXIT_NOT_SHARED
-        start += " · shared worker"
+        start += " · shared worker" + reason
     log.line(start)
     while True:
         fresh = ensure_fresh(session, client, settings.session_file)

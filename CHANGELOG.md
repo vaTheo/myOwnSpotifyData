@@ -3,6 +3,14 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-09 — The worker's mode follows the account (worker 0.7.1)
+
+`WORKER_MODE` now defaults to `auto`: after sign-in the worker asks the server whether the account is listed in `shared_workers` and runs
+as a shared worker if it is, personal if not; the start line says which. `personal` and `shared` still force a mode; a failed check
+ends the run (exit 2) and never guesses. No app change, no migration. **What to do:** download worker 0.7.1; in an existing
+`mix-worker.env` change `WORKER_MODE=shared` (or `personal`) to `auto`, or delete the line.
+[ADR-16](docs/architecture/700-adr/ADR-16-shared-worker.md) amendment.
+
 ## 2026-11-08 — TrackId.net with the Shazam probes (worker 0.7.0)
 
 The worker now asks TrackId.net about the exact mix link (never a search by name) before it listens. For a mix TrackId.net knows, the

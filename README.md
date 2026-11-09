@@ -406,11 +406,13 @@ update the app (hard-reload) before using it.
 By default the worker serves one account, the one that signed it in (yours): a
 friend's **Identify on my computer** is recorded on the server but not taken,
 and waits as Queued in their Mixes list until they Cancel it. To serve every
-user, set `WORKER_MODE=shared` (worker 0.6.0): create a user with a dedicated
+user, create a user with a dedicated
 email in the Supabase dashboard, run `supabase/migrations/0006_shared_worker.sql`,
 list that user (`insert into public.shared_workers (user_id, label) values
 ('<id>', 'my PC');`), and sign the worker in with that email. It then takes
-one request per user in turn; delete the row to switch it off.
+one request per user in turn; delete the row to switch it off. Since worker 0.7.1 the mode follows the account (`WORKER_MODE=auto`,
+the default): the worker asks the server whether the account is listed and says so on its start line; `personal` or `shared` in
+`mix-worker.env` still force a mode.
 
 ## Server (optional)
 

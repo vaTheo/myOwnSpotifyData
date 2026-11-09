@@ -4,7 +4,7 @@ Complements `specs/002-mix-analysis-worker/contracts/worker.md`. Personal mode i
 
 ## Setting
 
-`WORKER_MODE`: `personal` (default) or `shared`. Anything else is a settings error (exit 5, "setting WORKER_MODE: must be personal or shared"). Same line in `.env.example` and the packaged `env.example` (they stay equal; tested).
+`WORKER_MODE`: `auto` (default since worker 0.7.1: `is_shared_worker` after sign-in decides), `personal` or `shared`. Anything else is a settings error (exit 5, "setting WORKER_MODE: must be auto, personal or shared"). Same line in `.env.example` and the packaged `env.example` (they stay equal; tested).
 
 ## Start
 
