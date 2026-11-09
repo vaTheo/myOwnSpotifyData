@@ -47,6 +47,9 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   cooldown, one pause) is a guess from the surviving Tracklistify copy, and a second refusal fails the request. A set is sampled
   once a minute, so a track played under a minute can be missed. The executables are unsigned; the ffmpeg inside is a GPL build;
   YouTube links need Node or Deno on the computer. Requests wait while the computer is off.
+  Since worker 0.7.2 (the sandwich round, F35) a song heard between two clips of one song at most the merge gap apart (A, X, A,
+  3 minutes by default) is dropped as a false match: a DJ who really plays X inside that stretch loses it, and two songs
+  interleaved within the gap (A, B, A, B) keep only the first A and the last B.
 - The server (F18) is a Supabase Free project: it pauses after a week without traffic and only the dashboard resumes it; 500 MB
   of database; no automatic backups; a sign-in link only works in the browser that asked for it, within 10 minutes; the built-in
   email service sends a few links an hour at most.

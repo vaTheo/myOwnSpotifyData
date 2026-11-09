@@ -11,6 +11,7 @@ from mix_worker.scan import (
     ScanUnreachable,
     cut_probe,
     default_classify,
+    drop_sandwiched,
     gap_positions,
     gaps_of,
     inside_known,
@@ -142,6 +143,146 @@ class Merge(unittest.TestCase):
         b = Hit(time=60, entry={"song_name": "same", "artist": "ARTIST", "time_in_mix": "00:01:00", "confidence": 2.0, "duration": None})
         self.assertEqual(len(merge([a, b], gap=180)), 1)
         self.assertEqual(merge([], gap=180), [])
+
+
+class Sandwiched(unittest.TestCase):
+    """Spec 019 (the sandwich round): a hit of another song strictly between
+    two neighbouring hits of song A at most `gap` seconds apart is dropped."""
+
+    def keys(self, hits):
+        return [(h.time, h.entry["metadata"]["shazam_id"]) for h in hits]
+
+    def test_a_x_a_within_the_gap_drops_x_and_merges_a(self):
+        kept, dropped = drop_sandwiched([hit(720, "A"), hit(780, "X"), hit(840, "A")], gap=180)
+        self.assertEqual(self.keys(kept), [(720, "A"), (840, "A")])
+        self.assertEqual(dropped, 1)
+        rows = merge(kept, gap=180)
+        self.assertEqual([(r["time_in_mix"], r["metadata"]["shazam_id"], r["hits"]) for r in rows], [("00:12:00", "A", 2)])
+
+    def test_a_far_apart_keeps_what_is_between(self):
+        kept, dropped = drop_sandwiched([hit(0, "A"), hit(60, "X"), hit(181, "A")], gap=180)
+        self.assertEqual(self.keys(kept), [(0, "A"), (60, "X"), (181, "A")])
+        self.assertEqual(dropped, 0)
+        kept, dropped = drop_sandwiched([hit(0, "A"), hit(60, "X"), hit(180, "A")], gap=180)
+        self.assertEqual(self.keys(kept), [(0, "A"), (180, "A")])  # exactly the gap: dropped
+        self.assertEqual(dropped, 1)
+
+    def test_two_different_songs_around_keep_x(self):
+        kept, dropped = drop_sandwiched([hit(0, "A"), hit(60, "X"), hit(120, "B")], gap=180)
+        self.assertEqual(self.keys(kept), [(0, "A"), (60, "X"), (120, "B")])
+        self.assertEqual(dropped, 0)
+
+    def test_several_songs_between_are_all_dropped(self):
+        kept, dropped = drop_sandwiched([hit(0, "A"), hit(30, "X"), hit(60, "Y"), hit(90, "A")], gap=180)
+        self.assertEqual(self.keys(kept), [(0, "A"), (90, "A")])
+        self.assertEqual(dropped, 2)
+
+    def test_a_chain_drops_every_filling_and_a_is_one_row(self):
+        hits = [hit(0, "A"), hit(60, "X"), hit(120, "A"), hit(180, "Z"), hit(240, "A")]
+        kept, dropped = drop_sandwiched(hits, gap=180)
+        self.assertEqual(self.keys(kept), [(0, "A"), (120, "A"), (240, "A")])
+        self.assertEqual(dropped, 2)
+        self.assertEqual([(r["metadata"]["shazam_id"], r["hits"]) for r in merge(kept, gap=180)], [("A", 3)])
+
+    def test_nearest_a_pairs_only(self):
+        # X@100 is within 180 s of A@0 and of A@200, but the two A hits
+        # around it are 200 s apart: X stays.
+        kept, dropped = drop_sandwiched([hit(0, "A"), hit(100, "X"), hit(200, "A")], gap=180)
+        self.assertEqual(dropped, 0)
+
+    def test_ties_keep_the_input_order(self):
+        hits = [hit(100, "C"), hit(100, "B"), hit(0, "D")]
+        kept, dropped = drop_sandwiched(hits, gap=180)
+        self.assertEqual(self.keys(kept), [(100, "C"), (100, "B"), (0, "D")])
+        self.assertEqual(dropped, 0)
+        kept, dropped = drop_sandwiched([hit(0, "A"), hit(60, "Y"), hit(60, "X"), hit(120, "A")], gap=180)
+        self.assertEqual(self.keys(kept), [(0, "A"), (120, "A")])
+        self.assertEqual(dropped, 2)
+
+    def test_a_hit_at_the_time_of_an_a_hit_is_not_between(self):
+        hits = [hit(0, "A"), hit(0, "X"), hit(60, "A"), hit(120, "Y"), hit(120, "A")]
+        kept, dropped = drop_sandwiched(hits, gap=180)
+        self.assertEqual(self.keys(kept), [(0, "A"), (0, "X"), (60, "A"), (120, "Y"), (120, "A")])
+        self.assertEqual(dropped, 0)
+
+    def test_same_shazam_id_with_other_names_is_the_same_song(self):
+        a1 = hit(0, "A", title="Song (Radio Edit)")
+        a2 = hit(120, "A", title="Song (Extended Mix)")
+        kept, dropped = drop_sandwiched([a1, hit(60, "X"), a2], gap=180)
+        self.assertEqual(self.keys(kept), [(0, "A"), (120, "A")])
+        self.assertEqual(dropped, 1)
+
+    def test_name_key_without_shazam_id(self):
+        def named(t, artist, title):
+            return Hit(time=t, entry={"song_name": title, "artist": artist, "time_in_mix": hhmmss(t), "confidence": 1.0, "duration": None})
+
+        kept, dropped = drop_sandwiched([named(0, "Artist", "Same"), named(60, "Other", "X"), named(120, " ARTIST ", "same ")], gap=180)
+        self.assertEqual([h.time for h in kept], [0, 120])
+        self.assertEqual(dropped, 1)
+
+    def test_interleaved_a_b_a_b_drops_the_two_middle_hits(self):
+        # Every pair is judged on the hits as they came: B@30 sits between
+        # A@0 and A@60, A@60 sits between B@30 and B@90. Both go; the first
+        # A and the last B stay (a transition from A to B).
+        kept, dropped = drop_sandwiched([hit(0, "A"), hit(30, "B"), hit(60, "A"), hit(90, "B")], gap=180)
+        self.assertEqual(self.keys(kept), [(0, "A"), (90, "B")])
+        self.assertEqual(dropped, 2)
+        self.assertEqual([(r["metadata"]["shazam_id"], r["hits"]) for r in merge(kept, gap=180)], [("A", 1), ("B", 1)])
+
+    def test_the_earliest_hit_always_stays(self):
+        kept, dropped = drop_sandwiched([], gap=180)
+        self.assertEqual((kept, dropped), ([], 0))
+        kept, dropped = drop_sandwiched([hit(0, "B"), hit(30, "A"), hit(60, "B"), hit(90, "A"), hit(120, "B")], gap=180)
+        self.assertEqual(self.keys(kept), [(0, "B"), (120, "B")])
+        self.assertEqual(dropped, 3)
+
+    def test_scan_drops_x_counts_it_and_keeps_the_raw_hits(self):
+        answers = [CASSETTE, OTHER, CASSETTE]
+
+        async def recognise(data, skew):
+            return answers.pop(0)
+
+        async def sleep(s):
+            pass
+
+        report, lines, raw = {}, [], []
+        rows = run(scan(180, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, report=report, hits_out=raw, clock=lambda: 0.0))
+        self.assertEqual([(r["time_in_mix"], r["song_name"], r["hits"]) for r in rows], [("00:00:00", "I Will Survive", 2)])
+        self.assertEqual(report["sandwiched"], 1)
+        self.assertTrue(any("1 finding between two hits of the same song dropped" in x for x in lines))
+        self.assertEqual([h.time for h in raw], [0, 60, 120])  # the run state keeps every hit
+
+    def test_scan_without_a_sandwich_reports_zero_and_says_nothing(self):
+        answers = [CASSETTE, OTHER]
+
+        async def recognise(data, skew):
+            return answers.pop(0)
+
+        async def sleep(s):
+            pass
+
+        report, lines = {}, []
+        rows = run(scan(120, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, report=report, clock=lambda: 0.0))
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(report["sandwiched"], 0)
+        self.assertFalse(any("between two hits of the same song" in x for x in lines))
+
+    def test_second_pass_hit_between_is_dropped_and_its_stretch_stays_known(self):
+        # First pass at 0, 15, 30, 45: A then three misses (no A after, so the
+        # second pass runs). Second pass at 22 hears X, at 52 hears A again.
+        answers = [CASSETTE, NO_MATCH, NO_MATCH, NO_MATCH, OTHER, CASSETTE]
+
+        async def recognise(data, skew):
+            return answers.pop(0)
+
+        async def sleep(s):
+            pass
+
+        report = {}
+        rows = run(scan(60, step=15, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, cut_at=lambda t, s: b"x" * 5000, gap_step=30, speeds=(), sleep=sleep, classify=classify, report=report, clock=lambda: 0.0))
+        self.assertEqual([(r["song_name"], r["hits"]) for r in rows], [("I Will Survive", 2)])
+        self.assertEqual(report["sandwiched"], 1)
+        self.assertEqual(report["gaps"], [(30, 45)])  # 15-30 holds the dropped X: known, not a gap
 
 
 def run(coro):

@@ -3,6 +3,15 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-09 — The worker drops a finding between two hits of one song
+
+Worker 0.7.2. When the scan hears song A, then a different song, then A again, and the two A clips are at most
+`WORKER_MERGE_GAP_SECONDS` apart (3 minutes by default), the song in between is treated as a false match inside A and dropped: the
+tracklist shows A once, its clips added up. Two songs interleaved within the gap (A, B, A, B) keep the first A and the last B. The log
+says "scan · N findings between two hits of the same song dropped". TrackId.net and comment rows are never dropped by it; no new
+setting. Spec `specs/019-worker-drop-sandwiched-hits/`, design note `docs/specs/2026-11-09-worker-drop-sandwiched-hits-design.md`.
+No Spotify read or write, no `DB_VERSION` bump, the app needs no update; to get it, run worker 0.7.2 (released on the push to `main`).
+
 ## 2026-11-09 — One row per song in a scanned mix
 
 When a scan result (or a Tracklistify JSON imported by hand) names the same song at several times, the tracklist now shows it once, at
