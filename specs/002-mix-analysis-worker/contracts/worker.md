@@ -46,6 +46,8 @@ first start). A failed *request* is not a failed *run*: the worker marks it `fai
 | `WORKER_REFUSAL_WARN_CALLS` | 150 | two refusals closer than this many calls: one warning (round 004) |
 | `WORKER_RESUME_DAYS` | 7 | Ask again on a stopped set resumes it within this many days (round 004) |
 | `WORKER_RATE_LIMIT_PAUSES` | 8 | pauses per set; one more `RateLimited` stops the scan: done with the tracks found ("stopped early"), failed only when none |
+| `WORKER_AUTO_RESUME_MINUTES` | 30 | after a done request stopped early by refusals, `run --watch` in personal mode inserts the app's Ask again row for the link this long later; 0 = off (spec 023, worker 0.7.3) |
+| `WORKER_AUTO_RESUMES` | 6 | automatic asks per link at most; a complete run resets the count, a manual Ask again does not; in memory, lost on restart (spec 023) |
 | `WORKER_SHAZAM_DEVICE` | android | recognition profile, `android` or `iphone` (D3) |
 | `WORKER_MAX_SKEW` | 0.1 | ShazamIO's `max_skew` (max of the first match's time and frequency skew); 0 disables (D5) |
 | `WORKER_MERGE_GAP_SECONDS` | 180 | same track within this gap extends the row (D5); another song's hit between two hits of one track this close is dropped (worker 0.7.2, D5) |
@@ -81,6 +83,10 @@ the traceback goes to the log file only; the loop continues with the next reques
   code)`, `refresh(token)`, `claim(access, worker, stale)`, `finish(access, job_id, worker, body)`, `release(access, job_id,
   worker)`, `logout(access)`; every method returns a `Result` (`ok | offline | paused | unauthorized | too_large | error` with
   `status`, `message`) and never raises; the mapping of `client.ts` (server-schema.md).
+- Spec 023: `ServerClient.enqueue(access, url) -> Result` (`value` `"exists"` or `"queued"`; the app's open-request check then
+  its insert; `SharedServerClient.enqueue` sends nothing and answers `error`); `autoresume.AutoResume(minutes, cycles, clock,
+  off=)` with `after(url, outcome) -> str | None`, `take_due() -> list[str]`, `queued(url, result) -> str`; `Outcome.stopped`
+  (the stop reason of a done request); `run_queue(..., clock=time.monotonic)`.
 - `session.py`: `load(path)`, `save(path, session)` (0600), `ensure_fresh(session, client, now)`.
 - `download.py`: `download(url, dest_dir, settings, ydl_factory=yt_dlp.YoutubeDL) -> Downloaded | DownloadFailure`;
   `reason_for(message) -> str` (the D7 mapping, pure).

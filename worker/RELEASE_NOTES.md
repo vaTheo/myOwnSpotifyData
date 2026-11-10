@@ -11,6 +11,11 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.7.3: **a set stopped by Shazam is asked again by itself**. When Shazam refuses past the pauses allowed, the tracks found are still
+  sent at once ("Stopped early … (rate limited)"); then, 30 minutes later, the worker asks again for that set as if you had pressed
+  **Ask again**, and the new request continues where the scan stopped. At most 6 times a set; other requests run during the wait. New
+  settings `WORKER_AUTO_RESUME_MINUTES` (30; 0 = never) and `WORKER_AUTO_RESUMES` (6), in `run --watch` (the double-click) on your own
+  account only, never for a shared worker or `run --once`. The plan lives in memory: a restart forgets it. The app needs no update.
 - 0.7.2: **a wrong match inside a song is dropped**. When Shazam hears song A, then a different song, then A again, and the two A
   clips are at most `WORKER_MERGE_GAP_SECONDS` apart (3 minutes by default), the song in between is a false match inside A (a sample,
   a vocal, a quiet bar): the worker drops it and A stays one row with its clips added up. The log says "scan · N findings between two

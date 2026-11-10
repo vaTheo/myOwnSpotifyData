@@ -232,6 +232,29 @@ class ServerClient:
         stop = bool(rows and isinstance(rows[0], dict) and rows[0].get("stop_requested_at"))
         return Result("ok", {"stop": stop, "taken": not rows}, r.status)
 
+    def enqueue(self, access_token: str, url: str) -> Result:
+        """Round 023, the automatic Ask again: what the app's Ask again does
+        (`requestIdentify` in src/server/sync.ts), one open request per link.
+        `value`: "exists" when one is queued or claimed (nothing inserted),
+        "queued" when the row was added. The insert runs under the owner's
+        session: `jobs_insert` checks `owner_id = auth.uid()`, the default."""
+        query = urllib.parse.urlencode(
+            {"select": "id", "kind": "eq.identify-mix", "payload->>url": "eq." + url, "status": "in.(queued,claimed)"}
+        )
+        found = self._request("GET", "/rest/v1/jobs?" + query, token=access_token)
+        if not found.ok:
+            return found
+        if isinstance(found.value, list) and found.value:
+            return Result("ok", "exists", found.status)
+        r = self._request(
+            "POST", "/rest/v1/jobs", {"kind": "identify-mix", "payload": {"url": url}}, token=access_token, prefer="return=representation"
+        )
+        if not r.ok:
+            return r
+        if isinstance(r.value, list) and r.value:
+            return Result("ok", "queued", r.status)
+        return Result("error", None, r.status, "the server answered without the created row")
+
     def release(self, access_token: str, job_id: str, worker: str) -> Result:
         return self._request(
             "PATCH",
@@ -287,6 +310,11 @@ class SharedServerClient(ServerClient):
         if row is None:
             return Result("ok", {"stop": False, "taken": True}, r.status)
         return Result("ok", {"stop": bool(row.get("stop")), "taken": bool(row.get("taken"))}, r.status)
+
+    def enqueue(self, access_token: str, url: str) -> Result:
+        """Never: a shared worker has no table privilege (ADR-16); the run loop
+        does not plan an automatic Ask again in shared mode either."""
+        return Result("error", None, None, "a shared worker never inserts a request")
 
     def release(self, access_token: str, job_id: str, worker: str) -> Result:
         return self._request("POST", "/rest/v1/rpc/worker_release_job", {"p_id": job_id, "p_worker": worker}, token=access_token, timeout=RELEASE_TIMEOUT_SECONDS)

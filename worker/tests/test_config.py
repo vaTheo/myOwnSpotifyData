@@ -58,6 +58,7 @@ class Defaults(unittest.TestCase):
         self.assertEqual((s.refusal_warn_calls, s.resume_days), (150, 7))
         self.assertEqual((s.break_every_calls, s.break_seconds), (0, 120.0))
         self.assertEqual(s.result_max_bytes, 900000)
+        self.assertEqual((s.auto_resume_minutes, s.auto_resumes), (30, 6))
 
     def test_windows_paths(self):
         s = load(env={"APPDATA": r"C:\Users\dj\AppData\Roaming", "LOCALAPPDATA": r"C:\Users\dj\AppData\Local"}, platform="win32")
@@ -100,10 +101,16 @@ class FileAndEnv(unittest.TestCase):
             ({"WORKER_PROBE_SECONDS": "13"}, "WORKER_PROBE_SECONDS"),
             ({"WORKER_SHAZAM_DEVICE": "web"}, "WORKER_SHAZAM_DEVICE"),
             ({"WORKER_PROBE_SECONDS": "1"}, "WORKER_PROBE_SECONDS"),
+            ({"WORKER_AUTO_RESUME_MINUTES": "-1"}, "WORKER_AUTO_RESUME_MINUTES"),
+            ({"WORKER_AUTO_RESUMES": "six"}, "WORKER_AUTO_RESUMES"),
         ]:
             with self.assertRaises(SettingsError) as ctx:
                 load(env=env)
             self.assertEqual(ctx.exception.setting, name)
+
+    def test_auto_resume_zero_is_off(self):
+        s = load(env={"WORKER_AUTO_RESUME_MINUTES": "0", "WORKER_AUTO_RESUMES": "0"})
+        self.assertEqual((s.auto_resume_minutes, s.auto_resumes), (0, 0))
 
     def test_max_skew_zero_allowed(self):
         self.assertEqual(load(env={"WORKER_MAX_SKEW": "0"}).max_skew, 0.0)

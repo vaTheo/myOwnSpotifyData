@@ -63,6 +63,9 @@ class Settings:
     break_seconds: float = 120.0
     worker_mode: str = "auto"
     trackid: bool = True
+    # Round 023: the automatic Ask again after a rate-limit stop; 0 minutes = off.
+    auto_resume_minutes: int = 30
+    auto_resumes: int = 6
 
 
 def template_text() -> str:
@@ -268,4 +271,6 @@ def load_settings(
         break_seconds=_float(values, "WORKER_BREAK_SECONDS", 120.0, 0.0),
         worker_mode=_mode(values),
         trackid=_trackid(values),
+        auto_resume_minutes=_int(values, "WORKER_AUTO_RESUME_MINUTES", 30, 0),
+        auto_resumes=_int(values, "WORKER_AUTO_RESUMES", 6, 0),
     )

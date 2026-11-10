@@ -429,7 +429,12 @@ only the tracks heard once to judge them. One thing is removed for you (worker
 0.7.2): a different song heard between two clips of one song at most 3 minutes
 apart (A, X, A) is a false match inside that song, so the worker drops it and
 the log counts it (`WORKER_MERGE_GAP_SECONDS` sets the 3 minutes). Run the
-worker without a VPN: Shazam refuses far more often on one. The **Mixes**
+worker without a VPN: Shazam refuses far more often on one. When Shazam stops
+a set anyway, the tracks found are sent at once ("Stopped early … (rate
+limited)") and, since worker 0.7.3, the worker asks again by itself 30 minutes
+later, up to 6 times a set, continuing where it stopped (only the worker
+started with `run --watch` or a double-click, on your own account; closing it
+forgets the plan, so press Ask again then). The **Mixes**
 list holds every link sent beside your saved mixes, one row per link with a
 chip (Queued, Identifying, Paused, Stopping…, Found tracks, Failed, Rejected,
 Saved, Playlist made): running first, then waiting in the order the worker

@@ -3,6 +3,16 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-10 — The worker asks again by itself after a rate-limit stop
+
+Worker 0.7.3. When Shazam refuses past the pauses allowed, the tracks found are still sent at once ("Stopped early at 47:00 (rate
+limited); ask again later for the rest"); then the worker asks again for that set by itself 30 minutes later, exactly as **Ask again**
+does, and the new request continues the scan where it stopped. Other requests run during the wait; at most 6 automatic asks a set; a
+Stop, a failure or a set without any track found is never asked again. New settings `WORKER_AUTO_RESUME_MINUTES` (30, 0 = never) and
+`WORKER_AUTO_RESUMES` (6); only a worker in `run --watch` (the double-click) on your own account, never a shared worker or
+`run --once`; the plan is kept in memory, so a restarted worker forgets it. Spec `specs/023-worker-auto-resume/`. No Spotify read or
+write, no migration, no `DB_VERSION` bump, the app needs no update; to get it, run worker 0.7.3 (released on the push to `main`).
+
 ## 2026-11-10 — Play button on the phone Mix row
 
 On a phone, a Mix track found on Spotify now has the play button (▶) on its second line, before the Shazam and SoundCloud icons:

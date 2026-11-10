@@ -2,6 +2,8 @@ import io
 import json
 import unittest
 import urllib.error
+import urllib.parse
+from pathlib import Path
 
 from mix_worker.server import ServerClient, SharedServerClient
 
@@ -302,3 +304,51 @@ class SharedClient(unittest.TestCase):
         self.assertEqual(c.is_shared_worker("tok").value, False)
         self.assertEqual(op.calls[0]["url"], BASE + "/rest/v1/rpc/is_shared_worker")
         self.assertEqual(op.calls[0]["body"], {})
+
+
+class Enqueue(unittest.TestCase):
+    """Round 023: the automatic Ask again inserts what the app's Ask again inserts."""
+
+    URL = "https://soundcloud.com/a/b?x=1&y=2"
+
+    def test_no_open_request_inserts_the_apps_row(self):
+        c, op = client(FakeResponse(200, []), FakeResponse(201, [{"id": "j2"}]))
+        r = c.enqueue("tok", self.URL)
+        self.assertEqual((r.kind, r.value), ("ok", "queued"))
+        look, insert = op.calls
+        self.assertEqual(look["method"], "GET")
+        self.assertTrue(look["url"].startswith(BASE + "/rest/v1/jobs?"))
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(look["url"]).query)
+        self.assertEqual(query, {"select": ["id"], "kind": ["eq.identify-mix"], "payload->>url": ["eq." + self.URL], "status": ["in.(queued,claimed)"]})
+        self.assertEqual(look["headers"]["authorization"], "Bearer tok")
+        self.assertEqual(insert["method"], "POST")
+        self.assertEqual(insert["url"], BASE + "/rest/v1/jobs")
+        self.assertEqual(insert["body"], {"kind": "identify-mix", "payload": {"url": self.URL}})
+        self.assertEqual(insert["headers"]["prefer"], "return=representation")
+        self.assertEqual(insert["headers"]["authorization"], "Bearer tok")
+
+    def test_the_payload_is_the_apps(self):
+        sync = (Path(__file__).resolve().parents[2] / "src" / "server" / "sync.ts").read_text(encoding="utf-8")
+        self.assertIn("const JOB_KIND = 'identify-mix';", sync)
+        self.assertIn("{ kind: JOB_KIND, payload: { url } }", sync)
+        self.assertIn("status: 'in.(queued,claimed)'", sync)
+
+    def test_an_open_request_inserts_nothing(self):
+        c, op = client(FakeResponse(200, [{"id": "j1"}]))
+        r = c.enqueue("tok", self.URL)
+        self.assertEqual((r.kind, r.value), ("ok", "exists"))
+        self.assertEqual(len(op.calls), 1)
+
+    def test_errors_are_mapped_and_never_raise(self):
+        c, op = client(urllib.error.URLError("down"))
+        self.assertEqual(c.enqueue("tok", self.URL).kind, "offline")
+        c, op = client(FakeResponse(200, []), http_error(403, b'{"message":"new row violates row-level security"}'))
+        self.assertEqual(c.enqueue("tok", self.URL).kind, "unauthorized")
+        c, op = client(FakeResponse(200, []), FakeResponse(201, []))
+        self.assertEqual(c.enqueue("tok", self.URL).kind, "error")
+
+    def test_the_shared_client_never_inserts(self):
+        c, op = shared()
+        r = c.enqueue("tok", self.URL)
+        self.assertEqual(r.kind, "error")
+        self.assertEqual(op.calls, [])

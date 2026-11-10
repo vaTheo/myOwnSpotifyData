@@ -58,6 +58,8 @@ class Outcome:
     reason: str | None = None
     json_path: Path | None = None
     server: Result | None = None
+    # Round 023: `stopped_early["reason"]` of a done request ("rate limited", "by you", "no answer"), None when complete.
+    stopped: str | None = None
 
 
 def _iso(seconds: float) -> str:
@@ -314,7 +316,7 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
                 deps.log.line(f"  request {job_id[:8]} was taken by another worker; result kept at {json_path}")
             return Outcome("taken", json_path=json_path)
         steps.done("send", f"{size} bytes", started)
-        return Outcome("done", json_path=json_path)
+        return Outcome("done", json_path=json_path, stopped=stopped["reason"] if stopped is not None else None)
     except Exception as err:  # the loop must go on (FR-018)
         if deps.log is not None:
             deps.log.exception(err)

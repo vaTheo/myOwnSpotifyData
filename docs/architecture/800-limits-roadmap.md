@@ -50,6 +50,9 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   Since worker 0.7.2 (the sandwich round, F35) a song heard between two clips of one song at most the merge gap apart (A, X, A,
   3 minutes by default) is dropped as a false match: a DJ who really plays X inside that stretch loses it, and two songs
   interleaved within the gap (A, B, A, B) keep only the first A and the last B.
+  Since worker 0.7.3 (the auto-resume round, F39) a set stopped by refusals is asked again by itself 30 minutes later, at most 6
+  times; the plan is kept in memory only, so a worker closed or restarted during the wait forgets it (press Ask again), and a shared
+  worker or `run --once` never asks again by itself.
 - The server (F18) is a Supabase Free project: it pauses after a week without traffic and only the dashboard resumes it; 500 MB
   of database; no automatic backups; a sign-in link only works in the browser that asked for it, within 10 minutes; the built-in
   email service sends a few links an hour at most.

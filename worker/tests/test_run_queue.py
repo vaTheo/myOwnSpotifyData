@@ -205,5 +205,121 @@ class Watch(unittest.TestCase):
             self.assertFalse((Path(tmp) / "work" / job(1)["id"]).exists())
 
 
+class AutoAskAgain(unittest.TestCase):
+    """Round 023: a rate-limited partial result is sent, then asked again 30 min later (at most 6 times)."""
+
+    class Server(FakeClient):
+        """A queue: `enqueue` adds a job the next `claim` returns."""
+
+        def __init__(self, first, clock):
+            super().__init__([])
+            self.queue = [first]
+            self.clock = clock
+            self.enqueued = []
+            self.next_id = 100
+
+        def claim(self, token, worker, stale):
+            self.calls.append(("claim", token, worker, stale))
+            return Result("ok", self.queue.pop(0) if self.queue else None)
+
+        def finish(self, token, job_id, worker, body):
+            self.calls.append(("finish", job_id, body["status"], body.get("error"), self.clock.t))
+            return Result("ok", "done", 200)
+
+        def is_shared_worker(self, token):
+            return Result("ok", True, 200)
+
+        def enqueue(self, token, url):
+            self.enqueued.append((url, self.clock.t))
+            self.next_id += 1
+            self.queue.append({"id": f"00000000-0000-4000-8000-{self.next_id:012d}", "payload": {"url": url}})
+            return Result("ok", "queued", 201)
+
+    class Clock:
+        def __init__(self):
+            self.t = 0.0
+
+        def __call__(self):
+            return self.t
+
+    def go(self, *, once=False, mode="personal", minutes=30, until=8 * 3600, stopped="rate limited", url="https://x.y/1", server=None):
+        from dataclasses import replace
+
+        from mix_worker.scan import ScanOutput
+
+        clock = self.Clock()
+        first = {"id": "00000000-0000-4000-8000-000000000001", "payload": {"url": url}}
+        with tempfile.TemporaryDirectory() as tmp:
+            client = (server or self.Server)(first, clock)
+            row = [{"song_name": "T", "artist": "A", "time_in_mix": "00:00:00", "confidence": 1.0, "duration": None}]
+            settings, deps, session = make(
+                tmp, client,
+                scan=lambda p, d: ScanOutput(rows=row, stopped={"at": "00:10:00", "reason": stopped} if stopped else None),
+                expires_at=9e12,
+            )
+            settings = replace(settings, worker_mode=mode, auto_resume_minutes=minutes)
+
+            def sleep(s):
+                clock.t += s
+                if clock.t > until:
+                    raise KeyboardInterrupt()
+
+            code = run_queue(settings, deps, session, once=once, interval=60, sleep=sleep, clock=clock)
+            return code, client, deps.log.lines
+
+    def test_the_partial_result_is_sent_then_asked_again_once_after_30_minutes(self):
+        code, client, lines = self.go(until=45 * 60)
+        self.assertEqual(code, EXIT_INTERRUPTED)
+        finishes = [c for c in client.calls if c[0] == "finish"]
+        self.assertEqual(finishes[0][2], "done")
+        self.assertTrue(finishes[0][3].startswith("Stopped early at 00:10:00 (rate limited)"))
+        self.assertEqual(len(client.enqueued), 1)
+        url, at = client.enqueued[0]
+        self.assertEqual(url, "https://x.y/1")
+        self.assertGreaterEqual(at, 30 * 60)
+        self.assertLessEqual(at, 30 * 60 + 60)  # at the next look after the due time
+        self.assertEqual(len(finishes), 2)  # the inserted request ran like an Ask again
+        self.assertIn("  auto ask again · https://x.y/1 in 30 min (1/6)", lines)
+        self.assertIn("auto ask again · queued https://x.y/1 (1/6)", lines)
+
+    def test_at_most_six_cycles(self):
+        _, client, lines = self.go(until=12 * 3600)
+        self.assertEqual(len(client.enqueued), 6)
+        self.assertEqual(len([c for c in client.calls if c[0] == "finish"]), 7)
+        self.assertIn("  auto ask again · 6 of 6 done for this set; press Ask again in the app for the rest", lines)
+
+    def test_a_stop_that_is_not_a_rate_limit_schedules_nothing(self):
+        for stopped in ("by you", "no answer", None):
+            _, client, _ = self.go(stopped=stopped, until=3 * 3600)
+            self.assertEqual(client.enqueued, [], stopped)
+
+    def test_shared_mode_schedules_nothing(self):
+        _, client, lines = self.go(mode="shared", url="https://soundcloud.com/a/b", until=3 * 3600)
+        self.assertEqual(client.enqueued, [])
+        self.assertIn("  auto ask again · off in shared mode; press Ask again in the app for the rest", lines)
+
+    def test_once_mode_schedules_nothing(self):
+        code, client, lines = self.go(once=True)
+        self.assertEqual(code, EXIT_OK)
+        self.assertEqual(client.enqueued, [])
+        self.assertIn("  auto ask again · off in run --once; press Ask again in the app for the rest", lines)
+
+    def test_zero_minutes_is_off(self):
+        _, client, lines = self.go(minutes=0, until=3 * 3600)
+        self.assertEqual(client.enqueued, [])
+        self.assertFalse(any("auto ask again" in l for l in lines))
+
+    def test_a_failed_insert_is_one_line_and_the_loop_goes_on(self):
+        class Down(self.Server):
+            def enqueue(self, token, url):
+                self.enqueued.append((url, self.clock.t))
+                return Result("offline", None, None, "network error: down")
+
+        code, client, lines = self.go(until=3 * 3600, server=Down)
+        self.assertEqual(code, EXIT_INTERRUPTED)
+        self.assertEqual(len(client.enqueued), 1)  # never retried
+        self.assertIn("auto ask again · not queued (offline: network error: down); press Ask again in the app", lines)
+
+
 if __name__ == "__main__":
     unittest.main()

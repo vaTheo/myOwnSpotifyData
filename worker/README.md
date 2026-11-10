@@ -167,6 +167,8 @@ Only the first two are required.
 | `WORKER_REFUSAL_WARN_CALLS` | 150 | two refusals closer than this many calls: warn once (a VPN or a shared network?); 0 = never |
 | `WORKER_RESUME_DAYS` | 7 | Ask again on a stopped set continues it within this many days; 0 = always start over |
 | `WORKER_RATE_LIMIT_PAUSES` | 8 | pauses allowed per set; one more refusal stops the scan, and the tracks found are sent ("stopped early") |
+| `WORKER_AUTO_RESUME_MINUTES` | 30 | after a set stopped early by refusals, ask again for the rest by itself this many minutes later (`run --watch`, your own account only); 0 = never, press Ask again yourself (0.7.3) |
+| `WORKER_AUTO_RESUMES` | 6 | at most this many automatic asks per set; a set that then finishes starts the count over (0.7.3) |
 | `WORKER_SHAZAM_DEVICE` | android | the phone Shazam sees; `iphone` is the library's own default and was refused after three calls in testing |
 | `WORKER_MAX_SKEW` | 0.1 | rejects a match more than 10 % off in pitch or speed; a DJ pitches tracks a few %, so keep it well above that; 0 disables |
 | `WORKER_MERGE_GAP_SECONDS` | 180 | the same track heard again within this gap stays one row, and another song heard between those two clips is dropped (0.7.2) |
@@ -210,7 +212,11 @@ With `WORKER_TRACKID` on (the default) the worker asks TrackId.net about the exa
 - **"the project is paused"**: Supabase pauses a Free project after a week without traffic; resume it from the dashboard.
 - **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address four times before any track was
   found; wait, or raise `WORKER_COOLDOWN_SECONDS`. Once something was found, a refusal no longer fails the request: it is
-  **done** with "Stopped early at 47:00 (rate limited); ask again later for the rest".
+  **done** with "Stopped early at 47:00 (rate limited); ask again later for the rest". Since 0.7.3 a worker in `run --watch`
+  (the double-click) on your own account asks again by itself 30 minutes later (`WORKER_AUTO_RESUME_MINUTES`), up to 6 times a set
+  (`WORKER_AUTO_RESUMES`): the log says `auto ask again · <link> in 30 min (1/6)`, then `auto ask again · queued <link> (1/6)`, and the
+  new request continues the set where it stopped. Other requests run during the wait. The plan is kept in memory only: if the worker
+  is closed or restarted meanwhile, press Ask again in the app. A shared worker and `run --once` never ask again by themselves.
 - **How the worker waits**: 1.9 s + 0–30 % (1.9 to 2.47 s) between calls, never slowed; after a refusal a 3-minute pause + 0–40 %, then the same
   pace, up to 8 times a set (Shazam refused at 1.3 and at 8.8 calls a minute alike, so pacing does not avoid it); a call without
   answer (45 s, or a Shazam server error) tried again after 10 s then 20 s (+ 0–30 %); a send to your server tried again after 30 s,

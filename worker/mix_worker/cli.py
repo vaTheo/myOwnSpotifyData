@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
+from .autoresume import AutoResume
 from .config import Settings, SettingsError, load_settings, write_template
 from .pipeline import Deps, Outcome, _fail, run_one
 from .server import Result, ServerClient, SharedServerClient
@@ -279,9 +280,26 @@ class CliDeps:
             self.run_queue = run_queue
 
 
-def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, interval: int, sleep: Any = time.sleep) -> int:
+def auto_resume_text(settings: Settings) -> str:
+    if settings.auto_resume_minutes <= 0 or settings.auto_resumes <= 0:
+        return "off"
+    return f"after a rate-limit stop, in {settings.auto_resume_minutes} min, up to {settings.auto_resumes} times per set (run --watch, personal mode)"
+
+
+def run_queue(
+    settings: Settings,
+    deps: Deps,
+    session: Session,
+    *,
+    once: bool,
+    interval: int,
+    sleep: Any = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> int:
     """Claims and processes requests until the queue is empty (`once`) or
-    forever (`--watch`), with the exit codes of the contract."""
+    forever (`--watch`), with the exit codes of the contract. Round 023: in
+    personal `--watch` mode a set stopped by Shazam's refusals is asked again
+    `WORKER_AUTO_RESUME_MINUTES` later, between two requests (`AutoResume`)."""
     log = deps.log
     client = deps.client
     start = f"mix-worker {__version__} · {settings.supabase_url} · as {session.email} · on {settings.worker_name}"
@@ -326,6 +344,10 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
             return EXIT_NOT_SHARED
         start += " · shared worker" + reason
     log.line(start)
+    off = "shared mode" if settings.worker_mode == "shared" else "run --once" if once else None
+    auto = AutoResume(settings.auto_resume_minutes, settings.auto_resumes, clock, off=off)
+    if off is None and settings.auto_resume_minutes > 0 and settings.auto_resumes > 0:
+        log.line(f"auto ask again · {auto_resume_text(settings)}")
     while True:
         fresh = ensure_fresh(session, client, settings.session_file)
         if fresh is None:
@@ -335,6 +357,9 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
             log.line(f"server: {fresh.message}")
             return code_for(fresh)
         session = fresh
+        for due in auto.take_due():
+            # Between two requests; one try, never a retry loop (round 023).
+            log.line(auto.queued(due, client.enqueue(session.access_token, due)))
         claimed = client.claim(session.access_token, settings.worker_name, settings.stale_seconds)
         if not claimed.ok:
             log.line(NO_LONGER_SHARED if claimed.kind == "not_shared_worker" else f"server: {claimed.message}")
@@ -380,6 +405,9 @@ def run_queue(settings: Settings, deps: Deps, session: Session, *, once: bool, i
             log.line(NO_LONGER_SHARED if kind == "not_shared_worker" else f"server: {outcome.server.message}")
             return code_for(outcome.server)
         log.line(f"{outcome.status} {job_id[:8]}" + (f" · {outcome.reason}" if outcome.reason else ""))
+        planned = auto.after(url, outcome)
+        if planned:
+            log.line(planned)
 
 
 def wait_alive(log: Any, interval: int, heartbeat: int, sleep: Any) -> None:
@@ -414,6 +442,7 @@ def cmd_check(settings: Settings, config: Path | None, deps: CliDeps) -> int:
         f" · merge gap {settings.merge_gap_seconds} s · max skew {settings.max_skew}"
     )
     out(f"stale after: {settings.stale_seconds} s · poll: {settings.poll_seconds} s · alive line: {settings.heartbeat_seconds} s · max set: {settings.max_duration_seconds or 'no limit'}")
+    out(f"auto ask again: {auto_resume_text(settings)}")
     version = deps.ffmpeg_version(settings.ffmpeg)
     if version is None:
         if settings.ffmpeg:
