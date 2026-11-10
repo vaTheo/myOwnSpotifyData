@@ -524,7 +524,10 @@ Using it:
   data was fetched or imported; a saved mix converges row by row.
 - **Sync now with server** does both on demand; the card shows when each
   dataset was fetched here and on the server, the rows held, and the used
-  share of the 500 MB.
+  share of the 500 MB. Its last row, **mixes**, shows your newest mix change
+  here (a save or a delete), the newest one on the server as last synced, and
+  how many saved mixes the server holds: the same time on both sides means
+  your mixes are in step.
 - **Sign out** keeps everything here and on the server, asks nothing and
   returns to the sign-in screen. It is also on the Connect screen, beside
   "Signed in as …", while Spotify is not connected. **Remove server data** deletes all your data

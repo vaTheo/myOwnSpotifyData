@@ -118,7 +118,7 @@ import {
 import { LINK_BROWSER_MESSAGE, type ServerResult } from '../server/client';
 import { serverAuth, serverClient, serverConfigured } from '../server/browser';
 import type { SharedFactsPort } from '../features/shared';
-import { DATASETS } from '../server/datasets';
+import { DATASETS, mixStampView } from '../server/datasets';
 import { createSharedFactsPort } from '../server/sharedFacts';
 import {
   pinnedScope,
@@ -330,12 +330,15 @@ async function connectedView(rejected = 0): Promise<ServerStatus> {
       : previous.status === 'connected'
         ? previous.usedBytes
         : null,
-    stamps: DATASETS.map((def) => ({
-      name: def.name,
-      localAt: def.stamp(rows, metas),
-      serverAt: seen[def.name]?.fetchedAt ?? null,
-      rows: seen[def.name]?.rows ?? null,
-    })),
+    stamps: [
+      ...DATASETS.map((def) => ({
+        name: def.name,
+        localAt: def.stamp(rows, metas),
+        serverAt: seen[def.name]?.fetchedAt ?? null,
+        rows: seen[def.name]?.rows ?? null,
+      })),
+      mixStampView(await getMixes(), await getMixDeleted(), seen.mixes),
+    ],
     rejected,
   };
 }

@@ -712,6 +712,103 @@ describe('mixes', () => {
   });
 });
 
+describe('mixes row of the server table (round 025)', () => {
+  it('a pull records the newest saved or deleted time and the live rows from the stamps it read', async () => {
+    const fake = fakeServer({
+      mixes: [
+        serverMix('a', 50),
+        serverMix('b', 20),
+        serverMix('c', 30),
+        serverMix('gone', 10, null, 70),
+      ],
+    });
+    const { repo, state } = fakeRepo(
+      emptyRows(),
+      {
+        accountId: 'acc',
+        serverStamps: { history: { fetchedAt: 1, generation: 1, rows: 1 } },
+      },
+      [mix('a', 50), mix('b', 20), mix('c', 30)]
+    );
+    const res = await runPull(deps(fake, repo).d);
+    expect(res.ok).toBe(true);
+    expect(state.metas.serverStamps).toEqual({
+      history: { fetchedAt: 1, generation: 1, rows: 1 },
+      mixes: { newestAt: 70, rows: 3 },
+    });
+    // No extra request: one stamp read, nothing to fetch in full.
+    expect(fake.calls.filter((c) => c.startsWith('select mixes'))).toHaveLength(
+      1
+    );
+  });
+
+  it('a pull of an empty server records no time and zero rows', async () => {
+    const fake = fakeServer();
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' });
+    await runPull(deps(fake, repo).d);
+    expect(state.metas.serverStamps).toEqual({
+      mixes: { newestAt: null, rows: 0 },
+    });
+  });
+
+  it('a push records what it wrote: new rows, tombstones, the settled deletion', async () => {
+    const fake = fakeServer({
+      mixes: [serverMix('kept', 10), serverMix('gone', 5)],
+    });
+    const { repo, state } = fakeRepo(emptyRows(), { accountId: 'acc' }, [
+      mix('kept', 10),
+      mix('new', 30),
+    ]);
+    state.deleted.push({ url: 'gone', deletedAt: 40 });
+    const res = await runPush(deps(fake, repo).d, ['mixes']);
+    expect(res).toEqual({ ok: true, value: { pushed: ['mixes'] } });
+    expect(state.metas.serverStamps).toEqual({
+      mixes: { newestAt: 40, rows: 2, deletedHereAt: 40 },
+    });
+    expect(fake.calls.filter((c) => c.startsWith('select mixes'))).toHaveLength(
+      1
+    );
+  });
+
+  it('a push with nothing to send still records the server as read', async () => {
+    const fake = fakeServer({ mixes: [serverMix('kept', 10)] });
+    const { repo, state } = fakeRepo(
+      emptyRows(),
+      {
+        accountId: 'acc',
+        serverStamps: { mixes: { newestAt: 1, rows: 9, deletedHereAt: 3 } },
+      },
+      [mix('kept', 10)]
+    );
+    await runPush(deps(fake, repo).d, ['mixes']);
+    expect(state.metas.serverStamps).toEqual({
+      mixes: { newestAt: 10, rows: 1, deletedHereAt: 3 },
+    });
+  });
+
+  it('a failed read or upload leaves the last values as they were', async () => {
+    const before = { mixes: { newestAt: 1, rows: 9 } };
+    const fake = fakeServer({ mixes: [serverMix('kept', 10)] });
+    const { repo, state } = fakeRepo(
+      emptyRows(),
+      { accountId: 'acc', serverStamps: before },
+      [mix('new', 30)]
+    );
+    fake.failSelect = { ok: false, kind: 'offline', message: 'down' };
+    await runPull(deps(fake, repo).d);
+    await runPush(deps(fake, repo).d, ['mixes']);
+    expect(state.metas.serverStamps).toEqual(before);
+    fake.failSelect = null;
+    fake.failUpsert = {
+      table: 'mixes',
+      at: 1,
+      result: { ok: false, kind: 'error', message: 'no' },
+    };
+    await runPush(deps(fake, repo).d, ['mixes']);
+    expect(state.metas.serverStamps).toEqual(before);
+  });
+});
+
 /* ---------- offline, paused, pending (US3) ---------- */
 
 describe('offline and paused', () => {
@@ -779,7 +876,10 @@ describe('runRemoveAll and readUsage', () => {
     });
     const { repo, state } = fakeRepo(emptyRows(), {
       accountId: 'acc',
-      serverStamps: { history: { fetchedAt: 1, generation: 1, rows: 1 } },
+      serverStamps: {
+        history: { fetchedAt: 1, generation: 1, rows: 1 },
+        mixes: { newestAt: 1, rows: 1 },
+      },
       serverPending: { library: true },
       serverLastSync: 5,
       mixDeleted: [{ url: 'm', deletedAt: 1 }],
@@ -940,6 +1040,7 @@ describe('runPull', () => {
     expect(state.metas.serverStamps).toEqual({
       history: { fetchedAt: 300, generation: 7, rows: 2 },
       library: { fetchedAt: 50, generation: 3, rows: 1 },
+      mixes: { newestAt: null, rows: 0 },
     });
     expect(state.metas.serverLastSync).toBe(5_000);
     // Only the stamp's generation is read, never the stale one.

@@ -403,7 +403,17 @@ export type ServerStamps = Partial<
     'library' | 'history' | 'features' | 'reach',
     { fetchedAt: number; generation: number; rows: number }
   >
->;
+> & {
+  /** Round 025: the server's mix rows as the last pull or push read them
+   *  (or wrote them): the newest saved or deleted time (null when none),
+   *  the rows not deleted, and the newest deletion this device has sent. */
+  mixes?: MixServerStamp;
+};
+export interface MixServerStamp {
+  newestAt: number | null;
+  rows: number;
+  deletedHereAt?: number;
+}
 /** Datasets changed locally and not yet pushed; cleared after a successful push. */
 export const SERVER_PENDING_META = 'serverPending';
 export type ServerPending = Partial<

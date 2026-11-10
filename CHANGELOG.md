@@ -3,6 +3,13 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-10 — Mixes in the Settings server table
+
+Settings › Server now has a **mixes** row under library, history, features and reach: Here is your newest mix change on this device
+(a save or a delete), Server the newest one on the server as this device last synced, Rows how many saved mixes the server holds
+(deleted mixes not counted). The same time on both sides means your mixes are in step. It is filled by the syncs that already run, no
+extra request. Spec `specs/025-settings-mixes-row/`. No Spotify read or write, no `DB_VERSION` bump, no migration, nothing to do.
+
 ## 2026-11-10 — A song deleted from a saved mix is deleted on every device
 
 A song deleted from a saved mix on the phone stayed on the computer, and the other way round: a delete lived on screen until **Save

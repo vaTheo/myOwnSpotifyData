@@ -17,6 +17,7 @@ import {
   DATASETS,
   batches,
   compareStamps,
+  mixServerStamp,
   planMixes,
   rowKey,
   type DatasetDef,
@@ -133,6 +134,21 @@ async function readMixStamps(
   );
 }
 
+/** Records the server's mix rows for the Settings table (round 025). */
+async function recordMixStamp(
+  repo: RepoLike,
+  stamps: readonly MixStamp[],
+  deletedHereAt?: number
+): Promise<void> {
+  const seen = (await repo.getMeta<ServerStamps>(SERVER_STAMPS_META)) ?? {};
+  const settled = Math.max(deletedHereAt ?? 0, seen.mixes?.deletedHereAt ?? 0);
+  seen.mixes = {
+    ...mixServerStamp(stamps),
+    ...(settled > 0 ? { deletedHereAt: settled } : {}),
+  };
+  await repo.putMeta(SERVER_STAMPS_META, seen);
+}
+
 /** Row by row with tombstones (US2): the newer of save and deletion wins. */
 async function pushMixes(
   deps: SyncDeps,
@@ -180,6 +196,20 @@ async function pushMixes(
   }
   // Every local deletion is settled now: pushed, or superseded by the server.
   await deps.repo.clearMixDeleted(deleted.map((d) => d.url));
+  // The server as it is now: the stamps read, overlaid with what was written.
+  const after = new Map(stamps.value.map((s) => [s.url, s]));
+  for (const r of rows) {
+    after.set(r.url, {
+      url: r.url,
+      savedAt: r.saved_at,
+      deletedAt: r.deleted_at,
+    });
+  }
+  await recordMixStamp(
+    deps.repo,
+    [...after.values()],
+    Math.max(0, ...deleted.map((d) => d.deletedAt))
+  );
   return ok(rows.length > 0);
 }
 
@@ -227,6 +257,7 @@ async function pullMixes(
     await deps.repo.deleteMix(url, stamp?.deletedAt ?? deps.now());
     changed = true;
   }
+  await recordMixStamp(deps.repo, stamps.value);
   return ok({ changed, rejected });
 }
 

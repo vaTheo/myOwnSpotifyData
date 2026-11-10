@@ -5,6 +5,7 @@ import {
   batches,
   compareStamps,
   datasetByName,
+  mixStampView,
   planMixes,
   rowKey,
   type Metas,
@@ -232,5 +233,36 @@ describe('planMixes', () => {
     );
     expect(plan.push.map((m) => m.url)).toEqual(['a']);
     expect(plan.pull).toEqual(['b']);
+  });
+});
+
+describe('mixStampView (round 025)', () => {
+  const m = (url: string, savedAt: number) => ({ url, savedAt }) as MixRow;
+
+  it('Here is the newest save or deletion on this device; Server and Rows as last read', () => {
+    expect(
+      mixStampView([m('a', 10), m('b', 30)], [{ url: 'c', deletedAt: 20 }], {
+        newestAt: 30,
+        rows: 2,
+      })
+    ).toEqual({ name: 'mixes', localAt: 30, serverAt: 30, rows: 2 });
+    expect(
+      mixStampView([m('a', 10)], [{ url: 'c', deletedAt: 20 }], undefined)
+    ).toEqual({ name: 'mixes', localAt: 20, serverAt: null, rows: null });
+  });
+
+  it('a deletion already sent still counts in Here', () => {
+    expect(
+      mixStampView([m('a', 10)], [], { newestAt: 40, rows: 1, deletedHereAt: 40 })
+    ).toEqual({ name: 'mixes', localAt: 40, serverAt: 40, rows: 1 });
+  });
+
+  it('nothing here and an empty server: empty marks, zero rows', () => {
+    expect(mixStampView([], [], { newestAt: null, rows: 0 })).toEqual({
+      name: 'mixes',
+      localAt: null,
+      serverAt: null,
+      rows: 0,
+    });
   });
 });

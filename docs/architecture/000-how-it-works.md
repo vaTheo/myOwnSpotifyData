@@ -667,7 +667,10 @@ round's full record is under `specs/001-backend-data-sync/`, the users round und
   plays or tracklist.
 - `sync.ts`: `runPush` (rows in batches under a new generation, then the `datasets` stamp, then the generation before the previous
   one is dropped, so one bad push stays recoverable), `runPull` (stamps, pages of `dataset_rows`, validation, `replaceDataset` with the
-  summary in one transaction, `serverStamps` recorded), the mixes branch (`select=*` once, filtered in the client), `runRemoveAll` (the
+  summary in one transaction, `serverStamps` recorded), the mixes branch (`select=*` once, filtered in the client; round 025: the
+  pull and the push record `serverStamps.mixes` = `{newestAt, rows, deletedHereAt?}` from the mix stamps they already read, the push
+  overlaid with what it wrote, no extra request; `mixStampView` in `datasets.ts` makes the Settings table's `mixes` row after the four
+  datasets: Here = newest local `savedAt` or `deletedAt`, a sent deletion included), `runRemoveAll` (the
   four tables, children first, then the server metas) and `readUsage` (`storage_used()`).
 - Server side: `supabase/migrations/0001_init.sql` creates `datasets`, `dataset_rows`, `mixes`, `jobs` and `storage_used()`, enables
   Row Level Security on `owner_id = auth.uid()` and revokes every default privilege from `anon`; `0002_jobs.sql` (worker round) adds

@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-10
 
-**Status**: Draft
+**Status**: Built
 
 **Input**: Owner (2026-11-10): "In the settings i do not see the mix section of server updates", then "YES it should be right ? has it is something that is sync from the server ?", then "ok go, merge to main when it passes".
 
@@ -59,3 +59,5 @@ saved or deleted time, Server = the newest saved or deleted time on the server, 
 
 - "Server" means the server's newest change, as it does for the four data sets (their server copy's time), not the time of the
   last sync (that is "Last sync with the server", already shown).
+- Built (2026-11-10): Here also counts the newest deletion this device has already sent (`serverStamps.mixes.deletedHereAt`),
+  since a sent deletion leaves the local deleted-mix records; without it, Scenario 2 fails whenever the newest change is a delete.

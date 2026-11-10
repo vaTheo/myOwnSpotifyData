@@ -1,7 +1,8 @@
 import type { ArtistReachSummary } from '../features/reachRun';
 import type { RekordboxSummary } from '../features/rekordboxImport';
 import type { ImportSummary } from '../history/importer';
-import type { AllRows, MixRow } from '../db/schema';
+import type { AllRows, MixRow, MixServerStamp } from '../db/schema';
+import type { ServerStampView } from './types';
 
 /**
  * The pure rules of the server sync (research D5, D6): which local stores
@@ -190,4 +191,42 @@ export function planMixes(
     if (!seen.has(d.url)) plan.tombstones.push(d);
   }
   return plan;
+}
+
+/** The server's mix rows in one stamp: newest change, rows not deleted. */
+export function mixServerStamp(
+  stamps: readonly MixStamp[]
+): Omit<MixServerStamp, 'deletedHereAt'> {
+  let newestAt: number | null = null;
+  let rows = 0;
+  for (const s of stamps) {
+    const at = Math.max(s.savedAt, s.deletedAt ?? 0);
+    if (newestAt === null || at > newestAt) newestAt = at;
+    if (s.deletedAt === null) rows++;
+  }
+  return { newestAt, rows };
+}
+
+/**
+ * The Settings server table's mixes row (round 025): Here is the newest save
+ * or deletion on this device (a deletion already sent included), Server and
+ * Rows the server's mix rows as last read; null when never read.
+ */
+export function mixStampView(
+  local: readonly Pick<MixRow, 'savedAt'>[],
+  deleted: readonly LocalDeletion[],
+  seen: MixServerStamp | undefined
+): ServerStampView {
+  const times = [
+    ...local.map((m) => m.savedAt),
+    ...deleted.map((d) => d.deletedAt),
+    seen?.deletedHereAt ?? 0,
+  ];
+  const localAt = Math.max(0, ...times);
+  return {
+    name: 'mixes',
+    localAt: localAt > 0 ? localAt : null,
+    serverAt: seen?.newestAt ?? null,
+    rows: seen?.rows ?? null,
+  };
 }

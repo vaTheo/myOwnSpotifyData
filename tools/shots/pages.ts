@@ -1163,6 +1163,12 @@ export const PAGES: ShotPage[] = [
             serverAt: DEMO_NOW - 172_800_000,
             rows: 1012,
           },
+          {
+            name: 'mixes',
+            localAt: DEMO_NOW - 7_200_000,
+            serverAt: DEMO_NOW - 7_200_000,
+            rows: 3,
+          },
         ],
       });
     },
