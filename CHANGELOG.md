@@ -3,6 +3,13 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-10 — Play button on the phone Mix row
+
+On a phone, a Mix track found on Spotify now has the play button (▶) on its second line, before the Shazam and SoundCloud icons:
+one tap opens it in the Spotify app, as on a computer. "On Spotify" and the row menu (with **Listen…**) are unchanged; tracks not
+found, not checked yet, and gaps have no play button. Spec `specs/022-mix-phone-play-button/`. No Spotify read or write, no stored
+data change, no `DB_VERSION` bump, nothing to do.
+
 ## 2026-11-10 — Comments without their commenter's name
 
 On the Mix screen a track found in a comment now reads "from a comment", no longer "from a comment by <name>", and a comment in

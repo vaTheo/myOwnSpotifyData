@@ -7,6 +7,7 @@ import {
   rowYear,
   yearText,
   confidenceText,
+  foundSpotifyId,
   gapCluesSummary,
   listenIcons,
   originText,
@@ -255,6 +256,34 @@ describe('playLinks: the direct pages first', () => {
     expect(
       playLinks(row({ shazamUrl: shazam, source: 'manual' }), null)
     ).toEqual([]);
+  });
+});
+
+describe('foundSpotifyId: the ▶ of a found row, computer and phone', () => {
+  const web = 'https://open.spotify.com/track/abc';
+
+  it('the id of a Check answer, a hand link too', () => {
+    expect(foundSpotifyId(row({ spotify: { id: 'abc', url: web } }))).toBe(
+      'abc'
+    );
+    expect(
+      foundSpotifyId(
+        row({ spotify: { id: 'abc', url: web }, spotifyBy: 'owner' })
+      )
+    ).toBe('abc');
+  });
+
+  it('null when not found or not checked (a library match alone is no answer)', () => {
+    expect(foundSpotifyId(row({ spotify: 'not-found' }))).toBeNull();
+    expect(foundSpotifyId(row())).toBeNull();
+  });
+
+  it('null for a gap or an unnamed row', () => {
+    const spotify = { id: 'abc', url: web };
+    expect(foundSpotifyId(row({ gap: true, spotify }))).toBeNull();
+    expect(
+      foundSpotifyId(row({ artist: 'ID', title: 'ID', spotify }))
+    ).toBeNull();
   });
 });
 

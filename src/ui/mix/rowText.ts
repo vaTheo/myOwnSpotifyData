@@ -52,6 +52,17 @@ export function playLinks(
   return links;
 }
 
+/**
+ * The Spotify id a row's ▶ plays (round 010; on a phone since round 022):
+ * the Check answer's id (a hand link too) of a named row. Null when not
+ * found, not checked (a library match alone is no answer: it stays in the
+ * Listen menu), for a gap or an unnamed row.
+ */
+export function foundSpotifyId(row: TracklistRow): string | null {
+  if (!isIdentified(row) || typeof row.spotify !== 'object') return null;
+  return row.spotify.id;
+}
+
 /** A row's icon link (round 010): the site's glyph, opened in a new tab. */
 export interface ListenIcon {
   site: 'shazam' | 'soundcloud';

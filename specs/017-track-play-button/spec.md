@@ -123,5 +123,5 @@ At the end of each track row, the small "Open in Spotify" icon is replaced by th
 - The play button is added beside the existing row click; the details panel still opens from a click on the row.
 - Lists of artists, playlists and search suggestions are out of scope: they are not track rows.
 - The track details panel already has its own "Open in Spotify" link and is not changed.
-- The Mix tracklist keeps its own layout; moving its play button to the first column is out of scope.
+- The Mix tracklist keeps its own layout; moving its play button to the first column is out of scope. (Later, spec 022 `specs/022-mix-phone-play-button/`: on a phone the same ▶ also sits on a found Mix row's meta line, before Shazam and SoundCloud; before that it was only in More › Listen….)
 - No new Spotify read, write or scope is involved (ADR-02, ADR-03 unchanged).

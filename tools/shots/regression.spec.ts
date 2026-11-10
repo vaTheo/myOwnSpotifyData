@@ -2273,6 +2273,63 @@ test.describe('Y. release year', () => {
     );
   });
 
+  test('M06 Mix on a phone: a found row has ▶ on its meta line, before Shazam and SoundCloud; ⋮ keeps Listen…', async ({
+    app,
+  }) => {
+    await app.page.setViewportSize({ width: 390, height: 844 });
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const grid = await openGrid(app.page);
+    const items = grid.locator('.dt-item');
+    await items.first().waitFor();
+    const drawn = await items.evaluateAll((rows) =>
+      rows.map((r) => {
+        const meta = r.querySelector('.dt-item-meta');
+        const plays = [
+          ...(meta?.querySelectorAll<HTMLElement>('a[href^="spotify:"]') ?? []),
+        ];
+        const icons = [
+          ...(meta?.querySelectorAll<HTMLElement>('.mix-listen-icons a') ?? []),
+        ].map((a) => a.getAttribute('aria-label') ?? '');
+        const box = plays[0]?.getBoundingClientRect();
+        return {
+          onSpotify: (meta?.textContent ?? '').includes('On Spotify'),
+          plays: plays.map((a) => ({
+            href: a.getAttribute('href') ?? '',
+            name: a.getAttribute('aria-label') ?? '',
+            target: a.getAttribute('target'),
+          })),
+          icons,
+          size: Math.min(box?.width ?? 0, box?.height ?? 0),
+        };
+      })
+    );
+    const found = drawn.filter((d) => d.onSpotify);
+    expect(found.length).toBeGreaterThan(0);
+    for (const d of found) {
+      expect(d.plays).toHaveLength(1);
+      expect(d.plays[0].href).toMatch(/^spotify:track:\w+$/);
+      expect(d.plays[0].name).toMatch(PLAY);
+      expect(d.plays[0].target).toBeNull();
+      expect(d.size).toBeGreaterThanOrEqual(48);
+      // ▶ first, then Shazam (when known) and SoundCloud.
+      expect(d.icons[0]).toMatch(PLAY);
+      expect(d.icons.at(-1)).toMatch(/^Search SoundCloud for /);
+    }
+    // Not found, not checked and gap rows: no ▶.
+    for (const d of drawn.filter((x) => !x.onSpotify)) {
+      expect(d.plays).toHaveLength(0);
+    }
+    // The ⋮ menu is unchanged: Listen… still holds Play on Spotify.
+    const item = items
+      .filter({ has: app.page.getByRole('link', { name: PLAY }) })
+      .first();
+    await item.getByRole('button', { name: /^More for / }).click();
+    await app.page.getByRole('menuitem', { name: /^Listen…/ }).click();
+    await expect(
+      app.page.getByRole('menuitem', { name: 'Play on Spotify' })
+    ).toHaveAttribute('href', /^spotify:track:\w+$/);
+  });
+
   test('Y07 Activity names the release years pass', async ({ app }) => {
     await app.open('#/top');
     await app.set('lookupState', {

@@ -752,6 +752,10 @@ and each sortable (A to Z first; Title by the track name alone); the Sort select
 (not heard, origin, quote, references, check) stays under Title; tooltips and aria names still say "Artist – Title". On a phone the
 item reads the title, the artist under it, the second line, then the label and the meta line.
 
+Since spec 022 (`specs/022-mix-phone-play-button/`) a found row's phone meta line reads "On Spotify", then ▶ (the Spotify column's
+`PlayOnSpotify`, 48 px, `spotify:track:<id>` opened in place), then the Shazam and SoundCloud icons; ⋮ › Listen… is unchanged. Not
+found, not checked and gap rows have no ▶.
+
 #### 5. Settings · Audio data (§13), and the Activity button
 
 - **Built in S13b (merge)**:

@@ -59,6 +59,7 @@ import {
   confidenceShort,
   confidenceText,
   checkText,
+  foundSpotifyId,
   gapCluesSummary,
   listenIcons,
   originText,
@@ -187,8 +188,9 @@ const STATUS_TEXT = {
  * Spotify (T117, T118, round 010): one 48 px icon — when the check found
  * the track, the app's own link (`spotify:track:<id>`), opened in place;
  * else Not checked or Not found, each with its words for screen readers and
- * in the tooltip. On a phone, the words on the meta line (Play on Spotify
- * is in More's Listen list).
+ * in the tooltip. On a phone, the words on the meta line; the ▶ joins the
+ * meta line's icons (`ListenIcons`, round 022) and Play on Spotify stays in
+ * More's Listen list.
  */
 function SpotifyCell(p: {
   row: TracklistRow;
@@ -198,7 +200,7 @@ function SpotifyCell(p: {
   const { row } = p;
   if (!isIdentified(row)) return null;
   const status = spotifyStatus(row);
-  const found = typeof row.spotify === 'object' ? row.spotify.id : null;
+  const found = foundSpotifyId(row);
   // Round 011: the red mark opens the form to paste a Spotify track link.
   const link = `Link a Spotify track to ${nameOf(row)}`;
   if (status === 'notFound') {
@@ -247,13 +249,23 @@ function SpotifyCell(p: {
 
 /**
  * Shazam and SoundCloud as icon links (round 010), new tab: beside the
- * Listen menu, and on a phone's meta line.
+ * Listen menu, and on a phone's meta line. There (`play`, round 022) a
+ * found track's ▶ comes first, the computer's Spotify-column button.
  */
-function ListenIcons(p: { row: TracklistRow }) {
+function ListenIcons(p: { row: TracklistRow; play?: boolean }) {
   const icons = listenIcons(p.row);
-  if (icons.length === 0) return null;
+  const found = p.play ? foundSpotifyId(p.row) : null;
+  if (icons.length === 0 && found === null) return null;
   return (
     <span class="mix-listen-icons">
+      {found !== null && (
+        <PlayOnSpotify
+          id={found}
+          artist={p.row.artist}
+          title={p.row.title}
+          class="mix-spotify found"
+        />
+      )}
       {icons.map((i) => (
         <IconButton
           key={i.site}
@@ -393,8 +405,9 @@ function columns(on: {
           </span>
         );
       },
-      // On a phone the icons join the meta line; the menu is in More.
-      compactCell: (l) => <ListenIcons row={l.row} />,
+      // On a phone ▶ (a found track) and the icons join the meta line; the
+      // menu is in More (round 022).
+      compactCell: (l) => <ListenIcons row={l.row} play />,
       compact: 'meta',
     },
     {

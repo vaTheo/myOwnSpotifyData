@@ -12,14 +12,14 @@ the commit touches in the same commit. Commit as `vaTheo <98275045+vaTheo@users.
 **Goal**: a found row's phone meta line has ▶ before Shazam and SoundCloud; "On Spotify" and ⋮ stay.
 **Independent test**: demo "Sunrise" at 390 px, a found row's ▶ links to `spotify:track:`.
 
-- [ ] T001 [US1] In `src/ui/mix/rowText.test.ts` add `foundSpotifyId`: the id of a Check answer (hand-linked too); null for
+- [x] T001 [US1] In `src/ui/mix/rowText.test.ts` add `foundSpotifyId`: the id of a Check answer (hand-linked too); null for
   not found, not checked, a library match alone, a gap, an unnamed row. Run it and watch it fail
-- [ ] T002 [US1] `src/ui/mix/rowText.ts`: `foundSpotifyId`; T001 green
-- [ ] T003 [US1] `src/ui/mix/TracklistTable.tsx`: the Listen column's `compactCell` draws `PlayOnSpotify` from `foundSpotifyId`
+- [x] T002 [US1] `src/ui/mix/rowText.ts`: `foundSpotifyId`; T001 green
+- [x] T003 [US1] `src/ui/mix/TracklistTable.tsx`: the Listen column's `compactCell` draws `PlayOnSpotify` from `foundSpotifyId`
   before `ListenIcons`; `SpotifyCell` reads the same rule; doc comments updated
-- [ ] T004 [US1] Regression M06 in `tools/shots/regression.spec.ts` and `specs/003-web-first-redesign/regression.md`; run
+- [x] T004 [US1] Regression M06 in `tools/shots/regression.spec.ts` and `specs/003-web-first-redesign/regression.md`; run
   `yarn regression -g "M06"`
-- [ ] T005 Docs: how-it-works §10, inventory F38, README, CHANGELOG, `docs/README.md`, `specs/017-track-play-button/spec.md`,
+- [x] T005 Docs: how-it-works §10, inventory F38, README, CHANGELOG, `docs/README.md`, `specs/017-track-play-button/spec.md`,
   `specs/003-web-first-redesign/contracts/screens.md`; commit T001–T005 `feat(mix): play button on the phone Mix row`
 
 ## Dependencies

@@ -509,8 +509,11 @@ screen, grouped by role under `src/ui/`.
 - **Leaner tracklist** (spec 010): columns Time, Artist, Title (two columns since spec 020), Label, Confidence, Released (when a
   row has a year), Spotify, Listen, Review (✕ only). The Confidence cell merges the clip count: "×3 · 92%" (`confidenceShort`), the long "heard 3× · best
   92 %" (`confidenceText`) its tooltip, screen-reader text and phone meta line. A found row's Spotify cell is an icon link to
-  `spotify:track:<id>`, opened in place; on a phone the meta line says "On Spotify" as plain text and Play on Spotify is in
-  More › Listen…. `listenIcons(row)` puts one-click icons beside the Listen menu (and on the phone meta line), each in a new tab:
+  `spotify:track:<id>`, opened in place; on a phone the meta line says "On Spotify" as plain text, and since spec 022
+  (`specs/022-mix-phone-play-button/`) the same ▶ (`PlayOnSpotify`) leads the meta line's icons (the Listen column's
+  `compactCell`, `ListenIcons` with `play`); Play on Spotify stays in More › Listen…. Both layouts take the id from one pure rule,
+  `foundSpotifyId(row)` (`ui/mix/rowText.ts`: the Check answer's id, a hand link too, of a named row; null when not found, not
+  checked, a gap, or only a library match). `listenIcons(row)` puts one-click icons beside the Listen menu (and on the phone meta line), each in a new tab:
   Shazam (the stored page, while the row is the scan's) and SoundCloud (the search page for artist and title, every identified
   row; gap and "ID" rows never).
 - **Artist and Title columns** (spec 020, `specs/020-mix-artist-title-columns/`): `TracklistTable.tsx` draws the artist and the

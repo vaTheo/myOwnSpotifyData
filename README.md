@@ -352,8 +352,9 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   the bottom; the sort is only how you look at the list and is not saved.
   A track found on Spotify has a play icon in the **Spotify** column that
   opens it in the Spotify app (on a computer without the app it does
-  nothing); on a phone the row says "On Spotify" and **Play on Spotify** is
-  in the row menu under **Listen…**. Beside each track's **Listen** menu, a
+  nothing); on a phone the row says "On Spotify" and has the same play icon
+  on its second line, before the Shazam and SoundCloud icons, and **Play on
+  Spotify** is also in the row menu under **Listen…**. Beside each track's **Listen** menu, a
   **Shazam** icon (when the scan knows the track's Shazam page) and a
   **SoundCloud** icon (a SoundCloud search for the artist and title) open in
   a new tab in one click; on a phone they sit on the row's second line. The
