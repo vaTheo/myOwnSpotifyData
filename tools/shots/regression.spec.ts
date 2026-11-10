@@ -2262,11 +2262,14 @@ test.describe('Y. release year', () => {
     // The candidate keeps "not heard" and its origin under its title.
     const clue = grid
       .getByRole('row')
-      .filter({ hasText: 'from a comment by night_owl' });
+      .filter({ hasText: 'from a comment' });
     await expect(clue).toHaveCount(1);
     await expect(clue.getByRole('gridcell').nth(2)).toContainText('not heard');
     await expect(clue.getByRole('gridcell').nth(2)).toContainText(
-      'from a comment by night_owl'
+      'from a comment'
+    );
+    await expect(clue.getByRole('gridcell').nth(2)).not.toContainText(
+      'night_owl'
     );
     await expect(clue.getByRole('gridcell').nth(1)).not.toContainText(
       'not heard'
