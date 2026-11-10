@@ -380,7 +380,8 @@ aggregate.
 | Column                  | Notes                                                                                    |
 | ----------------------- | ---------------------------------------------------------------------------------------- |
 | Time                    | start, `formatClock`                                                                     |
-| Artist – Title          | —                                                                                        |
+| Artist                  | the artist (spec 020; was one "Artist – Title" column)                                   |
+| Title                   | the track name, the second line under it                                                 |
 | Label                   | —                                                                                        |
 | Source                  | trackid, description, pasted, manual, tracklistify, or worker, as an icon with a tooltip |
 | Confidence / references | "87% match", "12 other mixes"                                                            |
@@ -745,6 +746,11 @@ Large, open mix (columns as TracklistTable.tsx today, plus Released)
 Label (p4), Source and Confidence (p3) hide as the table narrows. Released (p2) hides below 720 px of table, where the
 Sort select still offers the year.
 ```
+
+Since spec 020 (`specs/020-mix-artist-title-columns/`) the "Artist – Title" column is two, **Artist** then **Title**, both priority 1
+and each sortable (A to Z first; Title by the track name alone); the Sort select offers "Artist" and "Title". The second line
+(not heard, origin, quote, references, check) stays under Title; tooltips and aria names still say "Artist – Title". On a phone the
+item reads the title, the artist under it, the second line, then the label and the meta line.
 
 #### 5. Settings · Audio data (§13), and the Activity button
 

@@ -125,10 +125,13 @@ function listenItems(l: Line): RowMenuItem[] {
 }
 
 /**
- * Artist – Title, and under it what a round-003 row must show in words: the
- * **not heard** badge of a candidate, the origin
- * ("second listen · +4 %", "from a comment by …"), the clue in quotes
- * (plain text, two lines at most), then the references.
+ * The track name (spec 020: the artist has its own column), and under it
+ * what a round-003 row must show in words: the **not heard** badge of a
+ * candidate, the origin ("second listen · +4 %", "from a comment by …"),
+ * the clue in quotes (plain text, two lines at most), then the references.
+ * On a phone's item the artist goes right under the name (`.mix-artist`,
+ * shown only there; the Artist column is left out of the item), so the
+ * second line never parts them. An empty title or artist adds nothing.
  */
 function TitleCell(p: { line: Line }) {
   const { row } = p.line;
@@ -140,7 +143,8 @@ function TitleCell(p: { line: Line }) {
   const second = notHeard || origin !== null || refs !== null || check !== null;
   return (
     <span class="mix-title-cell">
-      <span class="dt-text mix-name">{nameOf(row)}</span>
+      <span class="dt-text mix-name">{row.title}</span>
+      {row.artist && <span class="mix-artist">{row.artist}</span>}
       {second && (
         <span class="mix-second">
           {notHeard && <Flag kind="todo">not heard</Flag>}
@@ -302,13 +306,29 @@ function columns(on: {
       },
       compact: 'lead',
     },
+    // Spec 020: Artist and Title, each its own column and sort, both always
+    // shown. On a phone the title leads the item and the artist is its
+    // second line, drawn by the title cell (`TitleCell`), as on the other
+    // track lists; the label and the meta line follow as before.
+    {
+      id: 'artist',
+      ...sorts('artist'),
+      header: 'Artist',
+      priority: 1,
+      width: 'minmax(112px, 1fr)',
+      cell: (l) =>
+        l.row.artist ? <span class="dt-text">{l.row.artist}</span> : null,
+      title: (l) => l.row.artist || undefined,
+      compact: 'hidden',
+    },
     {
       id: 'title',
       ...sorts('title'),
-      header: 'Artist – Title',
+      header: 'Title',
       priority: 1,
-      width: 'minmax(200px, 1fr)',
+      width: 'minmax(176px, 1.5fr)',
       cell: (l) => <TitleCell line={l} />,
+      // The full "Artist – Title" on hover, as before.
       title: (l) => nameOf(l.row),
       compact: 'title',
     },
@@ -317,7 +337,8 @@ function columns(on: {
       ...sorts('label'),
       header: 'Label',
       priority: 4,
-      width: 'minmax(0, 0.4fr)',
+      // Spec 020: a share of what Artist and Title leave, about 100 px at 1440.
+      width: 'minmax(0, 0.6fr)',
       cell: (l) =>
         l.row.label ? <span class="dt-text">{l.row.label}</span> : null,
       title: (l) => l.row.label ?? undefined,

@@ -10,7 +10,7 @@ import type { SortDirection, SortState, SortValue } from '../table/sort';
  */
 
 export type SortId =
-  'time' | 'title' | 'label' | 'confidence' | 'released' | 'spotify';
+  'time' | 'artist' | 'title' | 'label' | 'confidence' | 'released' | 'spotify';
 
 /** The part of a table line the sort reads. */
 export interface SortLine {
@@ -20,6 +20,7 @@ export interface SortLine {
 /** The first click: best first for the counts, problems first for the status. */
 export const SORT_FIRST: Record<SortId, SortDirection> = {
   time: 'asc',
+  artist: 'asc',
   title: 'asc',
   label: 'asc',
   confidence: 'desc',
@@ -47,8 +48,11 @@ export function sortValue(id: SortId, l: SortLine): SortValue {
   }
   if (row.gap) return null;
   switch (id) {
+    // Spec 020: two columns, each on its own text; an empty one is missing.
+    case 'artist':
+      return row.artist.trim() !== '' ? row.artist : null;
     case 'title':
-      return `${row.artist} – ${row.title}`;
+      return row.title.trim() !== '' ? row.title : null;
     case 'released':
       return rowYear(row);
     case 'spotify':
@@ -58,7 +62,8 @@ export function sortValue(id: SortId, l: SortLine): SortValue {
 
 const CHOICES: { id: SortId; label: string }[] = [
   { id: 'time', label: 'Time' },
-  { id: 'title', label: 'Artist – Title' },
+  { id: 'artist', label: 'Artist' },
+  { id: 'title', label: 'Title' },
   { id: 'label', label: 'Label' },
   { id: 'confidence', label: 'Confidence' },
   { id: 'released', label: 'Released' },

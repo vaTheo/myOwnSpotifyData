@@ -208,9 +208,7 @@ export function layoutChecks(): Finding[] {
         ...grid.querySelectorAll<HTMLElement>('[role=columnheader]'),
       ];
       const at = headers.findIndex((h) =>
-        ['Title', 'Name', 'Artist – Title'].includes(
-          (h.textContent ?? '').trim()
-        )
+        ['Title', 'Name'].includes((h.textContent ?? '').trim())
       );
       if (at < 0 || headers[at].getBoundingClientRect().width < 2) continue;
       for (const row of grid.querySelectorAll('[role=row][data-row-id]')) {
