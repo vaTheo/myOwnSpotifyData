@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-10
 
-**Status**: Draft
+**Status**: Built
 
 **Input**: Owner report (2026-11-10): "If I delete some song on my mobile in a mix, it does not delete it in he web and vis versa, it should be sync."
 

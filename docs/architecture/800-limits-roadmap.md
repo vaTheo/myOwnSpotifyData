@@ -36,11 +36,12 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   WebKit needs system libraries (libicu74, libjpeg-turbo8) the owner's Debian lacks. It is not run in CI.
 - Check on Spotify (F21) saves its answers when it ends: a page reload in the middle loses the answers read so far.
 - A Spotify link pasted on a Mix row (F28) is trusted as given, never verified: a wrong link adds the wrong track until replaced;
-  `spotify.link` short links (they need a redirect) are refused. It is saved like an edit, so a reload before Save mix loses it.
+  `spotify.link` short links (they need a redirect) are refused. It is saved like an edit: at once on a saved mix (spec 024); on a
+  lookup never saved, a reload before Save mix loses it.
 - The marked Mix row (F29) is the place of a row in the list, kept for the page only: a reload or another mix forgets it; a delete,
   a paste, the description, a lookup or a reopened mix clears it rather than follow the track; an answer written into the rows in
-  place (Check on Spotify, release years) keeps it. A worker result reaches the open list only when the mix is reopened, which
-  clears it. The glow may be clipped at the scroll container's left and right edges (the bar and lines stay).
+  place (Check on Spotify, release years) keeps it. A worker result or another device's change reaches the open list after a pull
+  (spec 024), which clears it. The glow may be clipped at the scroll container's left and right edges (the bar and lines stay).
 - The redesign's speed targets (LCP ≤ 2.5 s, INP < 200 ms, CLS < 0.1) are checked on demo data only until the owner runs
   the speed run on the real profile (`specs/003-web-first-redesign/quickstart.md` §12).
 - The worker (F19): Shazam's tolerance for unauthenticated calls is undocumented; the pacing (one 12 s probe a minute, 3 s
@@ -66,6 +67,11 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   so a long first run stalls while the phone sleeps and continues on return; two devices running the reach run at once each push and
   the newer dataset wins; a step that failed waits for the next open or its button; Spotify's lock-out is known per device only, so
   another device's chain may try one sync during a lock (then it is locked too) ([ADR-12](700-adr/ADR-12-automatic-updates.md)).
+- A saved mix changed on two devices at once (F40, spec 024): the server keeps the copy saved last, per mix, by its saved time;
+  the other device's change since its last pull is lost (a song deleted there comes back). An open mix follows a newer pulled
+  copy only when it holds no change of its own (no Add track row left blank, no Edit or Link form open); otherwise its next save
+  wins. The other device sees a change at its next sync (open, return to the tab, back online, or the 60 s poll while a request
+  runs), not live.
 - Server rows are stored in clear (the owner declined client-side encryption): whoever holds the supabase.com login can read them.
 - Several people, one app (F27, round 011, [ADR-14](700-adr/ADR-14-users-by-server-account.md)):
   - No "remove this person from this device" button: every user's copy stays on a shared device until the browser's data is

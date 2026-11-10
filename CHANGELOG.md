@@ -3,6 +3,16 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-10 — A song deleted from a saved mix is deleted on every device
+
+A song deleted from a saved mix on the phone stayed on the computer, and the other way round: a delete lived on screen until **Save
+mix**, and a mix already open on the other device sent its old list back at its next save (the automatic Check on Spotify
+included). Now, on a saved mix, **Delete**, an Edit's **Save**, **Link** and **Remove link** save the mix at once, with no tap, and
+it reaches your other devices at their next sync; a mix open there switches to the newer list unless you are editing a row in it.
+**Add track** saves when its row's Edit is saved; a looked-up mix never saved still needs **Save mix**, which stays. Changing one mix
+on two devices at once keeps the change saved last. Spec `specs/024-mix-row-delete-sync/`. No Spotify read or write, no
+`DB_VERSION` bump, no migration, nothing to do.
+
 ## 2026-11-10 — The worker asks again by itself after a rate-limit stop
 
 Worker 0.7.3. When Shazam refuses past the pauses allowed, the tracks found are still sent at once ("Stopped early at 47:00 (rate

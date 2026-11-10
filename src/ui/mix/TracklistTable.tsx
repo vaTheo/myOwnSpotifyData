@@ -22,6 +22,7 @@ import {
   linkMixRowSpotify,
   mixCheckSaved,
   mixError,
+  mixRowOpen,
   mixRows,
   mixRowsReplaced,
   mixState,
@@ -664,7 +665,8 @@ function keyOf(
  * owner linked, round 012). Library matches are computed here, at
  * render, never stored. Under the table: Add track and Save mix ("Saved ✓"
  * for 2 s). A save failure shows once: under Save mix, unless `mixError`
- * already shows the same words elsewhere on the screen.
+ * already shows the same words elsewhere on the screen. On a saved mix a
+ * row change saves itself (spec 024, `saveIfSaved` in state.ts).
  */
 export function TracklistTable() {
   const rows = mixRows.value;
@@ -730,6 +732,13 @@ export function TracklistTable() {
     link(null);
   };
   const open = editing ?? linking;
+  // Spec 024: a pull leaves the rows alone while a row's form is open.
+  useEffect(() => {
+    mixRowOpen.value = open !== null;
+    return () => {
+      mixRowOpen.value = false;
+    };
+  }, [open]);
   // The Sort, the decade and the chip, with their fallbacks (round 005).
   const view = tracklistView(rows, { decade, filter }, open);
   const { decades, order } = view;

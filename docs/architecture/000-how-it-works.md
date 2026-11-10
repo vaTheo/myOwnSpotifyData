@@ -302,7 +302,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   `spotify.link` short links, other hosts and free text refused). `linkedRow` sets `spotify: {id, url}` (the URL rebuilt from the id),
   `spotifyBy: 'owner'` and `checkedAt`; `unlinkedRow` puts `'not-found'` back and drops `spotifyBy`. The link is stored by its id:
   never looked up on Spotify or by name, never verified (ADR-02, ADR-04). `linkMixRowSpotify`/`unlinkMixRowSpotify`
-  (`model/state.ts`) change the working list only, saved with Save mix like an edit, or when a Check on Spotify run ends; no job, no
+  (`model/state.ts`) change the working list and, on a saved mix, save it at once like an edit (spec 024); no job, no
   `confirm()`. A hand-linked row is found for the counts, the Sort, the Spotify cell and Create playlist (`storedUri`, each URI
   added once); `rowsToCheck` skips it and `applyAnswers` never puts a Check answer on it; `keepStoredAnswers` keeps it; a rename
   drops `spotifyBy` with `spotify` (`editTracklistRow`), a label edit keeps both. `validateMix` accepts `spotifyBy` only as
@@ -317,6 +317,16 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   warnings collapsed). The header also shows the open mix's running request (progress line, bar, Stop) from the last pull.
 - `validateMix` checks every new optional field (`validated`, `spotify`, `spotifyBy`, `checkedAt`, `removed`, `run`); Save mix keeps a saved mix's
   `clues`, `run`, `identifyJobId` and `identifiedAt`.
+- A row change saves itself (spec 024, `specs/024-mix-row-delete-sync/`): on a saved mix (its url in `savedMixes`), `deleteMixRow`,
+  `editMixRow`, `linkMixRowSpotify` (when it links) and `unlinkMixRowSpotify` call `saveIfSaved`, the `saveMix` path (`putMix` with a new
+  `savedAt`, removed tracks included, then `queueServerPush(['mixes'])`), so the change reaches the other devices with no tap; a failure
+  is `mixError`, inline. `addMixRow`'s blank row is not saved (its Edit's Save is); a lookup never saved stays in memory until Save mix,
+  which stays. `saveMix` runs its saves one after another (`mixSaving`), each reading the list as it is, so the last change is stored
+  last. The open copy (`openCopy`: url, `savedAt` and the rows array last loaded by `openMix` or stored by `saveMix`) lets
+  `followNewerSavedMix`, run by `startServerPull` after `loadSavedMixes()`, switch the open mix to a newer stored copy (rows, removed
+  tracks, playlist link; `mixRowsReplaced` moves), unless the screen holds a change of its own: `mixRows` is no longer that array, or a
+  row's Edit or Link form is open (`mixRowOpen`, set by `TracklistTable`); then the last save wins, as before. A Check answer is not
+  such a change: a pull during a check still refreshes, and the check's save puts its answers on the newer rows.
 
 ## 11. `features/like/`: Like all songs
 
@@ -676,7 +686,7 @@ payload: {url}}`) and `pullJobs`, run by `runPull` after the mixes: the history 
   in the view only.
 - Wiring in `model/state.ts`: `serverState` (rendered by the Settings server card), `recordConnectedAccount` (one `/me` on the Connect
   tap, `:450`), `queueServerPush` (flags `serverPending` first, one push at a time), `startServerPull` (joins `jobsBusy()`, ends in
-  `loadFromDb()` and `loadSavedMixes()`), `startServerSync` (pending pushes, then the pull: the open, the card's button and `autoSync.ts`),
+  `loadFromDb()`, `loadSavedMixes()` and `followNewerSavedMix()`, which moves the open mix to a newer pulled copy: §10, spec 024), `startServerSync` (pending pushes, then the pull: the open, the card's button and `autoSync.ts`),
   `startServerSignOut`, `removeServerData` (the one new `confirm()`). `offline` and `paused` set no banner and keep the pending flags.
 - Four new `meta` names and no `DB_VERSION` bump: `serverStamps`, `serverPending`, `serverLastSync`, `mixDeleted` (written by
   `deleteMix`, cleared after the tombstones are pushed).

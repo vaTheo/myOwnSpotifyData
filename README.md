@@ -310,7 +310,11 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   your own. There is also a box to paste a tracklist you found elsewhere
   (MixesDB, a player comment) and the embedded player with its timed
   comments. **Save mix** keeps the working list in this browser (and on your
-  server when you have one).
+  server when you have one). Once a mix is saved, every Delete, Edit, Link
+  and Remove link on it is saved at once, with no tap, and reaches your other
+  devices at their next sync; a mix open on the other device switches to the
+  newer list unless you are editing a row there. Changing one mix on two
+  devices at once keeps the change saved last.
   It is a **draft with holes, not the full tracklist.** TrackId identified
   32.6% of the one real 190-minute mix measured, and a fresh upload is often
   not in its corpus at all; a SoundCloud description carries a tracklist only
@@ -386,8 +390,8 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   Spotify never overwrites it. A wrong link? The row menu has **Replace
   link** and **Remove link** (back to not found). Changing the track's
   artist or title clears the link, like any Spotify answer. The link is
-  saved like an edit: with **Save mix**, or when a Check on Spotify run
-  ends.
+  saved like an edit: at once on a saved mix, else with **Save mix** or
+  when a Check on Spotify run ends.
 - **Create playlist from mix** turns the list into a private Spotify
   playlist with every track of the list (remove the ones you do not want
   first); the card says how many will be added, in set order. A track found

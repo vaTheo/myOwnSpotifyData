@@ -2276,6 +2276,43 @@ test.describe('Y. release year', () => {
     );
   });
 
+  test('M07 Mix: More › Delete on a saved mix is kept with no Save tap (spec 024)', async ({
+    app,
+  }) => {
+    await app.open('#/mix');
+    const mix = () =>
+      app.page
+        .getByRole('link', { name: /^Closing set at the Dock/ })
+        .first();
+    await mix().click();
+    const grid = await openGrid(app.page);
+    const summary = app.page.getByText(/^\d+ tracks? · \d+ on Spotify/);
+    const before = Number(
+      /^(\d+) track/.exec((await summary.textContent()) ?? '')?.[1]
+    );
+    await grid
+      .getByRole('button', { name: /^More for / })
+      .first()
+      .click();
+    await app.page.getByRole('menuitem', { name: 'Delete' }).click();
+    await expect(summary).toHaveText(new RegExp(`^${before - 1} tracks? · `));
+    // No Save mix tap: closed, another screen, then the Mix screen reads the
+    // saved mixes back from this browser's database (no reload: the demo
+    // refills its database on one).
+    await expect(
+      app.page.getByRole('button', { name: 'Save mix' })
+    ).toBeVisible();
+    await app.page.getByRole('button', { name: 'Close this mix' }).click();
+    await app.page.evaluate((h) => (location.hash = h), '#/top');
+    await expect(app.page.getByRole('heading', { level: 1 })).toHaveText(
+      'Listening'
+    );
+    await app.page.evaluate((h) => (location.hash = h), '#/mix');
+    await mix().click();
+    await openGrid(app.page);
+    await expect(summary).toHaveText(new RegExp(`^${before - 1} tracks? · `));
+  });
+
   test('M06 Mix on a phone: a found row has ▶ on its meta line, before Shazam and SoundCloud; ⋮ keeps Listen…', async ({
     app,
   }) => {

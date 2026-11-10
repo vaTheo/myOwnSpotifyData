@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '../auth/session';
-import type { TracklistRow } from '../db/schema';
+import type { MixRow, TracklistRow } from '../db/schema';
 import { QuotaError } from '../spotify/errors';
 
 const mocks = vi.hoisted(() => ({
@@ -1228,5 +1228,223 @@ describe('mixRowsReplaced (spec 013: the marked row clears)', () => {
     const start = state.mixRowsReplaced.value;
     state.applyPastedTracklist('X - One\nY - Two');
     expect(state.mixRowsReplaced.value).toBe(start);
+  });
+});
+
+/* ---------- spec 024: a row change of a saved mix syncs ---------- */
+
+describe('a row change of a saved mix saves itself (spec 024, US1)', () => {
+  const LINK = 'https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG';
+  let store: Map<string, MixRow>;
+
+  function savedCopy(rows: TracklistRow[], savedAt: number): MixRow {
+    return {
+      url: URL,
+      title: 'Set',
+      author: null,
+      playerSrc: null,
+      slug: null,
+      sources: {
+        trackid: false,
+        description: false,
+        pasted: false,
+        linkOut: null,
+      },
+      rows,
+      savedAt,
+    };
+  }
+
+  /** The mix saved at `savedAt` and opened from the saved list. */
+  function openSaved(rows: TracklistRow[], savedAt = 1): void {
+    const copy = savedCopy(rows, savedAt);
+    store.set(URL, structuredClone(copy));
+    state.savedMixes.value = [copy];
+    state.openMix(URL);
+  }
+
+  /** Lets the fire-and-forget save run to its end. */
+  async function settle(): Promise<void> {
+    await state.saveMix();
+  }
+
+  beforeEach(async () => {
+    const repo = await import('../db/repo');
+    store = new Map();
+    vi.mocked(repo.putMix).mockReset();
+    vi.mocked(repo.putMix).mockImplementation(async (r) => {
+      store.set(r.url, structuredClone(r));
+    });
+    vi.mocked(repo.getMixes).mockImplementation(async () => [
+      ...store.values(),
+    ]);
+    vi.mocked(repo.putMeta).mockClear();
+    state.autoUpdates.value = false;
+    state.mixError.value = null;
+    state.mixRemoved.value = [];
+    state.mixRowOpen.value = false;
+    mocks.serverConfigured = true;
+  });
+
+  afterEach(() => {
+    mocks.serverConfigured = false;
+    state.serverPending.value = null;
+    state.closeMix();
+    state.savedMixes.value = [];
+  });
+
+  async function pushQueued(): Promise<boolean> {
+    const repo = await import('../db/repo');
+    return vi
+      .mocked(repo.putMeta)
+      .mock.calls.some(
+        ([name, value]) =>
+          name === 'serverPending' &&
+          (value as Record<string, boolean>).mixes === true
+      );
+  }
+
+  it('Delete stores the mix without the row, newer, with its removed track, and queues a push', async () => {
+    openSaved([
+      row('One'),
+      { ...row('Two'), detected: { artist: 'Scan', title: 'Heard' } },
+    ]);
+    state.deleteMixRow(1);
+    await settle();
+    const saved = store.get(URL)!;
+    expect(saved.rows.map((r) => r.title)).toEqual(['One']);
+    expect(saved.savedAt).toBeGreaterThan(1);
+    expect(saved.removed).toEqual([
+      { artist: 'Scan', title: 'Heard', isrc: null },
+    ]);
+    expect(await pushQueued()).toBe(true);
+  });
+
+  it('Edit, Link and Unlink each save the mix', async () => {
+    const repo = await import('../db/repo');
+    openSaved([row('One'), row('Two')]);
+    state.editMixRow(0, { artist: 'Artist', title: 'One', label: 'Warp' });
+    await settle();
+    expect(store.get(URL)!.rows[0].label).toBe('Warp');
+
+    vi.mocked(repo.putMix).mockClear();
+    expect(state.linkMixRowSpotify(1, 'not a link')).toBe(state.LINK_REFUSED);
+    expect(vi.mocked(repo.putMix)).not.toHaveBeenCalled();
+    expect(state.linkMixRowSpotify(1, LINK)).toBeNull();
+    await settle();
+    expect(store.get(URL)!.rows[1]).toMatchObject({ spotifyBy: 'owner' });
+
+    state.unlinkMixRowSpotify(1);
+    await settle();
+    expect(store.get(URL)!.rows[1].spotify).toBe('not-found');
+  });
+
+  it('Add track does not save the blank row', async () => {
+    const repo = await import('../db/repo');
+    openSaved([row('One')]);
+    state.addMixRow();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(vi.mocked(repo.putMix)).not.toHaveBeenCalled();
+  });
+
+  it('a lookup never saved stays unsaved after a delete', async () => {
+    const repo = await import('../db/repo');
+    openMix();
+    state.deleteMixRow(0);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(vi.mocked(repo.putMix)).not.toHaveBeenCalled();
+    expect(state.mixRows.value.map((r) => r.title)).toEqual(['Two']);
+  });
+
+  it('a failed save says so inline; the row stays deleted', async () => {
+    const repo = await import('../db/repo');
+    openSaved([row('One'), row('Two')]);
+    vi.mocked(repo.putMix).mockRejectedValueOnce(new Error('disk full'));
+    state.deleteMixRow(0);
+    await vi.waitFor(() =>
+      expect(state.mixError.value).toMatch(/^Could not save the mix/)
+    );
+    expect(state.banner.value).toBeNull();
+    expect(state.mixRows.value.map((r) => r.title)).toEqual(['Two']);
+  });
+
+  it('two deletes in a row store the second list last', async () => {
+    openSaved([row('One'), row('Two'), row('Three')]);
+    state.deleteMixRow(0);
+    state.deleteMixRow(0);
+    await settle();
+    expect(store.get(URL)!.rows.map((r) => r.title)).toEqual(['Three']);
+  });
+
+  describe('the open mix follows a newer copy from a pull (US2)', () => {
+    it('a newer copy replaces the open rows and removed tracks', async () => {
+      openSaved([row('A'), row('B'), row('C')]);
+      const replaced = state.mixRowsReplaced.value;
+      const removed = [{ artist: 'Artist', title: 'B', isrc: null }];
+      state.savedMixes.value = [
+        { ...savedCopy([row('A'), row('C')], 5), removed },
+      ];
+      state.followNewerSavedMix();
+      expect(state.mixRows.value.map((r) => r.title)).toEqual(['A', 'C']);
+      expect(state.mixRemoved.value).toEqual(removed);
+      expect(state.mixRowsReplaced.value).toBe(replaced + 1);
+    });
+
+    it('an older or equal copy changes nothing', () => {
+      openSaved([row('A'), row('B')], 5);
+      const replaced = state.mixRowsReplaced.value;
+      state.savedMixes.value = [savedCopy([row('A')], 5)];
+      state.followNewerSavedMix();
+      state.savedMixes.value = [savedCopy([row('A')], 4)];
+      state.followNewerSavedMix();
+      expect(state.mixRows.value.map((r) => r.title)).toEqual(['A', 'B']);
+      expect(state.mixRowsReplaced.value).toBe(replaced);
+    });
+
+    it('a change not yet saved keeps the screen as it is', () => {
+      openSaved([row('A'), row('B')]);
+      state.addMixRow();
+      state.savedMixes.value = [savedCopy([row('A')], 5)];
+      state.followNewerSavedMix();
+      expect(state.mixRows.value).toHaveLength(3);
+    });
+
+    it('a row being edited keeps the screen as it is', () => {
+      openSaved([row('A'), row('B')]);
+      state.mixRowOpen.value = true;
+      state.savedMixes.value = [savedCopy([row('A')], 5)];
+      state.followNewerSavedMix();
+      expect(state.mixRows.value.map((r) => r.title)).toEqual(['A', 'B']);
+    });
+
+    it('after the refresh, the automatic check saves the newer rows', async () => {
+      openSaved([row('A'), row('B'), row('C')]);
+      store.set(URL, savedCopy([row('A'), row('C')], 5));
+      state.savedMixes.value = [savedCopy([row('A'), row('C')], 5)];
+      state.followNewerSavedMix();
+      searchAnswers(['A']);
+      await state.startSpotifyCheck();
+      expect(store.get(URL)!.rows.map((r) => r.title)).toEqual(['A', 'C']);
+    });
+
+    it('a pull during a check still refreshes; the check saves the newer rows', async () => {
+      openSaved([row('A'), row('B'), row('C')]);
+      let pulled = false;
+      mocks.get.mockImplementation(async () => {
+        // Once the first answer is on the rows, the pull lands.
+        if (!pulled && state.mixRows.value[0].spotify !== undefined) {
+          pulled = true;
+          store.set(URL, savedCopy([row('A'), row('C')], 5));
+          state.savedMixes.value = [savedCopy([row('A'), row('C')], 5)];
+          state.followNewerSavedMix();
+        }
+        return { tracks: { items: [] } };
+      });
+      await state.startSpotifyCheck();
+      expect(pulled).toBe(true);
+      expect(store.get(URL)!.rows.map((r) => r.title)).toEqual(['A', 'C']);
+    });
   });
 });

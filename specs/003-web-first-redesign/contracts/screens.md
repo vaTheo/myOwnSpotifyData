@@ -389,7 +389,8 @@ aggregate.
 | Actions                 | Edit, Delete; the row becomes text fields with Save and Cancel when edited               |
 
 - Gap rows are separators with Delete.
-- Under the table: **Add track** and **Save mix** (filled, with "Saved ✓" kept).
+- Under the table: **Add track** and **Save mix** (filled, with "Saved ✓" kept). On a saved mix, Delete, an Edit's Save, Link and
+  Remove link save it with no tap (spec 024); Save mix is still there for a lookup never saved.
 - **Create playlist** as a card: button, progress, result, the "not found" disclosure with its dig links, and every failure
   inline.
 - **Paste a tracklist** as a collapsed section.

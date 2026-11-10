@@ -410,6 +410,7 @@ export async function startServerPull(): Promise<boolean> {
     if (res.value.pulled.length > 0) {
       await loadFromDb();
       await loadSavedMixes();
+      followNewerSavedMix();
     } else {
       // A request that only moved (waiting → running → failed) applies no
       // rows, but the Mix screen's request list still shows its new state.
@@ -795,6 +796,16 @@ function savedExtras(url: string): Partial<MixRow> {
 }
 /** Saved mixes, newest first; loaded when the Mix screen mounts. */
 export const savedMixes = signal<MixRow[]>([]);
+/**
+ * Spec 024: the stored copy the open screen last loaded or saved (its url,
+ * `savedAt` and the very rows array). `mixRows` still being that array means
+ * the screen holds no change of its own, so a newer copy from a pull may
+ * replace it (`followNewerSavedMix`).
+ */
+let openCopy: { url: string; savedAt: number; rows: TracklistRow[] } | null =
+  null;
+/** Spec 024: a row's Edit or Link form is open; a pull leaves the rows alone. */
+export const mixRowOpen = signal(false);
 /**
  * The Mix screen's inline channel for a storage failure §6 did not enumerate:
  * a rejected `putMix`/`deleteMix`, or a `getMixes` that could not be read. §6
@@ -1709,6 +1720,18 @@ export function applyPastedTracklist(
 }
 
 /**
+ * Spec 024: a row change of a saved mix (its url in `savedMixes`) is saved
+ * at once, as Save mix does, so it reaches the other devices with no tap. A
+ * lookup never saved stays in memory. A failure lands in `mixError`.
+ */
+function saveIfSaved(): void {
+  const state = mixState.peek();
+  if (state.status !== 'ready') return;
+  if (!savedMixes.peek().some((m) => m.url === state.view.url)) return;
+  void saveMix();
+}
+
+/**
  * Commits an edit to one row through the pure `editTracklistRow` rule.
  * `startSec` is optional (M5): omitted, the row's time is left alone; given
  * (a number, or `null` for "no time"), it replaces it — this is how a manual
@@ -1729,6 +1752,7 @@ export function editMixRow(
   if (!row) return;
   rows[index] = editTracklistRow(row, fields);
   mixRows.value = rows;
+  saveIfSaved();
 }
 
 /** Round 011: the refusals of a pasted Spotify link, said under the field. */
@@ -1740,8 +1764,8 @@ export const LINK_UNNAMED = 'This row has no track name to link.';
  * Round 011: the owner pastes a Spotify track link on a named row; it marks
  * the row found (`spotifyBy: 'owner'`). Returns the refusal to show, or
  * null when the row was linked. No Spotify read, no lookup (ADR-02, ADR-04):
- * the id is stored as given. Not a job, no `confirm()`. Saved with Save mix,
- * like an edit.
+ * the id is stored as given. Not a job, no `confirm()`. A saved mix is
+ * saved at once, like an edit (spec 024).
  */
 export function linkMixRowSpotify(index: number, text: string): string | null {
   if (text.trim() === '') return LINK_EMPTY;
@@ -1752,6 +1776,7 @@ export function linkMixRowSpotify(index: number, text: string): string | null {
   if (!row || !isIdentified(row)) return LINK_UNNAMED;
   rows[index] = linkedRow(row, id, Date.now());
   mixRows.value = rows;
+  saveIfSaved();
   return null;
 }
 
@@ -1762,9 +1787,13 @@ export function unlinkMixRowSpotify(index: number): void {
   const rows = mixRows.value.slice();
   rows[index] = unlinkedRow(row);
   mixRows.value = rows;
+  saveIfSaved();
 }
 
-/** Appends a blank manual row for the owner to fill in (spec §4). */
+/**
+ * Appends a blank manual row for the owner to fill in (spec §4). Not saved:
+ * its Edit's Save saves it (spec 024).
+ */
 export function addMixRow(): void {
   mixRows.value = [
     ...mixRows.value,
@@ -1784,7 +1813,8 @@ export function addMixRow(): void {
 
 /**
  * Removes one row (spec §4). A scan row is remembered in the mix's removed
- * tracks (T125), so a later worker result leaves it out.
+ * tracks (T125), so a later worker result leaves it out. A saved mix is
+ * saved at once, removed tracks included (spec 024).
  */
 export function deleteMixRow(index: number): void {
   const row = mixRows.value[index];
@@ -1792,6 +1822,7 @@ export function deleteMixRow(index: number): void {
   const removed = recordRemoved(mixRemoved.value, row);
   if (removed !== undefined) mixRemoved.value = removed;
   mixRows.value = mixRows.value.filter((_, i) => i !== index);
+  saveIfSaved();
 }
 
 /**
@@ -1900,12 +1931,23 @@ export async function startIdentifyRequest(url: string): Promise<void> {
   }
 }
 
+/** Spec 024: saves run one after the other, each reading the list as it is. */
+let mixSaving: Promise<unknown> = Promise.resolve();
+
 /**
  * Saves the current mix and its working list, then refreshes the list.
  * Returns whether the save succeeded (M7): the caller must not flash
- * "Saved ✓" on a rejected write, where `mixError` shows instead.
+ * "Saved ✓" on a rejected write, where `mixError` shows instead. Saves are
+ * chained (spec 024): a row change saves by itself, so two can overlap, and
+ * the last one started stores the latest list.
  */
-export async function saveMix(): Promise<boolean> {
+export function saveMix(): Promise<boolean> {
+  const next = mixSaving.then(saveMixNow);
+  mixSaving = next;
+  return next;
+}
+
+async function saveMixNow(): Promise<boolean> {
   const state = mixState.value;
   if (state.status !== 'ready') return false;
   mixError.value = null;
@@ -1929,9 +1971,38 @@ export async function saveMix(): Promise<boolean> {
     mixError.value = `Could not save the mix: ${storageMessage(err)}`;
     return false;
   }
+  openCopy = { url: row.url, savedAt: row.savedAt, rows: row.rows };
   await loadSavedMixes();
   void queueServerPush(['mixes']);
   return true;
+}
+
+/**
+ * Spec 024 (FR-003): after a pull, a newer stored copy of the open mix
+ * replaces its rows, unless the screen holds a change of its own (rows
+ * changed since loaded or saved, or a row's form open): then the last save
+ * wins, as before. The mix stays open; no network call.
+ */
+export function followNewerSavedMix(): void {
+  const state = mixState.peek();
+  if (state.status !== 'ready' || openCopy === null) return;
+  const url = state.view.url;
+  if (openCopy.url !== url) return;
+  const stored = savedMixes.peek().find((m) => m.url === url);
+  if (!stored || stored.savedAt <= openCopy.savedAt) return;
+  if (mixRows.peek() !== openCopy.rows || mixRowOpen.peek()) return;
+  openCopy = { url, savedAt: stored.savedAt, rows: stored.rows };
+  mixRows.value = stored.rows;
+  mixRemoved.value = stored.removed ?? [];
+  mixRowsReplaced.value += 1;
+  mixState.value = {
+    status: 'ready',
+    view: {
+      ...state.view,
+      playlistUrl: stored.playlistUrl,
+      playlistId: stored.playlistId,
+    },
+  };
 }
 
 /**
@@ -2139,6 +2210,7 @@ export function openMix(url: string): void {
   if (!row) return;
   mixError.value = null;
   mixRows.value = row.rows;
+  openCopy = { url: row.url, savedAt: row.savedAt, rows: row.rows };
   mixRowsReplaced.value += 1;
   mixRemoved.value = row.removed ?? [];
   const count = row.rows.filter((r) => !r.gap).length;
@@ -2268,7 +2340,14 @@ export async function startSpotifyCheck(): Promise<void> {
       onChecked: (answer, done, total) => {
         if (!live()) return;
         answers.push(answer);
-        if (stillOpen()) mixRows.value = applyAnswers(mixRows.value, [answer]);
+        if (stillOpen()) {
+          // An answer is no change of the owner's: a newer copy from a
+          // pull may still replace the rows (spec 024); keepChecks puts
+          // every answer back before it saves.
+          const clean = openCopy?.rows === mixRows.value;
+          mixRows.value = applyAnswers(mixRows.value, [answer]);
+          if (clean && openCopy) openCopy = { ...openCopy, rows: mixRows.value };
+        }
         const s = spotifyCheckState.peek();
         spotifyCheckState.value = {
           status: 'running',
@@ -2390,6 +2469,7 @@ async function refreshSavedMixes(): Promise<void> {
  */
 export function closeMix(): void {
   mixState.value = { status: 'idle' };
+  openCopy = null;
   mixRows.value = [];
   mixRemoved.value = [];
   mixError.value = null;
