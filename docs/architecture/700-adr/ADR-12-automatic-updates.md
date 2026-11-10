@@ -28,7 +28,7 @@ than `AUTO_SYNC_AGE_MS` (12 hours), or a stored playlist lacks its album years (
 and key, reach holds on a start after that fix), and Spotify's lock-out has lapsed, at most once per page session; then the BPM and key run; then
 Artist reach. The pull restores the other device's sync time into `lastSyncAt`, so the gate counts both devices. A step that failed is
 not run again by the chain in the same page session. An automatic run takes no screen wake lock and raises no banner except the
-Spotify lock-out and an expired login; its failure shows on the Settings Updates card and its own card. A tap on a job's button runs it
+Spotify lock-out and an expired login; its failure shows on the Settings Updates card (since spec 026, the Sync status block) and its own card. A tap on a job's button runs it
 next, before the rest of the chain. An **Automatic updates** switch, per device (`localStorage` `autoUpdates`), turns the chain off
 and restores the buttons-only behaviour. Nothing automatic writes to Spotify ([ADR-03](ADR-03-library-writes-on-tap.md) unchanged) or
 starts an import.

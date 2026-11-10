@@ -65,6 +65,22 @@ const APPROVED_DEV_ADDITIONS = ['@axe-core/playwright', '@playwright/test'];
 const RENAMED_TESTS: Record<string, string> = {
   'defaults to top for empty or unknown hashes':
     'defaults to overview for empty or unknown hashes',
+  // Spec 026: the Settings sections became items under groups, the Updates
+  // card the Sync status block, and the section index went (FR-006): its
+  // three tests are retired onto the group test that replaces its order.
+  'lists the seven sections of US5 in page order':
+    'lists the seven items of US5 in page order',
+  'puts the Updates section (round 006) first':
+    'gives one line per source in a fixed order with its label',
+  'gives each section its own element id': 'gives each item its own element id',
+  'reads a section back from its element id, and nothing else':
+    'reads the item a link names, and nothing else',
+  'marks the first visible section in page order':
+    'groups them under Spotify, Your data and Between devices, the Danger zone apart',
+  'keeps the current mark while no section is in the band':
+    'groups them under Spotify, Your data and Between devices, the Danger zone apart',
+  'marks the last section once the page is scrolled to its end':
+    'groups them under Spotify, Your data and Between devices, the Danger zone apart',
 };
 
 /** Functions that build a `confirm()` question passed in by a caller. */

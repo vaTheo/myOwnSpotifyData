@@ -43,7 +43,9 @@ function groupHeading(group: string): ComponentChildren {
         <span class="dt-group-title">No reach data</span>
         <span class="dt-group-note">
           Not resolved yet ·{' '}
-          <a href={routeHref({ name: 'settings' })}>Look up artists ›</a>
+          <a href={routeHref({ name: 'settings', item: 'reach' })}>
+            Look up artists ›
+          </a>
         </span>
       </>
     );
@@ -181,7 +183,7 @@ function NoRun() {
       <Button
         variant="filled"
         onClick={() => {
-          location.hash = routeHref({ name: 'settings' });
+          location.hash = routeHref({ name: 'settings', item: 'reach' });
         }}
       >
         Look up artists

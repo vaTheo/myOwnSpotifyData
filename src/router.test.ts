@@ -76,6 +76,20 @@ describe('parseRoute', () => {
     expect(parseRoute('#/settings')).toEqual({ name: 'settings' });
   });
 
+  it('parses a Settings item and builds its address (spec 026)', () => {
+    expect(parseRoute('#/settings/reach')).toEqual({
+      name: 'settings',
+      item: 'reach',
+    });
+    expect(routeHref({ name: 'settings', item: 'reach' })).toBe(
+      '#/settings/reach'
+    );
+    expect(routeHref({ name: 'settings' })).toBe('#/settings');
+    expect(destinationOf({ name: 'settings', item: 'audio' })).toEqual({
+      destination: 'settings',
+    });
+  });
+
   it('parses detail screens and decodes their ids', () => {
     expect(parseRoute('#/playlist/37i9dQ')).toEqual({
       name: 'playlist',

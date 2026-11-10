@@ -345,7 +345,10 @@ describe('overviewBlocks (spec 003, US8, SC-009)', () => {
         'coverage'
       );
       expect(b.state).toBe('gated');
-      expect(b.action?.href).toBe(routeHref({ name: 'settings' }));
+      // Spec 026: it lands on the Artist reach item, opened.
+      expect(b.action?.href).toBe(
+        routeHref({ name: 'settings', item: 'reach' })
+      );
       // The share still reads, 0 of N rather than nothing.
       expect(figure(b, 'Artist reach')).toMatch(/ of /);
       expect(figure(b, 'Reach as of')).toBeNull();

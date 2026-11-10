@@ -1,19 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
-  SETTINGS_SECTIONS,
+  itemOfRoute,
+  itemsOf,
+  SETTINGS_GROUPS,
+  SETTINGS_ITEMS,
   sectionDomId,
-  sectionIdOf,
-  sectionInView,
-  type SectionId,
 } from './sections';
 
-const ORDER = SETTINGS_SECTIONS.map((s) => s.id);
-
-describe('SETTINGS_SECTIONS', () => {
-  it('lists the seven sections of US5 in page order', () => {
-    expect(
-      SETTINGS_SECTIONS.map((s) => s.label).filter((l) => l !== 'Updates')
-    ).toEqual([
+describe('Settings items and groups (spec 026, US2)', () => {
+  it('lists the seven items of US5 in page order', () => {
+    expect(SETTINGS_ITEMS.map((s) => s.label)).toEqual([
       'Spotify account',
       'Spotify sync',
       'Listening history',
@@ -24,39 +20,27 @@ describe('SETTINGS_SECTIONS', () => {
     ]);
   });
 
-  it('puts the Updates section (round 006) first', () => {
-    expect(SETTINGS_SECTIONS[0]).toEqual({ id: 'updates', label: 'Updates' });
+  it('groups them under Spotify, Your data and Between devices, the Danger zone apart', () => {
+    expect(SETTINGS_GROUPS.map((g) => g.label)).toEqual([
+      'Spotify',
+      'Your data',
+      'Between devices',
+    ]);
+    expect(itemsOf('spotify')).toEqual(['account', 'sync']);
+    expect(itemsOf('data')).toEqual(['history', 'audio', 'reach']);
+    expect(itemsOf('devices')).toEqual(['server']);
+    expect(itemsOf(null)).toEqual(['danger']);
   });
 
-  it('gives each section its own element id', () => {
-    const ids = ORDER.map(sectionDomId);
+  it('gives each item its own element id', () => {
+    const ids = SETTINGS_ITEMS.map((s) => sectionDomId(s.id));
     expect(new Set(ids).size).toBe(ids.length);
     expect(sectionDomId('reach')).toBe('settings-reach');
   });
 
-  it('reads a section back from its element id, and nothing else', () => {
-    for (const id of ORDER) expect(sectionIdOf(sectionDomId(id))).toBe(id);
-    expect(sectionIdOf('settings-nope')).toBeNull();
-    expect(sectionIdOf('reach')).toBeNull();
-  });
-});
-
-describe('sectionInView', () => {
-  const visible = (...ids: SectionId[]) => new Set<SectionId>(ids);
-
-  it('marks the first visible section in page order', () => {
-    expect(sectionInView(ORDER, visible('server', 'reach'), 'account')).toBe(
-      'reach'
-    );
-  });
-
-  it('keeps the current mark while no section is in the band', () => {
-    expect(sectionInView(ORDER, visible(), 'audio')).toBe('audio');
-  });
-
-  it('marks the last section once the page is scrolled to its end', () => {
-    expect(
-      sectionInView(ORDER, visible('server', 'danger'), 'server', true)
-    ).toBe('danger');
+  it('reads the item a link names, and nothing else', () => {
+    expect(itemOfRoute('reach')).toBe('reach');
+    expect(itemOfRoute('nope')).toBeNull();
+    expect(itemOfRoute(undefined)).toBeNull();
   });
 });

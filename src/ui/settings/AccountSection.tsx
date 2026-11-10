@@ -3,28 +3,49 @@ import { canLikeTracks } from '../../features/like/likePlaylist';
 import { canCreatePlaylists } from '../../features/mix/spotifySearch';
 import { jobsBusy } from '../../model/state';
 import { Button } from '../components/Button';
-import { Card } from '../components/Card';
 import { StatusLine } from '../components/StatusLine';
-import { sectionDomId } from './sections';
+import { accountItemLine, type ItemLine } from './itemLines';
 
-/**
- * The Spotify login (US5): signed in, and which of the two writes the
- * granted scopes still lack. A refresh never widens a scope, so the fix is
- * always Connect again (ADR-03); this section only reads the scopes.
- */
-export function AccountSection() {
+export const ACCOUNT_DESCRIPTION =
+  'The Spotify login this browser reads your library with. It also allows the two writes you start with a tap: Create playlist and Like all songs.';
+
+/** Which of the two writes the granted scopes still lack. */
+function missingWrites(): string[] {
   const session = auth.session.value;
-  const missing = [
+  return [
     canLikeTracks(session) ? null : 'Like all songs',
     canCreatePlaylists(session) ? null : 'Create playlist',
   ].filter((s): s is string => s !== null);
+}
+
+/** The closed line (spec 026). */
+export function accountLine(): ItemLine {
+  return accountItemLine(auth.session.value !== null, missingWrites());
+}
+
+/**
+ * Connect again, the item's main button. A refresh never widens a scope, so
+ * the fix is always Connect again (ADR-03); this item only reads the scopes.
+ */
+export function AccountMain() {
+  const session = auth.session.value;
   return (
-    <Card
-      id={sectionDomId('account')}
-      class="settings-section"
-      title="Spotify account"
-      description="The Spotify login this browser reads your library with. It also allows the two writes you start with a tap: Create playlist and Like all songs."
+    <Button
+      variant={session && missingWrites().length > 0 ? 'filled' : 'tonal'}
+      disabled={jobsBusy()}
+      onClick={() => auth.logout()}
     >
+      Connect again
+    </Button>
+  );
+}
+
+/** The Spotify login (US5): signed in, and the writes still missing. */
+export function AccountSection() {
+  const session = auth.session.value;
+  const missing = missingWrites();
+  return (
+    <>
       {session ? (
         <StatusLine kind="success">Signed in to Spotify.</StatusLine>
       ) : (
@@ -36,19 +57,10 @@ export function AccountSection() {
           {missing.length === 1 ? 'it' : 'them'}.
         </StatusLine>
       )}
-      <div class="actions">
-        <Button
-          variant={session && missing.length > 0 ? 'filled' : 'tonal'}
-          disabled={jobsBusy()}
-          onClick={() => auth.logout()}
-        >
-          Connect again
-        </Button>
-      </div>
       <p class="muted">
         Connect again signs you out and back in. Nothing in this browser is
         deleted.
       </p>
-    </Card>
+    </>
   );
 }

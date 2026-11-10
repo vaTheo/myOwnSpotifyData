@@ -15,7 +15,8 @@ export type CrateView = (typeof CRATE_VIEWS)[number];
  * contracts/routes.md): `?d=<id>` in the address, so a selection can be
  * bookmarked and closed with back. A list names its own row; any other
  * screen carries a track a search opened over it (US7). `key` on `mix` is
- * an open saved mix.
+ * an open saved mix. `item` on `settings` is the Settings item a link opens
+ * (spec 026: `#/settings/reach`); the page ignores an id it does not know.
  */
 export type Route = (
   | { name: 'overview' }
@@ -25,7 +26,7 @@ export type Route = (
   | { name: 'artists' }
   | { name: 'artist'; key: string }
   | { name: 'import' }
-  | { name: 'settings' }
+  | { name: 'settings'; item?: string }
   | { name: 'mix'; key?: string }
   | { name: 'crate' }
   | { name: 'crateView'; view: CrateView; period?: string }
@@ -83,7 +84,9 @@ function parsePath(path: string): Route {
     case 'import':
       return { name: 'import' };
     case 'settings':
-      return { name: 'settings' };
+      return tail
+        ? { name: 'settings', item: decodeSegment(tail) }
+        : { name: 'settings' };
     case 'mix':
       return tail ? { name: 'mix', key: decodeSegment(tail) } : { name: 'mix' };
     case 'top':
@@ -112,6 +115,10 @@ function pathHref(route: Route): string {
         : `#/crate/${route.view}`;
     case 'mix':
       return route.key ? `#/mix/${encodeURIComponent(route.key)}` : '#/mix';
+    case 'settings':
+      return route.item
+        ? `#/settings/${encodeURIComponent(route.item)}`
+        : '#/settings';
     default:
       return `#/${route.name}`;
   }

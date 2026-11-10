@@ -10,20 +10,21 @@ import {
 } from '../../model/state';
 import { isWaiting, otherStepRuns } from './chain';
 import { Button } from '../components/Button';
-import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
 import { quotaRefusal } from '../../spotify/quotaLock';
 import { formatDateTime, plural } from '../format';
-import { sectionDomId } from './sections';
+
+export const SYNC_DESCRIPTION =
+  'Copies your playlists from Spotify into this browser, only when you tap Sync now.';
 
 /**
- * Spotify sync (US5): the one place a playlist read starts, on a tap
- * (ADR-02). The quota lock is a warning until `retryAt`, as before; a
- * lock-out another reader met (Check on Spotify, Create playlist) holds the
- * button too, with its line (S08d).
+ * What the sync item reads, once for its button, its lines and its closed
+ * line. The quota lock is a warning until `retryAt`; a lock-out another
+ * reader met (Check on Spotify, Create playlist) holds the button too, with
+ * its line (S08d).
  */
-export function SyncSection() {
+export function syncView() {
   const state = syncState.value;
   const running = state.status === 'running';
   const locked = state.status === 'locked' && state.retryAt > Date.now();
@@ -37,13 +38,38 @@ export function SyncSection() {
   // One Spotify reader at a time (S13): Check on Spotify, Create playlist
   // or Like all songs running rests the button, with its line.
   const busyLine = running ? null : spotifyBusyMessage('sync');
+  return { state, running, locked, shared, sharedLine, busyLine };
+}
+
+/** Sync now, the item's main button: the one place a playlist read starts (ADR-02). */
+export function SyncMain() {
+  const { state, running, shared, busyLine } = syncView();
   return (
-    <Card
-      id={sectionDomId('sync')}
-      class="settings-section"
-      title="Spotify sync"
-      description="Copies your playlists from Spotify into this browser, only when you tap Sync now."
+    <Button
+      variant="filled"
+      disabled={
+        isSyncBusy(state) ||
+        shared !== null ||
+        busyLine !== null ||
+        (reachState.value.status === 'running' &&
+          !otherStepRuns(chainView.value, 'spotify'))
+      }
+      onClick={() => requestJob('spotify')}
     >
+      {running
+        ? 'Syncing…'
+        : isWaiting(chainView.value, 'spotify')
+          ? 'Waiting…'
+          : 'Sync now'}
+    </Button>
+  );
+}
+
+/** Spotify sync (US5): last sync, progress, lock-outs, the last error. */
+export function SyncSection() {
+  const { state, locked, sharedLine, busyLine } = syncView();
+  return (
+    <>
       <StatusLine>
         Last sync:{' '}
         {lastSyncAt.value ? formatDateTime(lastSyncAt.value) : 'never'}
@@ -72,25 +98,6 @@ export function SyncSection() {
       {state.status === 'error' && (
         <StatusLine kind="error">Last error: {state.message}</StatusLine>
       )}
-      <div class="actions">
-        <Button
-          variant="filled"
-          disabled={
-            isSyncBusy(state) ||
-            shared !== null ||
-            busyLine !== null ||
-            (reachState.value.status === 'running' &&
-              !otherStepRuns(chainView.value, 'spotify'))
-          }
-          onClick={() => requestJob('spotify')}
-        >
-          {running
-            ? 'Syncing…'
-            : isWaiting(chainView.value, 'spotify')
-              ? 'Waiting…'
-              : 'Sync now'}
-        </Button>
-      </div>
-    </Card>
+    </>
   );
 }

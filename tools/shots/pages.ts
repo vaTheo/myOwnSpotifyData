@@ -71,6 +71,15 @@ async function setState(page: Page, name: string, value: unknown) {
   ] as const);
 }
 
+/**
+ * Opens every closed Settings item (spec 026), so a shot of a job state
+ * shows each item's lines, progress and errors as well as its closed line.
+ */
+async function openSettingsItems(page: Page): Promise<void> {
+  const closed = page.locator('.settings-item-toggle[aria-expanded="false"]');
+  while ((await closed.count()) > 0) await closed.first().click();
+}
+
 /** The Overview's last-saved-mix card past its "Reading…" line (D14). */
 async function mixesRead(page: Page): Promise<void> {
   await page.getByRole('heading', { name: 'Last saved mix' }).waitFor();
@@ -1077,8 +1086,10 @@ export const PAGES: ShotPage[] = [
     // A quota lock-out another reader met (S08d): Sync now rests, with why.
     id: 'settings-quota',
     hash: '#/settings',
-    setup: (page) =>
-      setState(page, 'spotifyQuotaLock', DEMO_NOW + 3 * 3_600_000),
+    setup: async (page) => {
+      await setState(page, 'spotifyQuotaLock', DEMO_NOW + 3 * 3_600_000);
+      await openSettingsItems(page);
+    },
   },
   {
     // Sync, lookup, Rekordbox and reach running, the server sending.
@@ -1118,6 +1129,7 @@ export const PAGES: ShotPage[] = [
         done: 1500,
         total: 4980,
       });
+      await openSettingsItems(page);
     },
   },
   {
@@ -1171,6 +1183,7 @@ export const PAGES: ShotPage[] = [
           },
         ],
       });
+      await openSettingsItems(page);
     },
   },
   {
@@ -1202,6 +1215,7 @@ export const PAGES: ShotPage[] = [
         message: 'Signed out of the server: the session expired.',
       });
       await setState(page, 'serverLinkSent', 'dj@example.com');
+      await openSettingsItems(page);
     },
   },
   {
@@ -1230,6 +1244,7 @@ export const PAGES: ShotPage[] = [
         status: 'offline',
         message: 'The network is unreachable.',
       });
+      await openSettingsItems(page);
     },
   },
   {
@@ -1241,36 +1256,35 @@ export const PAGES: ShotPage[] = [
         status: 'paused',
         dashboardUrl: 'https://supabase.com/dashboard',
       });
+      await openSettingsItems(page);
     },
   },
   {
-    // US5 scenario 2: the index scrolls to Artist reach and marks it (large).
-    id: 'settings-index',
-    hash: '#/settings',
-    setup: async (page) => {
-      const item = page
-        .getByRole('navigation', { name: 'Settings sections' })
-        .getByRole('button', { name: 'Artist reach' });
-      if (await item.isVisible()) await item.click();
-    },
+    // Spec 026: a link that names an item lands on it, opened.
+    id: 'settings-linked',
+    hash: '#/settings/reach',
     expect: async (page) => {
-      const nav = page.getByRole('navigation', { name: 'Settings sections' });
-      if (!(await nav.isVisible())) return [];
-      const marked = await nav.locator('[aria-current="true"]').innerText();
-      return marked === 'Artist reach' ? [] : [`index marks ${marked}`];
+      const toggle = page.locator('#settings-reach .settings-item-toggle');
+      return (await toggle.getAttribute('aria-expanded')) === 'true'
+        ? []
+        : ['#/settings/reach left Artist reach closed'];
     },
   },
+  // Every item opened on the demo data.
+  { id: 'settings-open', hash: '#/settings', setup: openSettingsItems },
   {
     // A token granted before the two writes: the account section warns.
     id: 'settings-scopes',
     hash: '#/settings',
-    setup: (page) =>
-      setState(page, 'spotifySession', {
+    setup: async (page) => {
+      await setState(page, 'spotifySession', {
         accessToken: 'demo',
         refreshToken: 'demo',
         expiresAt: DEMO_NOW + 3_600_000,
         scope: 'user-top-read playlist-read-private',
-      }),
+      });
+      await openSettingsItems(page);
+    },
   },
   { id: 'import', hash: '#/import' },
   { id: 'import-empty', variant: 'empty', hash: '#/import' },

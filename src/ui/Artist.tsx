@@ -141,7 +141,10 @@ function ArtistReach(p: { m: Model; id: string | null }) {
       {(unresolved || links.length > 0) && (
         <div class="reach-links">
           {unresolved && (
-            <a class="btn btn-tonal" href={routeHref({ name: 'settings' })}>
+            <a
+              class="btn btn-tonal"
+              href={routeHref({ name: 'settings', item: 'reach' })}
+            >
               <span>Look up artists</span>
             </a>
           )}

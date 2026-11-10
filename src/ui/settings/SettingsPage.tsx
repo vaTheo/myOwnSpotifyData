@@ -1,124 +1,129 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
-import { windowClass } from '../layout/windowClass';
-import { AccountSection } from './AccountSection';
-import { AudioSection } from './AudioSection';
-import { DangerZone } from './DangerZone';
-import { HistorySection } from './HistorySection';
-import { ReachSection } from './ReachSection';
 import {
-  SETTINGS_SECTIONS,
-  sectionDomId,
-  sectionIdOf,
-  sectionInView,
+  AccountMain,
+  AccountSection,
+  ACCOUNT_DESCRIPTION,
+} from './AccountSection';
+import { AudioMain, AudioSection, AUDIO_DESCRIPTION } from './AudioSection';
+import { DangerZone, dangerText } from './DangerZone';
+import {
+  HistoryMain,
+  HistorySection,
+  HISTORY_DESCRIPTION,
+} from './HistorySection';
+import { ReachMain, ReachSection, REACH_DESCRIPTION } from './ReachSection';
+import {
+  itemOfRoute,
+  itemsOf,
+  SETTINGS_GROUPS,
+  SETTINGS_ITEMS,
   type SectionId,
 } from './sections';
-import { ServerSection } from './ServerSection';
-import { SyncSection } from './SyncSection';
-import { UpdatesSection } from './UpdatesSection';
+import { ServerMain, ServerSection, SERVER_DESCRIPTION } from './ServerSection';
+import { SettingsItem } from './SettingsItem';
+import { SyncMain, SyncSection, SYNC_DESCRIPTION } from './SyncSection';
+import { SyncStatus } from './SyncStatus';
+import { useSettingsLines } from './useSettingsLines';
+import type { ComponentChildren } from 'preact';
 
-const ORDER: SectionId[] = SETTINGS_SECTIONS.map((s) => s.id);
+interface Parts {
+  main?: ComponentChildren;
+  description: ComponentChildren;
+  body: ComponentChildren;
+  class?: string;
+}
 
-/**
- * The index beside the sections on large windows (T078): a click scrolls
- * its section into view and the address stays as it is; an
- * `IntersectionObserver` marks the section in the top part of the window.
- * After a click the mark stays on the clicked section until the owner
- * scrolls by hand, so a short last section never steals it.
- */
-function SectionIndex() {
-  const [active, setActive] = useState<SectionId>(ORDER[0]);
-  const visible = useRef(new Set<SectionId>());
-  const clicked = useRef(false);
-  useEffect(() => {
-    const update = () => {
-      if (clicked.current) return;
-      const doc = document.documentElement;
-      const atEnd = window.innerHeight + window.scrollY >= doc.scrollHeight - 2;
-      setActive((current) =>
-        sectionInView(ORDER, visible.current, current, atEnd)
-      );
-    };
-    // The band starts under the sticky top bar, measured in px: a token
-    // read raw could be a calc() that rootMargin refuses.
-    const bar = document.querySelector('.top-bar')?.getBoundingClientRect();
-    const top = Math.round(bar?.height ?? 64);
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = sectionIdOf(entry.target.id);
-          if (id === null) continue;
-          if (entry.isIntersecting) visible.current.add(id);
-          else visible.current.delete(id);
-        }
-        update();
-      },
-      { rootMargin: `-${top}px 0px -60% 0px` }
-    );
-    for (const id of ORDER) {
-      const el = document.getElementById(sectionDomId(id));
-      if (el) observer.observe(el);
-    }
-    const byHand = () => {
-      clicked.current = false;
-    };
-    const opts = { passive: true } as const;
-    window.addEventListener('wheel', byHand, opts);
-    window.addEventListener('touchstart', byHand, opts);
-    window.addEventListener('keydown', byHand);
-    window.addEventListener('scroll', update, opts);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('wheel', byHand);
-      window.removeEventListener('touchstart', byHand);
-      window.removeEventListener('keydown', byHand);
-      window.removeEventListener('scroll', update);
-    };
-  }, []);
-  return (
-    <nav class="settings-index" aria-label="Settings sections">
-      {SETTINGS_SECTIONS.map((s) => (
-        <button
-          type="button"
-          key={s.id}
-          class={s.id === active ? 'active' : ''}
-          aria-current={s.id === active ? 'true' : undefined}
-          onClick={() => {
-            clicked.current = true;
-            setActive(s.id);
-            document
-              .getElementById(sectionDomId(s.id))
-              ?.scrollIntoView({ block: 'start' });
-          }}
-        >
-          {s.label}
-        </button>
-      ))}
-    </nav>
-  );
+function parts(id: SectionId): Parts {
+  switch (id) {
+    case 'account':
+      return {
+        main: <AccountMain />,
+        description: ACCOUNT_DESCRIPTION,
+        body: <AccountSection />,
+      };
+    case 'sync':
+      return {
+        main: <SyncMain />,
+        description: SYNC_DESCRIPTION,
+        body: <SyncSection />,
+      };
+    case 'history':
+      return {
+        main: <HistoryMain />,
+        description: HISTORY_DESCRIPTION,
+        body: <HistorySection />,
+      };
+    case 'audio':
+      return {
+        main: <AudioMain />,
+        description: AUDIO_DESCRIPTION,
+        body: <AudioSection />,
+      };
+    case 'reach':
+      return {
+        main: <ReachMain />,
+        description: REACH_DESCRIPTION,
+        body: <ReachSection />,
+      };
+    case 'server':
+      return {
+        main: <ServerMain />,
+        description: SERVER_DESCRIPTION,
+        body: <ServerSection />,
+      };
+    case 'danger':
+      return {
+        description: dangerText(),
+        body: <DangerZone />,
+        class: 'settings-danger',
+      };
+  }
 }
 
 /**
- * Settings as "Data and sync" (spec 003, US5, FR-038): one card per data
- * source, then the danger zone and the app version. Every long job starts
- * from here or from the automatic chain (ADR-12), whose state the Updates
- * section shows first.
+ * Settings as "Data and sync" (spec 003, US5; spec 026): the Sync status
+ * block first, never folded, then the items under their group headings, each
+ * closed to one line, then the Danger zone apart and the app version. Every
+ * long job starts from here or from the automatic chain (ADR-12).
  */
-export function SettingsPage() {
-  const large = windowClass.value === 'large';
+export function SettingsPage(p: { item?: string }) {
+  const lines = useSettingsLines();
+  // `#/settings/<item>`: the item a link names lands opened (spec 026).
+  const linked = itemOfRoute(p.item);
+  const item = (id: SectionId) => {
+    const part = parts(id);
+    const name = SETTINGS_ITEMS.find((s) => s.id === id)?.label ?? id;
+    return (
+      <SettingsItem
+        key={id}
+        id={id}
+        name={name}
+        line={lines.items[id]}
+        main={part.main}
+        description={part.description}
+        linked={linked === id}
+        class={part.class}
+      >
+        {part.body}
+      </SettingsItem>
+    );
+  };
   return (
-    <div class={large ? 'settings with-index' : 'settings'}>
-      {large && <SectionIndex />}
-      <div class="settings-sections">
-        <UpdatesSection />
-        <AccountSection />
-        <SyncSection />
-        <HistorySection />
-        <AudioSection />
-        <ReachSection />
-        <ServerSection />
-        <DangerZone />
-        <p class="muted settings-version">DJ Data v{__APP_VERSION__}</p>
-      </div>
+    <div class="settings">
+      <SyncStatus rows={lines.rows} />
+      {SETTINGS_GROUPS.map((g) => (
+        <section
+          key={g.id}
+          class="settings-group"
+          aria-labelledby={`settings-group-${g.id}`}
+        >
+          <h2 id={`settings-group-${g.id}`} class="settings-group-title">
+            {g.label}
+          </h2>
+          {itemsOf(g.id).map(item)}
+        </section>
+      ))}
+      <div class="settings-apart">{itemsOf(null).map(item)}</div>
+      <p class="muted settings-version">DJ Data v{__APP_VERSION__}</p>
     </div>
   );
 }

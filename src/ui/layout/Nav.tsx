@@ -64,10 +64,13 @@ export const lastRouteInTab = signal<Partial<Record<string, Route>>>({});
 
 export function rememberRoute(route: Route): void {
   const { destination, tab } = destinationOf(route);
+  // The Settings item a link opened is not kept: the nav lands on the page.
   const kept: Route =
-    'detail' in route && route.detail !== undefined
-      ? ({ ...route, detail: undefined } as Route)
-      : route;
+    route.name === 'settings'
+      ? { name: 'settings' }
+      : 'detail' in route && route.detail !== undefined
+        ? ({ ...route, detail: undefined } as Route)
+        : route;
   lastRouteIn.value = { ...lastRouteIn.value, [destination]: kept };
   if (tab) lastRouteInTab.value = { ...lastRouteInTab.value, [tab]: kept };
 }

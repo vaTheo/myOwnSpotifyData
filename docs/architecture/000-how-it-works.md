@@ -444,8 +444,16 @@ screen, grouped by role under `src/ui/`.
   `historySummary.version === 2`, never on rows), `Playlists.tsx`, `Playlist.tsx` (one strip above the table: meta, Sync and
   Like states, the order control; Match cells in `playlist/matchCells.ts`), `Artists.tsx` with `UnderRadar.tsx` (gated on
   `artistReachSummary.version === 1`; **Well known** is a heading at the bottom, never a filter; listeners and fans in two
-  columns), `Artist.tsx`, `settings/` (`SettingsPage.tsx`, the seven sections of `sections.ts` with an index on large windows;
-  long jobs start only here; Disconnect alone in `DangerZone.tsx`), `Import.tsx` (a `FileDrop`) and `Connect.tsx`.
+  columns), `Artist.tsx`, `settings/` (spec 026: `SettingsPage.tsx` draws `SyncStatus.tsx` first, never folded, then the seven items of
+  `sections.ts` under their groups Spotify · Your data · Between devices, the Danger zone apart; each item is a `SettingsItem.tsx`,
+  closed to its name, a one-line state and its main button, opened on a header tap, on arrival when failing or running, or when
+  `#/settings/<item>` names it (the route's `item`; Under the radar, the Artist page, the track sheet and Overview's Coverage
+  "Look up in Settings" link to `reach` or `audio`); nothing about open or closed is stored. Every line is derived in
+  `useSettingsLines.ts` from the signals the items read, through the pure `itemLines.ts` (the closed lines, worst condition
+  first) and `statusLines.ts` (the block's one line per source with the counts the app already holds: model playlists and
+  tracks, `coverage`, release years, Rekordbox matched, `reachCoverage`, history plays, the server table's Rows; "Up to date"
+  only when connected with nothing waiting); the job words stay `updateLines`'. Each section file exports its main button
+  (`…Main`) and its opened content; long jobs start only here; Disconnect alone in `DangerZone.tsx`, inside its opened item), `Import.tsx` (a `FileDrop`) and `Connect.tsx`.
 - **Sign-in screen** (round 011, `ui/signin/`): with server settings and no server session, `App` renders only `SignInGate.tsx`
   (`serverSignInRequired()`, live, so a session that ends mid-use brings it back; `bootPhase` `'signedout'`, or `'linking'` with
   "Signing you in…" while a magic link is exchanged); boot then reads, syncs and starts nothing, and `main.tsx` starts
@@ -575,13 +583,13 @@ open's server sync and by `autoSync.ts`'s return and `online` triggers (a second
 one at a time after `waitIdle()` (no `jobsBusy()` job running): `spotify` when `isSpotifyDue` (`lastSyncAt` null or older than
 `AUTO_SYNC_AGE_MS` = 12 h, the shared quota lock `spotifyLockedUntil()` lapsed) and not yet run this page session; `features`; `reach`. A step that ends `error` is kept
 in `failed` and skipped by later triggers of the session. The three wrappers take `{ auto: true }`: no wake lock, no `clearBanner()`,
-no banner but the lock-out and the expired-login logout. The Settings buttons (Sync now, Look up BPM and key, Look up artists) and the Updates section's Retry call `requestJob`, which
+no banner but the lock-out and the expired-login logout. The Settings buttons (Sync now, Look up BPM and key, Look up artists) and the Sync status block's Retry call `requestJob`, which
 puts the job first (even with the switch off). `disconnect` calls `autoChain.stop()` first. The automatic Spotify step is held
 (`spotifyHeld`) while the account-mismatch notice is up, and an automatic sync answers the account-switch question "no" without
 asking: that `confirm()` follows a tap only. The BPM and reach runs push only when they looked something up (`featuresChanged`,
 `reachChanged`, `src/model/pushAfter.ts`), so a resume with nothing new sends nothing. "Sync this playlist" is disabled while
-`jobsBusy()`. The demo (`?demo`, dev only) never starts the chain: it has no Spotify session. The Settings Updates section's six lines (`src/ui/settings/UpdatesSection.tsx`) come from
-`updateLines` (`src/model/updateLines.ts`, pure). The switch is `localStorage` `autoUpdates` (`'off'` = off).
+`jobsBusy()`. The demo (`?demo`, dev only) never starts the chain: it has no Spotify session. The Settings Sync status block (`src/ui/settings/SyncStatus.tsx`, spec 026) takes its job words from
+`updateLines` (`src/model/updateLines.ts`, pure) through `statusLines.ts`, which adds each source's counts. The switch is `localStorage` `autoUpdates` (`'off'` = off).
 
 The five library jobs are mutually exclusive through `jobsBusy()` and rebuild the `Model` with `loadFromDb()` (`:888`). The mix and like
 jobs write no library store and rebuild no `Model`, so they need no exclusion; each guards its own re-entry on its state's `status`, shows

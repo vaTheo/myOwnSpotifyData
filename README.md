@@ -250,11 +250,22 @@ phone. It is dark, with chartreuse marking what you act on.
 
 ### Settings
 
-One page of seven sections, with an index beside them on a wide window:
-**Spotify account**, **Spotify sync**, **Listening history**, **Audio
-data**, **Artist reach**, **Server** and **Danger zone**. Each says what it
-is, its state, its action, its progress and its last error. Long jobs start
-only here.
+At the top, never folded, **Sync status**: the Automatic updates switch and
+one line per source with what this device holds and whether it is up to
+date — Spotify (playlists and tracks), BPM and key (N of M tracks, release
+years), Rekordbox (matched), Artist reach (N of M artists), Listening history
+(plays) and the server ("Up to date" only when nothing waits to send,
+otherwise the changes waiting by name, plus the rows the server holds per
+data set). A failed automatic job has its **Retry** there.
+
+Below it, seven items grouped under **Spotify** (Spotify account, Spotify
+sync), **Your data** (Listening history, Audio data, Artist reach) and
+**Between devices** (Server), then the **Danger zone** apart. Each item is
+closed to one line: its name, its state in its colour (an error or a
+warning shows even closed) and its main button. Tap its header to open it:
+what it is, every status line, progress, last error and action. An item
+that fails or runs a job opens by itself; links such as "Look up artists"
+land on their item, opened. Long jobs start only here.
 
 - **Spotify sync → Sync now** fetches your top lists and the playlists you
   own. Spotify enforces an unpublished daily quota; when it hits, the app
@@ -289,7 +300,7 @@ only here.
 - **Connect again** (Spotify account) signs you out and back in without
   deleting anything — the way back when a token refresh fails or a new
   permission is needed.
-- **Disconnect**, alone in the Danger zone, removes the login and all cached
+- **Disconnect**, alone in the Danger zone (open it first), removes the login and all cached
   data in this browser; server data is kept. With the server set up it removes
   only yours: other people's data on this device stays. So does syncing while a
   different Spotify account is signed in, which asks first.

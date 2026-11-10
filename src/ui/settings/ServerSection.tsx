@@ -1,8 +1,6 @@
-import { useEffect } from 'preact/hooks';
 import {
   deviceUserCount,
   jobsBusy,
-  loadServerPending,
   removeServerData,
   serverLastSyncAt,
   serverPending,
@@ -14,16 +12,14 @@ import {
   SERVER_FREE_BYTES,
 } from '../../model/state';
 import { Button } from '../components/Button';
-import { Card } from '../components/Card';
 import { NoData } from '../components/NoData';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
 import { formatDateTime, plural } from '../format';
 import { ServerLinkForm } from '../signin/ServerLinkForm';
 import { deviceUsersLine, pendingLine, signedInLine, usedShare } from './lines';
-import { sectionDomId } from './sections';
 
-const DESCRIPTION =
+export const SERVER_DESCRIPTION =
   'Optional: your own server keeps your data in step across your devices.';
 
 /** The sign-in form of the server section: an email, a magic link (research D3). */
@@ -39,9 +35,27 @@ function ServerSignIn() {
   );
 }
 
+/** Sync now with server, the item's main button, once signed in. */
+export function ServerMain() {
+  const state = serverState.value;
+  if (state.status === 'unset' || serverSession.value === null) return null;
+  return (
+    <Button
+      variant="filled"
+      disabled={
+        jobsBusy() || state.status === 'pushing' || state.status === 'pulling'
+      }
+      onClick={() => void startServerSync()}
+    >
+      Sync now with server
+    </Button>
+  );
+}
+
 /**
  * The owner's server (ADR-08), optional: unset, it says so and offers
  * nothing. `offline` and `paused` are states shown here, never banners.
+ * The changes waiting to send are read by the Sync status block.
  */
 export function ServerSection() {
   const state = serverState.value;
@@ -49,37 +63,19 @@ export function ServerSection() {
   const lastSync = serverLastSyncAt.value;
   const working =
     jobsBusy() || state.status === 'pushing' || state.status === 'pulling';
-  const id = sectionDomId('server');
-  // The changes waiting to send: one local read once the page is up.
-  useEffect(() => {
-    const timer = setTimeout(() => void loadServerPending(), 0);
-    return () => clearTimeout(timer);
-  }, []);
   const pending = serverPending.value;
   const pendingError = serverPendingError.value;
   const people = deviceUsersLine(deviceUserCount());
   if (state.status === 'unset') {
     return (
-      <Card
-        id={id}
-        class="settings-section"
-        title="Server"
-        description={DESCRIPTION}
-      >
-        <StatusLine>
-          No server set up. This browser keeps its own data. To share it across
-          your devices, set the two server values described in the README.
-        </StatusLine>
-      </Card>
+      <StatusLine>
+        No server set up. This browser keeps its own data. To share it across
+        your devices, set the two server values described in the README.
+      </StatusLine>
     );
   }
   return (
-    <Card
-      id={id}
-      class="settings-section"
-      title="Server"
-      description={DESCRIPTION}
-    >
+    <>
       {state.status === 'error' && (
         <StatusLine kind="error">{state.message}</StatusLine>
       )}
@@ -169,13 +165,6 @@ export function ServerSection() {
           )}
           <div class="actions">
             <Button
-              variant="filled"
-              disabled={working}
-              onClick={() => void startServerSync()}
-            >
-              Sync now with server
-            </Button>
-            <Button
               variant="tonal"
               disabled={working}
               onClick={() => void startServerSignOut()}
@@ -196,6 +185,6 @@ export function ServerSection() {
           </p>
         </>
       )}
-    </Card>
+    </>
   );
 }

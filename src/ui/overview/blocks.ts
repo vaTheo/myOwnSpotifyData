@@ -402,7 +402,10 @@ function coverageBlock(p: OverviewInput): OverviewBlock {
       state: 'gated',
       figures,
       reason: 'Under the radar needs your artists looked up.',
-      action: { label: 'Look up in Settings', href: base.link },
+      action: {
+        label: 'Look up in Settings',
+        href: routeHref({ name: 'settings', item: 'reach' }),
+      },
     };
   }
   return { ...base, state: 'ready', figures };

@@ -127,7 +127,7 @@ function Audio(p: { facts: TrackFacts; onMatch?: () => void }) {
         <>
           <p class="details-note">
             No BPM or key yet —{' '}
-            <a href={routeHref({ name: 'settings' })}>
+            <a href={routeHref({ name: 'settings', item: 'audio' })}>
               look them up in Settings
             </a>
           </p>

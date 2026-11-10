@@ -3,6 +3,18 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-10 — A simpler Settings page
+
+Settings opens on a **Sync status** block that never folds: the Automatic updates switch and one line per source, each with what this
+device holds and whether it is up to date: Spotify (playlists and tracks), BPM and key (tracks with a value, N of M, and release years),
+Rekordbox (matched), Artist reach (artists with reach, N of M), Listening history (plays) and the server (up to date only when nothing
+waits to send; otherwise the changes waiting, by name; plus the rows the server holds per data set). Below it the items sit under
+**Spotify**, **Your data** and **Between devices**, with the **Danger zone** apart, each closed to one line: its name, its state in its
+colour and its main button. Tap an item's header to see everything it showed before; an item that fails or runs a job opens by itself,
+and the "Look up artists" links (Under the radar, an artist, Overview's Coverage) land on Artist reach, opened. The section index on
+wide windows and the Updates card are gone (their content is in the block). Spec `specs/026-settings-simpler/`. No Spotify read or
+write, no server call, no stored data change, nothing to do.
+
 ## 2026-11-10 — Mixes in the Settings server table
 
 Settings › Server now has a **mixes** row under library, history, features and reach: Here is your newest mix change on this device

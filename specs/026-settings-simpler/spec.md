@@ -47,6 +47,8 @@ Owner (2026-11-10): "I still want information and status line available to see i
 1. **Given** Settings open, **Then** the Sync status block is visible with every item closed, and it cannot be folded.
 2. **Given** changes waiting to send, **Then** the server line names them (as "Changes waiting to send: …" does today).
 3. **Given** the server line, **When** the owner taps the Server item, **Then** the Here / Server / Rows table of today is shown.
+4. (owner change 2026-11-10, FR-010) **Given** Settings open, **Then** the block shows one line per source: Spotify → this device, BPM and key (ReccoBeats), Rekordbox, Artist reach, Listening history, This device ↔ server; each with its state (worst first, in its colour, Retry where the Updates card had one) and the number of items this device holds from it (playlists and tracks; tracks with BPM or key N of M and release years; Rekordbox matched; artists with reach N of M; plays; the server's rows per data set).
+5. **Given** a number the app does not hold (nothing synced, nothing imported, a data set with no row count), **Then** the line says it in words ("Not imported", "No tracks yet") or leaves the figure out, never 0.
 
 ### User Story 4 - Nothing important is hidden (Priority: P1)
 
@@ -79,12 +81,14 @@ Hiding details must never hide a problem or a question.
 - **FR-006**: The section index on large windows MUST be removed (Q3 option A).
 - **FR-007**: The Updates card MUST be replaced by the Sync status block (US3); the BPM and key, artist reach, listening history and Rekordbox lines of today's Updates card become the closed lines of their items. Each job's state is said once on the closed page.
 - **FR-007a**: The Sync status block MUST stay visible and unfoldable; the server line MUST say "up to date" only when connected with nothing waiting to send.
+- **FR-010** (owner change 2026-11-10: "I would also prefer with all the status you say, status per type of sync with number of items synced with different API"): the Sync status block MUST show one line per source (Spotify, BPM and key, Rekordbox, Artist reach, Listening history, server) with its state and the number of items it holds, from numbers the app already holds in its signals (the model's counts and coverage, the import summaries, the server table's Rows): no new read, no new stored field. A missing number is never printed as 0.
+- **FR-011**: A link that names an item (`#/settings/<item>`, for example Under the radar's "Look up artists" → `#/settings/reach`) MUST land on that item, opened.
 - **FR-008**: Every failure stays shown (the project rule: a state Settings renders, an inline line or a banner); every `confirm()` stays as it is.
 - **FR-009**: No Spotify read or write, no server call and no stored data changes; this round changes how Settings looks only.
 
 ### Key Entities
 
-- **Sync status**: the always-visible block (Automatic updates switch, Spotify line, server line).
+- **Sync status**: the always-visible block (Automatic updates switch, one line per source with its state and counts: FR-010).
 - **Settings item**: one data source or function (Spotify account, Spotify sync, Listening history, Audio data, Artist reach, Server, Danger zone); has a closed one-line state and an opened content.
 - **Group**: a heading over several items.
 

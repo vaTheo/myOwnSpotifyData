@@ -18,7 +18,6 @@ import {
   type KeyNotation,
 } from '../../model/state';
 import { Button } from '../components/Button';
-import { Card } from '../components/Card';
 import { FileDrop } from '../components/FileDrop';
 import { ProgressBar } from '../components/ProgressBar';
 import { SegmentedButtons } from '../components/SegmentedButtons';
@@ -33,7 +32,6 @@ import {
   yearsLine,
 } from './lines';
 import { isWaiting, otherStepRuns } from './chain';
-import { sectionDomId } from './sections';
 
 const NOTATIONS: { value: KeyNotation; label: string }[] = [
   { value: 'camelot', label: 'Camelot' },
@@ -42,12 +40,47 @@ const NOTATIONS: { value: KeyNotation; label: string }[] = [
 ];
 
 /** Round 005: the candidates of the BPM coverage that `yearOf` dates. */
-function datedCount(m: Model): number {
+export function datedCount(m: Model): number {
   let dated = 0;
   for (const candidate of candidateIds(m)) {
     if (yearOf(m, candidate.id) !== null) dated++;
   }
   return dated;
+}
+
+export const AUDIO_DESCRIPTION =
+  'BPM and key for your tracks, from ReccoBeats and your Rekordbox collection; release years from ReccoBeats.';
+
+/** The look-up's button state; a tap while the chain runs another step is queued (round 006). */
+function lookupBlocked(): boolean {
+  const m = model.value;
+  const cov = m ? coverage(m) : null;
+  // Every job ends in loadFromDb(), so no two of the five ever overlap
+  // (spec §5.5): jobsBusy() gates this item as well as Disconnect.
+  return (
+    lookupState.value.status === 'running' ||
+    (jobsBusy() && !otherStepRuns(chainView.value, 'features')) ||
+    !cov ||
+    cov.total === 0
+  );
+}
+
+/** Look up BPM and key, the item's main button. */
+export function AudioMain() {
+  const lookup = lookupState.value;
+  return (
+    <Button
+      variant="filled"
+      disabled={lookupBlocked()}
+      onClick={() => requestJob('features')}
+    >
+      {lookup.status === 'running'
+        ? 'Looking up…'
+        : isWaiting(chainView.value, 'features')
+          ? 'Waiting…'
+          : 'Look up BPM and key'}
+    </Button>
+  );
 }
 
 /** Audio data (US5): the ReccoBeats lookup, the Rekordbox XML, key notation. */
@@ -56,8 +89,6 @@ export function AudioSection() {
   const lookup = lookupState.value;
   const rekordbox = rekordboxState.value;
   const summary = rekordboxSummary.value;
-  // Every job ends in loadFromDb(), so no two of the five ever overlap
-  // (spec §5.5): jobsBusy() gates this section as well as Disconnect.
   const busy = jobsBusy();
   const cov = m ? coverage(m) : null;
   // The year scan reads every Top list per track: once per model, not once
@@ -68,19 +99,8 @@ export function AudioSection() {
   // The notice shows only with server settings and a session (never the demo).
   const sharing = sharedPort() !== undefined;
   const blocked = busy || !cov || cov.total === 0;
-  // A tap while the chain runs another step is queued (round 006).
-  const lookupBlocked =
-    lookup.status === 'running' ||
-    (busy && !otherStepRuns(chainView.value, 'features')) ||
-    !cov ||
-    cov.total === 0;
   return (
-    <Card
-      id={sectionDomId('audio')}
-      class="settings-section"
-      title="Audio data"
-      description="BPM and key for your tracks, from ReccoBeats and your Rekordbox collection; release years from ReccoBeats."
-    >
+    <>
       {cov && cov.total > 0 ? (
         <>
           <StatusLine>{coverageLine(cov)}</StatusLine>
@@ -110,19 +130,6 @@ export function AudioSection() {
         <StatusLine kind="error">Last error: {lookup.message}</StatusLine>
       )}
       {sharing && <p class="muted settings-credit">{SHARED_NOTICE_BPM}</p>}
-      <div class="actions">
-        <Button
-          variant="filled"
-          disabled={lookupBlocked}
-          onClick={() => requestJob('features')}
-        >
-          {lookup.status === 'running'
-            ? 'Looking up…'
-            : isWaiting(chainView.value, 'features')
-              ? 'Waiting…'
-              : 'Look up BPM and key'}
-        </Button>
-      </div>
       <FileDrop
         label="Rekordbox collection XML (File > Export Collection)"
         hint="Drop the XML here or choose it"
@@ -155,6 +162,6 @@ export function AudioSection() {
       <p class="muted settings-credit">
         Audio data via ReccoBeats (Spotify audio features).
       </p>
-    </Card>
+    </>
   );
 }

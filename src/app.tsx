@@ -75,7 +75,7 @@ function Screen({ route }: { route: Route }) {
     case 'import':
       return <Import />;
     case 'settings':
-      return <SettingsPage />;
+      return <SettingsPage item={route.item} />;
     case 'mix':
       return <Workspace mixKey={route.key} />;
   }

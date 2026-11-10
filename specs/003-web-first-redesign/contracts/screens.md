@@ -508,17 +508,39 @@ findings are folded into the spec's clarifications and tasks T120–T129.
 **Today**: six cards stacked in the 720 px column. Key notation is hidden inside Audio data, and the version line sits at the
 bottom.
 
-**Computer**:
+**Since spec 026** (`specs/026-settings-simpler/`, owner 2026-11-10: simpler, grouped, details behind expandable blocks). The same on
+the computer and the phone, at a readable width (≤ 840 px); no section index (FR-006):
 
-- A 220 px sticky **section index** on the left of the content area, with an indicator on the section in view.
-- The sections are cards at a readable width (≤ 840 px). Each card is built the same way:
-  - title and one-line description;
-  - status lines (`StatusLine`);
-  - progress while running;
-  - the last error or warning;
-  - actions, with the main one filled.
+1. **Sync status** (a card, never folded): the **Automatic updates** switch with its one-line description, then one line per source
+   (FR-010), each `label · counts · state` in its tone (worst first: error > warning > running > waiting > ok > off), with **Retry**
+   where the automatic job failed:
 
-| Section           | Status                                                                                                        | Actions                                                                                                         | Kept rules                                                        |
+   | Line | Counts (numbers the app already holds) | State |
+   |---|---|---|
+   | Spotify → this device | playlists, tracks in the model | `updateLines` Spotify line, or the shared quota lock-out |
+   | BPM and key (ReccoBeats) | `coverage`: N of M tracks · release years N | nothing when idle; running, waiting, failed, "Automatic updates off" |
+   | Rekordbox | matched, import date | "Not imported"; running; failed |
+   | Artist reach | `reachCoverage`: N of M artists | `updateLines` reach line |
+   | Listening history | plays, import date | "Not imported"; importing; failed |
+   | This device ↔ server | "on the server: <data set> <rows> · …" from the table's Rows (unknown rows left out) | Not set up · Not signed in · Failed · Offline · Paused · Sending/Fetching · "Changes waiting to send: …" · "Up to date · last sync …" only when connected with nothing waiting (FR-007a) |
+
+   A missing number is said in words or left out, never 0.
+2. Group headings (h2): **Spotify** (Spotify account, Spotify sync) · **Your data** (Listening history, Audio data, Artist reach) ·
+   **Between devices** (Server); then the **Danger zone** apart; then the app version as the last line.
+3. Each item (`SettingsItem`, a card): closed, a header with its name (h3, a button with a chevron, ≥ 48 px), its one-line state
+   (`StatusLine`, the worst condition of the item in its tone: `itemLines.ts`) and its main button beside it; a tap on the header
+   opens it and shows everything the card showed before, description first; a second tap closes it. The main button never toggles.
+   Items open on arrival only when failing or running (FR-005), or when `#/settings/<item>` names them; nothing is stored.
+
+**Computer**: the main button sits at the right of the header. Each item, opened, keeps the card layout below:
+
+- title and one-line description;
+- status lines (`StatusLine`);
+- progress while running;
+- the last error or warning;
+- actions, with the main one filled.
+
+| Item           | Status                                                                                                        | Actions                                                                                                         | Kept rules                                                        |
 | ----------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Spotify account   | signed in; scopes missing (Like, Create playlist)                                                             | Connect again                                                                                                   | "Nothing on this computer is deleted" (the wording drops "phone") |
 | Spotify sync      | last sync; running progress; quota lock with pending count and retry time (warning); cancelled; error         | **Sync now**                                                                                                    | disabled while busy or reach runs; lock until `retryAt`           |
@@ -530,7 +552,17 @@ bottom.
 
 - App version as the last line.
 
-**Phone**: the index goes. The sections stack in the same order.
+| Item | Main button (in the header) | Closed line |
+| --- | --- | --- |
+| Spotify account | Connect again | Signed in · Not allowed yet: … · Connect again (warning) |
+| Spotify sync | Sync now | the Spotify status line, or another Spotify reader running (warning) |
+| Listening history | Import history / Update import | `updateLines` history words; the zone warning |
+| Audio data | Look up BPM and key | BPM and key coverage · Rekordbox date; Rekordbox running or failed; the shared store's error |
+| Artist reach | Look up artists | `updateLines` reach words; a source that stopped (warning); the shared store's error |
+| Server | Sync now with server (signed in) | the server status line; rows rejected by the safety check (warning) |
+| Danger zone | none: Disconnect stays inside | "Disconnect deletes this browser's data · server data is kept" |
+
+**Phone**: the same order; the main button goes under the closed line.
 
 ---
 

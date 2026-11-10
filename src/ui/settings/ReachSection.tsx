@@ -9,7 +9,6 @@ import {
   sharedPort,
 } from '../../model/state';
 import { Button } from '../components/Button';
-import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
 import { formatDate } from '../format';
@@ -22,25 +21,46 @@ import {
   sharedRunLine,
 } from './lines';
 import { isWaiting, otherStepRuns } from './chain';
-import { sectionDomId } from './sections';
+
+export const REACH_DESCRIPTION =
+  'Listeners and fans of your artists, for Under the radar: roughly 45 to 50 minutes for 1,000 artists, and you can stop it and come back.';
+
+/** Look up artists, the item's main button (ADR-04). */
+export function ReachMain() {
+  const m = model.value;
+  const state = reachState.value;
+  const cov = m ? reachCoverage(m) : null;
+  return (
+    <Button
+      variant="filled"
+      disabled={
+        state.status === 'running' ||
+        (jobsBusy() && !otherStepRuns(chainView.value, 'reach')) ||
+        !cov ||
+        cov.artists === 0
+      }
+      onClick={() => requestJob('reach')}
+    >
+      {state.status === 'running'
+        ? 'Looking up…'
+        : isWaiting(chainView.value, 'reach')
+          ? 'Waiting…'
+          : 'Look up artists'}
+    </Button>
+  );
+}
 
 /** Artist reach (US5): the long lookup Under the radar reads (ADR-04). */
 export function ReachSection() {
   const m = model.value;
   const state = reachState.value;
   const summary = artistReachSummary.value;
-  const busy = jobsBusy();
   const cov = m ? reachCoverage(m) : null;
   const sharedLine =
     state.status === 'done' ? sharedRunLine(state.shared, 'artists') : null;
   const sharing = sharedPort() !== undefined;
   return (
-    <Card
-      id={sectionDomId('reach')}
-      class="settings-section"
-      title="Artist reach"
-      description="Listeners and fans of your artists, for Under the radar: roughly 45 to 50 minutes for 1,000 artists, and you can stop it and come back."
-    >
+    <>
       {cov && cov.artists > 0 ? (
         <StatusLine>{reachCoverageLine(cov)}</StatusLine>
       ) : (
@@ -74,28 +94,10 @@ export function ReachSection() {
         <StatusLine kind="error">Last error: {state.message}</StatusLine>
       )}
       {sharing && <p class="muted settings-credit">{SHARED_NOTICE_REACH}</p>}
-      <div class="actions">
-        <Button
-          variant="filled"
-          disabled={
-            state.status === 'running' ||
-            (busy && !otherStepRuns(chainView.value, 'reach')) ||
-            !cov ||
-            cov.artists === 0
-          }
-          onClick={() => requestJob('reach')}
-        >
-          {state.status === 'running'
-            ? 'Looking up…'
-            : isWaiting(chainView.value, 'reach')
-              ? 'Waiting…'
-              : 'Look up artists'}
-        </Button>
-      </div>
       <p class="muted settings-credit">
         Artist data via MusicBrainz and ListenBrainz · Deezer · Wikidata (CC0) ·
         Wikipedia (CC BY-SA)
       </p>
-    </Card>
+    </>
   );
 }

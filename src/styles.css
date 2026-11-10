@@ -3061,19 +3061,12 @@ a.ov-item:hover {
   margin: 8px 0;
 }
 
-/* ---- Settings: "Data and sync" (spec 003, US5, FR-038) ----
- * One card per data source at a readable width; on large windows a 220 px
- * sticky index of the sections sits on their left. */
+/* ---- Settings: "Data and sync" (spec 003, US5; spec 026) ----
+ * The Sync status block, then the items under their group headings, each
+ * closed to one line, at a readable width on every window. */
 
-.screen:has(.settings.with-index) {
-  max-width: none;
-}
-
-.settings.with-index {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 840px);
-  gap: var(--app-gap);
-  align-items: start;
+.settings {
+  max-width: 840px;
 }
 
 .settings-section {
@@ -3081,7 +3074,7 @@ a.ov-item:hover {
   scroll-margin-top: 8px;
 }
 
-.settings-section > .actions {
+.settings-section .actions {
   flex-wrap: wrap;
   margin: 12px 0 4px;
 }
@@ -3100,7 +3093,23 @@ a.ov-item:hover {
   margin: 12px 0 0;
 }
 
-/* Round 006: a job's line and its Retry on one row. */
+/* The Sync status block: the switch beside its label, one line per source. */
+.settings-auto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.settings-auto .settings-label {
+  margin: 0;
+}
+
+.settings-status .settings-credit {
+  margin: 4px 0 8px;
+}
+
+/* A source's line and its Retry on one row. */
 .update-line {
   display: flex;
   flex-wrap: wrap;
@@ -3108,17 +3117,101 @@ a.ov-item:hover {
   gap: 8px;
 }
 
-.settings-sign-in {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin: 8px 0;
+.update-line .status {
+  margin: 4px 0;
 }
 
-.settings-sign-in .text-field {
-  flex: 1 1 240px;
-  width: auto;
+.update-label {
+  color: var(--md-sys-color-on-surface);
+  font-weight: 500;
+}
+
+.settings-group-title {
+  margin: 20px 0 8px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* An item: the header toggles it; its main button sits beside, never inside. */
+.settings-item {
+  padding: 4px 16px;
+}
+
+.settings-item.open {
+  padding-bottom: 16px;
+}
+
+.settings-item-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  cursor: pointer;
+}
+
+.settings-item-name {
+  grid-column: 1;
+  margin: 0;
+  font: var(--md-sys-typescale-title-medium);
+}
+
+.settings-item-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--app-target);
+  padding: 0;
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-item-toggle:hover:not(:disabled) {
+  background: transparent;
+  text-decoration: underline;
+}
+
+.settings-item-toggle .icon {
+  color: var(--md-sys-color-on-surface-variant);
+  transform: rotate(-90deg);
+}
+
+.settings-item.open .settings-item-toggle .icon {
+  transform: none;
+}
+
+.settings-item-toggle:focus-visible {
+  outline: var(--app-focus-ring) solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+.settings-item-state {
+  grid-column: 1;
+  margin: 0 0 8px 28px;
+  font: var(--md-sys-typescale-body-medium);
+}
+
+.settings-item-main {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.settings-item-body {
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  padding-top: 8px;
+}
+
+/* On a phone the main button goes under the line, at the left. */
+@media (max-width: 599px) {
+  .settings-item-main {
+    grid-column: 1;
+    grid-row: auto;
+    margin: 0 0 12px 28px;
+  }
 }
 
 .stamps-wrap {
@@ -3133,46 +3226,20 @@ a.ov-item:hover {
    other cards. */
 .settings-danger {
   border: 1px solid var(--md-sys-color-error);
-  padding: 15px;
+  padding: 3px 15px;
+}
+
+.settings-danger.open {
+  padding-bottom: 15px;
+}
+
+.settings-apart {
+  margin-top: 20px;
 }
 
 .settings-version {
   font: var(--md-sys-typescale-body-small);
   margin: 16px 0 0;
-}
-
-.settings-index {
-  position: sticky;
-  top: calc(var(--app-top-bar) + 8px);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.settings-index button {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-  min-height: var(--app-target);
-  padding: 0 16px;
-  text-align: left;
-  background: transparent;
-  color: var(--md-sys-color-on-surface-variant);
-}
-
-.settings-index button:hover:not(:disabled) {
-  background: color-mix(
-    in srgb,
-    var(--md-sys-color-on-surface) var(--md-sys-state-hover),
-    transparent
-  );
-}
-
-.settings-index button.active {
-  background: var(--md-sys-color-secondary-container);
-  color: var(--md-sys-color-on-secondary-container);
-  font-weight: 700;
 }
 
 /* ---- Import (spec 003 §14, FR-039): one card at reading width. ---- */

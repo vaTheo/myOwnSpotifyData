@@ -52,6 +52,7 @@ fix responsibilities; exact TypeScript lives in the code.
 | `Button` | Filled / tonal / outlined / text button | One filled button per screen section at most (the main action); destructive actions outlined in `error` |
 | `IconButton` | Icon button | Spotify link (`open_in_new`), close, back, row actions; always with an accessible name and a tooltip (FR-014) |
 | `FileDrop` | — | The Import screen's file picker that also takes a dropped file (FR-039); the Mix JSON import and the Rekordbox XML picker reuse it |
+| `SettingsItem` | Card + accordion header (spec 026) | A Settings item: closed, a header button (`aria-expanded`, the name as an h3) with the one-line state (`StatusLine` in the worst tone) and the main button beside it, never inside; opened, the description and the item's content, rendered only while open. Opens on arrival when failing or running or named by `#/settings/<item>` |
 | `ProgressBar` | Linear progress indicator | Job progress in Settings and the Like line; replaces `Progress` |
 | `TextField` | Outlined text field | Mix link, tracklist row edits, server e-mail, paste box |
 

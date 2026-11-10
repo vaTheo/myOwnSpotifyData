@@ -276,6 +276,20 @@ async function search(page: Page, text: string): Promise<Locator> {
  * opens within 4 s the file is set on the input, which fires the same
  * `change` the app listens to.
  */
+/**
+ * Opens a Settings item by its header (spec 026): closed, an item shows only
+ * its name, its one-line state and its main button.
+ */
+async function openItem(page: Page, name: string): Promise<void> {
+  const toggle = page
+    .getByRole('heading', { name, exact: true, level: 3 })
+    .getByRole('button');
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+    await toggle.click();
+  }
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+}
+
 async function chooseFile(
   page: Page,
   button: Locator,
@@ -541,16 +555,18 @@ test.describe('A. addresses', () => {
     await expect(sheet).toHaveCount(0);
   });
 
-  test('A14 #/settings opens Settings in seven sections', async ({ app }) => {
+  test('A14 #/settings opens Settings: Sync status, then seven items under their groups, closed', async ({
+    app,
+  }) => {
     await app.open('#/settings');
     expect(await currentDestination(app.page)).toBe('Settings');
-    const sections = await app.page
-      .getByRole('navigation', { name: 'Settings sections' })
-      .getByRole('button')
-      .allTextContents();
-    // Round 006 adds the Updates section first; the seven of US5 follow.
-    expect(sections[0]).toBe('Updates');
-    expect(sections.slice(1)).toEqual([
+    const m = main(app.page);
+    // Spec 026: the Sync status block first, then the groups of US2.
+    expect(
+      await m.getByRole('heading', { level: 2 }).allTextContents()
+    ).toEqual(['Sync status', 'Spotify', 'Your data', 'Between devices']);
+    const toggles = m.locator('.settings-item-toggle');
+    expect(await toggles.allTextContents()).toEqual([
       'Spotify account',
       'Spotify sync',
       'Listening history',
@@ -559,6 +575,23 @@ test.describe('A. addresses', () => {
       'Server',
       'Danger zone',
     ]);
+    // Nothing runs or fails on the demo: every item is closed (FR-005).
+    for (const expanded of await toggles.evaluateAll((els) =>
+      els.map((e) => e.getAttribute('aria-expanded'))
+    )) {
+      expect(expanded).toBe('false');
+    }
+    await expect(m.locator('.card-description')).toHaveCount(0);
+    // The header opens the item; a second tap closes it.
+    await openItem(app.page, 'Spotify sync');
+    await expect(app.page.getByText(/^Last sync: /)).toBeVisible();
+    await m.getByRole('button', { name: 'Spotify sync' }).click();
+    await expect(app.page.getByText(/^Last sync: /)).toHaveCount(0);
+    // A link that names an item lands on it, opened.
+    await app.page.evaluate((h) => (location.hash = h), '#/settings/reach');
+    await expect(
+      m.getByRole('button', { name: 'Artist reach' })
+    ).toHaveAttribute('aria-expanded', 'true');
   });
 
   test('A15 #/import opens the history import under Settings', async ({
@@ -647,6 +680,7 @@ test.describe('F. features', () => {
     app,
   }) => {
     await app.open('#/settings');
+    await openItem(app.page, 'Spotify sync');
     await expect(app.page.getByText(/^Last sync: /)).toBeVisible();
     await expect(
       app.page.getByRole('button', { name: 'Sync now', exact: true })
@@ -883,6 +917,7 @@ test.describe('F. features', () => {
     const bpms = (await column(grid, 'BPM')).map(num).filter((b) => b !== null);
     expect(bpms.length).toBeGreaterThan(5);
     await app.page.evaluate((h) => (location.hash = h), '#/settings');
+    await openItem(app.page, 'Audio data');
     await expect(
       app.page.getByText(/^BPM and key for 2,099 of 3,199 tracks/)
     ).toBeVisible();
@@ -892,6 +927,7 @@ test.describe('F. features', () => {
     expect(open.length).toBeGreaterThan(5);
     expect(open.every((k) => /^\d{1,2}[dm]$/.test(k))).toBe(true);
     await app.page.evaluate((h) => (location.hash = h), '#/settings');
+    await openItem(app.page, 'Audio data');
     await app.page.getByRole('tab', { name: 'Camelot' }).click();
   });
 
@@ -899,6 +935,7 @@ test.describe('F. features', () => {
     app,
   }) => {
     await app.open('#/settings');
+    await openItem(app.page, 'Audio data');
     await chooseFile(
       app.page,
       app.page.getByRole('button', { name: /^Rekordbox collection XML/ }),
@@ -963,6 +1000,7 @@ test.describe('F. features', () => {
     await expect(
       app.page.getByRole('button', { name: 'Connect again' })
     ).toBeVisible();
+    await openItem(app.page, 'Spotify account');
     await app.set('spotifySession', READ_ONLY_SESSION);
     await expect(main(app.page)).toContainText('Like all songs');
     await expect(main(app.page)).toContainText('Create playlist');
@@ -1294,6 +1332,7 @@ test.describe('F. features', () => {
     app,
   }) => {
     await app.open('#/settings');
+    await openItem(app.page, 'Server');
     await expect(app.page.getByText(/^No server set up\./)).toBeVisible();
     await app.set('serverSession', SERVER_SESSION);
     await app.set('serverState', SERVER_CONNECTED);
@@ -1321,6 +1360,7 @@ test.describe('F. features', () => {
       app,
     }) => {
       await app.open('#/settings');
+      await openItem(app.page, 'Server');
       const sent: string[] = [];
       await app.page.route('**/fake-server/**', (route) => {
         sent.push(`${route.request().method()} ${route.request().url()}`);
@@ -2260,9 +2300,7 @@ test.describe('Y. release year', () => {
     expect(await inOrder('artist', 1)).toBe(false);
 
     // The candidate keeps "not heard" and its origin under its title.
-    const clue = grid
-      .getByRole('row')
-      .filter({ hasText: 'from a comment' });
+    const clue = grid.getByRole('row').filter({ hasText: 'from a comment' });
     await expect(clue).toHaveCount(1);
     await expect(clue.getByRole('gridcell').nth(2)).toContainText('not heard');
     await expect(clue.getByRole('gridcell').nth(2)).toContainText(
@@ -2281,9 +2319,7 @@ test.describe('Y. release year', () => {
   }) => {
     await app.open('#/mix');
     const mix = () =>
-      app.page
-        .getByRole('link', { name: /^Closing set at the Dock/ })
-        .first();
+      app.page.getByRole('link', { name: /^Closing set at the Dock/ }).first();
     await mix().click();
     const grid = await openGrid(app.page);
     const summary = app.page.getByText(/^\d+ tracks? · \d+ on Spotify/);
@@ -2382,32 +2418,38 @@ test.describe('Y. release year', () => {
     await expect(app.page.getByText('Looking up release years')).toBeVisible();
   });
 
-  test('U01 Settings · Updates lists the six jobs and the switch', async ({
+  test('U01 Settings · Sync status: one line per source with its counts, and the switch, never folded', async ({
     app,
   }) => {
     await app.open('#/settings');
+    const block = app.page.locator('#settings-status');
     await expect(
-      app.page.getByRole('heading', { name: 'Updates', exact: true })
+      block.getByRole('heading', { name: 'Sync status', exact: true })
     ).toBeVisible();
-    for (const label of [
-      'Server',
-      'Spotify',
-      'BPM and key',
-      'Artist reach',
-      'History',
+    await expect(
+      block.getByRole('heading', { name: 'Automatic updates' })
+    ).toBeVisible();
+    const lines = await block.locator('.update-line').allTextContents();
+    expect(lines.map((l) => l.split(' · ')[0])).toEqual([
+      'Spotify → this device',
+      'BPM and key (ReccoBeats)',
       'Rekordbox',
-    ]) {
-      await expect(
-        app.page.locator('.update-line').filter({ hasText: label }).first()
-      ).toBeVisible();
-    }
-    await expect(
-      app.page.getByRole('heading', { name: 'Automatic updates' })
-    ).toBeVisible();
+      'Artist reach',
+      'Listening history',
+      'This device ↔ server',
+    ]);
+    // Counts the app already holds, never a 0 for a missing number.
+    expect(lines[0]).toMatch(/ · [\d,]+ playlists · [\d,]+ tracks/);
+    expect(lines[1]).toMatch(/ · 2,099 of 3,199 tracks/);
+    expect(lines[3]).toMatch(/ · [\d,]+ of [\d,]+ artists/);
+    expect(lines[5]).toMatch(/Not set up$/);
+    // No toggle: the block cannot be folded.
+    await expect(block.locator('[aria-expanded]')).toHaveCount(0);
   });
 
   test('Y08 Settings · Audio data counts release years', async ({ app }) => {
     await app.open('#/settings');
+    await openItem(app.page, 'Audio data');
     await expect(
       app.page.getByText(/^Release years: [\d,]+ of [\d,]+ tracks$/)
     ).toBeVisible();
@@ -2688,6 +2730,7 @@ test('F10b Disconnect asks first; Yes empties this browser and shows Connect', a
   app,
 }) => {
   await app.open('#/settings');
+  await openItem(app.page, 'Danger zone');
   const disconnect = app.page.getByRole('button', { name: 'Disconnect' });
   await disconnect.click();
   expect(app.confirms).toEqual([
