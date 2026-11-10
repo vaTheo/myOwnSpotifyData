@@ -17,7 +17,8 @@ RATE_LIMITED = "rate limited"  # scan.py's `stopped["reason"]` for a refusal pas
 
 class AutoResume:
     def __init__(self, minutes: int, cycles: int, clock: Callable[[], float], off: str | None = None) -> None:
-        """`off` names why it cannot run here ("shared mode", "run --once");
+        """`off` names why it cannot run here ("shared mode", "run --once",
+        no saved run to resume because `WORKER_RESUME_DAYS` is 0);
         `minutes` 0 (or `cycles` 0) is off without a word, as before round 023."""
         self.seconds = minutes * 60
         self.minutes = minutes
@@ -40,7 +41,7 @@ class AutoResume:
         if outcome.status != "done" or stopped != RATE_LIMITED or self.seconds <= 0 or self.cycles <= 0:
             return None
         if self.off is not None:
-            return f"  auto ask again · off in {self.off}; press Ask again in the app for the rest"
+            return f"  auto ask again · off ({self.off}); press Ask again in the app for the rest"
         n = self.used.get(url, 0)
         if n >= self.cycles:
             return f"  auto ask again · {self.cycles} of {self.cycles} done for this set; press Ask again in the app for the rest"

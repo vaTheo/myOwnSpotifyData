@@ -30,6 +30,7 @@ Shazam refuses past the pauses allowed (`WORKER_RATE_LIMIT_PAUSES`) and the scan
 1. **Given** a Stop from the phone, a refusal before any track, a Shazam that does not answer, a failure, **When** the request ends, **Then** nothing is planned.
 2. **Given** a shared worker or `run --once`, **When** a set stops on refusals, **Then** nothing is planned (one log line says so).
 3. **Given** `WORKER_AUTO_RESUME_MINUTES=0`, **Then** the worker behaves as 0.7.2, without a line.
+4. **Given** `WORKER_RESUME_DAYS=0` (no run state is kept, so an ask would rescan the whole set and spend Shazam's calls again), **When** a set stops on refusals, **Then** nothing is planned and one line says why (`auto ask again · off (WORKER_RESUME_DAYS is 0: nothing is saved to resume from)`; review finding I1).
 
 ### Edge Cases
 
@@ -46,7 +47,7 @@ Shazam refuses past the pauses allowed (`WORKER_RATE_LIMIT_PAUSES`) and the scan
 - **FR-001**: After sending `done` with `STOPPED_EARLY` whose reason is `rate limited` (scan.py's `stopped["reason"]`), the worker plans in memory, keyed by link, an automatic ask `WORKER_AUTO_RESUME_MINUTES` (30) later.
 - **FR-002**: When due, at the top of the run loop (between requests, after the session refresh, before the claim), the worker checks for an open request for the link and, if none, inserts `{kind: 'identify-mix', payload: {url}}`: exactly the app's Ask again (`requestIdentify`, `src/server/sync.ts`). One try per planned ask.
 - **FR-003**: At most `WORKER_AUTO_RESUMES` (6) automatic inserts per link; the count resets when a run of that link completes; a manual Ask again does not reset it.
-- **FR-004**: Only a rate-limit stop plans; personal mode with `run --watch` only (a shared worker has no table privilege, ADR-16; `--once` exits when the queue is empty).
+- **FR-004**: Only a rate-limit stop plans; personal mode with `run --watch` only (a shared worker has no table privilege, ADR-16; `--once` exits when the queue is empty), and only when `WORKER_RESUME_DAYS` > 0 (otherwise there is no saved run to resume).
 - **FR-005**: The insert uses the owner's session (`ServerClient.enqueue`); its failure is one log line and never fails the run; never a retry loop against a paused or unreachable server.
 - **FR-006**: Settings `WORKER_AUTO_RESUME_MINUTES` (30, 0 = off) and `WORKER_AUTO_RESUMES` (6) in `config.py` and `.env.example`; `check` and the run's start lines name them.
 - **FR-007**: The app needs no change: its pull merges the new result like any Ask again.

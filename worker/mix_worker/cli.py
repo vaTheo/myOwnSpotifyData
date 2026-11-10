@@ -283,6 +283,8 @@ class CliDeps:
 def auto_resume_text(settings: Settings) -> str:
     if settings.auto_resume_minutes <= 0 or settings.auto_resumes <= 0:
         return "off"
+    if settings.resume_days <= 0:
+        return "off (WORKER_RESUME_DAYS is 0: nothing is saved to resume from)"
     return f"after a rate-limit stop, in {settings.auto_resume_minutes} min, up to {settings.auto_resumes} times per set (run --watch, personal mode)"
 
 
@@ -344,7 +346,13 @@ def run_queue(
             return EXIT_NOT_SHARED
         start += " · shared worker" + reason
     log.line(start)
-    off = "shared mode" if settings.worker_mode == "shared" else "run --once" if once else None
+    off = (
+        "shared mode" if settings.worker_mode == "shared"
+        else "run --once" if once
+        # No run state is kept: each automatic ask would rescan the set from the start.
+        else "WORKER_RESUME_DAYS is 0: nothing is saved to resume from" if settings.resume_days <= 0
+        else None
+    )
     auto = AutoResume(settings.auto_resume_minutes, settings.auto_resumes, clock, off=off)
     if off is None and settings.auto_resume_minutes > 0 and settings.auto_resumes > 0:
         log.line(f"auto ask again · {auto_resume_text(settings)}")

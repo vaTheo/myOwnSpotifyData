@@ -6,4 +6,5 @@ Every commit: `cd worker && python -m unittest discover -s tests` green and `yar
 - [x] T002 `autoresume.py`, `Outcome.stopped`, `ServerClient.enqueue`, `Settings.auto_resume_minutes`/`auto_resumes`, `run_queue` wiring and the `check` line; T001 green
 - [x] T003 `.env.example` = `mix_worker/env.example`; version 0.7.3 in `pyproject.toml` and `__init__.py`, `uv lock`
 - [x] T004 Docs per plan "Documentation"; commit `feat(worker): ask again by itself after a rate-limit stop`
-- [x] T005 Final: worker tests, `yarn typecheck && yarn lint && yarn test`, public-safe check
+- [x] T005 Review I1: no automatic ask when `WORKER_RESUME_DAYS` is 0 (test first), one line says why; ADR-08 consequence sentence
+- [x] T006 Final: worker tests, `yarn typecheck && yarn lint && yarn test`, public-safe check

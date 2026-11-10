@@ -30,7 +30,8 @@ one PyInstaller executable per system.
   (`autoresume.AutoResume`, keyed by link, lost on restart), one automatic Ask again `WORKER_AUTO_RESUME_MINUTES` (30, 0 = off) later; when due,
   between two requests, `ServerClient.enqueue` inserts the app's row (`{kind: 'identify-mix', payload: {url}}`, after the same open-request
   check), one try, a failure one log line; at most `WORKER_AUTO_RESUMES` (6) per link, reset by a complete run, not by a manual Ask again.
-  Only a rate-limit stop (`Outcome.stopped`); never in shared mode (`SharedServerClient.enqueue` sends nothing) nor with `--once`.
+  Only a rate-limit stop (`Outcome.stopped`); never in shared mode (`SharedServerClient.enqueue` sends nothing), with `--once`, or with
+  `WORKER_RESUME_DAYS=0` (no saved run: each ask would rescan from the start); each "off" case logs one line.
 - TrackId.net never fails a request; one confirming probe per guided span and no other probe inside it; TrackId.net outranks Shazam inside its spans (ADR-17).
 - Round 016 wiring (`Deps.trackid`, default `None`; `cli.http_get` is the one real fetch, one GET with `User-Agent: mix-worker/<version>`): called once per request after the download and length check, any exception caught and logged, `trusted` before use; `guides`/`spans` go to `deps.scan` only for a trusted record with spans, so otherwise the call is byte-identical to today's. `span_rows`/`merge_rows`/`uncovered` build the rows and clip the gaps for the clue step. With spans, `scan` returns instead of raising after a Stop, a refusal or an unreachable first pass (the rows come from the record); without spans it still raises.
 - One probe at a time: `sleep(WORKER_COOLDOWN_SECONDS)` before every `recognize`; a `RateLimited` pauses once, twice fails the

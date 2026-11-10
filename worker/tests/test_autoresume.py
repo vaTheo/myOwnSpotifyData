@@ -108,10 +108,10 @@ class Off(unittest.TestCase):
         self.assertEqual(auto.take_due(), [])
 
     def test_shared_or_once_schedule_nothing_with_one_line(self):
-        for off in ("shared mode", "run --once"):
+        for off in ("shared mode", "run --once", "WORKER_RESUME_DAYS is 0: nothing is saved to resume from"):
             clock = Clock()
             auto = AutoResume(30, 6, clock, off=off)
-            self.assertEqual(auto.after(URL, limited()), f"  auto ask again · off in {off}; press Ask again in the app for the rest")
+            self.assertEqual(auto.after(URL, limited()), f"  auto ask again · off ({off}); press Ask again in the app for the rest")
             clock.t = 10**6
             self.assertEqual(auto.take_due(), [])
             self.assertIsNone(auto.after(URL, Outcome("done")))

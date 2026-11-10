@@ -242,7 +242,7 @@ class AutoAskAgain(unittest.TestCase):
         def __call__(self):
             return self.t
 
-    def go(self, *, once=False, mode="personal", minutes=30, until=8 * 3600, stopped="rate limited", url="https://x.y/1", server=None):
+    def go(self, *, once=False, mode="personal", minutes=30, until=8 * 3600, stopped="rate limited", url="https://x.y/1", server=None, resume_days=7):
         from dataclasses import replace
 
         from mix_worker.scan import ScanOutput
@@ -257,7 +257,7 @@ class AutoAskAgain(unittest.TestCase):
                 scan=lambda p, d: ScanOutput(rows=row, stopped={"at": "00:10:00", "reason": stopped} if stopped else None),
                 expires_at=9e12,
             )
-            settings = replace(settings, worker_mode=mode, auto_resume_minutes=minutes)
+            settings = replace(settings, worker_mode=mode, auto_resume_minutes=minutes, resume_days=resume_days)
 
             def sleep(s):
                 clock.t += s
@@ -296,13 +296,20 @@ class AutoAskAgain(unittest.TestCase):
     def test_shared_mode_schedules_nothing(self):
         _, client, lines = self.go(mode="shared", url="https://soundcloud.com/a/b", until=3 * 3600)
         self.assertEqual(client.enqueued, [])
-        self.assertIn("  auto ask again · off in shared mode; press Ask again in the app for the rest", lines)
+        self.assertIn("  auto ask again · off (shared mode); press Ask again in the app for the rest", lines)
 
     def test_once_mode_schedules_nothing(self):
         code, client, lines = self.go(once=True)
         self.assertEqual(code, EXIT_OK)
         self.assertEqual(client.enqueued, [])
-        self.assertIn("  auto ask again · off in run --once; press Ask again in the app for the rest", lines)
+        self.assertIn("  auto ask again · off (run --once); press Ask again in the app for the rest", lines)
+
+    def test_no_saved_run_means_no_automatic_ask(self):
+        # WORKER_RESUME_DAYS=0 keeps no run state: every ask would rescan from the start.
+        _, client, lines = self.go(resume_days=0, until=3 * 3600)
+        self.assertEqual(client.enqueued, [])
+        self.assertIn("  auto ask again · off (WORKER_RESUME_DAYS is 0: nothing is saved to resume from); press Ask again in the app for the rest", lines)
+        self.assertFalse(any(l.startswith("auto ask again · after") for l in lines))
 
     def test_zero_minutes_is_off(self):
         _, client, lines = self.go(minutes=0, until=3 * 3600)

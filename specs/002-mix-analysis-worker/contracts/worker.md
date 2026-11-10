@@ -46,7 +46,7 @@ first start). A failed *request* is not a failed *run*: the worker marks it `fai
 | `WORKER_REFUSAL_WARN_CALLS` | 150 | two refusals closer than this many calls: one warning (round 004) |
 | `WORKER_RESUME_DAYS` | 7 | Ask again on a stopped set resumes it within this many days (round 004) |
 | `WORKER_RATE_LIMIT_PAUSES` | 8 | pauses per set; one more `RateLimited` stops the scan: done with the tracks found ("stopped early"), failed only when none |
-| `WORKER_AUTO_RESUME_MINUTES` | 30 | after a done request stopped early by refusals, `run --watch` in personal mode inserts the app's Ask again row for the link this long later; 0 = off (spec 023, worker 0.7.3) |
+| `WORKER_AUTO_RESUME_MINUTES` | 30 | after a done request stopped early by refusals, `run --watch` in personal mode inserts the app's Ask again row for the link this long later; 0 = off; also off when `WORKER_RESUME_DAYS` is 0 (nothing saved to resume from) (spec 023, worker 0.7.3) |
 | `WORKER_AUTO_RESUMES` | 6 | automatic asks per link at most; a complete run resets the count, a manual Ask again does not; in memory, lost on restart (spec 023) |
 | `WORKER_SHAZAM_DEVICE` | android | recognition profile, `android` or `iphone` (D3) |
 | `WORKER_MAX_SKEW` | 0.1 | ShazamIO's `max_skew` (max of the first match's time and frequency skew); 0 disables (D5) |

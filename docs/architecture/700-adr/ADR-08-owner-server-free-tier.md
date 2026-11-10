@@ -55,6 +55,8 @@ reader; the worker round needs no new infrastructure decision.
 **Negative / watch for:** the owner's listening history now leaves the phone for the owner's server (the manual and the inventory's
 "What leaves the browser" say so); the free project pauses after inactivity and must be woken; free storage is finite (Settings shows
 the used share); a hosted service can change its free tier; a worker that only runs while the computer is on means queued jobs wait.
+Since worker 0.7.3 (spec 023) the personal worker also inserts the same `identify-mix` row the app inserts, under the owner's own
+session, for the automatic Ask again after a rate-limit stop; the server still only stores it.
 
 ## Links
 
