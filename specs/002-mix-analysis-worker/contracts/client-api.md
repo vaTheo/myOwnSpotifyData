@@ -17,7 +17,8 @@ Everything here is additive; no `DB_VERSION` bump; no new dependency.
   `startSec` (nulls last, stable).
 - `resultToRows(result: unknown): { ok: true; title: string; author: string | null; rows: TracklistRow[] } | { ok: false; message: string }`
   — `parseTracklistifyJson(JSON.stringify(result))` reused as is, then `validateRow('mixes'-row semantics)` on each row;
-  zero valid rows → `ok: false`.
+  zero valid rows → `ok: false`. Spec 018: before the time sort, `oneRowPerSong` keeps one row per song of the result (earliest time,
+  `hits` summed, best `confidence`); rows already in the mix are never merged by it.
 - `jobView(row: unknown): MixJobView | null` — validation of one pulled `jobs` row (data-model.md); `null` is "rejected".
 - `requestStatusText(view: MixJobView | undefined, server: ServerStatus): { label: string; canAsk: boolean }` — the one place that
   turns a request state and the server state into the button's wording (FR-001, FR-003, US2 scenario 5); unit-tested for every

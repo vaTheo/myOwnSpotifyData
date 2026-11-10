@@ -197,6 +197,13 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 - Rows the worker sends from TrackId.net (round 016, §17) carry `origin: "trackid"`, `trackid {slug, span_start, span_end, references?}` and a `shazam_check` (`agrees`, `differs` with the other track, `no_match`, `not_asked`); the row shows "from TrackId.net · …" and the check line, and is flagged "not heard" like a clue row. The span is the truth: a differing check never changes the row.
 - `parse.ts`: the shared line grammar (`parseLines`, `parseClock`): six row shapes, the ≥5-line run guard, link-out detection.
 - `tracklistify.ts` (`parseTracklistifyJson`): imports a Tracklistify `tracklist.json` (confidence, ISRC, Shazam URL per row).
+  `startTracklistifyImport` passes its rows through `oneRowPerSong` (spec 018, below).
+- `oneRowPerSong.ts` (spec 018): one row per song in an incoming result, the worker's (`resultToRows`) or a hand import. Identified
+  rows with the same `nameKey(artist, stripMixMarkers(title))` keep the earliest copy (no time last, ties in input order), with `hits`
+  summed (absent when no copy has one) and the best `confidence`; gaps and `ID` rows pass. A heard copy outranks a not-heard one
+  (`origin` `clue` or `trackid`): the earliest heard copy is kept and the not-heard copies dropped; with no heard copy, the earliest
+  not-heard copy is kept, no `hits` added. Rows already in a mix never go through it,
+  so the owner's rows are never merged and saved mixes are not rewritten.
 - `match.ts` (`libraryTitleIndex`/`matchMixRow`): each row joined to the library live at render time, memoised on `Model` identity.
   Library matches are never stored, because a resync would make a stored match stale.
 - `lookup.ts` (`lookupMix`): runs both fetches in parallel so one layer's failure never hides the other's rows.
@@ -230,7 +237,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   artist and title, never the ISRC). Check on Spotify keeps the same year with its answer (`CheckAnswer.year`), and
   `applyAnswers` dates an undated row from it.
 - `worker.ts` (pure, worker round): `resultToRows` (the worker's result through `parseTracklistifyJson`, re-checked), `mergeWorkerRows`
-  (a new result replaces untouched scan rows only), `jobView` and `requestStatusText` (the one wording of the Identify button and the
+  (a new result replaces untouched scan rows only; the result's own copies of a song are first collapsed by `oneRowPerSong`), `jobView` and `requestStatusText` (the one wording of the Identify button and the
   request's state line for every server and request state). `url.ts` gains `requestKey`, the canonical link of a request.
   Round 003: `resultToRows` also maps a track's `origin` (`replay` with `speedPercent`, `clue` with its `clue`), builds gap
   rows (with `clues`) from `mix_info.gaps` and returns the set-wide `clues` (stored on `MixRow.clues`); `toClue` keeps only

@@ -338,7 +338,9 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   menu) takes a wrong one out. The columns are Time, Artist – Title, Label,
   **Confidence**, Released (when tracks have a year), Spotify, Listen and
   Review. **Confidence** reads "×3 · 92%": heard in 3 clips, best match
-  92 %. The chips **All**, **Not on Spotify** and **Heard once** (tracks one
+  92 %. A song the scan (or an imported JSON) heard at several times shows
+  once, at its first time, its clips added up; rows you added or edited are
+  never merged. The chips **All**, **Not on Spotify** and **Heard once** (tracks one
   12-second clip matched) show one group at a time; they never change what
   goes into a playlist. Click a column header to **sort** the tracklist by
   it (**Confidence** puts the tracks heard most often first, then by their
