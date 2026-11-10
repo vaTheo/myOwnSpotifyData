@@ -69,8 +69,9 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   another device's chain may try one sync during a lock (then it is locked too) ([ADR-12](700-adr/ADR-12-automatic-updates.md)).
 - A saved mix changed on two devices at once (F40, spec 024): the server keeps the copy saved last, per mix, by its saved time;
   the other device's change since its last pull is lost (a song deleted there comes back). An open mix follows a newer pulled
-  copy only when it holds no change of its own (no Add track row left blank, no Edit or Link form open); otherwise its next save
-  wins. The other device sees a change at its next sync (open, return to the tab, back online, or the 60 s poll while a request
+  copy only when it holds no change of its own (no Add track row left blank, no Edit or Link form open, no save still to land);
+  otherwise its next save wins. Saved times come from each device's clock: a device whose clock runs behind loses to the other
+  even when it saved later, and its open mix does not follow a copy stamped earlier by that clock. The other device sees a change at its next sync (open, return to the tab, back online, or the 60 s poll while a request
   runs), not live.
 - Server rows are stored in clear (the owner declined client-side encryption): whoever holds the supabase.com login can read them.
 - Several people, one app (F27, round 011, [ADR-14](700-adr/ADR-14-users-by-server-account.md)):

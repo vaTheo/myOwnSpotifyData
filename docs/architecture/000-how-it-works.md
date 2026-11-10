@@ -321,12 +321,15 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   `editMixRow`, `linkMixRowSpotify` (when it links) and `unlinkMixRowSpotify` call `saveIfSaved`, the `saveMix` path (`putMix` with a new
   `savedAt`, removed tracks included, then `queueServerPush(['mixes'])`), so the change reaches the other devices with no tap; a failure
   is `mixError`, inline. `addMixRow`'s blank row is not saved (its Edit's Save is); a lookup never saved stays in memory until Save mix,
-  which stays. `saveMix` runs its saves one after another (`mixSaving`), each reading the list as it is, so the last change is stored
-  last. The open copy (`openCopy`: url, `savedAt` and the rows array last loaded by `openMix` or stored by `saveMix`) lets
+  which stays. `saveMix` takes the mix as it is at the call (url, rows, removed tracks, extras) and runs its saves one after another
+  (`mixSaving`), so the last change is stored last and under its own mix, even when it is closed or another one opened meanwhile; a
+  row change's save is dropped when the mix was removed before it runs (no resurrection). The open copy (`openCopy`: url, `savedAt` and the rows array last loaded by `openMix` or stored by `saveMix`) lets
   `followNewerSavedMix`, run by `startServerPull` after `loadSavedMixes()`, switch the open mix to a newer stored copy (rows, removed
   tracks, playlist link; `mixRowsReplaced` moves), unless the screen holds a change of its own: `mixRows` is no longer that array, or a
-  row's Edit or Link form is open (`mixRowOpen`, set by `TracklistTable`); then the last save wins, as before. A Check answer is not
-  such a change: a pull during a check still refreshes, and the check's save puts its answers on the newer rows.
+  row's Edit or Link form is open (`mixRowOpen`, set by `TracklistTable`), or a save is still to land (`savesPending`); then the last
+  save wins, as before. A Check answer or the years Create playlist learns are not such a change (`setOpenRowsKeepClean`), and
+  Create's own write moves the open copy's time (`stampStored`): a pull afterwards still refreshes, and the check's save puts its
+  answers on the newer rows.
 
 ## 11. `features/like/`: Like all songs
 

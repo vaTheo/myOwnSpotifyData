@@ -806,6 +806,31 @@ let openCopy: { url: string; savedAt: number; rows: TracklistRow[] } | null =
   null;
 /** Spec 024: a row's Edit or Link form is open; a pull leaves the rows alone. */
 export const mixRowOpen = signal(false);
+
+/**
+ * Spec 024: the open rows changed by the app, not the owner (a Check
+ * answer, release years): a screen with no change of its own stays so.
+ */
+function setOpenRowsKeepClean(rows: TracklistRow[]): void {
+  const clean = openCopy !== null && openCopy.rows === mixRows.peek();
+  mixRows.value = rows;
+  if (clean && openCopy) openCopy = { ...openCopy, rows };
+}
+
+/**
+ * Spec 024: a background write of `url` (Create playlist) stored at
+ * `savedAt`; a clean open screen of that mix takes its time, so a later
+ * pull compares with it.
+ */
+function stampStored(url: string, savedAt: number): void {
+  if (
+    openCopy?.url === url &&
+    openCopy.rows === mixRows.peek() &&
+    savedAt > openCopy.savedAt
+  ) {
+    openCopy = { ...openCopy, savedAt };
+  }
+}
 /**
  * The Mix screen's inline channel for a storage failure §6 did not enumerate:
  * a rejected `putMix`/`deleteMix`, or a `getMixes` that could not be read. §6
@@ -1728,7 +1753,7 @@ function saveIfSaved(): void {
   const state = mixState.peek();
   if (state.status !== 'ready') return;
   if (!savedMixes.peek().some((m) => m.url === state.view.url)) return;
-  void saveMix();
+  void queueSave(true);
 }
 
 /**
@@ -1931,28 +1956,29 @@ export async function startIdentifyRequest(url: string): Promise<void> {
   }
 }
 
-/** Spec 024: saves run one after the other, each reading the list as it is. */
+/** Spec 024: saves run one after the other, in the order they were asked. */
 let mixSaving: Promise<unknown> = Promise.resolve();
+/** Spec 024: saves asked and not ended; a pull leaves the open rows to them. */
+let savesPending = 0;
 
 /**
  * Saves the current mix and its working list, then refreshes the list.
  * Returns whether the save succeeded (M7): the caller must not flash
- * "Saved ✓" on a rejected write, where `mixError` shows instead. Saves are
- * chained (spec 024): a row change saves by itself, so two can overlap, and
- * the last one started stores the latest list.
+ * "Saved ✓" on a rejected write, where `mixError` shows instead. Spec 024:
+ * the mix is taken as it is at the call (url, rows, removed tracks), and
+ * saves are chained, so the last change asked is stored last, under its own
+ * mix, even when the mix is closed or another one opened meanwhile.
  */
 export function saveMix(): Promise<boolean> {
-  const next = mixSaving.then(saveMixNow);
-  mixSaving = next;
-  return next;
+  return queueSave(false);
 }
 
-async function saveMixNow(): Promise<boolean> {
+function queueSave(onlyIfSaved: boolean): Promise<boolean> {
   const state = mixState.value;
-  if (state.status !== 'ready') return false;
+  if (state.status !== 'ready') return Promise.resolve(false);
   mixError.value = null;
   const view = state.view;
-  const row: MixRow = {
+  const draft: Omit<MixRow, 'savedAt'> = {
     url: view.url,
     title: view.title,
     author: view.author,
@@ -1961,17 +1987,40 @@ async function saveMixNow(): Promise<boolean> {
     sources: view.sources,
     rows: mixRows.value,
     ...savedExtras(view.url),
-    savedAt: Date.now(),
     playlistUrl: view.playlistUrl,
     playlistId: view.playlistId,
   };
+  savesPending += 1;
+  const next = mixSaving
+    .then(() => writeMix(draft, onlyIfSaved))
+    .finally(() => {
+      savesPending -= 1;
+    });
+  mixSaving = next;
+  return next;
+}
+
+/** Writes one queued save; never throws (the chain goes on). */
+async function writeMix(
+  draft: Omit<MixRow, 'savedAt'>,
+  onlyIfSaved: boolean
+): Promise<boolean> {
+  // A row change never brings back a mix removed meanwhile (here, or by
+  // a pull's tombstone).
+  if (onlyIfSaved && !savedMixes.peek().some((m) => m.url === draft.url)) {
+    return false;
+  }
+  const row: MixRow = { ...draft, savedAt: Date.now() };
   try {
     await putMix(row);
   } catch (err) {
     mixError.value = `Could not save the mix: ${storageMessage(err)}`;
     return false;
   }
-  openCopy = { url: row.url, savedAt: row.savedAt, rows: row.rows };
+  const open = mixState.peek();
+  if (open.status === 'ready' && open.view.url === row.url) {
+    openCopy = { url: row.url, savedAt: row.savedAt, rows: row.rows };
+  }
   await loadSavedMixes();
   void queueServerPush(['mixes']);
   return true;
@@ -1991,6 +2040,8 @@ export function followNewerSavedMix(): void {
   const stored = savedMixes.peek().find((m) => m.url === url);
   if (!stored || stored.savedAt <= openCopy.savedAt) return;
   if (mixRows.peek() !== openCopy.rows || mixRowOpen.peek()) return;
+  // A save of this screen still to land would store the older rows after.
+  if (savesPending > 0) return;
   openCopy = { url, savedAt: stored.savedAt, rows: stored.rows };
   mixRows.value = stored.rows;
   mixRemoved.value = stored.removed ?? [];
@@ -2100,7 +2151,7 @@ export async function startCreatePlaylist(): Promise<void> {
     live.status === 'ready' &&
     live.view.url === view.url
   ) {
-    mixRows.value = applyYearsByTrack(mixRows.value, outcome.years);
+    setOpenRowsKeepClean(applyYearsByTrack(mixRows.value, outcome.years));
   }
   // The search ran on the tracks to add only: the years go onto the whole
   // working list of the tap (same row objects).
@@ -2116,21 +2167,23 @@ export async function startCreatePlaylist(): Promise<void> {
     savedBefore !== undefined
   ) {
     const ownerSaved = savedBefore.savedAt >= tapAt;
+    const at = Date.now();
     try {
       await putMix(
         ownerSaved
           ? {
               ...savedBefore,
               rows: applyYearsByTrack(savedBefore.rows, outcome.years),
-              savedAt: Date.now(),
+              savedAt: at,
             }
           : {
               ...savedBefore,
               ...extras,
               rows: keepStoredAnswers(withYears, savedBefore.rows),
-              savedAt: Date.now(),
+              savedAt: at,
             }
       );
+      stampStored(view.url, at);
       await loadSavedMixes();
       void queueServerPush(['mixes']);
     } catch (err) {
@@ -2174,6 +2227,7 @@ export async function startCreatePlaylist(): Promise<void> {
     let saved = true;
     try {
       await putMix(row);
+      stampStored(view.url, row.savedAt);
     } catch (err) {
       mixError.value = `Could not save the mix: ${storageMessage(err)}`;
       saved = false;
@@ -2340,14 +2394,11 @@ export async function startSpotifyCheck(): Promise<void> {
       onChecked: (answer, done, total) => {
         if (!live()) return;
         answers.push(answer);
-        if (stillOpen()) {
-          // An answer is no change of the owner's: a newer copy from a
-          // pull may still replace the rows (spec 024); keepChecks puts
-          // every answer back before it saves.
-          const clean = openCopy?.rows === mixRows.value;
-          mixRows.value = applyAnswers(mixRows.value, [answer]);
-          if (clean && openCopy) openCopy = { ...openCopy, rows: mixRows.value };
-        }
+        // An answer is no change of the owner's: a newer copy from a pull
+        // may still replace the rows (spec 024); keepChecks puts every
+        // answer back before it saves.
+        if (stillOpen())
+          setOpenRowsKeepClean(applyAnswers(mixRows.value, [answer]));
         const s = spotifyCheckState.peek();
         spotifyCheckState.value = {
           status: 'running',
@@ -2605,6 +2656,7 @@ export async function disconnect(): Promise<void> {
   rekordboxState.value = { status: 'idle' };
   reachState.value = { status: 'idle' };
   mixState.value = { status: 'idle' };
+  openCopy = null;
   mixRows.value = [];
   mixRemoved.value = [];
   savedMixes.value = [];

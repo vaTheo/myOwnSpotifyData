@@ -46,5 +46,6 @@ import), library matching, Create playlist from mix, and dig links.
 - One quota lock-out for every Spotify reader (`src/spotify/quotaLock.ts`), and one reader at a time: sync, Check on Spotify, Create
   playlist and Like all songs refuse to start while another runs (`busyRefusal`), said inline on the refused button.
 - Spec 024 (`model/state.ts`): a row change of a saved mix (Delete, an Edit's Save, Link, Remove link) saves it at once through
-  `saveMix` (chained, so the last change is stored last); a new row-changing action joins `saveIfSaved`. A pull switches the open mix
+  `saveMix` (the mix taken at the call, saves chained, so the last change is stored last under its own url); a new row-changing
+  action joins `saveIfSaved`; an app-made change of the open rows goes through `setOpenRowsKeepClean`. A pull switches the open mix
   to a newer stored copy (`followNewerSavedMix`) only when the screen holds no change of its own; a Check answer is not one.

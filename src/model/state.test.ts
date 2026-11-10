@@ -61,7 +61,22 @@ vi.mock('../db/repo', async (importOriginal) => ({
   putMix: vi.fn(async () => undefined),
   getMixes: vi.fn(async () => []),
   getMixDeleted: vi.fn(async () => []),
+  getAllRows: vi.fn(async () => ({
+    playlists: [],
+    tracks: [],
+    entries: [],
+    topItems: [],
+    plays: [],
+    features: [],
+    artistIdentity: [],
+    artistReach: [],
+  })),
 }));
+
+vi.mock('../server/sync', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../server/sync')>();
+  return { ...real, runPull: vi.fn(real.runPull) };
+});
 
 const { auth } = await import('../auth/browser');
 const state = await import('./state');
@@ -1263,10 +1278,36 @@ describe('a row change of a saved mix saves itself (spec 024, US1)', () => {
     state.openMix(URL);
   }
 
-  /** Lets the fire-and-forget save run to its end. */
-  async function settle(): Promise<void> {
-    await state.saveMix();
+  /** Lets queued saves and pushes run (no call to saveMix here). */
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  /**
+   * Waits for the save the change itself started: `n` puts in all, then
+   * the end of the chain. Never calls saveMix (review I1).
+   */
+  async function saved(n: number): Promise<void> {
+    const repo = await import('../db/repo');
+    await vi.waitFor(() =>
+      expect(vi.mocked(repo.putMix)).toHaveBeenCalledTimes(n)
+    );
+    await flush();
   }
+
+  /** The next put waits until the returned function is called. */
+  async function holdNextPut(): Promise<() => void> {
+    const repo = await import('../db/repo');
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(repo.putMix).mockImplementationOnce(async (r) => {
+      await gate;
+      store.set(r.url, structuredClone(r));
+    });
+    return release;
+  }
+
+  const titles = (url = URL) => store.get(url)?.rows.map((r) => r.title);
 
   beforeEach(async () => {
     const repo = await import('../db/repo');
@@ -1310,11 +1351,11 @@ describe('a row change of a saved mix saves itself (spec 024, US1)', () => {
       { ...row('Two'), detected: { artist: 'Scan', title: 'Heard' } },
     ]);
     state.deleteMixRow(1);
-    await settle();
-    const saved = store.get(URL)!;
-    expect(saved.rows.map((r) => r.title)).toEqual(['One']);
-    expect(saved.savedAt).toBeGreaterThan(1);
-    expect(saved.removed).toEqual([
+    await saved(1);
+    const copy = store.get(URL)!;
+    expect(copy.rows.map((r) => r.title)).toEqual(['One']);
+    expect(copy.savedAt).toBeGreaterThan(1);
+    expect(copy.removed).toEqual([
       { artist: 'Scan', title: 'Heard', isrc: null },
     ]);
     expect(await pushQueued()).toBe(true);
@@ -1324,18 +1365,18 @@ describe('a row change of a saved mix saves itself (spec 024, US1)', () => {
     const repo = await import('../db/repo');
     openSaved([row('One'), row('Two')]);
     state.editMixRow(0, { artist: 'Artist', title: 'One', label: 'Warp' });
-    await settle();
+    await saved(1);
     expect(store.get(URL)!.rows[0].label).toBe('Warp');
 
     vi.mocked(repo.putMix).mockClear();
     expect(state.linkMixRowSpotify(1, 'not a link')).toBe(state.LINK_REFUSED);
     expect(vi.mocked(repo.putMix)).not.toHaveBeenCalled();
     expect(state.linkMixRowSpotify(1, LINK)).toBeNull();
-    await settle();
+    await saved(1);
     expect(store.get(URL)!.rows[1]).toMatchObject({ spotifyBy: 'owner' });
 
     state.unlinkMixRowSpotify(1);
-    await settle();
+    await saved(2);
     expect(store.get(URL)!.rows[1].spotify).toBe('not-found');
   });
 
@@ -1374,8 +1415,152 @@ describe('a row change of a saved mix saves itself (spec 024, US1)', () => {
     openSaved([row('One'), row('Two'), row('Three')]);
     state.deleteMixRow(0);
     state.deleteMixRow(0);
-    await settle();
+    await saved(2);
     expect(store.get(URL)!.rows.map((r) => r.title)).toEqual(['Three']);
+  });
+
+  /* Fix round 1 (review of 4cfc549). */
+
+  it('a delete then Close while another save runs is still stored (I2)', async () => {
+    const repo = await import('../db/repo');
+    openSaved([row('One'), row('Two')]);
+    const release = await holdNextPut();
+    const first = state.saveMix();
+    await vi.waitFor(() =>
+      expect(vi.mocked(repo.putMix)).toHaveBeenCalledTimes(1)
+    );
+    state.deleteMixRow(0);
+    state.closeMix();
+    release();
+    await first;
+    await saved(2);
+    expect(titles()).toEqual(['Two']);
+  });
+
+  it('a delete then another mix opened while a save runs: the delete lands on its own mix, the other is not saved (I2)', async () => {
+    const repo = await import('../db/repo');
+    const OTHER = 'https://soundcloud.com/demo/other';
+    openSaved([row('One'), row('Two')]);
+    const other = { ...savedCopy([row('X')], 3), url: OTHER };
+    store.set(OTHER, structuredClone(other));
+    state.savedMixes.value = [...state.savedMixes.value, other];
+    const release = await holdNextPut();
+    const first = state.saveMix();
+    await vi.waitFor(() =>
+      expect(vi.mocked(repo.putMix)).toHaveBeenCalledTimes(1)
+    );
+    state.deleteMixRow(0);
+    state.openMix(OTHER);
+    release();
+    await first;
+    await saved(2);
+    expect(titles()).toEqual(['Two']);
+    expect(
+      vi.mocked(repo.putMix).mock.calls.map(([r]) => r.url)
+    ).not.toContain(OTHER);
+    // The other mix's open copy is its own: a newer pull still reaches it.
+    state.savedMixes.value = [{ ...other, rows: [row('Y')], savedAt: 9e15 }];
+    state.followNewerSavedMix();
+    expect(state.mixRows.value.map((r) => r.title)).toEqual(['Y']);
+  });
+
+  it('a queued save does not bring back a mix deleted meanwhile (M1)', async () => {
+    const repo = await import('../db/repo');
+    openSaved([row('One'), row('Two')]);
+    const release = await holdNextPut();
+    const first = state.saveMix();
+    await vi.waitFor(() =>
+      expect(vi.mocked(repo.putMix)).toHaveBeenCalledTimes(1)
+    );
+    state.deleteMixRow(0);
+    // Removed here, or by a pull's tombstone, before the queued save runs.
+    vi.mocked(repo.getMixes).mockImplementation(async () =>
+      [...store.values()].filter((m) => m.url !== URL)
+    );
+    state.savedMixes.value = [];
+    release();
+    await first;
+    await flush();
+    await flush();
+    expect(vi.mocked(repo.putMix)).toHaveBeenCalledTimes(1);
+  });
+
+  it('a pull while a save of a clean screen runs leaves the screen to that save (M5)', async () => {
+    const repo = await import('../db/repo');
+    openSaved([row('A'), row('B')]);
+    const release = await holdNextPut();
+    const save = state.saveMix();
+    await vi.waitFor(() =>
+      expect(vi.mocked(repo.putMix)).toHaveBeenCalledTimes(1)
+    );
+    state.savedMixes.value = [savedCopy([row('A')], 9e15)];
+    state.followNewerSavedMix();
+    expect(state.mixRows.value.map((r) => r.title)).toEqual(['A', 'B']);
+    release();
+    expect(await save).toBe(true);
+    expect(titles()).toEqual(['A', 'B']);
+  });
+
+  /** Search finds every title, dated 1993; the playlist is created. */
+  function datedCreate(): void {
+    mocks.get.mockImplementation(
+      async (_path: string, query?: { q?: string }) => {
+        const q = String(query?.q ?? '');
+        const t = ['A', 'B'].find((f) => q.includes(`track:${f}`)) ?? 'A';
+        const answer = hit(t);
+        (answer.tracks.items[0] as Record<string, unknown>).album = {
+          release_date: '1993',
+        };
+        return answer;
+      }
+    );
+  }
+
+  it('after Create playlist dates the rows, a newer pulled copy still reaches the open mix (I3)', async () => {
+    openSaved([row('A'), row('B')]);
+    datedCreate();
+    playlistAnswers();
+    await state.startCreatePlaylist();
+    expect(state.mixRows.value[0].year).toBe(1993);
+    state.savedMixes.value = [savedCopy([row('A')], 9e15)];
+    state.followNewerSavedMix();
+    expect(state.mixRows.value.map((r) => r.title)).toEqual(['A']);
+  });
+
+  it('after a Create that failed but dated the rows, a newer pulled copy still reaches the open mix (I3)', async () => {
+    openSaved([row('A'), row('B')]);
+    datedCreate();
+    mocks.post.mockRejectedValue(new Error('Spotify answered 500'));
+    await state.startCreatePlaylist();
+    expect(state.createPlaylistState.value.status).toBe('error');
+    expect(state.mixRows.value[0].year).toBe(1993);
+    state.savedMixes.value = [savedCopy([row('A')], 9e15)];
+    state.followNewerSavedMix();
+    expect(state.mixRows.value.map((r) => r.title)).toEqual(['A']);
+  });
+
+  it('a pull that brought mixes moves the open mix to the newer copy (M3)', async () => {
+    const repo = await import('../db/repo');
+    const sync = await import('../server/sync');
+    openSaved([row('A'), row('B')]);
+    store.set(URL, savedCopy([row('A')], 9e15));
+    vi.mocked(sync.runPull).mockResolvedValueOnce({
+      ok: true,
+      value: { pulled: ['mixes'], rejected: 0, stale: [] },
+    } as never);
+    vi.mocked(serverAuth.getAccessToken).mockResolvedValue({
+      ok: false,
+      kind: 'offline',
+      message: 'offline',
+    } as never);
+    serverAuth.session.value = { accessToken: 'x' } as never;
+    try {
+      expect(await state.startServerPull()).toBe(true);
+    } finally {
+      serverAuth.session.value = null;
+    }
+    expect(vi.mocked(repo.getMixes)).toHaveBeenCalled();
+    expect(state.mixRows.value.map((r) => r.title)).toEqual(['A']);
   });
 
   describe('the open mix follows a newer copy from a pull (US2)', () => {
