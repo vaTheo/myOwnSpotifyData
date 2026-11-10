@@ -40,6 +40,7 @@ import {
 } from '../features/mix/lookup';
 import { recordRemoved } from '../features/mix/keepReview';
 import { parseDescription, parsePasted } from '../features/mix/parse';
+import { oneRowPerSong } from '../features/mix/oneRowPerSong';
 import { parseTracklistifyJson } from '../features/mix/tracklistify';
 import { classifyMixInput, isShortLink, requestKey } from '../features/mix/url';
 import { queueFailure, queueNote } from '../features/mix/queue';
@@ -1661,7 +1662,8 @@ export async function startTracklistifyImport(file: File): Promise<void> {
   };
   mixState.value = { status: 'ready', view };
   mixRemoved.value = removedOf(view.url);
-  mixRows.value = parsed.rows;
+  // Spec 018: a song named at several times keeps one row, the earliest.
+  mixRows.value = oneRowPerSong(parsed.rows);
   mixRowsReplaced.value += 1;
 }
 

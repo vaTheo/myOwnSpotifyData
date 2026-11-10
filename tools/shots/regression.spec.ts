@@ -1574,12 +1574,18 @@ test.describe('R. rounds 003 and 004', () => {
   test('R01 a second listen says its speed', async ({ app }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
-    await expect(
-      grid.getByRole('row').filter({ hasText: 'Juno Haze – Neon Shadow' })
-    ).toContainText('second listen · +4 %');
-    await expect(
-      grid.getByRole('row').filter({ hasText: 'Lumen Rivers – Garden Gravity' })
-    ).toContainText('second listen · −4 %');
+    // Artist and Title are two cells (spec 020).
+    const row = (artist: string, title: string) =>
+      grid
+        .getByRole('row')
+        .filter({ hasText: artist })
+        .filter({ hasText: title });
+    await expect(row('Juno Haze', 'Neon Shadow')).toContainText(
+      'second listen · +4 %'
+    );
+    await expect(row('Lumen Rivers', 'Garden Gravity')).toContainText(
+      'second listen · −4 %'
+    );
   });
 
   test('R02 a candidate from a comment is flagged not heard and has no score', async ({
@@ -2099,8 +2105,8 @@ test.describe('Y. release year', () => {
     expect(titleId).not.toBe('');
     await expect(marked).toHaveCount(0);
 
-    // A click on a title marks its row.
-    await byId(titleId).getByRole('gridcell').nth(1).click();
+    // A click on a title marks its row (Time, Artist, then Title: spec 020).
+    await byId(titleId).getByRole('gridcell').nth(2).click();
     await expect(byId(titleId)).toHaveAttribute('aria-selected', 'true');
     await expect(marked).toHaveCount(1);
 
@@ -2189,6 +2195,82 @@ test.describe('Y. release year', () => {
       .click();
     await page.getByRole('menuitem', { name: 'Delete' }).click();
     await expect(marked).toHaveCount(0);
+  });
+
+  test('M05 Mix: Artist and Title columns, each sorts; not heard stays under the title', async ({
+    app,
+  }) => {
+    await app.open(`#/mix/${enc(SUNRISE)}`);
+    const page = app.page;
+    const grid = await openGrid(page);
+    const heads = await headers(grid);
+    expect(heads).not.toContain('Artist – Title');
+    expect(heads.indexOf('Artist')).toBe(heads.indexOf('Time') + 1);
+    expect(heads.indexOf('Title')).toBe(heads.indexOf('Artist') + 1);
+    const labels = await page
+      .getByLabel('Sort')
+      .locator('option')
+      .allTextContents();
+    expect(labels).toEqual(expect.arrayContaining(['Artist', 'Title']));
+    expect(labels).not.toContain('Artist – Title');
+    // The artist and the track name of each track row, in drawn order.
+    const pairs = () =>
+      grid.evaluate((g) => {
+        const n = g.querySelectorAll('[role=columnheader]').length;
+        const body = g.querySelectorAll('[role=rowgroup]')[1];
+        return [...body.querySelectorAll('[role=row]')]
+          .map((r) => [...r.querySelectorAll('[role=gridcell]')])
+          .filter((cells) => cells.length === n)
+          .map((cells) => ({
+            artist: (cells[1].textContent ?? '').trim(),
+            title: (
+              cells[2].querySelector('.mix-name')?.textContent ?? ''
+            ).trim(),
+          }));
+      });
+    const sorted = (xs: string[], sign: 1 | -1) =>
+      xs.every(
+        (x, i) =>
+          i === 0 ||
+          sign *
+            xs[i - 1].localeCompare(x, 'en-GB', {
+              sensitivity: 'base',
+              numeric: true,
+            }) <=
+            0
+      );
+    const inOrder = async (key: 'artist' | 'title', sign: 1 | -1) => {
+      const values = (await pairs()).map((p) => p[key]);
+      return sorted(values, sign);
+    };
+    const sortBy = (name: string) =>
+      grid.getByRole('columnheader', { name }).getByRole('button').click();
+
+    await sortBy('Artist');
+    await expect(page.getByLabel('Sort')).toHaveValue('artist');
+    expect((await pairs()).length).toBeGreaterThan(5);
+    expect(await inOrder('artist', 1)).toBe(true);
+    await sortBy('Artist');
+    expect(await inOrder('artist', -1)).toBe(true);
+
+    await sortBy('Title');
+    await expect(page.getByLabel('Sort')).toHaveValue('title');
+    expect(await inOrder('title', 1)).toBe(true);
+    // By the track name alone: the artists are no longer in order.
+    expect(await inOrder('artist', 1)).toBe(false);
+
+    // The candidate keeps "not heard" and its origin under its title.
+    const clue = grid
+      .getByRole('row')
+      .filter({ hasText: 'from a comment by night_owl' });
+    await expect(clue).toHaveCount(1);
+    await expect(clue.getByRole('gridcell').nth(2)).toContainText('not heard');
+    await expect(clue.getByRole('gridcell').nth(2)).toContainText(
+      'from a comment by night_owl'
+    );
+    await expect(clue.getByRole('gridcell').nth(1)).not.toContainText(
+      'not heard'
+    );
   });
 
   test('Y07 Activity names the release years pass', async ({ app }) => {

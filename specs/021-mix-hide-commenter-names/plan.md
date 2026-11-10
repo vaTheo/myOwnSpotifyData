@@ -45,6 +45,6 @@ Complexity Tracking empty.
 
 ## Documentation (same batch as the code)
 
-`docs/architecture/000-how-it-works.md` §10 (the clue text), `docs/architecture/100-features.md` (row F34, "the quiet-comments
+`docs/architecture/000-how-it-works.md` §10 (the clue text), `docs/architecture/100-features.md` (row F37, "the quiet-comments
 round"), `README.md` (owner's manual, the clues sentence), `CHANGELOG.md`, `docs/README.md` (this folder in the specs list),
 `specs/003-web-first-redesign/contracts/screens.md` and `regression.md` (R02, R03 named the author). No ADR: no lasting decision.

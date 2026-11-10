@@ -335,15 +335,18 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   found"); it runs when you tap it and also by itself when you open a saved mix with tracks not checked yet (once per mix, only with
   **Automatic updates** on, never while Spotify's lock-out lasts or another Spotify job runs), and saves the mix when it ends.
   Every track counts as kept; **Remove** (✕, or **Delete** in the row
-  menu) takes a wrong one out. The columns are Time, Artist – Title, Label,
+  menu) takes a wrong one out. The columns are Time, **Artist**, **Title**, Label,
   **Confidence**, Released (when tracks have a year), Spotify, Listen and
-  Review. **Confidence** reads "×3 · 92%": heard in 3 clips, best match
-  92 %. The chips **All**, **Not on Spotify** and **Heard once** (tracks one
+  Review; on a phone each track shows its title, the artist under it, then
+  the rest. **Confidence** reads "×3 · 92%": heard in 3 clips, best match
+  92 %. A song the scan (or an imported JSON) heard at several times shows
+  once, at its first time, its clips added up; rows you added or edited are
+  never merged. The chips **All**, **Not on Spotify** and **Heard once** (tracks one
   12-second clip matched) show one group at a time; they never change what
   goes into a playlist. Click a column header to **sort** the tracklist by
   it (**Confidence** puts the tracks heard most often first, then by their
-  %; click again for the least heard first; also Time, Artist – Title,
-  Label, Released and Spotify); the
+  %; click again for the least heard first; also Time, **Artist** (A to Z),
+  **Title** (A to Z by the track name alone), Label, Released and Spotify); the
   **Sort** menu beside the chips offers the same choices, with **Set order**
   to go back, and is how a phone sorts. Tracks with no value always stay at
   the bottom; the sort is only how you look at the list and is not saved.
@@ -421,7 +424,10 @@ While a set is analysed, its row in the Mixes list shows where it is ("First pas
 top** and **Cancel**, a running one **Stop** (it keeps the tracks found, and Ask
 again continues it later). Each heard track shows how many 12-second clips
 matched it and its best score ("heard 3× · best 91 %"); sort by them, or show
-only the tracks heard once to judge them; nothing is removed for you. Run the
+only the tracks heard once to judge them. One thing is removed for you (worker
+0.7.2): a different song heard between two clips of one song at most 3 minutes
+apart (A, X, A) is a false match inside that song, so the worker drops it and
+the log counts it (`WORKER_MERGE_GAP_SECONDS` sets the 3 minutes). Run the
 worker without a VPN: Shazam refuses far more often on one. The **Mixes**
 list holds every link sent beside your saved mixes, one row per link with a
 chip (Queued, Identifying, Paused, Stopping…, Found tracks, Failed, Rejected,

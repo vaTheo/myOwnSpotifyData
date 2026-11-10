@@ -120,6 +120,13 @@ research agent's report of 2026-11-06 (file:line citations below refer to those 
   of the two skews of the first match. With equal time and frequency skews a match is a real track played at another speed, so
   the skew-derived confidence reads low (57) for a correct row; it stays display only (F15: no threshold).
 
+- **Revised 2026-11-09 (the sandwich round, spec 019, worker 0.7.2)**: before the merge, a hit of another song lying strictly
+  between two neighbouring hits of one song at most `WORKER_MERGE_GAP_SECONDS` apart (A, X, A) is dropped as a false match inside A
+  (a sample, a vocal, a quiet bar); the two A hits then merge into one row (`drop_sandwiched`). Every pair is judged on the raw hits,
+  so A, B, A, B within the gap keeps the first A and the last B; the earliest hit always stays. Same key as the merge (Shazam id,
+  else artist and title). The run log counts the dropped hits; the run state keeps them. A DJ who really plays A, X, A inside the
+  gap loses X (owner, accepted). No new setting: raising the merge gap widens both.
+
 ## D6. Metadata emitted per track (the F15 shape)
 
 `song_name` ← `track.title`; `artist` ← `track.subtitle`; `time_in_mix`; `confidence`; `duration: null`; `metadata.isrc`

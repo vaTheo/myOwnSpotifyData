@@ -19,7 +19,7 @@ the commit touches in the same commit. Commit as `vaTheo <98275045+vaTheo@users.
   only when `kind !== 'comment'`; T001 green. Fix the doc comment of `TitleCell` in `src/ui/mix/TracklistTable.tsx`
 - [ ] T003 [US1] Regression R02 (no "night_owl" on the candidate row) and R03 (the gap's comment line "mm:ss · text") in
   `tools/shots/regression.spec.ts` and `specs/003-web-first-redesign/regression.md`; run `yarn regression -g "R02|R03"`
-- [ ] T004 Docs: how-it-works §10, inventory F34, README, CHANGELOG, `specs/003-web-first-redesign/contracts/screens.md`; commit
+- [ ] T004 Docs: how-it-works §10, inventory F37, README, CHANGELOG, `specs/003-web-first-redesign/contracts/screens.md`; commit
   T001–T004 `feat(mix): hide the commenter's name on comment clues`
 
 ## Dependencies
