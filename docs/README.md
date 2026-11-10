@@ -49,6 +49,8 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 One design document per feature round, dated. The first one is the base model; later ones build on it.
 
+- [2026-11-09 — The worker drops a finding between two hits of one song](specs/2026-11-09-worker-drop-sandwiched-hits-design.md) (the sandwich round, worker 0.7.2, full round under [`specs/019-worker-drop-sandwiched-hits/`](../specs/019-worker-drop-sandwiched-hits/spec.md))
+- [2026-11-09 — One row per song in a scanned mix](specs/2026-11-09-mix-one-row-per-song-design.md) (the one-row round, full round under [`specs/018-mix-one-row-per-song/`](../specs/018-mix-one-row-per-song/spec.md))
 - [2026-11-10 — Artist and Title columns in the Mix tracklist](specs/2026-11-10-mix-artist-title-columns-design.md) (full round under [`specs/020-mix-artist-title-columns/`](../specs/020-mix-artist-title-columns/spec.md))
 - [2026-11-09 — Play button and Listen menu on every track list](specs/2026-11-09-track-play-button-design.md) (the play-button round, full round under [`specs/017-track-play-button/`](../specs/017-track-play-button/spec.md))
 - 2026-11-08 — TrackId.net with the Shazam probes (round 016): [`specs/016-trackid-worker-clues/`](../specs/016-trackid-worker-clues/spec.md), decision [ADR-17](architecture/700-adr/ADR-17-trackid-worker.md)

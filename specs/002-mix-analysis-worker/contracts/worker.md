@@ -48,7 +48,7 @@ first start). A failed *request* is not a failed *run*: the worker marks it `fai
 | `WORKER_RATE_LIMIT_PAUSES` | 8 | pauses per set; one more `RateLimited` stops the scan: done with the tracks found ("stopped early"), failed only when none |
 | `WORKER_SHAZAM_DEVICE` | android | recognition profile, `android` or `iphone` (D3) |
 | `WORKER_MAX_SKEW` | 0.1 | ShazamIO's `max_skew` (max of the first match's time and frequency skew); 0 disables (D5) |
-| `WORKER_MERGE_GAP_SECONDS` | 180 | same track within this gap extends the row (D5) |
+| `WORKER_MERGE_GAP_SECONDS` | 180 | same track within this gap extends the row (D5); another song's hit between two hits of one track this close is dropped (worker 0.7.2, D5) |
 | `WORKER_RESULT_MAX_BYTES` | 900000 | larger results fail "Result too large" |
 
 Validation at start (`check` and every command): URL is `https:`, key non-empty, numbers positive, the ffmpeg runnable
@@ -86,12 +86,14 @@ the traceback goes to the log file only; the loop continues with the next reques
   `reason_for(message) -> str` (the D7 mapping, pure).
 - `scan.py`: `probe_times(duration, step) -> list[int]` (pure); `cut_probe(ffmpeg, file, t) -> bytes`; `confidence_of(match)`
   (pure); `track_entry(response) -> dict | None` (pure, D6); `merge(hits: list[Hit], gap) -> list[dict]` (pure, D5);
+  `drop_sandwiched(hits: list[Hit], gap) -> tuple[list[Hit], int]` (pure, D5, worker 0.7.2: the kept hits and the count dropped);
   `scan(file, duration, settings, recognise: Callable[[bytes], Awaitable[dict]], cut: Callable[[int], bytes], sleep) -> list[dict]`.
 - `pipeline.py`: `run_one(...)`, `run_loop(...)`; `cli.py`: argparse and exit codes; `__main__.py`: the no-command path.
 - Tests (`worker/tests/`): fake `opener` returning canned `HTTPResponse`-like objects (claim → one row then `[]`; 401; 413; a
   paused 5xx body; a socket error); fake `recognise` returning the cassette shape (a hit, a no-match, a `RateLimited`), fake
   `cut` returning bytes of a given length; `merge` on hit sequences (A A B B A → three rows; A, no-match, A within the gap → one
-  row; A … A after the gap → two rows); `track_entry` produces exactly the fixture's keys and omits absent ones;
+  row; A … A after the gap → two rows); `drop_sandwiched` (A, X, A within the gap drops X; A, X, B and a wider A … A keep it;
+  A, B, A, B within the gap keeps the first A and the last B); `track_entry` produces exactly the fixture's keys and omits absent ones;
   `reason_for` on the known messages; `load_settings` defaults, overrides, bad numbers; `run_one` end to end with fakes,
   asserting the JSON file exists, the folder is gone, and the `finish` body; Ctrl-C → `release` called.
 

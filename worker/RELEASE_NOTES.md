@@ -11,6 +11,11 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.7.2: **a wrong match inside a song is dropped**. When Shazam hears song A, then a different song, then A again, and the two A
+  clips are at most `WORKER_MERGE_GAP_SECONDS` apart (3 minutes by default), the song in between is a false match inside A (a sample,
+  a vocal, a quiet bar): the worker drops it and A stays one row with its clips added up. The log says "scan · N findings between two
+  hits of the same song dropped". Only Shazam's clips are filtered: TrackId.net rows and comment rows are never dropped by it. No new
+  setting (raising the merge gap raises both); the app needs no update.
 - 0.7.1: **the mode follows the account**. `WORKER_MODE` now defaults to `auto`: after sign-in the worker asks the server whether the
   account is listed in `shared_workers` and runs as a shared worker if it is, as a personal worker if it is not (the start line says
   which). `personal` and `shared` still force a mode. A failed check (no network) ends the run with exit code 2 and never guesses a

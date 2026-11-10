@@ -1,6 +1,6 @@
 # Artist and Title columns in the Mix tracklist: design
 
-> **Status**: Implemented on `feat/mix-artist-title-columns` (2026-11-10, inventory F34)
+> **Status**: Implemented on `feat/mix-artist-title-columns` (2026-11-10, inventory F36)
 > **Last updated**: 2026-11-10
 
 Date: 2026-11-10. Driven with the Spec Kit skills; the specification, plan and task list live under
@@ -34,5 +34,5 @@ Widths: Artist `minmax(112px, 1fr)`, Title `minmax(176px, 1.5fr)`, Label `minmax
 
 ## Links
 
-- [How the app works](../architecture/000-how-it-works.md) §10, §13 · [Feature inventory](../architecture/100-features.md) F34
+- [How the app works](../architecture/000-how-it-works.md) §10, §13 · [Feature inventory](../architecture/100-features.md) F36
 - [Documentation map](../README.md)

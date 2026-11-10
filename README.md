@@ -339,7 +339,9 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   **Confidence**, Released (when tracks have a year), Spotify, Listen and
   Review; on a phone each track shows its title, the artist under it, then
   the rest. **Confidence** reads "×3 · 92%": heard in 3 clips, best match
-  92 %. The chips **All**, **Not on Spotify** and **Heard once** (tracks one
+  92 %. A song the scan (or an imported JSON) heard at several times shows
+  once, at its first time, its clips added up; rows you added or edited are
+  never merged. The chips **All**, **Not on Spotify** and **Heard once** (tracks one
   12-second clip matched) show one group at a time; they never change what
   goes into a playlist. Click a column header to **sort** the tracklist by
   it (**Confidence** puts the tracks heard most often first, then by their
@@ -421,7 +423,10 @@ While a set is analysed, its row in the Mixes list shows where it is ("First pas
 top** and **Cancel**, a running one **Stop** (it keeps the tracks found, and Ask
 again continues it later). Each heard track shows how many 12-second clips
 matched it and its best score ("heard 3× · best 91 %"); sort by them, or show
-only the tracks heard once to judge them; nothing is removed for you. Run the
+only the tracks heard once to judge them. One thing is removed for you (worker
+0.7.2): a different song heard between two clips of one song at most 3 minutes
+apart (A, X, A) is a false match inside that song, so the worker drops it and
+the log counts it (`WORKER_MERGE_GAP_SECONDS` sets the 3 minutes). Run the
 worker without a VPN: Shazam refuses far more often on one. The **Mixes**
 list holds every link sent beside your saved mixes, one row per link with a
 chip (Queued, Identifying, Paused, Stopping…, Found tracks, Failed, Rejected,

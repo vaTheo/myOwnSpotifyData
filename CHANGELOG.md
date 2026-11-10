@@ -11,6 +11,23 @@ longer grouped by artist. The **Sort** menu offers "Artist" and "Title" in their
 the clue in quotes, the references and the check line stay under the title. On a phone each track reads its title, the artist under
 it, then the rest. Screen readers still name a track "Artist – Title". Spec `specs/020-mix-artist-title-columns/`. No Spotify read
 or write, no stored data change, no `DB_VERSION` bump, nothing to do.
+## 2026-11-09 — The worker drops a finding between two hits of one song
+
+Worker 0.7.2. When the scan hears song A, then a different song, then A again, and the two A clips are at most
+`WORKER_MERGE_GAP_SECONDS` apart (3 minutes by default), the song in between is treated as a false match inside A and dropped: the
+tracklist shows A once, its clips added up. Two songs interleaved within the gap (A, B, A, B) keep the first A and the last B. The log
+says "scan · N findings between two hits of the same song dropped". TrackId.net and comment rows are never dropped by it; no new
+setting. Spec `specs/019-worker-drop-sandwiched-hits/`, design note `docs/specs/2026-11-09-worker-drop-sandwiched-hits-design.md`.
+No Spotify read or write, no `DB_VERSION` bump, the app needs no update; to get it, run worker 0.7.2 (released on the push to `main`).
+
+## 2026-11-09 — One row per song in a scanned mix
+
+When a scan result (or a Tracklistify JSON imported by hand) names the same song at several times, the tracklist now shows it once, at
+its earliest time; its clip count adds up the copies' and its confidence is the best of them, so "Heard once" stays honest. A copy the scan heard
+wins over one only named by a comment or TrackId.net, even an earlier one. Case,
+accents and "Original Mix" / "Extended Mix" do not make a different song; different artists do. Rows you added, pasted or edited are
+never merged, and a mix saved before keeps its copies until it is scanned or imported again. Spec `specs/018-mix-one-row-per-song/`.
+No Spotify read or write, no `DB_VERSION` bump, no new worker, nothing to do.
 
 ## 2026-11-09 — Play button and Listen menu on every track list
 

@@ -2,6 +2,7 @@ import type { Clue, MixJobView, MixRun, TracklistRow } from '../../db/schema';
 import type { ServerStatus } from '../../server/types';
 import { validateJobRow, type MixJobRow } from '../../server/validate';
 import { decadeOf, parseYear } from '../../model/year';
+import { oneRowPerSong } from './oneRowPerSong';
 import { parseTracklistifyJson } from './tracklistify';
 
 /**
@@ -226,6 +227,7 @@ function gapRows(info: unknown): TracklistRow[] {
  * JSON produce identical rows; its synthetic `tracklistify:` key is dropped
  * because the request's canonical link is the mix key. Every row is checked
  * once more here (security review S3): a non-finite number drops the row.
+ * A song named at several times keeps one row (`oneRowPerSong`, spec 018).
  */
 export function resultToRows(result: unknown): WorkerResult {
   if (typeof result !== 'object' || result === null) {
@@ -261,7 +263,8 @@ export function resultToRows(result: unknown): WorkerResult {
     ok: true,
     title: parsed.title,
     author: artist,
-    rows: mergeWorkerRows([], rows),
+    // Spec 018: a song heard at several times keeps one row, the earliest.
+    rows: mergeWorkerRows([], oneRowPerSong(rows)),
     clues: toClues(mixInfo?.clues, SET_CLUES_MAX),
     ...(run ? { run } : {}),
   };
