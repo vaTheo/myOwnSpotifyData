@@ -448,7 +448,7 @@ findings are folded into the spec's clarifications and tasks T120–T129.
   - **Check on Spotify** checks candidates and second-listen rows like any row; gap rows are never checked.
 - **Tracklist, per-track data**:
   - **Source (replaces "as an icon with a tooltip" for these rows)**: the icon, plus visible text for the origin:
-    "second listen · +4 %", "second listen · −4 %", "second listen"; for a candidate "from a comment by <author>", "from the
+    "second listen · +4 %", "second listen · −4 %", "second listen"; for a candidate "from a comment" (round 021: never the commenter's name), "from the
     description" or "from a chapter", then the clue's text in quotes.
   - **Not heard**: a candidate (comment-only, `origin: 'clue'`) always carries a **not heard** badge, never a confidence, never
     "heard". It starts **To review** (owner's D6).
@@ -457,8 +457,8 @@ findings are folded into the spec's clarifications and tasks T120–T129.
     once.
   - **Sort**: the round-004 Sort select (Time / Clips heard / Best score), above the table, shown only when a row has `hits`,
     at every width (phones have no header sort). Rows without the number last; ties in set order.
-  - **Gap rows** stay separators with Delete; a gap with clues shows a collapsed "N clues around here", one "mm:ss · author ·
-    text" line each.
+  - **Gap rows** stay separators with Delete; a gap with clues shows a collapsed "N clues around here", one "mm:ss · text" line each
+    (round 021: a comment never shows its commenter; a chapter or description line keeps its uploader, "mm:ss · author · text").
   - All third-party text (clue authors and texts) renders as plain text; a URL in it is not a link.
 - **Filter chips (replaces the T118 chip list)**: All, To review, Validated, Not on Spotify, and **Heard once (N)** shown only
   when a row has `hits` (ruling D2). One chip at a time; gap rows show under All only. Under a chip other than All, the caption

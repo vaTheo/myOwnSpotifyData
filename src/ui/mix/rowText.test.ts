@@ -54,8 +54,9 @@ describe('originText', () => {
   });
 
   it('names where a candidate came from, without "not heard" (the badge says it)', () => {
+    // Round 021: a commenter's name is never shown.
     expect(originText(row({ origin: 'clue', clue: clue() }))).toBe(
-      'from a comment by dj_fan'
+      'from a comment'
     );
     expect(
       originText(row({ origin: 'clue', clue: clue({ author: '' }) }))
@@ -140,13 +141,33 @@ describe('timeText', () => {
 });
 
 describe('clues', () => {
-  it('writes one clue as plain text, its time and author when known', () => {
-    expect(clueLine(clue())).toBe(
-      '1:15 · dj_fan · ID is Foo – Bar https://x.example'
+  it('writes a comment as plain text, its time when known, never its author (round 021)', () => {
+    expect(clueLine(clue())).toBe('1:15 · ID is Foo – Bar https://x.example');
+    expect(clueLine(clue({ atSec: null }))).toBe(
+      'ID is Foo – Bar https://x.example'
     );
     expect(clueLine(clue({ atSec: null, author: '' }))).toBe(
       'ID is Foo – Bar https://x.example'
     );
+  });
+
+  it('keeps the uploader on a chapter or description line', () => {
+    expect(
+      clueLine(clue({ kind: 'chapter', author: 'Demo DJ', text: 'Chapter 3' }))
+    ).toBe('1:15 · Demo DJ · Chapter 3');
+    expect(
+      clueLine(
+        clue({
+          kind: 'description',
+          atSec: null,
+          author: 'Demo DJ',
+          text: 'A – B',
+        })
+      )
+    ).toBe('Demo DJ · A – B');
+    expect(
+      clueLine(clue({ kind: 'chapter', author: '', text: 'Chapter 3' }))
+    ).toBe('1:15 · Chapter 3');
   });
 
   it('summarises the set-wide clues by where they came from', () => {

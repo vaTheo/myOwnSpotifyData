@@ -411,7 +411,8 @@ them and tap Create playlist from mix as before. The request's state is shown
 on its row of the Mixes list (waiting, running on which computer, done,
 failed with the reason) with Ask again. Where the first listen found nothing, the worker
 listens again (7 s later, then 4 % slower and faster) and reads the set's
-description and comments: they show on those parts of the tracklist, and a
+description and comments: they show on those parts of the tracklist (a
+comment without the name of the person who wrote it), and a
 comment that names a track the free catalogues (Deezer, MusicBrainz) hold
 exactly becomes a row marked "from a comment · not heard", kept like every
 track: remove it if it is wrong.

@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-09
+> **Last updated**: 2026-11-10
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -236,6 +236,9 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   rows (with `clues`) from `mix_info.gaps` and returns the set-wide `clues` (stored on `MixRow.clues`); `toClue` keeps only
   plain strings within their caps. The Mix screen shows "second listen · ±4 %", "from a comment · not heard" with the clue's
   text, a folded "N clues around here" on a gap row and a folded set-wide tracklist; clue text is always rendered as text.
+  Round 021 (`specs/021-mix-hide-commenter-names/`): the screen never shows a commenter's name. `originText` reads "from a
+  comment" and `clueLine` (`ui/mix/rowText.ts`) writes a comment as "mm:ss · text"; a chapter or description line keeps its
+  author, the uploader ("mm:ss · author · text"). Display only: `Clue.author` is still sent by the worker and saved.
   `match.cases.json` and `parse.cases.json` are shared with the worker's tests so its Python ports read the same way.
   Round 005: a heard track's `metadata.release_date` becomes `year` (`yearFrom` `shazam`, or `catalogue` when
   `release_date_from` names Deezer or MusicBrainz); `viewRows` gains the year sort (oldest first, undated last) and a decade

@@ -127,7 +127,7 @@ function listenItems(l: Line): RowMenuItem[] {
 /**
  * Artist – Title, and under it what a round-003 row must show in words: the
  * **not heard** badge of a candidate, the origin
- * ("second listen · +4 %", "from a comment by …"), the clue in quotes
+ * ("second listen · +4 %", "from a comment"), the clue in quotes
  * (plain text, two lines at most), then the references.
  */
 function TitleCell(p: { line: Line }) {

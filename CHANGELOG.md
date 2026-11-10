@@ -3,6 +3,13 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-10 — Comments without their commenter's name
+
+On the Mix screen a track found in a comment now reads "from a comment", no longer "from a comment by <name>", and a comment in
+the clues (around a gap, or the set-wide tracklist) reads "mm:ss · text" without the name of the person who wrote it. Chapter and
+description lines keep the uploader's name. Display only: the worker still reads the name and saved mixes keep it, so nothing is
+lost. Spec `specs/021-mix-hide-commenter-names/`. No worker change, no `DB_VERSION` bump, no migration, nothing to do.
+
 ## 2026-11-09 — Play button and Listen menu on every track list
 
 Every track list (Top tracks, a playlist, an artist's tracks, every Crate view, the Overview's Heavy rotation and Top this month)
