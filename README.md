@@ -422,7 +422,10 @@ While a set is analysed, its row in the Mixes list shows where it is ("First pas
 top** and **Cancel**, a running one **Stop** (it keeps the tracks found, and Ask
 again continues it later). Each heard track shows how many 12-second clips
 matched it and its best score ("heard 3× · best 91 %"); sort by them, or show
-only the tracks heard once to judge them; nothing is removed for you. Run the
+only the tracks heard once to judge them. One thing is removed for you (worker
+0.7.2): a different song heard between two clips of one song at most 3 minutes
+apart (A, X, A) is a false match inside that song, so the worker drops it and
+the log counts it (`WORKER_MERGE_GAP_SECONDS` sets the 3 minutes). Run the
 worker without a VPN: Shazam refuses far more often on one. The **Mixes**
 list holds every link sent beside your saved mixes, one row per link with a
 chip (Queued, Identifying, Paused, Stopping…, Found tracks, Failed, Rejected,

@@ -222,6 +222,26 @@ def merge(hits: list[Hit], gap: int) -> list[dict[str, Any]]:
     return rows
 
 
+def drop_sandwiched(hits: list[Hit], gap: int) -> tuple[list[Hit], int]:
+    """The hits kept and the number dropped (spec 019, the sandwich round): a
+    hit whose time lies strictly between two neighbouring hits of another song
+    A (the nearest A before it, the nearest A after it) at most `gap` seconds
+    apart is a false match inside A and is dropped. Every pair is judged on
+    the hits as given, so A, B, A, B within the gap keeps the first A and the
+    last B. The earliest hit always stays; the kept hits keep the input order."""
+    times: dict[str, list[int]] = {}
+    for hit in hits:
+        times.setdefault(_key(hit.entry), []).append(hit.time)
+    pairs: list[tuple[int, int]] = []
+    for ts in times.values():
+        ts.sort()
+        pairs += [(a, b) for a, b in zip(ts, ts[1:]) if b - a <= gap]
+    # A hit of A never lies strictly between two neighbouring hits of A, so
+    # the pairs need not say whose they are.
+    kept = [hit for hit in hits if not any(a < hit.time < b for a, b in pairs)]
+    return kept, len(hits) - len(kept)
+
+
 def inside_known(misses: list[int], keys: dict[int, str], within: int) -> list[int]:
     """The misses worth hearing again (owner, 2026-11-06): a run of misses
     with the same track heard just before and just after it, the whole run
@@ -736,9 +756,13 @@ async def scan(
             f"  shazam · {len(answers)} answers · median {ordered[len(ordered) // 2]:.1f} s"
             f" · {slow} over {SLOW_ANSWER_SECONDS:g} s ({round(100 * slow / len(answers))} %)"
         )
+    filtered, sandwiched = drop_sandwiched(hits, gap)
+    if sandwiched:
+        say(f"  scan · {sandwiched} finding{'' if sandwiched == 1 else 's'} between two hits of the same song dropped")
     if hits_out is not None:
-        hits_out.extend(hits)
+        hits_out.extend(hits)  # every hit, dropped ones included (the run state, `remember`, has each probe's answer too)
     if report is not None:
+        report["sandwiched"] = sandwiched
         report["shazam_answers"] = {"count": len(answers), "slow": sum(1 for a in answers if a > SLOW_ANSWER_SECONDS)}
         report["second_pass"] = second
         report["stopped"] = stopped
@@ -747,7 +771,7 @@ async def scan(
         report["resumed"] = {"probes_kept": kept, "from": hhmmss(max(first_done))} if kept else None
         report["guided"] = {"spans": len(guide_list), "skipped_probes": skipped_probes} if guide_list else None
         report["span_checks"] = {i: check_of(sp, absorbed.get(i, []), i in probed) for i, sp in enumerate(span_list)}
-    return merge(hits, gap)
+    return merge(filtered, gap)
 
 
 def write_result(

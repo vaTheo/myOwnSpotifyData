@@ -92,6 +92,7 @@ claimed 6f1c2d3e · https://soundcloud.com/…
   …
   second pass · found 9 in 104 places
   shazam · 524 answers · median 1.1 s · 31 over 5 s (6 %)
+  scan · 2 findings between two hits of the same song dropped
   scan · 48 tracks · 2410.3 s
   clues · 35 read in 3.2 s
   candidate · 00:51:32 · Space Above — Leave Home (Edit Select Remix) · deezer · NLCK41072412
@@ -107,7 +108,9 @@ queue empty · next look in 60 s
 
 After the first pass, the **second pass** listens again where nothing was found (not inside a stretch with the same track
 just before and after it, up to 3 minutes: that is the same track): 7 s later than the probe that missed, at
-normal speed, then 4 % slower, then 4 % faster (a DJ's pitch fader), stopping at the first match. Then the worker reads the
+normal speed, then 4 % slower, then 4 % faster (a DJ's pitch fader), stopping at the first match. Then a clip of another song
+heard between two clips of one song at most `WORKER_MERGE_GAP_SECONDS` apart (A, X, A) is dropped as a false match inside it
+(worker 0.7.2; TrackId.net and comment rows are never dropped by it), and the clips become rows. Then the worker reads the
 set's **description, chapters and comments** (the clues): the ones written around a part still without a track show on that
 part on the Mix screen, a tracklist without times shows once above the tracklist, and a clue that reads as one
 `Artist – Title` is looked up in Deezer, then MusicBrainz (a Discogs or Deezer link by its id). Every line of a **tracklist**
@@ -166,7 +169,7 @@ Only the first two are required.
 | `WORKER_RATE_LIMIT_PAUSES` | 8 | pauses allowed per set; one more refusal stops the scan, and the tracks found are sent ("stopped early") |
 | `WORKER_SHAZAM_DEVICE` | android | the phone Shazam sees; `iphone` is the library's own default and was refused after three calls in testing |
 | `WORKER_MAX_SKEW` | 0.1 | rejects a match more than 10 % off in pitch or speed; a DJ pitches tracks a few %, so keep it well above that; 0 disables |
-| `WORKER_MERGE_GAP_SECONDS` | 180 | the same track heard again within this gap stays one row |
+| `WORKER_MERGE_GAP_SECONDS` | 180 | the same track heard again within this gap stays one row, and another song heard between those two clips is dropped (0.7.2) |
 | `WORKER_RESULT_MAX_BYTES` | 900000 | larger results fail with "Result too large"; clues are left out first to fit |
 | `WORKER_BREAK_EVERY_CALLS` | 0 | a planned break after this many recognition calls; 0 = none (the default: breaks did not prevent refusals) |
 | `WORKER_BREAK_SECONDS` | 120 | that break's length, exactly |
