@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ServerStatus } from '../../server/types';
-import { formatDate, formatDateTime } from '../format';
+import { formatDateTime } from '../format';
 import {
   accountItemLine,
   audioItemLine,
@@ -8,10 +8,12 @@ import {
   fromUpdate,
   historyItemLine,
   ITEM_KIND,
+  opensLater,
   opensOnArrival,
   reachItemLine,
   serverItemLine,
   serverStatusLine,
+  stateOnly,
   spotifyStatusLine,
   syncItemLine,
   worst,
@@ -79,6 +81,18 @@ describe('opensOnArrival (FR-005)', () => {
     for (const tone of ['warning', 'waiting', 'ok', 'off'] as const) {
       expect(opensOnArrival({ tone, text: '' })).toBe(false);
     }
+  });
+});
+
+describe('opensLater (fix round 1)', () => {
+  it('opens when a job starts or fails while the page is open', () => {
+    expect(opensLater(false, true, false)).toBe(true);
+  });
+
+  it('never against a close by hand, nor while it already wanted to', () => {
+    expect(opensLater(false, true, true)).toBe(false);
+    expect(opensLater(true, true, false)).toBe(false);
+    expect(opensLater(false, false, false)).toBe(false);
   });
 });
 
@@ -152,45 +166,40 @@ describe('audioItemLine', () => {
   };
   const idle = { status: 'idle' as const };
 
-  it('adds the Rekordbox date to an ok line', () => {
+  it('is the BPM and key line when nothing else happens', () => {
     expect(
-      audioItemLine({
-        features,
-        rekordboxImportedAt: T,
-        rekordbox: idle,
-        sharedError: null,
-      })
-    ).toEqual(
-      ok(`10 / 20 tracks with BPM or key · Rekordbox ${formatDate(T)}`)
-    );
+      audioItemLine({ features, rekordbox: idle, sharedError: null })
+    ).toEqual(ok('10 / 20 tracks with BPM or key'));
   });
 
   it('shows a running Rekordbox import, then its failure over it', () => {
     const running = audioItemLine({
       features,
-      rekordboxImportedAt: null,
       rekordbox: { status: 'running', index: 1, total: 3 },
       sharedError: null,
     });
     expect(running).toEqual({
       tone: 'running',
       text: 'Rekordbox · Running · 1 / 3 files',
+      scope: 'Rekordbox',
     });
     expect(
       audioItemLine({
         features: { tone: 'running', text: 'Running · 1 / 9 tracks' },
-        rekordboxImportedAt: null,
         rekordbox: { status: 'error', message: 'bad XML' },
         sharedError: null,
       })
-    ).toEqual({ tone: 'error', text: 'Rekordbox · Failed · bad XML' });
+    ).toEqual({
+      tone: 'error',
+      text: 'Rekordbox · Failed · bad XML',
+      scope: 'Rekordbox',
+    });
   });
 
   it('shows the lookup failure and the shared store error', () => {
     expect(
       audioItemLine({
         features: { tone: 'failed', text: 'Failed · offline' },
-        rekordboxImportedAt: T,
         rekordbox: idle,
         sharedError: null,
       })
@@ -198,11 +207,82 @@ describe('audioItemLine', () => {
     expect(
       audioItemLine({
         features,
-        rekordboxImportedAt: null,
         rekordbox: idle,
         sharedError: 'The shared store could not be used.',
-      }).tone
-    ).toBe('error');
+      })
+    ).toMatchObject({ tone: 'error', scope: 'Shared store' });
+  });
+});
+
+describe('stateOnly (closed lines, FR-007)', () => {
+  const words = { ok: 'Up to date', off: 'Automatic updates off' };
+
+  it('keeps only the state words: no counts, no dates', () => {
+    expect(
+      stateOnly(ok('2,099 / 3,199 tracks with BPM or key'), words)
+    ).toEqual(ok('Up to date'));
+    expect(
+      stateOnly({ tone: 'off', text: 'Off · Checked 2 Nov' }, words)
+    ).toEqual({ tone: 'off', text: 'Automatic updates off' });
+  });
+
+  it('says Failed, with its part, and asks for the main action', () => {
+    expect(stateOnly({ tone: 'error', text: 'Failed · boom' }, words)).toEqual({
+      tone: 'error',
+      text: 'Failed',
+      act: true,
+    });
+    expect(
+      stateOnly(
+        { tone: 'error', text: 'Rekordbox · Failed · x', scope: 'Rekordbox' },
+        words
+      ).text
+    ).toBe('Rekordbox failed');
+  });
+
+  it('gives a running job its percentage, or none without a total', () => {
+    const running: ItemLine = { tone: 'running', text: 'Running · 14 / 40' };
+    expect(stateOnly(running, words, { done: 14, total: 40 }).text).toBe(
+      'Running 35 %'
+    );
+    expect(stateOnly(running, words, { done: 0, total: 0 }).text).toBe(
+      'Running'
+    );
+    expect(stateOnly(running, words).text).toBe('Running');
+  });
+
+  it('keeps the first words of a warning and of changes waiting', () => {
+    expect(
+      stateOnly({ tone: 'warning', text: 'Offline · last sync never' }, {})
+    ).toEqual({ tone: 'warning', text: 'Offline', act: true });
+    expect(
+      stateOnly(
+        {
+          tone: 'waiting',
+          text: 'Changes waiting to send: 2 · Listening history, Mixes',
+        },
+        {}
+      ).text
+    ).toBe('Changes waiting to send: 2');
+  });
+
+  it('says never over an idle line and asks for the main action', () => {
+    expect(stateOnly(ok('Never'), { ...words, never: 'Never synced' })).toEqual(
+      { tone: 'off', text: 'Never synced', act: true }
+    );
+    // A running job wins over never.
+    expect(
+      stateOnly({ tone: 'running', text: 'x' }, { never: 'Never synced' }).tone
+    ).toBe('running');
+  });
+
+  it('keeps the whole text without words, as the server line does', () => {
+    expect(stateOnly(ok('Up to date · last sync x'), {}).text).toBe(
+      'Up to date'
+    );
+    expect(stateOnly({ tone: 'off', text: 'Not set up' }, {}).text).toBe(
+      'Not set up'
+    );
   });
 });
 
@@ -215,8 +295,8 @@ describe('reachItemLine', () => {
       tone: 'warning',
       text: 'Deezer stopped answering · the run skipped it',
     });
-    expect(reachItemLine(reach, ['Deezer'], 'shared failed').tone).toBe(
-      'error'
+    expect(reachItemLine(reach, ['Deezer'], 'shared failed').scope).toBe(
+      'Shared store'
     );
   });
 });
@@ -277,6 +357,32 @@ describe('serverStatusLine (FR-007a)', () => {
         server: { status: 'pulling', dataset: 'library', done: 2, total: 5 },
       })
     ).toEqual({ tone: 'running', text: 'Fetching library · 2 / 5 rows' });
+  });
+
+  it('names the changes waiting while offline, paused or running too', () => {
+    const pending = { mixes: true as const };
+    expect(
+      server({
+        server: { status: 'offline', message: 'x' },
+        lastSyncAt: null,
+        pending,
+      })
+    ).toEqual({
+      tone: 'warning',
+      text: 'Offline · last sync never · Changes waiting to send: 1 · Mixes',
+    });
+    expect(
+      server({
+        server: { status: 'paused', dashboardUrl: 'https://x' },
+        pending,
+      }).text
+    ).toBe('Paused by the server · Changes waiting to send: 1 · Mixes');
+    expect(
+      server({
+        server: { status: 'pushing', dataset: 'mixes', done: 1, total: 2 },
+        pending,
+      }).text
+    ).toBe('Sending mixes · 1 / 2 rows · Changes waiting to send: 1 · Mixes');
   });
 
   it('adds rejected rows to the server item line', () => {

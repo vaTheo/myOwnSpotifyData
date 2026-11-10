@@ -32,7 +32,8 @@ interface Parts {
   class?: string;
 }
 
-function parts(id: SectionId): Parts {
+/** `act`: the item's main action is the one needed now (filled button). */
+function parts(id: SectionId, act: boolean): Parts {
   switch (id) {
     case 'account':
       return {
@@ -42,31 +43,31 @@ function parts(id: SectionId): Parts {
       };
     case 'sync':
       return {
-        main: <SyncMain />,
+        main: <SyncMain act={act} />,
         description: SYNC_DESCRIPTION,
         body: <SyncSection />,
       };
     case 'history':
       return {
-        main: <HistoryMain />,
+        main: <HistoryMain act={act} />,
         description: HISTORY_DESCRIPTION,
         body: <HistorySection />,
       };
     case 'audio':
       return {
-        main: <AudioMain />,
+        main: <AudioMain act={act} />,
         description: AUDIO_DESCRIPTION,
         body: <AudioSection />,
       };
     case 'reach':
       return {
-        main: <ReachMain />,
+        main: <ReachMain act={act} />,
         description: REACH_DESCRIPTION,
         body: <ReachSection />,
       };
     case 'server':
       return {
-        main: <ServerMain />,
+        main: <ServerMain act={act} />,
         description: SERVER_DESCRIPTION,
         body: <ServerSection />,
       };
@@ -90,8 +91,9 @@ export function SettingsPage(p: { item?: string }) {
   // `#/settings/<item>`: the item a link names lands opened (spec 026).
   const linked = itemOfRoute(p.item);
   const item = (id: SectionId) => {
-    const part = parts(id);
-    const name = SETTINGS_ITEMS.find((s) => s.id === id)?.label ?? id;
+    const part = parts(id, lines.items[id].act === true);
+    const def = SETTINGS_ITEMS.find((s) => s.id === id);
+    const name = def?.label ?? id;
     return (
       <SettingsItem
         key={id}
@@ -101,6 +103,8 @@ export function SettingsPage(p: { item?: string }) {
         main={part.main}
         description={part.description}
         linked={linked === id}
+        // The item set apart heads its own part of the outline.
+        level={def?.group === null ? 2 : 3}
         class={part.class}
       >
         {part.body}

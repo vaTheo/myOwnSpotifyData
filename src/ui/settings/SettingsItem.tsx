@@ -2,7 +2,12 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { StatusLine } from '../components/StatusLine';
 import { Icon } from '../icons';
-import { ITEM_KIND, opensOnArrival, type ItemLine } from './itemLines';
+import {
+  ITEM_KIND,
+  opensLater,
+  opensOnArrival,
+  type ItemLine,
+} from './itemLines';
 import { sectionDomId, type SectionId } from './sections';
 
 /**
@@ -11,8 +16,10 @@ import { sectionDomId, type SectionId } from './sections';
  * showed before, description first. A header button toggles it (an
  * accordion: the main button sits beside it, never inside, so the two never
  * nest). It opens on arrival when failing or running (FR-005) or when a link
- * names it; after that the owner's taps win, and nothing is stored. Its
- * content is rendered only while open, as `Disclosure`.
+ * names it, and later when a job starts or fails while the page is open,
+ * unless the owner closed it by hand since; nothing is stored. Its content
+ * is rendered only while open, as `Disclosure`. The closed line is `quiet`:
+ * the Sync status block says a failure as the one alert.
  */
 export function SettingsItem(p: {
   id: SectionId;
@@ -22,6 +29,8 @@ export function SettingsItem(p: {
   description?: ComponentChildren;
   /** A `#/settings/<item>` link names this item: open it and scroll to it. */
   linked?: boolean;
+  /** The heading level of the name: 2 for the item set apart (Danger zone). */
+  level?: 2 | 3;
   class?: string;
   children: ComponentChildren;
 }) {
@@ -29,12 +38,25 @@ export function SettingsItem(p: {
     () => opensOnArrival(p.line) || p.linked === true
   );
   const ref = useRef<HTMLElement>(null);
+  // Closed by hand: a later job or failure leaves it closed.
+  const closedByHand = useRef(false);
+  const toggle = () => {
+    if (open) closedByHand.current = true;
+    setOpen(!open);
+  };
+  const wants = opensOnArrival(p.line);
+  const wanted = useRef(wants);
+  useEffect(() => {
+    if (opensLater(wanted.current, wants, closedByHand.current)) setOpen(true);
+    wanted.current = wants;
+  }, [wants]);
   useEffect(() => {
     if (!p.linked) return;
     setOpen(true);
     ref.current?.scrollIntoView({ block: 'start' });
   }, [p.linked]);
   const domId = sectionDomId(p.id);
+  const Heading = p.level === 2 ? 'h2' : 'h3';
   const bodyId = `${domId}-body`;
   return (
     <section
@@ -57,22 +79,26 @@ export function SettingsItem(p: {
           const target = e.target as Element;
           if (target.closest('.settings-item-main, .settings-item-toggle'))
             return;
-          setOpen(!open);
+          toggle();
         }}
       >
-        <h3 class="settings-item-name">
+        <Heading class="settings-item-name">
           <button
             type="button"
             class="settings-item-toggle"
             aria-expanded={open}
             aria-controls={open ? bodyId : undefined}
-            onClick={() => setOpen(!open)}
+            onClick={toggle}
           >
             <Icon name="expand_more" size={20} />
             <span>{p.name}</span>
           </button>
-        </h3>
-        <StatusLine kind={ITEM_KIND[p.line.tone]} class="settings-item-state">
+        </Heading>
+        <StatusLine
+          kind={ITEM_KIND[p.line.tone]}
+          class="settings-item-state"
+          quiet
+        >
           {p.line.text}
         </StatusLine>
         {p.main && <div class="settings-item-main">{p.main}</div>}

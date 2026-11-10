@@ -66,11 +66,11 @@ function lookupBlocked(): boolean {
 }
 
 /** Look up BPM and key, the item's main button. */
-export function AudioMain() {
+export function AudioMain(p: { act: boolean }) {
   const lookup = lookupState.value;
   return (
     <Button
-      variant="filled"
+      variant={p.act ? 'filled' : 'tonal'}
       disabled={lookupBlocked()}
       onClick={() => requestJob('features')}
     >
@@ -127,7 +127,9 @@ export function AudioSection() {
         <StatusLine kind={sharedLine.kind}>{sharedLine.text}</StatusLine>
       )}
       {lookup.status === 'error' && (
-        <StatusLine kind="error">Last error: {lookup.message}</StatusLine>
+        <StatusLine kind="error" quiet>
+          Last error: {lookup.message}
+        </StatusLine>
       )}
       {sharing && <p class="muted settings-credit">{SHARED_NOTICE_BPM}</p>}
       <FileDrop
@@ -146,7 +148,9 @@ export function AudioSection() {
         />
       )}
       {rekordbox.status === 'error' && (
-        <StatusLine kind="error">Last error: {rekordbox.message}</StatusLine>
+        <StatusLine kind="error" quiet>
+          Last error: {rekordbox.message}
+        </StatusLine>
       )}
       {summary && (
         <StatusLine>

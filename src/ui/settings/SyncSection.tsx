@@ -41,12 +41,15 @@ export function syncView() {
   return { state, running, locked, shared, sharedLine, busyLine };
 }
 
-/** Sync now, the item's main button: the one place a playlist read starts (ADR-02). */
-export function SyncMain() {
+/**
+ * Sync now, the item's main button: the one place a playlist read starts
+ * (ADR-02). Filled only when it is the action needed now (spec 026).
+ */
+export function SyncMain(p: { act: boolean }) {
   const { state, running, shared, busyLine } = syncView();
   return (
     <Button
-      variant="filled"
+      variant={p.act ? 'filled' : 'tonal'}
       disabled={
         isSyncBusy(state) ||
         shared !== null ||
@@ -96,7 +99,9 @@ export function SyncSection() {
       {busyLine !== null && <StatusLine kind="warning">{busyLine}</StatusLine>}
       {state.status === 'cancelled' && <StatusLine>{state.message}</StatusLine>}
       {state.status === 'error' && (
-        <StatusLine kind="error">Last error: {state.message}</StatusLine>
+        <StatusLine kind="error" quiet>
+          Last error: {state.message}
+        </StatusLine>
       )}
     </>
   );

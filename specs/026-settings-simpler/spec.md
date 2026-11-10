@@ -94,8 +94,8 @@ Hiding details must never hide a problem or a question.
 
 ## Success Criteria *(mandatory)*
 
-- **SC-001**: With every item closed and nothing running, the whole of Settings fits in one computer screen (about 900 px high) without scrolling.
-- **SC-002**: The text visible on first open is at most a third of today's.
+- **SC-001**: With every item closed and nothing running, the whole of Settings is at most about 1,300 px high on a computer (measured 1,264 px at 1440 px wide on the demo data, fix round 1, 2026-11-10; the opened page is 2,394 px). Revised from "one screen, about 900 px": the owner's later request for per-source counts in the always-visible Sync status block (D22, 2026-11-10, FR-010) outranks it; the block alone is about 340 px.
+- **SC-002**: The text visible on first open is at most a third of today's. Not measured: no Settings shot of main was taken (fix round 1).
 - **SC-003**: The owner can say whether everything is up to date, from the closed page, in under 5 seconds.
 - **SC-004**: Every status line, button and question of today is still reachable in at most one tap.
 

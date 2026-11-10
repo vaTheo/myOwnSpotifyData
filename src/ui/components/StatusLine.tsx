@@ -29,12 +29,17 @@ export function StatusLine(p: {
   kind?: StatusKind;
   children: ComponentChildren;
   class?: string;
+  /**
+   * `status` for a repeat of a failure said once as an alert elsewhere on
+   * the screen (spec 026: the Sync status block), so it is announced once.
+   */
+  quiet?: boolean;
 }) {
   const kind = p.kind ?? 'info';
   return (
     <p
       class={['status', `status-${kind}`, p.class].filter(Boolean).join(' ')}
-      role={ROLE[kind]}
+      role={p.quiet ? 'status' : ROLE[kind]}
     >
       <Icon name={ICON[kind]} size={18} />
       <span>{p.children}</span>

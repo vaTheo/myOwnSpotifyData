@@ -10,7 +10,7 @@ device holds and whether it is up to date: Spotify (playlists and tracks), BPM a
 Rekordbox (matched), Artist reach (artists with reach, N of M), Listening history (plays) and the server (up to date only when nothing
 waits to send; otherwise the changes waiting, by name; plus the rows the server holds per data set). Below it the items sit under
 **Spotify**, **Your data** and **Between devices**, with the **Danger zone** apart, each closed to one line: its name, its state in its
-colour and its main button. Tap an item's header to see everything it showed before; an item that fails or runs a job opens by itself,
+colour and its main button, filled only when it is what to do now. Tap an item's header to see everything it showed before; an item that fails or runs a job opens by itself,
 and the "Look up artists" links (Under the radar, an artist, Overview's Coverage) land on Artist reach, opened. The section index on
 wide windows and the Updates card are gone (their content is in the block). Spec `specs/026-settings-simpler/`. No Spotify read or
 write, no server call, no stored data change, nothing to do.

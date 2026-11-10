@@ -446,13 +446,16 @@ screen, grouped by role under `src/ui/`.
   `artistReachSummary.version === 1`; **Well known** is a heading at the bottom, never a filter; listeners and fans in two
   columns), `Artist.tsx`, `settings/` (spec 026: `SettingsPage.tsx` draws `SyncStatus.tsx` first, never folded, then the seven items of
   `sections.ts` under their groups Spotify · Your data · Between devices, the Danger zone apart; each item is a `SettingsItem.tsx`,
-  closed to its name, a one-line state and its main button, opened on a header tap, on arrival when failing or running, or when
+  closed to its name, its state in words (`stateOnly`: no counts or dates, those are the block's) and its main button (filled only
+  when it is the action needed now), opened on a header tap, on arrival or later while open when failing or running (not after a
+  close by hand: `opensLater`), or when
   `#/settings/<item>` names it (the route's `item`; Under the radar, the Artist page, the track sheet and Overview's Coverage
   "Look up in Settings" link to `reach` or `audio`); nothing about open or closed is stored. Every line is derived in
   `useSettingsLines.ts` from the signals the items read, through the pure `itemLines.ts` (the closed lines, worst condition
   first) and `statusLines.ts` (the block's one line per source with the counts the app already holds: model playlists and
   tracks, `coverage`, release years, Rekordbox matched, `reachCoverage`, history plays, the server table's Rows; "Up to date"
-  only when connected with nothing waiting); the job words stay `updateLines`'. Each section file exports its main button
+  only when connected with nothing waiting); the job words stay `updateLines`'. A failure is one `role="alert"`, in the block; the item's closed line and "Last error" are
+  `StatusLine quiet`. The Danger zone's name is an h2. Each section file exports its main button
   (`…Main`) and its opened content; long jobs start only here; Disconnect alone in `DangerZone.tsx`, inside its opened item), `Import.tsx` (a `FileDrop`) and `Connect.tsx`.
 - **Sign-in screen** (round 011, `ui/signin/`): with server settings and no server session, `App` renders only `SignInGate.tsx`
   (`serverSignInRequired()`, live, so a session that ends mid-use brings it back; `bootPhase` `'signedout'`, or `'linking'` with

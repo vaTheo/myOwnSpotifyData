@@ -73,7 +73,7 @@ their exit code.
   `regression.md` and, when the demo can drive it, its test; what only the owner can check is marked so in the row.
 - **`yarn invariants`** runs `tools/shots/invariants.ts` with Node: it checks out `main` in a temporary worktree (removed at
   the end) and prints PASS or FAIL for each invariant. A change meant to move one (a new `confirm()`, a dependency, a renamed
-  test) updates the script's allowlist (`APPROVED_DEV_ADDITIONS`, `RENAMED_TESTS`) with the reason, in the same commit.
+  test) updates the script's allowlist (`APPROVED_DEV_ADDITIONS`, `RENAMED_TESTS`, or `RETIRED_TESTS` for a test whose behaviour was removed on purpose) with the reason, in the same commit.
 
 ## Code conventions
 

@@ -65,9 +65,8 @@ const APPROVED_DEV_ADDITIONS = ['@axe-core/playwright', '@playwright/test'];
 const RENAMED_TESTS: Record<string, string> = {
   'defaults to top for empty or unknown hashes':
     'defaults to overview for empty or unknown hashes',
-  // Spec 026: the Settings sections became items under groups, the Updates
-  // card the Sync status block, and the section index went (FR-006): its
-  // three tests are retired onto the group test that replaces its order.
+  // Spec 026: the Settings sections became items under groups and the
+  // Updates card the Sync status block; these tests were renamed.
   'lists the seven sections of US5 in page order':
     'lists the seven items of US5 in page order',
   'puts the Updates section (round 006) first':
@@ -75,12 +74,19 @@ const RENAMED_TESTS: Record<string, string> = {
   'gives each section its own element id': 'gives each item its own element id',
   'reads a section back from its element id, and nothing else':
     'reads the item a link names, and nothing else',
+};
+
+/**
+ * Tests of main whose behaviour a change removed on purpose, with the
+ * reason: not renamed, retired. Each is reported, never counted missing.
+ */
+const RETIRED_TESTS: Record<string, string> = {
   'marks the first visible section in page order':
-    'groups them under Spotify, Your data and Between devices, the Danger zone apart',
+    'spec 026 FR-006 removed the Settings section index (scroll-spy)',
   'keeps the current mark while no section is in the band':
-    'groups them under Spotify, Your data and Between devices, the Danger zone apart',
+    'spec 026 FR-006 removed the Settings section index (scroll-spy)',
   'marks the last section once the page is scrolled to its end':
-    'groups them under Spotify, Your data and Between devices, the Danger zone apart',
+    'spec 026 FR-006 removed the Settings section index (scroll-spy)',
 };
 
 /** Functions that build a `confirm()` question passed in by a caller. */
@@ -367,6 +373,11 @@ function testCheck(tree0: string, tree1: string): Result {
   let cases = 0;
   for (const [name, want] of a.total) {
     cases += want;
+    const retired = RETIRED_TESTS[name];
+    if (retired && (b.total.get(name) ?? 0) === 0) {
+      lines.push(`retired on purpose: "${name}" (${retired})`);
+      continue;
+    }
     const renamed = RENAMED_TESTS[name];
     const have =
       (b.total.get(name) ?? 0) + (renamed ? (b.total.get(renamed) ?? 0) : 0);

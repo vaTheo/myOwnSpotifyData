@@ -261,11 +261,14 @@ data set). A failed automatic job has its **Retry** there.
 Below it, seven items grouped under **Spotify** (Spotify account, Spotify
 sync), **Your data** (Listening history, Audio data, Artist reach) and
 **Between devices** (Server), then the **Danger zone** apart. Each item is
-closed to one line: its name, its state in its colour (an error or a
-warning shows even closed) and its main button. Tap its header to open it:
-what it is, every status line, progress, last error and action. An item
-that fails or runs a job opens by itself; links such as "Look up artists"
-land on their item, opened. Long jobs start only here.
+closed to one line: its name, its state in a few words and in its colour
+("Synced", "Running 40 %", "Failed"; an error or a warning shows even
+closed; the numbers are in Sync status) and its main button, highlighted
+only when it is what to do now. Tap its header to open it: what it is,
+every status line, progress, last error and action. An item that fails or
+runs a job opens by itself, even while the page is open, unless you closed
+it; links such as "Look up artists" land on their item, opened. Long jobs
+start only here.
 
 - **Spotify sync → Sync now** fetches your top lists and the playlists you
   own. Spotify enforces an unpublished daily quota; when it hits, the app

@@ -26,13 +26,13 @@ export const REACH_DESCRIPTION =
   'Listeners and fans of your artists, for Under the radar: roughly 45 to 50 minutes for 1,000 artists, and you can stop it and come back.';
 
 /** Look up artists, the item's main button (ADR-04). */
-export function ReachMain() {
+export function ReachMain(p: { act: boolean }) {
   const m = model.value;
   const state = reachState.value;
   const cov = m ? reachCoverage(m) : null;
   return (
     <Button
-      variant="filled"
+      variant={p.act ? 'filled' : 'tonal'}
       disabled={
         state.status === 'running' ||
         (jobsBusy() && !otherStepRuns(chainView.value, 'reach')) ||
@@ -91,7 +91,9 @@ export function ReachSection() {
           </StatusLine>
         ))}
       {state.status === 'error' && (
-        <StatusLine kind="error">Last error: {state.message}</StatusLine>
+        <StatusLine kind="error" quiet>
+          Last error: {state.message}
+        </StatusLine>
       )}
       {sharing && <p class="muted settings-credit">{SHARED_NOTICE_REACH}</p>}
       <p class="muted settings-credit">

@@ -9,3 +9,4 @@
 - [x] T007 Docs in the same commit: screens.md §13, how-it-works Settings section, docs/architecture/100-features.md F42, CHANGELOG, README, design guide if needed
 - [x] T008 yarn typecheck, lint, test, invariants exit 0
 - [ ] T009 Design review by a separate reviewer per plan step 8 (shots on settings pages, 0 findings, screenshots checked at four widths, light and dark)
+- [x] T010 Fix round 1 (reviews 2026-11-10): Automatic updates switch at full target size, closed lines state-only, one alert per failure, Danger zone h2, tonal main buttons at rest, SC-001 measured and revised, no 0 for a missing count, changes waiting named in every server state, items open when a job starts while open, retired tests named as such

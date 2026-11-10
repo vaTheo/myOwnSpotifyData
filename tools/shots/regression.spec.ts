@@ -267,6 +267,20 @@ async function search(page: Page, text: string): Promise<Locator> {
 }
 
 /**
+ * Opens a Settings item by its header (spec 026): closed, an item shows only
+ * its name, its one-line state and its main button.
+ */
+async function openItem(page: Page, name: string): Promise<void> {
+  const toggle = page
+    .getByRole('heading', { name, exact: true })
+    .locator('.settings-item-toggle');
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+    await toggle.click();
+  }
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+}
+
+/**
  * Picks a file through the file chooser a button opens. Firefox, about half
  * the time on a second pick in one page, opens no chooser for a click that
  * is delivered correctly and stays closed for later clicks (S15: the click
@@ -276,20 +290,6 @@ async function search(page: Page, text: string): Promise<Locator> {
  * opens within 4 s the file is set on the input, which fires the same
  * `change` the app listens to.
  */
-/**
- * Opens a Settings item by its header (spec 026): closed, an item shows only
- * its name, its one-line state and its main button.
- */
-async function openItem(page: Page, name: string): Promise<void> {
-  const toggle = page
-    .getByRole('heading', { name, exact: true, level: 3 })
-    .getByRole('button');
-  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
-    await toggle.click();
-  }
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-}
-
 async function chooseFile(
   page: Page,
   button: Locator,
@@ -564,7 +564,14 @@ test.describe('A. addresses', () => {
     // Spec 026: the Sync status block first, then the groups of US2.
     expect(
       await m.getByRole('heading', { level: 2 }).allTextContents()
-    ).toEqual(['Sync status', 'Spotify', 'Your data', 'Between devices']);
+    ).toEqual([
+      'Sync status',
+      'Spotify',
+      'Your data',
+      'Between devices',
+      // The item set apart heads its own part of the outline.
+      'Danger zone',
+    ]);
     const toggles = m.locator('.settings-item-toggle');
     expect(await toggles.allTextContents()).toEqual([
       'Spotify account',
@@ -2300,7 +2307,9 @@ test.describe('Y. release year', () => {
     expect(await inOrder('artist', 1)).toBe(false);
 
     // The candidate keeps "not heard" and its origin under its title.
-    const clue = grid.getByRole('row').filter({ hasText: 'from a comment' });
+    const clue = grid
+      .getByRole('row')
+      .filter({ hasText: 'from a comment' });
     await expect(clue).toHaveCount(1);
     await expect(clue.getByRole('gridcell').nth(2)).toContainText('not heard');
     await expect(clue.getByRole('gridcell').nth(2)).toContainText(
@@ -2319,7 +2328,9 @@ test.describe('Y. release year', () => {
   }) => {
     await app.open('#/mix');
     const mix = () =>
-      app.page.getByRole('link', { name: /^Closing set at the Dock/ }).first();
+      app.page
+        .getByRole('link', { name: /^Closing set at the Dock/ })
+        .first();
     await mix().click();
     const grid = await openGrid(app.page);
     const summary = app.page.getByText(/^\d+ tracks? · \d+ on Spotify/);

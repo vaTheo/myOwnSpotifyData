@@ -3105,6 +3105,14 @@ a.ov-item:hover {
   margin: 0;
 }
 
+/* In the flex row the switch would shrink to its labels (45 px "Off"):
+   it keeps two full targets (design review, fix round 1). */
+.settings-auto .segmented {
+  flex: 0 0 auto;
+  min-width: calc(var(--app-target) * 4);
+  margin-bottom: 0;
+}
+
 .settings-status .settings-credit {
   margin: 4px 0 8px;
 }

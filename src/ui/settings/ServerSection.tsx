@@ -36,12 +36,12 @@ function ServerSignIn() {
 }
 
 /** Sync now with server, the item's main button, once signed in. */
-export function ServerMain() {
+export function ServerMain(p: { act: boolean }) {
   const state = serverState.value;
   if (state.status === 'unset' || serverSession.value === null) return null;
   return (
     <Button
-      variant="filled"
+      variant={p.act ? 'filled' : 'tonal'}
       disabled={
         jobsBusy() || state.status === 'pushing' || state.status === 'pulling'
       }
@@ -77,7 +77,9 @@ export function ServerSection() {
   return (
     <>
       {state.status === 'error' && (
-        <StatusLine kind="error">{state.message}</StatusLine>
+        <StatusLine kind="error" quiet>
+          {state.message}
+        </StatusLine>
       )}
       {state.status === 'offline' && (
         <StatusLine kind="warning">
@@ -101,7 +103,11 @@ export function ServerSection() {
           <StatusLine kind="success">{signedInLine(session.email)}</StatusLine>
           {people && <StatusLine>{people}.</StatusLine>}
           {pending && <StatusLine>{pendingLine(pending)}</StatusLine>}
-          {pendingError && <StatusLine kind="error">{pendingError}</StatusLine>}
+          {pendingError && (
+            <StatusLine kind="error" quiet>
+              {pendingError}
+            </StatusLine>
+          )}
           {state.status === 'connected' && (
             <>
               <StatusLine>

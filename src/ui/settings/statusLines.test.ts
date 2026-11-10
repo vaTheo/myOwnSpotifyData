@@ -82,6 +82,19 @@ describe('syncStatusRows (FR-010)', () => {
     );
   });
 
+  it('drops a zero part: no "0 playlists" beside tracks, no "0 tracks"', () => {
+    expect(row('spotify', { library: { playlists: 0, tracks: 12 } }).text).toBe(
+      '12 tracks · Synced today'
+    );
+    expect(row('spotify', { library: { playlists: 3, tracks: 0 } }).text).toBe(
+      '3 playlists · Synced today'
+    );
+  });
+
+  it('treats no release year known as missing, never "release years 0"', () => {
+    expect(row('features', { dated: 0 }).text).toBe('2,099 of 3,199 tracks');
+  });
+
   it('counts BPM and key and release years; the job words only when not idle', () => {
     expect(row('features').text).toBe(
       '2,099 of 3,199 tracks · release years 3,000'

@@ -32,6 +32,7 @@ import {
   serverItemLine,
   serverStatusLine,
   spotifyStatusLine,
+  stateOnly,
   syncItemLine,
   type ItemLine,
 } from './itemLines';
@@ -109,32 +110,82 @@ export function useSettingsLines(): {
     server: serverLine,
     stamps: server.status === 'connected' ? server.stamps : null,
   });
+  // Progress for "Running 40 %" in the closed lines.
+  const of = (st: { status: string; done?: number; total?: number }) =>
+    st.status === 'running' ||
+    st.status === 'pushing' ||
+    st.status === 'pulling'
+      ? { done: st.done ?? 0, total: st.total ?? 0 }
+      : null;
+  const rek = rekordboxState.value;
+  const audio = audioItemLine({
+    features: job('features'),
+    rekordbox: rek,
+    sharedError: lookupShared?.kind === 'error' ? lookupShared.text : null,
+  });
+  const IDLE = { ok: 'Up to date', off: 'Automatic updates off' };
   return {
     rows,
+    // Closed item lines say the state only: counts and dates are the
+    // block's (FR-007).
     items: {
-      account: accountLine(),
-      sync: syncItemLine(spotify, sync.busyLine),
-      history: historyItemLine(
-        job('history'),
-        historySummary.value !== null,
-        historyZoneWarning()
+      account: stateOnly(accountLine(), {}),
+      sync: stateOnly(
+        syncItemLine(spotify, sync.busyLine),
+        {
+          ok: 'Synced',
+          off: 'Automatic updates off',
+          never: lastSyncAt.value === null ? 'Never synced' : null,
+        },
+        of(syncState.value)
       ),
-      audio: audioItemLine({
-        features: job('features'),
-        rekordboxImportedAt: rekordboxSummary.value?.importedAt ?? null,
-        rekordbox: rekordboxState.value,
-        sharedError: lookupShared?.kind === 'error' ? lookupShared.text : null,
-      }),
-      reach: reachItemLine(
-        job('reach'),
-        reach.status === 'idle'
-          ? []
-          : reach.paused.map((step) => SOURCE_LABEL[step]),
-        reachShared?.kind === 'error' ? reachShared.text : null
+      history: stateOnly(
+        historyItemLine(
+          job('history'),
+          historySummary.value !== null,
+          historyZoneWarning()
+        ),
+        {
+          ok: 'Imported',
+          never: historySummary.value === null ? 'Not imported' : null,
+        }
       ),
-      server: serverItemLine(
-        serverLine,
-        server.status === 'connected' ? server.rejected : 0
+      audio: stateOnly(
+        audio,
+        {
+          ...IDLE,
+          never:
+            cov === null || cov.total === 0
+              ? 'No tracks yet'
+              : cov.covered === 0
+                ? 'Not looked up'
+                : null,
+        },
+        audio.scope === 'Rekordbox' && rek.status === 'running'
+          ? { done: rek.index, total: rek.total }
+          : of(lookupState.value)
+      ),
+      reach: stateOnly(
+        reachItemLine(
+          job('reach'),
+          reach.status === 'idle'
+            ? []
+            : reach.paused.map((step) => SOURCE_LABEL[step]),
+          reachShared?.kind === 'error' ? reachShared.text : null
+        ),
+        {
+          ...IDLE,
+          never: artistReachSummary.value === null ? 'Not looked up' : null,
+        },
+        of(reach)
+      ),
+      server: stateOnly(
+        serverItemLine(
+          serverLine,
+          server.status === 'connected' ? server.rejected : 0
+        ),
+        {},
+        of(server)
       ),
       danger: DANGER_LINE,
     },

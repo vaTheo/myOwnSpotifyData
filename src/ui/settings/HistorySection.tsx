@@ -20,9 +20,12 @@ export function historyZoneWarning(): string | null {
 }
 
 /** Import history / Update import: the import itself lives on `#/import`. */
-export function HistoryMain() {
+export function HistoryMain(p: { act: boolean }) {
   return (
-    <a class="btn btn-filled" href={routeHref({ name: 'import' })}>
+    <a
+      class={p.act ? 'btn btn-filled' : 'btn btn-tonal'}
+      href={routeHref({ name: 'import' })}
+    >
       <span>{historySummary.value ? 'Update import' : 'Import history'}</span>
     </a>
   );

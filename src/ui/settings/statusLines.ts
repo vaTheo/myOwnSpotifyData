@@ -71,12 +71,14 @@ function stateAfterCount(job: Job): ItemLine {
 }
 
 function spotifyRow(i: StatusInputs): StatusRow {
+  // Each count only when there is one: no "0 playlists" beside tracks.
+  const lib = i.library;
   const counts =
-    i.library === null || i.library.playlists + i.library.tracks === 0
+    lib === null
       ? null
       : join(
-          plural(i.library.playlists, 'playlist'),
-          plural(i.library.tracks, 'track')
+          lib.playlists > 0 ? plural(lib.playlists, 'playlist') : null,
+          lib.tracks > 0 ? plural(lib.tracks, 'track') : null
         );
   return {
     source: 'spotify',
@@ -94,7 +96,10 @@ function featuresRow(i: StatusInputs): StatusRow {
       ? 'No tracks yet'
       : join(
           `${n(c.covered)} of ${plural(c.total, 'track')}`,
-          i.dated === null ? null : `release years ${n(i.dated)}`
+          // No year known yet is a missing figure, never "release years 0".
+          i.dated === null || i.dated === 0
+            ? null
+            : `release years ${n(i.dated)}`
         );
   const state = stateAfterCount(i.features);
   return {

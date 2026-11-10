@@ -522,15 +522,24 @@ the computer and the phone, at a readable width (≤ 840 px); no section index (
    | Rekordbox | matched, import date | "Not imported"; running; failed |
    | Artist reach | `reachCoverage`: N of M artists | `updateLines` reach line |
    | Listening history | plays, import date | "Not imported"; importing; failed |
-   | This device ↔ server | "on the server: <data set> <rows> · …" from the table's Rows (unknown rows left out) | Not set up · Not signed in · Failed · Offline · Paused · Sending/Fetching · "Changes waiting to send: …" · "Up to date · last sync …" only when connected with nothing waiting (FR-007a) |
+   | This device ↔ server | "on the server: <data set> <rows> · …" from the table's Rows (unknown rows left out) | Not set up · Not signed in · Failed · Offline · Paused · Sending/Fetching · "Changes waiting to send: …" · "Up to date · last sync …" only when connected with nothing waiting (FR-007a); the changes waiting are named offline, paused and while sending too |
 
-   A missing number is said in words or left out, never 0.
+   A missing number is said in words or left out, never 0 (no "0 playlists", no "release years 0").
 2. Group headings (h2): **Spotify** (Spotify account, Spotify sync) · **Your data** (Listening history, Audio data, Artist reach) ·
-   **Between devices** (Server); then the **Danger zone** apart; then the app version as the last line.
+   **Between devices** (Server); then the **Danger zone** apart, its name an h2 so it heads its own part of the outline; then the
+   app version as the last line.
 3. Each item (`SettingsItem`, a card): closed, a header with its name (h3, a button with a chevron, ≥ 48 px), its one-line state
    (`StatusLine`, the worst condition of the item in its tone: `itemLines.ts`) and its main button beside it; a tap on the header
    opens it and shows everything the card showed before, description first; a second tap closes it. The main button never toggles.
-   Items open on arrival only when failing or running (FR-005), or when `#/settings/<item>` names them; nothing is stored.
+   Items open on arrival only when failing or running (FR-005), or when `#/settings/<item>` names them, and later when a job
+   starts or fails while the page is open, unless the owner closed the item by hand; nothing is stored.
+4. The closed line says the **state only** (fix round 1, FR-007): "Synced", "Up to date", "Imported", "Running 40 %", "Waiting",
+   "Failed" ("Rekordbox failed", "Shared store failed"), a warning's first words, "Never synced", "Not imported", "Not looked up";
+   counts and dates live only in the Sync status block (`stateOnly`, `itemLines.ts`).
+5. The main button is **filled only when it is the action needed now** (a failure, a warning, nothing synced, imported or looked
+   up yet; the account with a write missing), otherwise tonal.
+6. A failure is announced once: the Sync status line keeps `role="alert"`; the item's closed line and the opened item's "Last
+   error" repeat it with `role="status"` (`StatusLine quiet`).
 
 **Computer**: the main button sits at the right of the header. Each item, opened, keeps the card layout below:
 
@@ -554,12 +563,12 @@ the computer and the phone, at a readable width (≤ 840 px); no section index (
 
 | Item | Main button (in the header) | Closed line |
 | --- | --- | --- |
-| Spotify account | Connect again | Signed in · Not allowed yet: … · Connect again (warning) |
-| Spotify sync | Sync now | the Spotify status line, or another Spotify reader running (warning) |
-| Listening history | Import history / Update import | `updateLines` history words; the zone warning |
-| Audio data | Look up BPM and key | BPM and key coverage · Rekordbox date; Rekordbox running or failed; the shared store's error |
-| Artist reach | Look up artists | `updateLines` reach words; a source that stopped (warning); the shared store's error |
-| Server | Sync now with server (signed in) | the server status line; rows rejected by the safety check (warning) |
+| Spotify account | Connect again | Signed in to Spotify · Not allowed yet: … (warning) |
+| Spotify sync | Sync now | Synced · Never synced · Automatic updates off · Running N % · Failed; a quota lock-out or another Spotify reader running (warning) |
+| Listening history | Import history / Update import | Imported · Not imported; the zone warning |
+| Audio data | Look up BPM and key | Up to date · Not looked up · No tracks yet · Running N % · Failed; Rekordbox running or failed; Shared store failed |
+| Artist reach | Look up artists | Up to date · Not looked up · Running N % · Failed; a source that stopped (warning); Shared store failed |
+| Server | Sync now with server (signed in) | the first words of the server line (Up to date, Changes waiting to send: N, Offline, Paused by the server, Not set up, Not signed in, Failed); rows rejected by the safety check (warning) |
 | Danger zone | none: Disconnect stays inside | "Disconnect deletes this browser's data · server data is kept" |
 
 **Phone**: the same order; the main button goes under the closed line.
