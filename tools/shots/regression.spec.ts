@@ -1593,11 +1593,11 @@ test.describe('R. rounds 003 and 004', () => {
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
-    const row = grid
-      .getByRole('row')
-      .filter({ hasText: 'from a comment by night_owl' });
+    const row = grid.getByRole('row').filter({ hasText: 'from a comment' });
     await expect(row).toHaveCount(1);
     await expect(row).toContainText('not heard');
+    // Round 021: the commenter's name is never shown.
+    await expect(row).not.toContainText('night_owl');
     await expect(row).not.toContainText(/heard \d+×/);
     // Kept like every track (round 010): Create playlist counts it.
     const allChip = app.page.getByRole('tab', { name: /^All \(\d+\)$/ });
@@ -1627,9 +1627,11 @@ test.describe('R. rounds 003 and 004', () => {
       .getByRole('group')
       .filter({ hasText: /2 clues around here/ });
     await expect(gap.getByRole('listitem')).toHaveCount(2);
+    // Round 021: a comment line has its time and text, never the commenter.
     await expect(gap.getByRole('listitem').first()).toHaveText(
-      /^\d+:\d{2} · night_owl · ID\? sounds like Moreau Unit/
+      /^\d+:\d{2} · ID\? sounds like Moreau Unit/
     );
+    await expect(gap).not.toContainText('night_owl');
   });
 
   test('R04 the run line: second pass, resumed, warnings', async ({ app }) => {

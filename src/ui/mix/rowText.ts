@@ -105,9 +105,8 @@ export function originText(row: TracklistRow): string | null {
     const kind = row.clue?.kind;
     if (kind === 'description') return 'from the description';
     if (kind === 'chapter') return 'from a chapter';
-    return row.clue?.author
-      ? `from a comment by ${row.clue.author}`
-      : 'from a comment';
+    // Round 021: never the commenter's name (the owner found it confusing).
+    return 'from a comment';
   }
   if (row.origin === 'trackid') {
     const t = row.trackid;
@@ -197,10 +196,15 @@ export function timeText(row: TracklistRow): string | null {
     : formatClock(row.startSec);
 }
 
-/** One clue as plain text: "mm:ss · author · text" (never HTML). */
+/**
+ * One clue as plain text (never HTML): "mm:ss · text" for a comment (round
+ * 021: never the commenter's name), "mm:ss · author · text" for a chapter or
+ * description line, whose author is the uploader. The time only when known.
+ */
 export function clueLine(c: Clue): string {
   const at = c.atSec !== null ? `${formatClock(c.atSec)} · ` : '';
-  return `${at}${c.author ? `${c.author} · ` : ''}${c.text}`;
+  const by = c.kind !== 'comment' && c.author ? `${c.author} · ` : '';
+  return `${at}${by}${c.text}`;
 }
 
 /** Round 003: a tracklist without times from the description or a comment. */

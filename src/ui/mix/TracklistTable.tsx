@@ -127,7 +127,7 @@ function listenItems(l: Line): RowMenuItem[] {
 /**
  * The track name (spec 020: the artist has its own column), and under it
  * what a round-003 row must show in words: the **not heard** badge of a
- * candidate, the origin ("second listen · +4 %", "from a comment by …"),
+ * candidate, the origin ("second listen · +4 %", "from a comment"),
  * the clue in quotes (plain text, two lines at most), then the references.
  * On a phone's item the artist goes right under the name (`.mix-artist`,
  * shown only there; the Artist column is left out of the item), so the
