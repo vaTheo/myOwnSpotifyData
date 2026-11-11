@@ -76,10 +76,6 @@ const RENAMED_TESTS: Record<string, string> = {
     'reads the item a link names, and nothing else',
   // Spec 027: the Sync status block says the state only; these tests now
   // pin the state words and the progress shown only while a source runs.
-  'counts BPM and key and release years; the job words only when not idle':
-    'shows "N of M <unit>" only while a source runs (US2)',
-  'counts artists with reach, then the job words':
-    'says Up to date for a partial coverage at rest (owner, US1.2)',
   'says Rekordbox matched and when, or Not imported':
     'says in words what was never set up, imported or synced (US1.3)',
 };
@@ -89,6 +85,10 @@ const RENAMED_TESTS: Record<string, string> = {
  * reason: not renamed, retired. Each is reported, never counted missing.
  */
 const RETIRED_TESTS: Record<string, string> = {
+  'counts BPM and key and release years; the job words only when not idle':
+    'spec 027 US1.2: at rest the line says Up to date, never the counts',
+  'counts artists with reach, then the job words':
+    'spec 027 US1.2: at rest the line says Up to date, never the counts',
   'marks the first visible section in page order':
     'spec 026 FR-006 removed the Settings section index (scroll-spy)',
   'keeps the current mark while no section is in the band':
