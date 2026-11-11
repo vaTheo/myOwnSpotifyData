@@ -3113,10 +3113,6 @@ a.ov-item:hover {
   margin-bottom: 0;
 }
 
-.settings-status .settings-credit {
-  margin: 4px 0 8px;
-}
-
 /* A source's line and its Retry on one row. */
 .update-line {
   display: flex;

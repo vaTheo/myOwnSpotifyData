@@ -74,6 +74,14 @@ const RENAMED_TESTS: Record<string, string> = {
   'gives each section its own element id': 'gives each item its own element id',
   'reads a section back from its element id, and nothing else':
     'reads the item a link names, and nothing else',
+  // Spec 027: the Sync status block says the state only; these tests now
+  // pin the state words and the progress shown only while a source runs.
+  'counts BPM and key and release years; the job words only when not idle':
+    'shows "N of M <unit>" only while a source runs (US2)',
+  'counts artists with reach, then the job words':
+    'says Up to date for a partial coverage at rest (owner, US1.2)',
+  'says Rekordbox matched and when, or Not imported':
+    'says in words what was never set up, imported or synced (US1.3)',
 };
 
 /**
@@ -87,6 +95,20 @@ const RETIRED_TESTS: Record<string, string> = {
     'spec 026 FR-006 removed the Settings section index (scroll-spy)',
   'marks the last section once the page is scrolled to its end':
     'spec 026 FR-006 removed the Settings section index (scroll-spy)',
+  'counts what Spotify gave this device, then its state':
+    'spec 027 FR-001 removed the counts, dates and server rows of the Sync status block',
+  'never prints 0 for a library not synced yet':
+    'spec 027 FR-001 removed the counts, dates and server rows of the Sync status block',
+  'drops a zero part: no "0 playlists" beside tracks, no "0 tracks"':
+    'spec 027 FR-001 removed the counts, dates and server rows of the Sync status block',
+  'treats no release year known as missing, never "release years 0"':
+    'spec 027 FR-001 removed the counts, dates and server rows of the Sync status block',
+  'counts plays from the history import':
+    'spec 027 FR-001 removed the counts, dates and server rows of the Sync status block',
+  'adds the server rows per data set to the server state':
+    'spec 027 FR-001 removed the counts, dates and server rows of the Sync status block',
+  'leaves out a data set with no row count':
+    'spec 027 FR-001 removed the counts, dates and server rows of the Sync status block',
 };
 
 /** Functions that build a `confirm()` question passed in by a caller. */

@@ -1,4 +1,3 @@
-import { useMemo } from 'preact/hooks';
 import {
   artistReachSummary,
   autoUpdates,
@@ -22,7 +21,6 @@ import {
 } from '../../model/state';
 import { updateLines, type UpdateJob } from '../../model/updateLines';
 import { accountLine } from './AccountSection';
-import { datedCount } from './AudioSection';
 import { historyZoneWarning } from './HistorySection';
 import {
   audioItemLine,
@@ -54,8 +52,6 @@ export function useSettingsLines(): {
   const m = model.value;
   const cov = m ? coverage(m) : null;
   const reachCov = m ? reachCoverage(m) : null;
-  // The year scan reads every Top list per track: once per model.
-  const dated = useMemo(() => (m ? datedCount(m) : null), [m]);
   const jobs = updateLines({
     now: Date.now(),
     autoOn: autoUpdates.value,
@@ -95,20 +91,21 @@ export function useSettingsLines(): {
   const rows = syncStatusRows({
     spotify,
     spotifyRetry: job('spotify').retry,
-    library: m
-      ? { playlists: m.playlists.length, tracks: m.tracksByKey.size }
-      : null,
+    spotifyProgress:
+      sync.state.status === 'running'
+        ? { done: sync.state.done, total: sync.state.total }
+        : null,
+    synced: lastSyncAt.value !== null,
     features: job('features'),
     coverage: cov,
-    dated: cov && cov.total > 0 ? dated : null,
-    rekordbox: rekordboxSummary.value,
+    rekordboxImported: rekordboxSummary.value !== null,
     rekordboxRun: rekordboxState.value,
     reach: job('reach'),
     reachCoverage: reachCov,
-    history: historySummary.value,
+    reachChecked: artistReachSummary.value !== null,
+    historyImported: historySummary.value !== null,
     historyRun: imp.status === 'done' ? { status: 'done' } : imp,
     server: serverLine,
-    stamps: server.status === 'connected' ? server.stamps : null,
   });
   // Progress for "Running 40 %" in the closed lines.
   const of = (st: { status: string; done?: number; total?: number }) =>
@@ -126,8 +123,8 @@ export function useSettingsLines(): {
   const IDLE = { ok: 'Up to date', off: 'Automatic updates off' };
   return {
     rows,
-    // Closed item lines say the state only: counts and dates are the
-    // block's (FR-007).
+    // Closed item lines say the state only: counts and dates are in the
+    // opened items (spec 026 FR-007, spec 027).
     items: {
       account: stateOnly(accountLine(), {}),
       sync: stateOnly(

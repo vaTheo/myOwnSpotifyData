@@ -68,7 +68,10 @@ export function SyncMain(p: { act: boolean }) {
   );
 }
 
-/** Spotify sync (US5): last sync, progress, lock-outs, the last error. */
+/**
+ * Spotify sync (US5): last sync, progress, lock-outs, the last error, and
+ * what Automatic updates does (moved from the Sync status block, spec 027).
+ */
 export function SyncSection() {
   const { state, locked, sharedLine, busyLine } = syncView();
   return (
@@ -103,6 +106,11 @@ export function SyncSection() {
           Last error: {state.message}
         </StatusLine>
       )}
+      <p class="muted settings-credit">
+        With automatic updates on, opening the app syncs Spotify when the last
+        sync is older than 12 hours, then looks up BPM and key, then artist
+        reach, only what is missing.
+      </p>
     </>
   );
 }

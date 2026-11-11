@@ -511,20 +511,22 @@ bottom.
 **Since spec 026** (`specs/026-settings-simpler/`, owner 2026-11-10: simpler, grouped, details behind expandable blocks). The same on
 the computer and the phone, at a readable width (≤ 840 px); no section index (FR-006):
 
-1. **Sync status** (a card, never folded): the **Automatic updates** switch with its one-line description, then one line per source
-   (FR-010), each `label · counts · state` in its tone (worst first: error > warning > running > waiting > ok > off), with **Retry**
-   where the automatic job failed:
+1. **Sync status** (a card, never folded): the **Automatic updates** switch, then one line per source (FR-010), each
+   `label · state` in its tone (worst first: error > warning > running > waiting > ok > off), with **Retry** where the automatic
+   job failed. Since spec 027 (`specs/027-sync-status-quiet/`, owner 2026-11-11) the state only: no date, no time, no count at
+   rest, no server rows; the switch's explanation is in the opened Spotify sync item:
 
-   | Line | Counts (numbers the app already holds) | State |
-   |---|---|---|
-   | Spotify → this device | playlists, tracks in the model | `updateLines` Spotify line, or the shared quota lock-out |
-   | BPM and key (ReccoBeats) | `coverage`: N of M tracks · release years N | nothing when idle; running, waiting, failed, "Automatic updates off" |
-   | Rekordbox | matched, import date | "Not imported"; running; failed |
-   | Artist reach | `reachCoverage`: N of M artists | `updateLines` reach line |
-   | Listening history | plays, import date | "Not imported"; importing; failed |
-   | This device ↔ server | "on the server: <data set> <rows> · …" from the table's Rows (unknown rows left out) | Not set up · Not signed in · Failed · Offline · Paused · Sending/Fetching · "Changes waiting to send: …" · "Up to date · last sync …" only when connected with nothing waiting (FR-007a); the changes waiting are named offline, paused and while sending too |
+   | Line | At rest | Running | Problem |
+   |---|---|---|---|
+   | Spotify | Up to date · Never synced · Automatic updates off | Syncing · i of n playlists | Failed (Retry) · Paused by Spotify's limit (its time in the item) · Waiting |
+   | BPM and key | Up to date (also with part of the tracks) · Not looked up · No tracks yet · Automatic updates off | Updating · N of M tracks (`coverage`) | Failed (Retry) · Waiting |
+   | Rekordbox | Imported · Not imported | Importing · i of n files | Failed |
+   | Artist reach | Up to date (also with part of the artists) · Not looked up · No artists yet · Automatic updates off | Updating · N of M artists (`reachCoverage`) | Failed (Retry) · Waiting |
+   | Listening history | Imported · Not imported | Importing · i of n files | Failed |
+   | Server | Up to date (connected, nothing waiting; "Synced" before the waiting flags are read) · Not set up · Not signed in · Never synced | Syncing | Failed · Offline · Paused · Changes to send |
 
-   A missing number is said in words or left out, never 0 (no "0 playlists", no "release years 0").
+   The ok state shows the success icon (a tick). A missing total while running is left out, never 0. The counts and dates stay in
+   each opened item.
 2. Group headings (h2): **Spotify** (Spotify account, Spotify sync) · **Your data** (Listening history, Audio data, Artist reach) ·
    **Between devices** (Server); then the **Danger zone** apart, its name an h2 so it heads its own part of the outline; then the
    app version as the last line.
@@ -535,7 +537,7 @@ the computer and the phone, at a readable width (≤ 840 px); no section index (
    starts or fails while the page is open, unless the owner closed the item by hand; nothing is stored.
 4. The closed line says the **state only** (fix round 1, FR-007): "Synced", "Up to date", "Imported", "Running 40 %", "Waiting",
    "Failed" ("Rekordbox failed", "Shared store failed"), a warning's first words, "Never synced", "Not imported", "Not looked up";
-   counts and dates live only in the Sync status block (`stateOnly`, `itemLines.ts`).
+   counts and dates live in the opened item (`stateOnly`, `itemLines.ts`).
 5. The main button is **filled only when it is the action needed now** (a failure, a warning, nothing synced, imported or looked
    up yet; the account with a write missing), otherwise tonal.
 6. A failure is announced once: the Sync status line keeps `role="alert"`; the item's closed line and the opened item's "Last

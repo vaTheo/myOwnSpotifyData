@@ -1,37 +1,35 @@
 import { describe, expect, it } from 'vitest';
-import type { ImportSummary } from '../../history/importer';
-import { formatDate } from '../format';
 import type { ItemLine } from './itemLines';
 import {
-  serverRows,
   syncStatusRows,
   type StatusInputs,
   type StatusRow,
   type StatusSource,
 } from './statusLines';
 
-const T = 1_800_000_000_000;
-
 function inputs(over: Partial<StatusInputs> = {}): StatusInputs {
   return {
-    spotify: { tone: 'ok', text: 'Synced today' },
+    spotify: {
+      tone: 'ok',
+      text: 'Synced Nov 11, 2026, 12:13 PM · next after Nov 12, 2026, 12:13 AM',
+    },
     spotifyRetry: null,
-    library: { playlists: 48, tracks: 3199 },
+    spotifyProgress: null,
+    synced: true,
     features: {
       tone: 'ok',
-      text: '2,099 / 3,199 tracks with BPM or key',
+      text: '22,353 / 33,888 tracks with BPM or key',
       retry: null,
     },
-    coverage: { covered: 2099, total: 3199 },
-    dated: 3000,
-    rekordbox: null,
+    coverage: { covered: 22353, total: 33888 },
+    rekordboxImported: false,
     rekordboxRun: { status: 'idle' },
-    reach: { tone: 'ok', text: 'Checked today', retry: null },
-    reachCoverage: { covered: 806, artists: 1204 },
-    history: null,
+    reach: { tone: 'ok', text: 'Checked Nov 11, 2026', retry: null },
+    reachCoverage: { covered: 3089, artists: 3755 },
+    reachChecked: true,
+    historyImported: true,
     historyRun: { status: 'idle' },
-    server: { tone: 'off', text: 'Not set up' },
-    stamps: null,
+    server: { tone: 'ok', text: 'Up to date · last sync Nov 11, 2026' },
     ...over,
   };
 }
@@ -45,149 +43,201 @@ function row(
   return found;
 }
 
-describe('syncStatusRows (FR-010)', () => {
+const running = {
+  tone: 'running' as const,
+  text: 'Running · 3 / 9',
+  retry: null,
+};
+
+describe('syncStatusRows (spec 027)', () => {
   it('gives one line per source in a fixed order with its label', () => {
     expect(syncStatusRows(inputs()).map((r) => r.label)).toEqual([
-      'Spotify → this device',
-      'BPM and key (ReccoBeats)',
+      'Spotify',
+      'BPM and key',
       'Rekordbox',
       'Artist reach',
       'Listening history',
-      'This device ↔ server',
+      'Server',
     ]);
   });
 
-  it('counts what Spotify gave this device, then its state', () => {
-    expect(row('spotify')).toMatchObject({
-      tone: 'ok',
-      text: '48 playlists · 3,199 tracks · Synced today',
-      retry: null,
-    });
+  it('at rest, says the state only: no digit, no date (FR-001, SC-001)', () => {
+    const rows = syncStatusRows(inputs());
+    expect(rows.map((r) => [r.text, r.tone])).toEqual([
+      ['Up to date', 'ok'],
+      ['Up to date', 'ok'],
+      ['Not imported', 'off'],
+      ['Up to date', 'ok'],
+      ['Imported', 'ok'],
+      ['Up to date', 'ok'],
+    ]);
+    for (const r of rows) expect(r.text).not.toMatch(/\d/);
   });
 
-  it('carries the Spotify Retry only on a failure', () => {
+  it('says Up to date for a partial coverage at rest (owner, US1.2)', () => {
+    expect(row('features')).toMatchObject({ tone: 'ok', text: 'Up to date' });
+    expect(row('reach')).toMatchObject({ tone: 'ok', text: 'Up to date' });
+  });
+
+  it('says in words what was never set up, imported or synced (US1.3)', () => {
+    expect(row('spotify', { synced: false })).toMatchObject({
+      tone: 'off',
+      text: 'Never synced',
+    });
+    expect(row('features', { coverage: null }).text).toBe('No tracks yet');
+    expect(row('features', { coverage: { covered: 0, total: 10 } }).text).toBe(
+      'Not looked up'
+    );
+    expect(row('reach', { reachChecked: false }).text).toBe('Not looked up');
+    expect(row('reach', { reachCoverage: null }).text).toBe('No artists yet');
+    expect(row('history', { historyImported: false })).toMatchObject({
+      tone: 'off',
+      text: 'Not imported',
+    });
+    expect(row('rekordbox', { rekordboxImported: true })).toMatchObject({
+      tone: 'ok',
+      text: 'Imported',
+    });
+    expect(
+      row('server', { server: { tone: 'off', text: 'Not set up' } }).text
+    ).toBe('Not set up');
+    expect(
+      row('server', { server: { tone: 'off', text: 'Not signed in' } }).text
+    ).toBe('Not signed in');
+  });
+
+  it('shows "N of M <unit>" only while a source runs (US2)', () => {
+    expect(row('features', { features: running })).toMatchObject({
+      tone: 'running',
+      text: 'Updating · 22,353 of 33,888 tracks',
+    });
+    expect(row('reach', { reach: running })).toMatchObject({
+      tone: 'running',
+      text: 'Updating · 3,089 of 3,755 artists',
+    });
+    expect(
+      row('history', { historyRun: { status: 'running', index: 1, total: 4 } })
+    ).toMatchObject({ tone: 'running', text: 'Importing · 1 of 4 files' });
+    expect(
+      row('rekordbox', {
+        rekordboxRun: { status: 'running', index: 2, total: 2 },
+      }).text
+    ).toBe('Importing · 2 of 2 files');
+    expect(
+      row('spotify', {
+        spotify: { tone: 'running', text: 'Running · 3 / 141 playlists' },
+        spotifyProgress: { done: 3, total: 141 },
+      })
+    ).toMatchObject({ tone: 'running', text: 'Syncing · 3 of 141 playlists' });
+    expect(
+      row('server', {
+        server: { tone: 'running', text: 'Sending library · 3 / 9 rows' },
+      })
+    ).toMatchObject({ tone: 'running', text: 'Syncing' });
+  });
+
+  it('leaves a missing total out while running, never 0', () => {
+    expect(
+      row('spotify', {
+        spotify: { tone: 'running', text: 'Running · 0 / 0 playlists' },
+        spotifyProgress: { done: 0, total: 0 },
+      }).text
+    ).toBe('Syncing');
+    expect(row('features', { features: running, coverage: null }).text).toBe(
+      'Updating'
+    );
+    expect(row('reach', { reach: running, reachCoverage: null }).text).toBe(
+      'Updating'
+    );
+    expect(
+      row('history', { historyRun: { status: 'running', index: 0, total: 0 } })
+        .text
+    ).toBe('Importing');
+  });
+
+  it('says Failed with its Retry, without the message (US3.1)', () => {
     const failed: ItemLine = { tone: 'error', text: 'Failed · boom' };
     expect(
       row('spotify', { spotify: failed, spotifyRetry: 'spotify' })
-    ).toMatchObject({
-      tone: 'error',
-      retry: 'spotify',
-    });
-  });
-
-  it('never prints 0 for a library not synced yet', () => {
-    expect(row('spotify', { library: null }).text).toBe('Synced today');
-    expect(row('spotify', { library: { playlists: 0, tracks: 0 } }).text).toBe(
-      'Synced today'
-    );
-  });
-
-  it('drops a zero part: no "0 playlists" beside tracks, no "0 tracks"', () => {
-    expect(row('spotify', { library: { playlists: 0, tracks: 12 } }).text).toBe(
-      '12 tracks · Synced today'
-    );
-    expect(row('spotify', { library: { playlists: 3, tracks: 0 } }).text).toBe(
-      '3 playlists · Synced today'
-    );
-  });
-
-  it('treats no release year known as missing, never "release years 0"', () => {
-    expect(row('features', { dated: 0 }).text).toBe('2,099 of 3,199 tracks');
-  });
-
-  it('counts BPM and key and release years; the job words only when not idle', () => {
-    expect(row('features').text).toBe(
-      '2,099 of 3,199 tracks · release years 3,000'
-    );
-    expect(
-      row('features', {
-        features: {
-          tone: 'running',
-          text: 'Running · 3 / 9 tracks',
-          retry: null,
-        },
-      })
-    ).toMatchObject({
-      tone: 'running',
-      text: '2,099 of 3,199 tracks · release years 3,000 · Running · 3 / 9 tracks',
-    });
+    ).toMatchObject({ tone: 'error', text: 'Failed', retry: 'spotify' });
     expect(
       row('features', {
         features: { tone: 'failed', text: 'Failed · x', retry: 'features' },
       })
-    ).toMatchObject({ tone: 'error', retry: 'features' });
+    ).toMatchObject({ tone: 'error', text: 'Failed', retry: 'features' });
     expect(
-      row('features', {
-        features: { tone: 'off', text: 'Off · …', retry: null },
-      }).text
-    ).toMatch(/· Automatic updates off$/);
-    expect(row('features', { coverage: null, dated: null }).text).toBe(
-      'No tracks yet'
-    );
-  });
-
-  it('says Rekordbox matched and when, or Not imported', () => {
-    expect(row('rekordbox')).toMatchObject({
-      tone: 'off',
-      text: 'Not imported',
-    });
-    const summary = {
-      importedAt: T,
-      parsed: 2,
-      withBpm: 2,
-      withKey: 2,
-      matched: 1,
-      unmatched: 1,
-    };
-    expect(row('rekordbox', { rekordbox: summary })).toMatchObject({
-      tone: 'ok',
-      text: `1 matched · imported ${formatDate(T)}`,
-    });
+      row('reach', {
+        reach: { tone: 'failed', text: 'Failed · x', retry: 'reach' },
+      })
+    ).toMatchObject({ tone: 'error', text: 'Failed', retry: 'reach' });
     expect(
       row('rekordbox', { rekordboxRun: { status: 'error', message: 'bad' } })
-    ).toMatchObject({ tone: 'error', text: 'Failed · bad' });
+    ).toMatchObject({ tone: 'error', text: 'Failed', retry: null });
     expect(
-      row('rekordbox', {
-        rekordboxRun: { status: 'running', index: 1, total: 2 },
-      }).tone
-    ).toBe('running');
+      row('history', { historyRun: { status: 'error', message: 'bad' } })
+    ).toMatchObject({ tone: 'error', text: 'Failed' });
+    expect(
+      row('server', { server: { tone: 'error', text: 'Failed · 500' } })
+    ).toMatchObject({ tone: 'error', text: 'Failed', retry: null });
   });
 
-  it('counts artists with reach, then the job words', () => {
-    expect(row('reach').text).toBe('806 of 1,204 artists · Checked today');
-    expect(row('reach', { reachCoverage: null }).text).toBe(
-      'No artists yet · Checked today'
-    );
+  it('carries the Spotify Retry only on a failure', () => {
+    expect(row('spotify', { spotifyRetry: 'spotify' }).retry).toBeNull();
   });
 
-  it('counts plays from the history import', () => {
-    expect(row('history')).toMatchObject({ tone: 'off', text: 'Not imported' });
-    const summary = { importedAt: T, plays: 12000 } as ImportSummary;
-    expect(row('history', { history: summary }).text).toBe(
-      `12,000 plays · imported ${formatDate(T)}`
-    );
+  it('says the lock-out without its time (US3.2)', () => {
     expect(
-      row('history', { historyRun: { status: 'running', index: 1, total: 4 } })
-        .tone
-    ).toBe('running');
+      row('spotify', {
+        spotify: {
+          tone: 'warning',
+          text: 'Paused by Spotify until Nov 11, 2026, 3:00 PM',
+        },
+      })
+    ).toMatchObject({ tone: 'warning', text: "Paused by Spotify's limit" });
   });
 
-  it('adds the server rows per data set to the server state', () => {
-    const stamps = [
-      { name: 'library', localAt: T, serverAt: T, rows: 3199 },
-      { name: 'history', localAt: null, serverAt: null, rows: null },
-      { name: 'mixes', localAt: T, serverAt: T, rows: 0 },
-    ];
+  it('says the server waiting, offline or paused in a word (US3.3)', () => {
     expect(
-      row('server', { server: { tone: 'ok', text: 'Up to date' }, stamps }).text
-    ).toBe('Up to date · on the server: library 3,199 · mixes 0');
-    expect(row('server').text).toBe('Not set up');
+      row('server', {
+        server: { tone: 'waiting', text: 'Waiting to send: library, mixes' },
+      })
+    ).toMatchObject({ tone: 'waiting', text: 'Changes to send' });
+    expect(
+      row('server', {
+        server: {
+          tone: 'warning',
+          text: 'Offline · last sync Nov 11, 2026 · Waiting to send: mixes',
+        },
+      })
+    ).toMatchObject({ tone: 'warning', text: 'Offline' });
+    expect(
+      row('server', {
+        server: { tone: 'warning', text: 'Paused by the server' },
+      }).text
+    ).toBe('Paused');
+    expect(
+      row('server', { server: { tone: 'ok', text: 'Last sync Nov 11, 2026' } })
+        .text
+    ).toBe('Synced');
+    expect(
+      row('server', { server: { tone: 'off', text: 'Never synced' } }).text
+    ).toBe('Never synced');
   });
 
-  it('leaves out a data set with no row count', () => {
-    expect(serverRows(null)).toBeNull();
+  it('says Automatic updates off with the switch off, unless running or failed (US3.4)', () => {
+    const off = { tone: 'off' as const, text: 'Off · …', retry: null };
+    expect(row('features', { features: off })).toMatchObject({
+      tone: 'off',
+      text: 'Automatic updates off',
+    });
+    expect(row('reach', { reach: off }).text).toBe('Automatic updates off');
     expect(
-      serverRows([{ name: 'reach', localAt: null, serverAt: null, rows: null }])
-    ).toBeNull();
+      row('spotify', { spotify: { tone: 'off', text: 'Off · Synced …' } }).text
+    ).toBe('Automatic updates off');
+    expect(
+      row('features', {
+        features: { tone: 'waiting', text: 'Waiting', retry: null },
+      })
+    ).toMatchObject({ tone: 'waiting', text: 'Waiting' });
   });
 });

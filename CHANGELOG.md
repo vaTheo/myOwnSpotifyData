@@ -3,6 +3,17 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-11 — Sync status shows the state only
+
+The **Sync status** block at the top of Settings is quieter: one short line per source, Spotify, BPM and key, Rekordbox, Artist
+reach, Listening history and Server, with its state only ("Up to date" with a tick, "Imported", "Not imported", "Not set up",
+"Changes to send", "Offline", "Paused by Spotify's limit", "Failed" with its **Retry**). No dates, no counts at rest: BPM and key or
+Artist reach with only part of your tracks or artists covered say "Up to date". While a source runs, its line shows the progress
+("Updating · 22,353 of 33,888 tracks", "Updating · N of M artists", "Importing · 2 of 5 files", "Syncing · 3 of 141 playlists").
+The counts, dates and the server's rows are still in each item, opened, and the paragraph that explains Automatic updates moved
+into **Spotify sync**. Spec `specs/027-sync-status-quiet/`. No Spotify read or write, no server call, no stored data change,
+nothing to do.
+
 ## 2026-11-10 — A simpler Settings page
 
 Settings opens on a **Sync status** block that never folds: the Automatic updates switch and one line per source, each with what this

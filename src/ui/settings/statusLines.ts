@@ -1,16 +1,14 @@
 /**
- * The Sync status block (spec 026, US3, FR-010): one line per source, its
- * state and the number of items this device holds from it, never folded.
- * Pure: the counts are the ones the app already holds (the model's
- * coverage, the import summaries, the server table's Rows), never a new read.
- * A missing number is left out or said in words, never printed as 0.
+ * The Sync status block (spec 026, US3; spec 027): one line per source, its
+ * label and its state in a few words, never folded. No date, no time, no
+ * count at rest: "N of M <unit>" only while a source runs, from the figures
+ * the app already holds (the model's coverage, the job's progress), never a
+ * new read. The counts and dates stay in each opened item. A missing number
+ * is left out, never printed as 0.
  */
-import type { RekordboxSummary } from '../../features/rekordboxImport';
-import type { ImportSummary } from '../../history/importer';
 import type { AutoStep } from '../../model/autoChain';
 import type { UpdateLine } from '../../model/updateLines';
-import type { ServerStampView } from '../../server/types';
-import { formatDate, plural } from '../format';
+import { plural } from '../format';
 import { fromUpdate, type ItemLine, type ItemTone } from './itemLines';
 
 export type StatusSource =
@@ -27,188 +25,178 @@ export interface StatusRow {
 
 type Job = Pick<UpdateLine, 'tone' | 'text' | 'retry'>;
 
+type Run =
+  | { status: 'running'; index: number; total: number }
+  | { status: 'error'; message: string }
+  | { status: 'idle' | 'done' | 'cancelled' };
+
 export interface StatusInputs {
   /** `spotifyStatusLine`: the sync's line or the shared lock-out. */
   spotify: ItemLine;
   spotifyRetry: AutoStep | null;
-  library: { playlists: number; tracks: number } | null;
+  /** The sync's progress while it runs, playlists done of total. */
+  spotifyProgress: { done: number; total: number } | null;
+  /** A Spotify sync has finished once on this device. */
+  synced: boolean;
   features: Job;
   coverage: { covered: number; total: number } | null;
-  /** Candidates with a release year, or null when unknown. */
-  dated: number | null;
-  rekordbox: RekordboxSummary | null;
-  rekordboxRun:
-    | { status: 'running'; index: number; total: number }
-    | { status: 'error'; message: string }
-    | { status: 'idle' | 'done' };
+  rekordboxImported: boolean;
+  rekordboxRun: Run;
   reach: Job;
   reachCoverage: { covered: number; artists: number } | null;
-  history: ImportSummary | null;
-  historyRun:
-    | { status: 'running'; index: number; total: number }
-    | { status: 'error'; message: string }
-    | { status: 'idle' | 'done' | 'cancelled' };
+  /** An artist reach run has finished once (`artistReachSummary`). */
+  reachChecked: boolean;
+  historyImported: boolean;
+  historyRun: Run;
   /** `serverStatusLine`. */
   server: ItemLine;
-  /** The server table's rows, when connected. */
-  stamps: readonly ServerStampView[] | null;
 }
 
-const n = (v: number): string => v.toLocaleString();
-
-const join = (...parts: (string | null)[]): string =>
-  parts.filter((p): p is string => p !== null && p !== '').join(' · ');
+/** "Updating · 3 of 9 tracks", or the word alone with no total known. */
+const progress = (word: string, done: number, total: number, unit: string) =>
+  total > 0
+    ? `${word} · ${done.toLocaleString()} of ${plural(total, unit)}`
+    : word;
 
 /**
- * The state words of a job whose idle text is its count (BPM and key):
- * nothing more when idle, "Off" with the switch off, else the job's words.
+ * The state words of an automatic job (BPM and key, Artist reach): its
+ * progress while it runs, "Up to date" when idle whatever its coverage
+ * (owner, 2026-11-11), `never` when nothing was looked up yet.
  */
-function stateAfterCount(job: Job): ItemLine {
+function jobState(
+  job: Job,
+  running: string,
+  never: string | null
+): { tone: ItemTone; text: string } {
   const line = fromUpdate(job);
-  if (job.tone === 'ok') return { tone: 'ok', text: '' };
-  if (job.tone === 'off') return { tone: 'off', text: 'Automatic updates off' };
-  return line;
+  switch (line.tone) {
+    case 'running':
+      return { tone: 'running', text: running };
+    case 'waiting':
+      return { tone: 'waiting', text: 'Waiting' };
+    case 'error':
+      return { tone: 'error', text: 'Failed' };
+    case 'warning':
+      return { tone: 'warning', text: line.text.split(' · ')[0] };
+    case 'off':
+      return { tone: 'off', text: 'Automatic updates off' };
+    case 'ok':
+      return never === null
+        ? { tone: 'ok', text: 'Up to date' }
+        : { tone: 'off', text: never };
+  }
 }
 
 function spotifyRow(i: StatusInputs): StatusRow {
-  // Each count only when there is one: no "0 playlists" beside tracks.
-  const lib = i.library;
-  const counts =
-    lib === null
-      ? null
-      : join(
-          lib.playlists > 0 ? plural(lib.playlists, 'playlist') : null,
-          lib.tracks > 0 ? plural(lib.tracks, 'track') : null
-        );
+  const line = i.spotify;
+  const p = i.spotifyProgress;
+  const words: Record<ItemTone, string> = {
+    running: progress('Syncing', p?.done ?? 0, p?.total ?? 0, 'playlist'),
+    waiting: 'Waiting',
+    error: 'Failed',
+    // The lock-out's end stays in the Spotify sync item.
+    warning: "Paused by Spotify's limit",
+    off: 'Automatic updates off',
+    ok: 'Up to date',
+  };
+  const never = !i.synced && (line.tone === 'ok' || line.tone === 'off');
   return {
     source: 'spotify',
-    label: 'Spotify → this device',
-    tone: i.spotify.tone,
-    text: join(counts, i.spotify.text),
-    retry: i.spotify.tone === 'error' ? i.spotifyRetry : null,
+    label: 'Spotify',
+    tone: never ? 'off' : line.tone,
+    text: never ? 'Never synced' : words[line.tone],
+    retry: line.tone === 'error' ? i.spotifyRetry : null,
   };
 }
 
 function featuresRow(i: StatusInputs): StatusRow {
   const c = i.coverage;
-  const counts =
+  const state = jobState(
+    i.features,
+    progress('Updating', c?.covered ?? 0, c?.total ?? 0, 'track'),
     c === null || c.total === 0
       ? 'No tracks yet'
-      : join(
-          `${n(c.covered)} of ${plural(c.total, 'track')}`,
-          // No year known yet is a missing figure, never "release years 0".
-          i.dated === null || i.dated === 0
-            ? null
-            : `release years ${n(i.dated)}`
-        );
-  const state = stateAfterCount(i.features);
+      : c.covered === 0
+        ? 'Not looked up'
+        : null
+  );
   return {
     source: 'features',
-    label: 'BPM and key (ReccoBeats)',
-    tone: state.tone,
-    text: join(counts, state.text),
+    label: 'BPM and key',
+    ...state,
     retry: i.features.retry,
   };
 }
 
-function rekordboxRow(i: StatusInputs): StatusRow {
-  const r = i.rekordboxRun;
-  const s = i.rekordbox;
-  const held = s === null ? null : `${n(s.matched)} matched`;
-  const base = {
-    source: 'rekordbox' as const,
-    label: 'Rekordbox',
-    retry: null,
-  };
-  if (r.status === 'running') {
-    return {
-      ...base,
-      tone: 'running',
-      text: join(held, `Running · ${r.index} / ${r.total} files`),
-    };
-  }
-  if (r.status === 'error') {
-    return {
-      ...base,
-      tone: 'error',
-      text: join(held, `Failed · ${r.message}`),
-    };
-  }
-  return s === null
-    ? { ...base, tone: 'off', text: 'Not imported' }
-    : {
-        ...base,
-        tone: 'ok',
-        text: join(held, `imported ${formatDate(s.importedAt)}`),
-      };
-}
-
 function reachRow(i: StatusInputs): StatusRow {
   const c = i.reachCoverage;
-  const counts =
+  const state = jobState(
+    i.reach,
+    progress('Updating', c?.covered ?? 0, c?.artists ?? 0, 'artist'),
     c === null || c.artists === 0
       ? 'No artists yet'
-      : `${n(c.covered)} of ${plural(c.artists, 'artist')}`;
-  const line = fromUpdate(i.reach);
+      : !i.reachChecked
+        ? 'Not looked up'
+        : null
+  );
   return {
     source: 'reach',
     label: 'Artist reach',
-    tone: line.tone,
-    text: join(counts, line.text),
+    ...state,
     retry: i.reach.retry,
   };
 }
 
-function historyRow(i: StatusInputs): StatusRow {
-  const r = i.historyRun;
-  const s = i.history;
-  const held = s === null ? null : plural(s.plays, 'play');
-  const base = {
-    source: 'history' as const,
-    label: 'Listening history',
-    retry: null,
-  };
-  if (r.status === 'running') {
+/** An import (Rekordbox, history): running, failed, imported or not. */
+function importRow(
+  source: 'rekordbox' | 'history',
+  label: string,
+  run: Run,
+  imported: boolean
+): StatusRow {
+  const base = { source, label, retry: null };
+  if (run.status === 'running') {
     return {
       ...base,
       tone: 'running',
-      text: join(held, `Importing · ${r.index} / ${r.total} files`),
+      text: progress('Importing', run.index, run.total, 'file'),
     };
   }
-  if (r.status === 'error') {
-    return {
-      ...base,
-      tone: 'error',
-      text: join(held, `Failed · ${r.message}`),
-    };
-  }
-  return s === null
-    ? { ...base, tone: 'off', text: 'Not imported' }
-    : {
-        ...base,
-        tone: 'ok',
-        text: join(held, `imported ${formatDate(s.importedAt)}`),
-      };
+  if (run.status === 'error') return { ...base, tone: 'error', text: 'Failed' };
+  return imported
+    ? { ...base, tone: 'ok', text: 'Imported' }
+    : { ...base, tone: 'off', text: 'Not imported' };
 }
 
-/** "library 3,199 · history 12,000 · …": the server table's Rows, known ones. */
-export function serverRows(
-  stamps: readonly ServerStampView[] | null
-): string | null {
-  if (stamps === null) return null;
-  const known = stamps
-    .filter((s) => s.rows !== null)
-    .map((s) => `${s.name} ${n(s.rows ?? 0)}`);
-  return known.length === 0 ? null : known.join(' · ');
-}
-
+/**
+ * The server's state in a word: `serverStatusLine` without its date, its
+ * data sets or its rows. "Up to date" only once the waiting flags are read
+ * (spec 026, FR-007a); before that, "Synced".
+ */
 function serverRow(i: StatusInputs): StatusRow {
-  const rows = serverRows(i.stamps);
+  const line = i.server;
+  const first = line.text.split(' · ')[0];
+  const text = ((): string => {
+    switch (line.tone) {
+      case 'off':
+        return first;
+      case 'error':
+        return 'Failed';
+      case 'warning':
+        return first.startsWith('Offline') ? 'Offline' : 'Paused';
+      case 'running':
+        return 'Syncing';
+      case 'waiting':
+        return 'Changes to send';
+      case 'ok':
+        return first === 'Up to date' ? 'Up to date' : 'Synced';
+    }
+  })();
   return {
     source: 'server',
-    label: 'This device ↔ server',
-    tone: i.server.tone,
-    text: join(i.server.text, rows === null ? null : `on the server: ${rows}`),
+    label: 'Server',
+    tone: line.tone,
+    text,
     retry: null,
   };
 }
@@ -218,9 +206,9 @@ export function syncStatusRows(i: StatusInputs): StatusRow[] {
   return [
     spotifyRow(i),
     featuresRow(i),
-    rekordboxRow(i),
+    importRow('rekordbox', 'Rekordbox', i.rekordboxRun, i.rekordboxImported),
     reachRow(i),
-    historyRow(i),
+    importRow('history', 'Listening history', i.historyRun, i.historyImported),
     serverRow(i),
   ];
 }

@@ -2429,7 +2429,7 @@ test.describe('Y. release year', () => {
     await expect(app.page.getByText('Looking up release years')).toBeVisible();
   });
 
-  test('U01 Settings · Sync status: one line per source with its counts, and the switch, never folded', async ({
+  test('U01 Settings · Sync status: one line per source, its state only, and the switch, never folded', async ({
     app,
   }) => {
     await app.open('#/settings');
@@ -2442,18 +2442,24 @@ test.describe('Y. release year', () => {
     ).toBeVisible();
     const lines = await block.locator('.update-line').allTextContents();
     expect(lines.map((l) => l.split(' · ')[0])).toEqual([
-      'Spotify → this device',
-      'BPM and key (ReccoBeats)',
+      'Spotify',
+      'BPM and key',
       'Rekordbox',
       'Artist reach',
       'Listening history',
-      'This device ↔ server',
+      'Server',
     ]);
-    // Counts the app already holds, never a 0 for a missing number.
-    expect(lines[0]).toMatch(/ · [\d,]+ playlists · [\d,]+ tracks/);
-    expect(lines[1]).toMatch(/ · 2,099 of 3,199 tracks/);
-    expect(lines[3]).toMatch(/ · [\d,]+ of [\d,]+ artists/);
-    expect(lines[5]).toMatch(/Not set up$/);
+    // Spec 027: the state only at rest, a partial coverage is up to date.
+    expect(lines[1]).toBe('BPM and key · Up to date');
+    expect(lines[5]).toBe('Server · Not set up');
+    // No date, no count: not one digit while nothing runs (SC-001).
+    for (const line of lines) expect(line).not.toMatch(/\d/);
+    // The switch's explanation moved into the Spotify sync item (FR-004).
+    await expect(block.getByText(/With automatic updates on/)).toHaveCount(0);
+    await openItem(app.page, 'Spotify sync');
+    await expect(
+      app.page.getByText(/^With automatic updates on, opening the app syncs/)
+    ).toBeVisible();
     // No toggle: the block cannot be folded.
     await expect(block.locator('[aria-expanded]')).toHaveCount(0);
   });

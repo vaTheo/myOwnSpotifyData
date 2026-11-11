@@ -20,8 +20,9 @@ const SWITCH: { value: 'on' | 'off'; label: string }[] = [
 /**
  * The Sync status block (spec 026, US3, FR-010), at the top of Settings and
  * never folded: the Automatic updates switch (per device, ADR-12) and one
- * line per source, its state and what this device holds from it. A failed
- * automatic job carries its Retry, as the Updates card did.
+ * line per source, its label and its state only (spec 027): no date, no
+ * count at rest. A failed automatic job carries its Retry, as the Updates
+ * card did. The switch's explanation is in the Spotify sync item.
  */
 export function SyncStatus(p: { rows: StatusRow[] }) {
   // The changes waiting to send: one local read once the page is up.
@@ -43,11 +44,6 @@ export function SyncStatus(p: { rows: StatusRow[] }) {
           onChange={(v) => setAutoUpdates(v === 'on')}
         />
       </div>
-      <p class="muted settings-credit">
-        With automatic updates on, opening the app syncs Spotify when the last
-        sync is older than 12 hours, then looks up BPM and key, then artist
-        reach, only what is missing.
-      </p>
       {p.rows.map((row) => (
         <div key={row.source} class="update-line" data-source={row.source}>
           <StatusLine kind={ITEM_KIND[row.tone]}>

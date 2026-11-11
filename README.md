@@ -251,19 +251,22 @@ phone. It is dark, with chartreuse marking what you act on.
 ### Settings
 
 At the top, never folded, **Sync status**: the Automatic updates switch and
-one line per source with what this device holds and whether it is up to
-date — Spotify (playlists and tracks), BPM and key (N of M tracks, release
-years), Rekordbox (matched), Artist reach (N of M artists), Listening history
-(plays) and the server ("Up to date" only when nothing waits to send,
-otherwise the changes waiting by name, plus the rows the server holds per
-data set). A failed automatic job has its **Retry** there.
+one short line per source — Spotify, BPM and key, Rekordbox, Artist reach,
+Listening history, Server — with its state only: "Up to date" (with a tick,
+even when only part of your tracks or artists have a value), "Imported",
+"Not imported", "Not set up", "Changes to send", "Offline", "Paused by
+Spotify's limit". No dates, no counts at rest: while something runs, its
+line shows the progress ("Updating · 22,353 of 33,888 tracks", "Importing ·
+2 of 5 files"). A failed job says "Failed" with its **Retry**. The counts,
+dates and the server's rows are in each item, opened; what Automatic updates
+does is explained in **Spotify sync**.
 
 Below it, seven items grouped under **Spotify** (Spotify account, Spotify
 sync), **Your data** (Listening history, Audio data, Artist reach) and
 **Between devices** (Server), then the **Danger zone** apart. Each item is
 closed to one line: its name, its state in a few words and in its colour
 ("Synced", "Running 40 %", "Failed"; an error or a warning shows even
-closed; the numbers are in Sync status) and its main button, highlighted
+closed; the numbers are in the item, opened) and its main button, highlighted
 only when it is what to do now. Tap its header to open it: what it is,
 every status line, progress, last error and action. An item that fails or
 runs a job opens by itself, even while the page is open, unless you closed

@@ -57,8 +57,7 @@ export function worst(
 
 /**
  * The closed form of an item's line (spec 026 fix round 1, FR-007): the
- * state words only, since the counts and dates live in the Sync status
- * block. A failure says "Failed", a job "Running 40 %", a warning keeps its
+ * state words only, since the counts and dates live in the opened item. A failure says "Failed", a job "Running 40 %", a warning keeps its
  * first words; `never` (nothing synced, imported or looked up yet) wins over
  * an idle line and asks for the main action.
  */
