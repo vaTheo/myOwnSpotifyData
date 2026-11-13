@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-13
 
-**Status**: Draft (owner 2026-11-13: "Hub stay as landing page and scope 2"; Q1 option B: "b is fine")
+**Status**: Approved (owner 2026-11-13: "continue"; "Hub stay as landing page and scope 2"; Q1 option B: "b is fine")
 
 **Input**: Owner (2026-11-13): "i have feeling that we could regroup things together. we ahve multiple page for each of the features like havy rotation, forgotten gems, all-time classics and so one for each track list, but it could be a better made view with just some option to display things differently, this way we could lower number op pages and complexity of the app."
 
