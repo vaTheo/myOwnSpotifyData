@@ -392,6 +392,7 @@ test.describe('A. addresses', () => {
       ['classics', 'All-time classics'],
       ['year', 'By year'],
       ['finish', 'Finish rate'],
+      ['rarely-played', 'Rarely played'],
     ]) {
       await app.page.evaluate((h) => (location.hash = h), `#/crate/${view}`);
       await expect(app.page.getByRole('heading', { level: 1 })).toHaveText(
@@ -663,6 +664,91 @@ test.describe('A. addresses', () => {
       'Forgotten gems'
     );
   });
+
+  test('A19 a running job links to its Settings item (spec 030)', async ({
+    app,
+  }) => {
+    await app.open('#/top');
+    await app.set('syncState', {
+      status: 'running',
+      done: 14,
+      total: 40,
+      current: 'Peak Time Techno',
+      pending: [],
+    });
+    await app.set('importState', {
+      status: 'running',
+      file: 'Streaming_History_Audio_2026_0.json',
+      index: 1,
+      total: 3,
+    });
+    await app.set('lookupState', {
+      status: 'running',
+      pass: 'ISRC',
+      done: 320,
+      total: 1180,
+    });
+    await app.set('rekordboxState', {
+      status: 'running',
+      file: 'rekordbox.xml',
+      index: 1,
+      total: 1,
+    });
+    await app.set('reachState', {
+      status: 'running',
+      step: 'listenbrainz',
+      done: 412,
+      total: 1204,
+      paused: [],
+    });
+    await app.set('serverSession', SERVER_SESSION);
+    await app.set('serverState', {
+      status: 'pushing',
+      dataset: 'tracks',
+      done: 1500,
+      total: 4980,
+    });
+    const activity = app.page.getByRole('button', { name: /jobs running$/ });
+    await activity.click();
+    const panel = app.page.getByRole('dialog', { name: 'Running jobs' });
+    const href = (label: string, to: string) =>
+      expect(
+        panel.getByRole('link', { name: new RegExp(label) }),
+        label
+      ).toHaveAttribute('href', to);
+    for (const [label, to] of [
+      ['Syncing playlists', '#/settings/sync'],
+      ['Looking up BPM and key', '#/settings/audio'],
+      ['Importing Rekordbox', '#/settings/audio'],
+      ['Looking up artists', '#/settings/reach'],
+      ['Saving to server', '#/settings/server'],
+      // Unchanged: the import keeps its own screen.
+      ['Importing history', '#/import'],
+    ]) {
+      await href(label, to);
+    }
+    // The years pass and the pull, which replace the two above.
+    await app.set('lookupState', {
+      status: 'running',
+      pass: 'release years',
+      done: 120,
+      total: 900,
+    });
+    await app.set('serverState', {
+      status: 'pulling',
+      dataset: 'tracks',
+      done: 200,
+      total: 4980,
+    });
+    await href('Looking up release years', '#/settings/audio');
+    await href('Loading from server', '#/settings/server');
+    // A link opens its item.
+    await panel.getByRole('link', { name: /Looking up artists/ }).click();
+    await expect(app.page).toHaveURL(/#\/settings\/reach$/);
+    await expect(
+      main(app.page).getByRole('button', { name: 'Artist reach' })
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
 });
 
 // ------------------------------------------- F. Features (inventory §1)
@@ -821,6 +907,29 @@ test.describe('F. features', () => {
     );
   });
 
+  test("F04c Top: one caption says the ranking is Spotify's own (spec 030)", async ({
+    app,
+  }) => {
+    await app.open('#/top');
+    const caption = main(app.page).locator('.toolbar + p.caption');
+    await expect(caption).toHaveText(
+      "Spotify's own ranking for this period. Plays come from your history import."
+    );
+    await app.page.getByRole('tab', { name: 'Artists' }).click();
+    await expect(caption).toHaveText("Spotify's own ranking for this period.");
+    await app.page.getByRole('button', { name: 'Compare periods' }).click();
+    await expect(caption).toHaveText(
+      "Spotify's own ranking, period by period."
+    );
+    // No import and no top lists: nothing promises plays (a Tracks list
+    // without an import has no demo variant: format.test.ts covers it).
+    await app.open('#/top', 'empty');
+    await expect(main(app.page)).toBeVisible();
+    await expect(
+      main(app.page).getByText('Plays come from your history import.')
+    ).toHaveCount(0);
+  });
+
   test('F05 a playlist ranks by plays; Playlist order keeps its order', async ({
     app,
   }) => {
@@ -860,6 +969,28 @@ test.describe('F. features', () => {
     await expect(saved.getByRole('row')).toHaveCount(tracks[0] + 1);
   });
 
+  test('F06b one "Filter artists" text for Saved tracks and Under the radar (spec 030)', async ({
+    app,
+  }) => {
+    await app.open('#/artists');
+    const box = main(app.page).getByPlaceholder('Filter artists');
+    const names = async (label: string) => {
+      const grid = app.page.getByRole('grid', { name: label });
+      await grid.waitFor();
+      return column(grid, 'Name');
+    };
+    const filtered = (cells: string[]) =>
+      cells.length > 0 && cells.every((n) => n.toLowerCase().includes('an'));
+    await box.fill('an');
+    expect(filtered(await names('Artists by saved tracks'))).toBe(true);
+    await app.page.getByRole('tab', { name: 'Under the radar' }).click();
+    await expect(box).toHaveValue('an');
+    expect(filtered(await names('Under the radar'))).toBe(true);
+    await app.page.getByRole('tab', { name: 'Saved tracks' }).click();
+    await expect(box).toHaveValue('an');
+    expect(filtered(await names('Artists by saved tracks'))).toBe(true);
+  });
+
   test('F07 the Crate views list rows; the old-import gate holds on every view', async ({
     app,
   }) => {
@@ -881,7 +1012,14 @@ test.describe('F. features', () => {
         name: 'Your history needs importing again',
       })
     ).toBeVisible();
-    for (const view of ['rotation', 'gems', 'classics', 'year', 'finish']) {
+    for (const view of [
+      'rotation',
+      'gems',
+      'classics',
+      'year',
+      'finish',
+      'rarely-played',
+    ]) {
       await app.page.evaluate((h) => (location.hash = h), `#/crate/${view}`);
       await expect(
         app.page.getByRole('heading', {
@@ -909,6 +1047,216 @@ test.describe('F. features', () => {
     await expect(app.page.getByRole('grid').first()).toContainText(
       'Fixture Song'
     );
+  });
+
+  // ---- Spec 030: one Crate view screen with a view switch.
+
+  test('F07c the view switch: six views, the open one current; a pick, Back and the up arrow', async ({
+    app,
+  }) => {
+    await app.open('#/crate/rotation');
+    const nav = app.page.getByRole('navigation', { name: 'Crate views' });
+    await expect(nav.getByRole('link')).toHaveText([
+      'Heavy rotation',
+      'Forgotten gems',
+      'All-time classics',
+      'By year',
+      'Finish rate',
+      'Rarely played',
+    ]);
+    await expect(nav.locator('[aria-current="page"]')).toHaveText([
+      'Heavy rotation',
+    ]);
+    await nav.getByRole('link', { name: 'Forgotten gems' }).click();
+    await expect(app.page).toHaveURL(/#\/crate\/gems$/);
+    await expect(app.page.getByRole('heading', { level: 1 })).toHaveText(
+      'Forgotten gems'
+    );
+    await expect(nav.locator('[aria-current="page"]')).toHaveText([
+      'Forgotten gems',
+    ]);
+    await app.page.goBack();
+    await expect(app.page).toHaveURL(/#\/crate\/rotation$/);
+    await expect(app.page.getByRole('heading', { level: 1 })).toHaveText(
+      'Heavy rotation'
+    );
+    const up = app.page.getByRole('link', { name: 'Back', exact: true });
+    await expect(up).toHaveAttribute('href', '#/crate');
+    await up.click();
+    await expect(app.page).toHaveURL(/#\/crate$/);
+    await expect(main(app.page).getByRole('heading', { level: 2 })).toHaveText([
+      'Heavy rotation',
+      'Forgotten gems',
+      'All-time classics',
+      'By year',
+      'Finish rate',
+      'Rarely played',
+    ]);
+    await expect(nav).toHaveCount(0);
+  });
+
+  test('F07d the view picker on a phone: the open view, a pick opens it, no sideways scroll', async ({
+    app,
+  }) => {
+    await app.page.setViewportSize({ width: 390, height: 844 });
+    await app.open('#/crate/rotation');
+    const picker = app.page.getByRole('combobox', { name: 'Crate view' });
+    await expect(picker).toHaveValue('rotation');
+    await expect(picker.locator('option')).toHaveText([
+      'Heavy rotation',
+      'Forgotten gems',
+      'All-time classics',
+      'By year',
+      'Finish rate',
+      'Rarely played',
+    ]);
+    await expect(
+      app.page.getByRole('navigation', { name: 'Crate views' })
+    ).toHaveCount(0);
+    await picker.selectOption('year');
+    await expect(app.page).toHaveURL(/#\/crate\/year$/);
+    await expect(app.page.getByRole('heading', { level: 1 })).toHaveText(
+      'By year'
+    );
+    await expect(picker).toHaveValue('year');
+    expect(
+      await app.page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth + 1
+      ),
+      'the page scrolls sideways'
+    ).toBe(true);
+  });
+
+  test('F07e "Open <month>" in a Heavy rotation sheet lands on By year, that month pressed', async ({
+    app,
+  }) => {
+    await app.open('#/crate/rotation');
+    await app.page
+      .getByRole('grid')
+      .first()
+      .getByRole('row')
+      .nth(1)
+      .click({ position: { x: 120, y: 20 } });
+    const sheet = app.page.getByRole('complementary');
+    const link = sheet
+      .getByRole('link', { name: /^Open \w{3} \d{4} ›$/ })
+      .first();
+    await expect(link).toBeVisible();
+    const month = /^Open (\w{3} \d{4}) ›$/.exec(
+      ((await link.textContent()) ?? '').trim()
+    )?.[1];
+    const href = (await link.getAttribute('href')) ?? '';
+    expect(href).toMatch(/^#\/crate\/year\/\d{4}-\d{2}$/);
+    await link.click();
+    await expect(app.page).toHaveURL(new RegExp(`${href}$`));
+    await expect(app.page.getByRole('heading', { level: 1 })).toHaveText(
+      'By year'
+    );
+    await expect(
+      app.page.getByRole('button', { name: new RegExp(`^${month},`) })
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      app.page.getByRole('grid', { name: `By year, ${month}` })
+    ).toBeVisible();
+  });
+
+  test('F07f a view keeps its setting across a switch and back', async ({
+    app,
+  }) => {
+    await app.open('#/crate/rotation');
+    const nav = app.page.getByRole('navigation', { name: 'Crate views' });
+    await app.page.getByRole('tab', { name: '6 months' }).click();
+    await expect(
+      app.page.getByRole('grid', { name: 'Heavy rotation, last 6 months' })
+    ).toBeVisible();
+    await nav.getByRole('link', { name: 'Finish rate' }).click();
+    await expect(app.page.getByRole('heading', { level: 1 })).toHaveText(
+      'Finish rate'
+    );
+    await nav.getByRole('link', { name: 'Heavy rotation' }).click();
+    await expect(
+      app.page.getByRole('tab', { name: '6 months' })
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      app.page.getByRole('grid', { name: 'Heavy rotation, last 6 months' })
+    ).toBeVisible();
+  });
+
+  test('F07g each view keeps its own filter across a switch', async ({
+    app,
+  }) => {
+    await app.open('#/crate/rotation');
+    const nav = app.page.getByRole('navigation', { name: 'Crate views' });
+    const box = app.page.getByRole('searchbox', {
+      name: 'Filter by title or artist',
+    });
+    await box.fill('a');
+    await expect(
+      app.page.getByText(/^Showing [\d,]+ of [\d,]+$/)
+    ).toBeVisible();
+    await nav.getByRole('link', { name: 'Finish rate' }).click();
+    await expect(app.page.getByRole('heading', { level: 1 })).toHaveText(
+      'Finish rate'
+    );
+    await expect(box).toHaveValue('');
+    await expect(app.page.getByText(/^Showing [\d,]+ of [\d,]+$/)).toHaveCount(
+      0
+    );
+    await nav.getByRole('link', { name: 'Heavy rotation' }).click();
+    await expect(box).toHaveValue('a');
+    await expect(
+      app.page.getByText(/^Showing [\d,]+ of [\d,]+$/)
+    ).toBeVisible();
+  });
+
+  test('F07h a switch closes the details sheet', async ({ app }) => {
+    await app.open('#/crate/rotation');
+    await app.page
+      .getByRole('grid')
+      .first()
+      .getByRole('row')
+      .nth(1)
+      .click({ position: { x: 120, y: 20 } });
+    const sheet = app.page.getByRole('complementary');
+    await expect(sheet).toBeVisible();
+    await expect(app.page).toHaveURL(/#\/crate\/rotation\?d=/);
+    await app.page
+      .getByRole('navigation', { name: 'Crate views' })
+      .getByRole('link', { name: 'Forgotten gems' })
+      .click();
+    await expect(app.page).toHaveURL(/#\/crate\/gems$/);
+    await expect(app.page.getByRole('heading', { level: 1 })).toHaveText(
+      'Forgotten gems'
+    );
+    await expect(sheet).toHaveCount(0);
+  });
+
+  test('F07i the gate card stands alone, with no switch, and counts six views', async ({
+    app,
+  }) => {
+    for (const [variant, heading, text] of [
+      ['empty', 'Your crate is empty', 'These six views are built from'],
+      [
+        'old-import',
+        'Your history needs importing again',
+        "The Crate's views need data the old import didn't keep.",
+      ],
+    ] as const) {
+      await app.open('#/crate/gems', variant);
+      await expect(
+        app.page.getByRole('heading', { name: heading })
+      ).toBeVisible();
+      await expect(main(app.page)).toContainText(text);
+      await expect(
+        app.page.getByRole('navigation', { name: 'Crate views' })
+      ).toHaveCount(0);
+      await expect(
+        app.page.getByRole('combobox', { name: 'Crate view' })
+      ).toHaveCount(0);
+      await expect(main(app.page).getByRole('grid')).toHaveCount(0);
+    }
   });
 
   test('F08 BPM and key on every row; the key notation switches', async ({
@@ -1877,6 +2225,7 @@ test.describe('Y. release year', () => {
       '#/crate/classics',
       '#/crate/year',
       '#/crate/finish',
+      '#/crate/rarely-played',
       (ids: DemoIds) => `#/playlist/${enc(ids.bigPlaylist ?? '')}`,
       (ids: DemoIds) => `#/artist/${enc(ids.artist ?? '')}`,
     ]) {
@@ -2307,9 +2656,7 @@ test.describe('Y. release year', () => {
     expect(await inOrder('artist', 1)).toBe(false);
 
     // The candidate keeps "not heard" and its origin under its title.
-    const clue = grid
-      .getByRole('row')
-      .filter({ hasText: 'from a comment' });
+    const clue = grid.getByRole('row').filter({ hasText: 'from a comment' });
     await expect(clue).toHaveCount(1);
     await expect(clue.getByRole('gridcell').nth(2)).toContainText('not heard');
     await expect(clue.getByRole('gridcell').nth(2)).toContainText(
@@ -2328,9 +2675,7 @@ test.describe('Y. release year', () => {
   }) => {
     await app.open('#/mix');
     const mix = () =>
-      app.page
-        .getByRole('link', { name: /^Closing set at the Dock/ })
-        .first();
+      app.page.getByRole('link', { name: /^Closing set at the Dock/ }).first();
     await mix().click();
     const grid = await openGrid(app.page);
     const summary = app.page.getByText(/^\d+ tracks? · \d+ on Spotify/);
