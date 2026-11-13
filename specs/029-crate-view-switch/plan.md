@@ -42,7 +42,7 @@ Findings and choices: [research.md](research.md). What the owner sees: [contract
 | VI. Play counts only from the history export | Pass: the Crate gate (`crateStatus`) is untouched; the switch is drawn only when the gate passes. The Top caption states this rule to the owner. |
 | VII. Every failure is shown | Pass: every empty message and gate card stays. |
 | Tooling | Pass: no dependency, no blind bump, tests beside source, no DOM test. |
-| Workflow | Docs in the same commits as the code; `yarn shots` only if the owner asks. |
+| Workflow | Docs in the same commits as the code; `yarn shots` runs this round, on the owner's request. |
 
 Re-checked after the design: no violation, Complexity Tracking is empty.
 
@@ -73,7 +73,7 @@ Each step is one commit, compiling and green, with its docs.
    - new: from Heavy rotation's sheet, "Open <month>" lands on By year with that month pressed; a setting survives a switch and back; a filter set in one view is absent in the next and back again on return; a switch closes the sheet.
    - new: Top caption; Artists filter survives the switch both ways; a running job's link opens its item (demo variant with jobs).
    - edited: A06, F07, Y01 ("five Crate views" → six where Rarely played has the column; otherwise the row names the five).
-   - `tools/shots/pages.ts`: the Crate pages keep their ids; no new shots page unless the owner asks for the visual loop.
+   - `tools/shots/pages.ts`: the Crate pages keep their ids; one page added for Rarely played, so the six views are all shot with the switch.
 
 7. **Docs, with each step, then one sweep (FR-020).**
    - `specs/003-web-first-redesign/contracts/screens.md` §1 (Activity links), §4 (Top caption), §6 (view switch), §9 (one filter); `components.md` (the view switch); `routes.md` (a line: addresses unchanged, the switch links to them).
@@ -81,7 +81,7 @@ Each step is one commit, compiling and green, with its docs.
    - `README.md` (owner's manual: moving between Crate views), `CHANGELOG.md`, `docs/README.md` if a page is added.
    - Final sweep: a file-to-doc map in the report, and the review checks the docs against the code.
 
-8. **Checks.** After every step `yarn typecheck && yarn lint && yarn test`, read by exit code. Before the PR: `yarn regression` and `yarn invariants`. A separate reviewer reads the diff against the spec, the design guide and `contracts/screens.md`. `yarn shots` only on the owner's request.
+8. **Checks.** After every step `yarn typecheck && yarn lint && yarn test`, read by exit code. Before the PR: `yarn regression` and `yarn invariants`. A separate reviewer reads the diff against the spec, the design guide and `contracts/screens.md`. The visual loop runs this round (owner 2026-11-13: "you can use the package to take screenshot and make sure the design is still ok And without bugs"): `yarn shots` on the pages touched (Crate hub and views, Top, Artists, Settings), `yarn shots:summary` with 0 findings on them, `yarn shots:sheet`, and the screenshots read at the four widths; findings fixed before the PR.
 
 9. **PR (owner 2026-11-13).** After the public-safe check of Contributing, push `task/dev-session-2` and open one PR to `main`; the text is shown in the final report.
 
@@ -122,7 +122,6 @@ tools/shots/regression.spec.ts     new and edited rows
 ## Noticed, not done
 
 - The six view files repeat about 150 to 250 lines of the same scaffolding (toolbar, caption, empty, table, sheet). Factoring it is possible but touches every caption and empty message that FR-005 keeps word for word; it is left out of this round.
-- Rarely played has no shots page (`tools/shots/pages.ts`).
 - `CLAUDE.md` line 4 says "their playlists ranked by play count"; the Playlists list is sorted by name and the ranking is inside a playlist.
 
 ## Complexity Tracking

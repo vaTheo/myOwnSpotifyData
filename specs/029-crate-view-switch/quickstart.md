@@ -28,4 +28,6 @@ yarn regression     # the rows named in plan.md step 6
 yarn invariants     # the branch against main: rankings and Crate outputs identical
 ```
 
-`yarn shots` only when the owner asks.
+```sh
+yarn shots && yarn shots:summary && yarn shots:sheet    # asked by the owner for this round: 0 findings on the pages touched
+```

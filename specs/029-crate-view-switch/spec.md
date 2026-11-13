@@ -188,7 +188,7 @@ The owner taps a running job in the Activity button. Settings opens on the item 
 - **SC-002**: The Crate offers two screens to learn (the hub and the view screen) instead of seven pages.
 - **SC-003**: 100 % of the existing Crate addresses and in-app links open the same view and period as before.
 - **SC-004**: For each of the six views on the demo data, the rows and their order are identical before and after the change.
-- **SC-005**: At 390 px, on each of the six views, no control is cut and the page never scrolls sideways; the visual check reports 0 findings on the Crate pages when the owner asks for it.
+- **SC-005**: At 390 px, on each of the six views, no control is cut and the page never scrolls sideways; the visual check reports 0 findings on the pages touched.
 - **SC-006**: Text typed in "Filter artists" survives 100 % of the switches between the two Artists views.
 - **SC-007**: Each of the six job kinds Settings shows opens its own item from the Activity button.
 - **SC-008**: The app's own checks pass (types, lint, tests, the regression rows of the Crate, Top, Artists and Activity).
@@ -200,6 +200,6 @@ The owner taps a running job in the Activity button. Settings opens on the item 
 - The Top caption wording above is a proposal; the owner can reword it at review.
 - The Activity mapping follows where Settings shows each job today: Rekordbox and release years live in the Audio data item.
 - The sort and filter of a view stay per view because their columns differ (a "Plays in window" sort has no meaning in Finish rate).
-- The visual loop (`yarn shots`) runs only when the owner asks; the regression rows and shots pages of the Crate are updated with the change.
+- The visual loop (`yarn shots`) runs for this round (owner 2026-11-13: "you can use the package to take screenshot and make sure the design is still ok And without bugs"); the regression rows and shots pages of the Crate are updated with the change.
 - Out of scope, reviewed and rejected or not picked by the owner: removing the hub; folding Top into the Crate; moving Rarely played to Playlists; folding Import into Settings; merging Under the radar into Saved tracks; dropping Compare periods; turning Playlist order into a sort; changing the Settings state words; hiding Save mix (it would lose changes that are not saved automatically); any Mix change.
 - Depends on: spec 003 (web-first redesign: FR-002a, FR-004, FR-036, FR-049, FR-052), spec 007 (Rarely played), spec 026 (Settings items and their addresses), ADR-07 (play counts and the Crate gate), ADR-11.
