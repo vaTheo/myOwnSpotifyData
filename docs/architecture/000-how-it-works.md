@@ -109,7 +109,7 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 - Optional fields added with **no** version bump read back `undefined` on old rows: `MixRow.playlistUrl?`/`playlistId?`,
   `PlayRow.months`/`attempts`/`finished`/`skipped`, `TracklistRow.confidence?`/`isrc?`/`shazamUrl?`; round 005's years:
   `TrackRow.albumYear?`, `TopTrackItem.albumYear?`, `FeatureRow.releaseYear?` (`{year | null, checkedAt}`), `FeatureValue.rid?`,
-  `TracklistRow.year?`/`yearFrom?`; round 012's `TracklistRow.spotifyBy?`.
+  `TracklistRow.year?`/`yearFrom?`; round 012's `TracklistRow.spotifyBy?`; spec 029's `TracklistRow.evidence?`/`mixSpeed?`/`candidates?`.
 - One connection per tab, and it hands over: `openDb` closes its connection when a newer version opens in another tab (`blocking`) and
   reports a blocked upgrade (`blocked`) through `setDbEvents`; `state.ts` turns both into banners. Without this a version bump hangs on
   "Loading your library…" while an old tab lives. A database that has not opened after eight seconds says so.
@@ -251,7 +251,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   word, kept as it came), `mix_speed_percent` (stored as `mixSpeed`) and `candidates`; `trackExtras` spreads
   `evidenceExtras` (`evidence.ts`) on those two kinds only, never on a `clue` or `trackid` row, and drops a value out of its
   bounds (a word of 1 to 32 characters, a finite number from −50 to 50, a whole number from 1 to 1000), keeping the row. A row
-  without them is stored exactly as before; the hand import ignores them. The Mix screen shows "second listen · ±4 %", "from a comment · not heard" with the clue's
+  without them is stored exactly as before; the hand import ignores them. The Mix screen shows "second listen · −9 %" (the re-cut speed; "second listen" alone when the row has `mixSpeed`, spec 029), "from a comment · not heard" with the clue's
   text, a folded "N clues around here" on a gap row and a folded set-wide tracklist; clue text is always rendered as text.
   Round 021 (`specs/021-mix-hide-commenter-names/`): the screen never shows a commenter's name. `originText` reads "from a
   comment" and `clueLine` (`ui/mix/rowText.ts`) writes a comment as "mm:ss · text"; a chapter or description line keeps its
@@ -826,7 +826,7 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   hits within the gap), `write_result` (the JSON, saved before it is sent). `pipeline.py`: `run_one` (validate → download → scan →
   write → send → clean, every path logged and the folder removed) and `log.py` (one line per step; tracebacks to the file only).
 - Round 003 (`specs/003-fill-scan-gaps/`): `scan.scan` runs a **second pass** (`gap_positions`: 7 s after the misses, one
-  place every 30 s, heard at ×1, ×0.96, ×1.04 through `cut_probe(speed=…)`'s `asetrate`), marks its hits `origin: "replay"`,
+  place every 30 s, heard at ×1, ×0.96, ×1.04 through `cut_probe(speed=…)`'s `asetrate`; `WORKER_SECOND_PASS_SPEEDS`, ×0.91, ×1.09, then ×1 by default since worker 0.5.3), marks its hits `origin: "replay"`,
   keeps them when refused, and reports the still-empty `gaps`; `run_scan` returns `ScanOutput`. `clues.py` reads the
   description, chapters and comments (`read`: one yt-dlp call without download, in a thread, 90 s at most), parses them
   (`split_tracklist` tries every separator and item start, keeps the cleanest split), places them on gaps (`attach`) and
@@ -849,8 +849,21 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
 - The sandwich round (worker 0.7.2, `specs/019-worker-drop-sandwiched-hits/`): after both passes, just before `merge`, `scan.drop_sandwiched(hits, gap)` drops every Shazam hit whose time lies strictly between two neighbouring hits of another song at most `WORKER_MERGE_GAP_SECONDS` apart (the key of `merge`: Shazam id, else artist and title); all pairs are judged on the raw hits, so A, B, A, B within the gap keeps the first A and the last B, and the earliest hit always stays. `report["sandwiched"]` holds the count and the log says `scan · N findings between two hits of the same song dropped` when N > 0; `hits_out`, the run state (`remember`, one answer per probe) and `report["gaps"]` keep the raw hits, so a dropped hit's stretch is still known. TrackId.net span rows, clue rows and gaps are built elsewhere and never filtered by it; `merge` and `inside_known` are unchanged; the F15 shape gains no field.
 - The auto-resume round (worker 0.7.3, `specs/023-worker-auto-resume/`): once a request is sent `done` with "Stopped early … (rate limited)" (`Outcome.stopped == "rate limited"`), `cli.run_queue` plans in memory (`autoresume.AutoResume`, keyed by link) one automatic Ask again `WORKER_AUTO_RESUME_MINUTES` (30) later. At the top of the loop, after the session refresh and before the claim, each due link gets `ServerClient.enqueue`: the app's `requestIdentify` (open-request check, then the insert of `{kind: 'identify-mix', payload: {url}}` under the owner's session), one try, a failure one log line; the claim that follows resumes the saved run (`runstate`) and the app's pull merges the result like any Ask again (no app change). At most `WORKER_AUTO_RESUMES` (6) inserts per link; a complete run of the link resets the count, a manual Ask again does not, and any run of the link replaces what was planned. Only a rate-limit stop (not Stop, not "no answer", not a failure); never in shared mode (ADR-16: `SharedServerClient.enqueue` sends nothing), with `--once`, or with `WORKER_RESUME_DAYS=0` (no run state: each ask would rescan from the start); `WORKER_AUTO_RESUME_MINUTES=0` is 0.7.2's behaviour. A restart loses the plan: the owner presses Ask again. Log lines: `auto ask again · <link> in 30 min (n/6)`, `auto ask again · queued <link> (n/6)`, `… is already asked`, `… not queued (<kind>: <message>); press Ask again in the app`, `… 6 of 6 done for this set …`, `… off (shared mode|run --once|WORKER_RESUME_DAYS is 0: …) …`.
 - The share-link round (worker 0.7.4, `specs/028-worker-short-links/`): `links.py` (no I/O of its own, never raises) gives the **working address** of a request, and `pipeline.run_one` asks it once (`Deps.address`, default `None` = the link as it arrives), under the `download` step and before the download. A SoundCloud set address is trimmed by `trim_soundcloud`, the port of the app's `normalizeMixUrl` (§10), both pinned by `src/features/mix/url.cases.json`. A phone share link (`on.soundcloud.com/<token>`, which the app now records as a request link) is followed by `resolve_short_link`: at most 3 requests, to the short host only, through `cli.http_location` (one GET, no redirect followed, the body not read, 10 s); a `Location` is accepted only as `https`, without user info, on the default port, on `soundcloud.com`, `www.`, `m.` or the short host; the set's page itself is never asked. Any other link is used as it arrives. The download, TrackId.net, the clues, the saved run (`runs/<sha1(address)>.json`) and `mix_info.source_url` use the working address, and the log says `link · <address>` when it differs from the request's link. The request keeps its link: finish by id, the `claimed` line, the automatic Ask again and its open-request check. A link that gives no address fails the request before any download with one of three reasons (`NOT_FOUND` for 400/404/410, `NO_ANSWER` for another error status or a network error, `NOT_A_SET` for another site, a page, a profile or more than 3 requests) and one log line `link · <detail>` that never carries a path or a query.
+- The evidence round (worker 0.7.5, `specs/029-worker-scan-evidence/`): `evidence.heard_of` keeps, on every Shazam hit (first pass,
+  second pass, TrackId.net confirm), the first match's `offset`, `timeskew`, `frequencyskew`, the number of `matches` and the speed
+  the probe was cut at, as `heard` on the entry (in the run state, so a resumed run has it; `merge_with_hits` leaves it out of the
+  row). After both passes and `drop_sandwiched`, `evidence.levels` gives each row whose first hit has `heard` three fields, the
+  first level that fits: `solid` (one of its hits in step with another hit of the same key: windows sharing no audio, at most 60 s
+  apart, the position advanced by the gap × the mix speed within 0.5 s), `candidates` (the first hit's answer lists 10 entries or
+  more), `out_of_step` (two hits or more), `once`; `mix_speed_percent` is (1 + `timeskew`) ÷ the cut speed, as a percent with one
+  decimal, the middle value over the hits in step, else the first hit's; `candidates` is the first hit's count. The constants
+  are fixed; no row is added, removed, merged or reordered. A hit's log line adds `at M:SS in the track` and the mix speed, and
+  `evidence · N solid · …` (levels with no row left out) follows the second-pass summary, also without a second pass.
+  `cut_probe` passes its WAV to `pad_wav`, which fills a probe holding less than 12 s with silence to 12 s (Shazam's window, not
+  `WORKER_PROBE_SECONDS`); data under `MIN_PROBE_BYTES` or an unreadable WAV is returned as it is, so a probe with no audio still
+  ends a scan of unknown length. The TrackId.net confirm's retries at the second-pass speeds: the round 016 bullet above.
 - The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
-- How accurate a scan is and why, measured on four mixes, with the options not built yet:
+- How accurate a scan is and why, measured on four mixes, with the options built (spec 029) and not built:
   [Shazam on DJ mixes](../research/2026-11-13-shazam-mix-accuracy.md).
 
 ## Links

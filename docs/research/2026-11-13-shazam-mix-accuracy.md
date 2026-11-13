@@ -295,6 +295,9 @@ Applied after "Solid" and before the other levels:
 
 The pick is the owner's; this note only records the measurement.
 
+Built (2026-11-13): items 1 and 4, without the "inside another track" label (§6.3), as
+[spec 029](../../specs/029-worker-scan-evidence/spec.md) (worker 0.7.5).
+
 ## 7. Second web round (2026-11-13)
 
 Aimed only at what the measurements raised. Three research agents opened the sources; their notes, with the quotes and the

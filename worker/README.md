@@ -126,7 +126,8 @@ during the second pass, comments that cannot be read, or a catalogue that does n
 
 Each heard line also says **where in the track** Shazam heard the clip (`at 1:32 in the track`) and **the speed the mix plays it
 at** (`−7.7 %` slower, `+3.4 %` faster, `0.0 %`), worked out from Shazam's own answer and the speed the clip was cut at. From the
-same answers, each heard row gets one level, said in a line `evidence · …` after the second pass (a level with no row is left out):
+same answers, each heard row gets one level, the first that fits in this order, counted in a line `evidence · …` after the
+second pass (after the first when there is no second pass; a level with no row is left out):
 **solid**, heard twice on clips sharing no audio, with the position in the track advancing in step with the mix; **many
 candidates**, Shazam's answer listed 10 entries or more; **out of step**, heard several times but never in step; **heard once**.
 A level never removes a row: it tells you how far to trust it. A row heard before this version (a resumed run) has no level.

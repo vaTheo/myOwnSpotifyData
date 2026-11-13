@@ -466,8 +466,10 @@ While a set is analysed, its row in the Mixes list shows where it is ("First pas
 25 min left", "Paused by Shazam until 20:35"); a waiting request has **Move to
 top** and **Cancel**, a running one **Stop** (it keeps the tracks found, and Ask
 again continues it later). Each heard track shows how many 12-second clips
-matched it and its best score ("heard 3× · best 91 %"); sort by them, or show
-only the tracks heard once to judge them. One thing is removed for you (worker
+matched it and, since worker 0.7.5, how far to trust it and the speed it plays
+at ("Solid ×3 · −5.8 %"; an older result shows the best score, "heard 3× · best
+91 %"); sort by them, or show only the tracks heard once, Solid or Flagged to
+judge them. One thing is removed for you (worker
 0.7.2): a different song heard between two clips of one song at most 3 minutes
 apart (A, X, A) is a false match inside that song, so the worker drops it and
 the log counts it (`WORKER_MERGE_GAP_SECONDS` sets the 3 minutes). Run the
@@ -509,7 +511,8 @@ returned to a local address the project already allows. Requests wait while
 the computer is off;
 the audio never leaves your computer; the worker never talks to Spotify.
 Since worker 0.7.0 (`WORKER_TRACKID`, on by default) it first asks TrackId.net about the exact mix link: for a mix TrackId.net knows it
-makes one confirming Shazam probe per span and none other inside it, and each span is a row "from TrackId.net" with a Shazam check;
+makes one confirming Shazam probe per span (since 0.7.5, asked again at the second-pass speeds when it does not name the span's
+track) and none other inside it, and each span is a row "from TrackId.net" with a Shazam check;
 update the app (hard-reload) before using it.
 By default the worker serves one account, the one that signed it in (yours): a
 friend's **Identify on my computer** is recorded on the server but not taken,

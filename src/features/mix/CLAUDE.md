@@ -12,6 +12,7 @@ import), library matching, Create playlist from mix, and dig links.
 | Spec | `../../../docs/specs/2026-09-06-mix-tracklist-design.md`, `../../../docs/specs/2026-09-06-mix-playlist-design.md`, `../../../docs/specs/2026-09-28-tracklistify-import-design.md` | the rulings and the out-of-scope lists |
 | Tests | `spotifySearch.test.ts` | every accepted and refused match; add a case for each new rule |
 | Contract | `../../../specs/002-mix-analysis-worker/contracts/client-api.md` | the identify request, `worker.ts` (merge rule, result rows, request wording) |
+| Contract | `../../../specs/029-worker-scan-evidence/contracts/app.md`, `result-shape.md` beside it | `evidence.ts`: the three row fields and their bounds, the level texts, the sort, the Solid and Flagged chips |
 | Spec | `../../../specs/003-web-first-redesign/spec.md` (clarifications), `../../../specs/003-web-first-redesign/contracts/screens.md` §12 | the review (Check on Spotify, Remove), the owner's D1 and D6 rulings, the Mixes list and queue; `../../../specs/010-mix-table-simplify/spec.md` removed Validate (every track kept) |
 | Reference | `../../../docs/architecture/000-how-it-works.md` §4, §10, §14 | the shared quota lock-out, one Spotify reader at a time, the review files |
 
@@ -30,6 +31,8 @@ import), library matching, Create playlist from mix, and dig links.
   summed, best `confidence`); it runs on the incoming rows only, never on rows already in a mix, and never inside
   `parseTracklistifyJson` (the worker's extras line up with its rows by index). A heard copy outranks a not-heard one (`origin`
   `clue` or `trackid`): never a clip count on a not-heard row.
+- Spec 029 (`evidence.ts`, pure): `evidence`, `mixSpeed`, `candidates` are read only on a first-pass or `replay` row, a value out of
+  bounds dropped and the row kept; an unknown level word is kept and reads as no level; a level labels, sorts and feeds the Solid and Flagged chips, never removes a row.
 - Library matches are computed at render time, never stored.
 - The mix and create jobs are not in `jobsBusy()` and never call `loadFromDb()`; failures show inline on the Mix screen, never as a banner.
 - The app never fetches or analyses mix audio; the worker on the owner's computer does (ADR-08, `specs/002-mix-analysis-worker/`).

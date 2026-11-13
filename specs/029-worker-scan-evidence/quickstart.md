@@ -21,7 +21,7 @@ Each judged by its exit code. Before the merge: `yarn regression` and `yarn inva
 
 On the demo (`yarn dev`, then `http://127.0.0.1:5173/myOwnSpotifyData/?demo`, the Sunrise mix):
 
-1. The column reads **Evidence**; rows read "Solid ×5 · −5.8 %", "Heard once · +1.2 %", "Out of step ×2", "Many candidates";
+1. The column reads **Evidence**; rows read "Solid ×5 · −5.8 %", "Heard once · +1.2 %", "Out of step ×2 · …", "Many candidates · …" (every demo row carries a speed);
    the tooltip says it in words.
 2. Sort by Evidence: Solid rows first, then Heard once, Out of step, Many candidates.
 3. The chips **Solid (n)** and **Flagged (n)** show beside **Heard once (n)**; each hides the other rows, deletes nothing.
