@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from . import evidence
 from .match import artist_matches, title_matches
 from .trackid import check_of
 
@@ -202,24 +203,34 @@ def _key(entry: dict[str, Any]) -> str:
     return "name:" + entry["artist"].strip().lower() + "|" + entry["song_name"].strip().lower()
 
 
-def merge(hits: list[Hit], gap: int) -> list[dict[str, Any]]:
+def merge_with_hits(hits: list[Hit], gap: int) -> list[tuple[dict[str, Any], list[Hit]]]:
     """One row per run of hits of the same track (D5): a hit of the same key
     within `gap` seconds of the row's last hit extends it (best confidence
-    kept, start time kept, `hits` counted); anything else opens a new row."""
-    rows: list[dict[str, Any]] = []
+    kept, start time kept, `hits` counted); anything else opens a new row.
+    Each row comes with the hits it was made of, in time order; a row never
+    holds a hit's evidence (`heard`, spec 029)."""
+    out: list[tuple[dict[str, Any], list[Hit]]] = []
     current_key: str | None = None
     last_time = 0
     for hit in sorted(hits, key=lambda h: h.time):
         key = _key(hit.entry)
-        if rows and key == current_key and hit.time - last_time <= gap:
-            rows[-1]["confidence"] = max(rows[-1]["confidence"], hit.entry["confidence"])
-            rows[-1]["hits"] += 1  # clips that matched this row (owner, round 004)
+        if out and key == current_key and hit.time - last_time <= gap:
+            row, made_of = out[-1]
+            row["confidence"] = max(row["confidence"], hit.entry["confidence"])
+            row["hits"] += 1  # clips that matched this row (owner, round 004)
+            made_of.append(hit)
         else:
-            rows.append(dict(hit.entry))
-            rows[-1]["hits"] = 1
+            row = {k: v for k, v in hit.entry.items() if k != "heard"}
+            row["hits"] = 1
+            out.append((row, [hit]))
             current_key = key
         last_time = hit.time
-    return rows
+    return out
+
+
+def merge(hits: list[Hit], gap: int) -> list[dict[str, Any]]:
+    """The rows of `merge_with_hits`, without their hits."""
+    return [row for row, _ in merge_with_hits(hits, gap)]
 
 
 def drop_sandwiched(hits: list[Hit], gap: int) -> tuple[list[Hit], int]:
@@ -641,6 +652,9 @@ async def scan(
             if response is not None:
                 where = answered(where)
             entry = track_entry(response, hhmmss(t)) if response is not None else None
+            heard = evidence.heard_of(response, 1.0) if entry is not None else None
+            if entry is not None and heard is not None:
+                entry["heard"] = heard  # spec 029: what Shazam said of the hit, kept in the run state too
             covered = bool(span_list) and absorb(t, entry, response is not None)
             if covered:
                 if entry is not None:
@@ -717,6 +731,9 @@ async def scan(
                     if response is not None:
                         where = answered(where)
                     entry = track_entry(response, hhmmss(p)) if response is not None else None
+                    heard = evidence.heard_of(response, speed) if entry is not None else None
+                    if entry is not None and heard is not None:
+                        entry["heard"] = heard  # spec 029: at the speed the probe was re-cut at
                     if entry is not None and span_list and absorb(p, entry, True):
                         say(f"  {where} · inside a TrackId.net span · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
                     elif entry is not None:
@@ -771,7 +788,14 @@ async def scan(
         report["resumed"] = {"probes_kept": kept, "from": hhmmss(max(first_done))} if kept else None
         report["guided"] = {"spans": len(guide_list), "skipped_probes": skipped_probes} if guide_list else None
         report["span_checks"] = {i: check_of(sp, absorbed.get(i, []), i in probed) for i, sp in enumerate(span_list)}
-    return merge(filtered, gap)
+    # Spec 029: each row gets its level from its hits and the other hits of its track; nothing else changes.
+    made = merge_with_hits(filtered, gap)
+    graded = evidence.levels(
+        [(_key(hits_of[0].entry), [(h.time, h.entry.get("heard")) for h in hits_of]) for _, hits_of in made], probe_seconds
+    )
+    for (row, _), fields in zip(made, graded):
+        row.update(fields)
+    return [row for row, _ in made]
 
 
 def write_result(

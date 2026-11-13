@@ -19,6 +19,7 @@ from mix_worker.scan import (
     confidence_of,
     hhmmss,
     merge,
+    merge_with_hits,
     probe_times,
     second_pass_order,
     scan,
@@ -1142,3 +1143,130 @@ class Round004Scan(unittest.TestCase):
         self.assertEqual(report["resumed"], {"probes_kept": 2, "from": "00:00:15"})
         self.assertEqual(remembered, [("first", "30"), ("first", "45")])
         self.assertEqual(rows[0]["hits"], 3)
+
+
+def answer(key, offset, timeskew=0.0, frequencyskew=0.0, entries=1, title=None, isrc=None):
+    """An invented Shazam answer: `entries` matches, the first with this position and these skews."""
+    first = {"id": f"m{key}", "timeskew": timeskew, "frequencyskew": frequencyskew}
+    if offset is not None:
+        first["offset"] = offset
+    track = {"key": key, "title": title or f"Tune {key}", "subtitle": "Invented Artist"}
+    if isrc:
+        track["isrc"] = isrc
+    return {"matches": [first] + [{"id": f"m{key}-{i}"} for i in range(1, entries)], "track": track}
+
+
+class Evidence(unittest.TestCase):
+    """Spec 029, User Story 1: the scan keeps what Shazam says of a hit and grades its rows."""
+
+    LEVEL_FIELDS = ("evidence", "mix_speed_percent", "candidates")
+
+    def go(self, duration, by_probe, step=15, second=False, speeds=(1.09,), plain=False):
+        """A scan whose fake `recognise` answers per probe: `by_probe[(t, speed)]`, else no match."""
+        calls = []
+
+        def strip(r):  # the same answer without a position: the scan of today
+            return {**r, "matches": [{k: v for k, v in m.items() if k != "offset"} for m in r["matches"]]}
+
+        async def recognise(data, skew):
+            t, speed = data.rstrip().decode().split("@")
+            calls.append((int(t), float(speed)))
+            r = by_probe.get((int(t), float(speed)), NO_MATCH)
+            return strip(r) if plain and r is not NO_MATCH else r
+
+        async def sleep(s):
+            pass
+
+        def probe(t, speed):
+            return f"{t}@{speed:g}".encode().ljust(5000)
+
+        extra = dict(cut_at=probe, gap_step=30, gap_offset=7, speeds=speeds) if second else {}
+        rows = run(scan(duration, step=step, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise,
+                        cut=lambda t: probe(t, 1.0), sleep=sleep, classify=classify, clock=lambda: 0.0, probe_seconds=12, **extra))
+        return rows, calls
+
+    def levels(self, rows):
+        return [(r["song_name"], r.get("evidence")) for r in rows]
+
+    # The second-pass case: four first-pass misses (0, 30, 60, 90), places 7, 37, 67, 97 at ×1 then ×1.09;
+    # the track plays 6 % slow, so a ×1.09 re-cut has timeskew 0.94 × 1.09 − 1.
+    SLOW = {(67, 1.09): answer("S", 40.0, timeskew=0.94 * 1.09 - 1), (97, 1.09): answer("S", 68.2, timeskew=0.94 * 1.09 - 1)}
+
+    def test_1_solid_on_the_first_pass(self):
+        rows, _ = self.go(45, {(15, 1.0): answer("A", 60.0), (30, 1.0): answer("A", 75.0)})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0]["evidence"], rows[0]["mix_speed_percent"], rows[0]["candidates"], rows[0]["hits"]), ("solid", 0.0, 1, 2))
+
+    def test_2_solid_on_second_pass_hits_at_the_speed_in_the_mix(self):
+        rows, calls = self.go(120, self.SLOW, step=30, second=True)
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual((row["evidence"], row["mix_speed_percent"], row["origin"], row["speed_percent"], row["hits"]), ("solid", -6.0, "replay", 9, 2))
+        self.assertEqual(len(calls), 4 + 4 + 4)  # every probe asked once, as before
+
+    def test_3_out_of_step(self):
+        rows, _ = self.go(60, {(0, 1.0): answer("A", 30.0), (30, 1.0): answer("A", 30.4)}, step=30)
+        self.assertEqual(self.levels(rows), [("Tune A", "out_of_step")])
+
+    def test_5_many_candidates(self):
+        rows, _ = self.go(30, {(0, 1.0): answer("A", 50.0, entries=12)})
+        self.assertEqual((rows[0]["evidence"], rows[0]["candidates"]), ("candidates", 12))
+
+    def test_6_heard_once(self):
+        rows, _ = self.go(30, {(0, 1.0): answer("A", 50.0)})
+        self.assertEqual((rows[0]["evidence"], rows[0]["candidates"]), ("once", 1))
+
+    def test_a_first_hit_without_a_position_gives_a_row_without_the_three_fields(self):
+        rows, _ = self.go(45, {(15, 1.0): answer("A", None), (30, 1.0): answer("A", 75.0)})
+        self.assertEqual(len(rows), 1)
+        for name in self.LEVEL_FIELDS:
+            self.assertNotIn(name, rows[0])
+
+    def test_rows_hits_confidence_origin_and_speed_are_those_of_today_and_no_row_holds_heard(self):
+        by_probe = {
+            **self.SLOW,
+            (0, 1.0): answer("A", 60.0, timeskew=0.002, frequencyskew=-0.004),
+            (30, 1.0): answer("A", 90.0, timeskew=-0.001),
+            (150, 1.0): answer("B", 10.0, entries=12),
+            (180, 1.0): answer("C", 5.0),
+            (210, 1.0): answer("C", 5.2),
+        }
+        # A at 0 and 30, misses at 60, 90, 120 (second pass: S at 67 and 97 at ×1.09), B at 150, C at 180 and 210.
+        rows, calls = self.go(240, by_probe, step=30, second=True)
+        today, today_calls = self.go(240, by_probe, step=30, second=True, plain=True)
+        self.assertEqual(calls, today_calls)  # the same Shazam calls (SC-001)
+        for row in today:
+            for name in (*self.LEVEL_FIELDS, "heard"):
+                self.assertNotIn(name, row)
+        self.assertEqual([{k: v for k, v in r.items() if k not in self.LEVEL_FIELDS} for r in rows], today)
+        self.assertEqual(self.levels(rows), [("Tune A", "solid"), ("Tune S", "solid"), ("Tune B", "candidates"), ("Tune C", "out_of_step")])
+        for row in rows:
+            self.assertNotIn("heard", row)
+
+    def test_merge_of_hits_holding_heard_returns_rows_without_it(self):
+        heard = {"offset": 1.0, "timeskew": 0.0, "frequencyskew": 0.0, "matches": 1, "speed": 1.0}
+        a, b = hit(0, "A"), hit(60, "A")
+        a.entry["heard"], b.entry["heard"] = dict(heard), dict(heard)
+        rows = merge([a, b], gap=180)
+        self.assertEqual(len(rows), 1)
+        self.assertNotIn("heard", rows[0])
+        self.assertIn("heard", a.entry)  # the hit keeps its evidence
+
+    def test_merge_with_hits_gives_each_row_its_hits_in_time_order(self):
+        hits = [hit(120, "B"), hit(0, "A"), hit(60, "A"), hit(300, "A")]
+        out = merge_with_hits(hits, gap=180)
+        self.assertEqual([row for row, _ in out], merge(hits, gap=180))
+        self.assertEqual([[h.time for h in hs] for _, hs in out], [[0, 60], [120], [300]])
+
+    def test_one_full_row_pinned(self):
+        skew = 0.923 * 1.09 - 1  # the track plays 7.7 % slow, heard on a ×1.09 re-cut
+        first = answer("P", 40.0, timeskew=skew, title="Track", isrc="XX0000000000")
+        later = answer("P", 40.0 + 30 * 0.923, timeskew=skew, title="Track", isrc="XX0000000000")
+        rows, _ = self.go(120, {(67, 1.09): first, (97, 1.09): later}, step=30, second=True)
+        self.assertEqual(rows, [{
+            "song_name": "Track", "artist": "Invented Artist", "time_in_mix": "00:01:07",
+            "confidence": confidence_of(first["matches"][0]), "duration": None,
+            "metadata": {"isrc": "XX0000000000", "shazam_id": "P"},
+            "origin": "replay", "speed_percent": 9, "hits": 2,
+            "evidence": "solid", "mix_speed_percent": -7.7, "candidates": 1,
+        }])
