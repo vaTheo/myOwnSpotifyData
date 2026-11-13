@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-10
+> **Last updated**: 2026-11-13
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -387,7 +387,9 @@ screen, grouped by role under `src/ui/`.
   `render` before `completeLogin` and `loadFromDb`, and drives `bootPhase` (`'signin' | 'loading' | 'ready' | 'linking' |
   'signedout'`, in `app.tsx`).
   `src/ui/ActivityButton.tsx` reads `activeJobs` (`ui/jobs.ts`, over the job signals of §14, read only, Check on Spotify included)
-  and links to the place that owns each job (a Mix job to its own mix); it never starts, stops or retries one, and its panel closes
+  and links to the place that owns each job (a Mix job to its own mix; since spec 030 a Settings job to its item through
+  `settingsItem`: sync to `#/settings/sync`, BPM and key, release years and Rekordbox to `#/settings/audio`, artists to
+  `#/settings/reach`, the server to `#/settings/server`); it never starts, stops or retries one, and its panel closes
   with the last job. `ScreenTabs` are navigation links (`nav` named Listening or Library, the current one `aria-current="page"`).
   A `StatusLine` is a live region (an error `alert`, the rest `status`). Banners sit under the top bar.
 - **Destinations and addresses** (`src/router.ts`): Overview (`#/`, also an empty or unknown address), Listening (`#/top`,
@@ -443,11 +445,17 @@ screen, grouped by role under `src/ui/`.
   spacer of its width), the `a.ov-item` link, then the Listen `RowMenu` (its items built when it opens), siblings so no
   button sits in the link; on a card under 400 px the link wraps to two lines, bars or pills and value under the title,
   nothing hidden),
-  `Top.tsx` with `top/ComparePeriods.tsx` (the three periods side by side on large windows), `crate/` (`CrateHub` cards,
-  `CrateView` dispatching to the five view tables, `shared.tsx`, `labels.ts`, `selections.ts`; gated on
-  `historySummary.version === 2`, never on rows), `Playlists.tsx`, `Playlist.tsx` (one strip above the table: meta, Sync and
+  `Top.tsx` with `top/ComparePeriods.tsx` (the three periods side by side on large windows; one caption under the toolbar,
+  `topCaption` in `ui/format.ts`, says the ranking is Spotify's own, and on Tracks with an import that plays come from it),
+  `crate/` (`CrateHub` cards,
+  `CrateView` dispatching to the six view tables, `shared.tsx`, `labels.ts`, `selections.ts`; gated on
+  `historySummary.version === 2`, never on rows; since spec 030 `CrateView` draws `ViewSwitch.tsx` above the open view only when
+  `crateStatus` is `ready`: six links from `viewSwitchItems` (`labels.ts`, the hub's order, each view's own address without a
+  period or `?d=`, the open one `aria-current="page"`) on medium and wider, one native select on compact; a view's setting
+  survives a switch, its sort and filter stay per view), `Playlists.tsx`, `Playlist.tsx` (one strip above the table: meta, Sync and
   Like states, the order control; Match cells in `playlist/matchCells.ts`), `Artists.tsx` with `UnderRadar.tsx` (gated on
-  `artistReachSummary.version === 1`; **Well known** is a heading at the bottom, never a filter; listeners and fans in two
+  `artistReachSummary.version === 1`; since spec 030 one "Filter artists" text for both views and the list beside an open
+  artist, `artistFilter` in `ui/artistSelections.ts`; **Well known** is a heading at the bottom, never a filter; listeners and fans in two
   columns), `Artist.tsx`, `settings/` (spec 026: `SettingsPage.tsx` draws `SyncStatus.tsx` first, never folded, then the seven items of
   `sections.ts` under their groups Spotify · Your data · Between devices, the Danger zone apart; each item is a `SettingsItem.tsx`,
   closed to its name, its state in words (`stateOnly`: no counts or dates, those are in the opened item) and its main button (filled only

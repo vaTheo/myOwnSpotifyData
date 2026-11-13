@@ -129,7 +129,8 @@ phone. It is dark, with chartreuse marking what you act on.
   with nothing to show says why and offers the one action that fixes it.
 - **The activity button** in the top bar shows any job running (sync, import,
   lookups, server sync, Like, Create playlist, a mix lookup) from every
-  screen, with its progress; tapping a job leads to where it lives. It never
+  screen, with its progress; tapping a job leads to where it lives (a
+  Settings job opens its own item there, such as Artist reach). It never
   starts or stops one.
 - **Keyboard**: `/` or Ctrl+K opens the search, Escape closes the topmost
   pane, sheet or search, Tab moves through every control with a visible ring.
@@ -194,7 +195,9 @@ phone. It is dark, with chartreuse marking what you act on.
 ### Listening
 
 - **Top** lists your most played tracks or artists for 4 weeks, 6 months or
-  all time. On a wide window, **Compare periods** shows the three periods
+  all time, in Spotify's own ranking: the line under its controls says so
+  (and, on Tracks, that the plays come from your history import), which is
+  why it can differ from the Crate's. On a wide window, **Compare periods** shows the three periods
   side by side; pointing at a track marks it in the other columns.
 - **Crate** is the "what do I play tonight" tab, built entirely from the
   imported history. The hub shows six cards with their headline figures and
@@ -206,8 +209,11 @@ phone. It is dark, with chartreuse marking what you act on.
   its own columns and charts: plays per month as small bars, plays per year
   for the classics (a year without plays is a zero mark), the finish rate as
   a meter in its band. **By year** picks its period on a year × month grid:
-  click a year, a month or a season. Spotify's Web API has no play counts,
-  so none of this can be filled in by syncing.
+  click a year, a month or a season. To move from one view to another, use
+  the row of six view names above the open view (on a phone, the view picker
+  under the title); the back arrow in the top bar brings you back to the
+  cards. Each view keeps its setting when you come back to it. Spotify's Web
+  API has no play counts, so none of this can be filled in by syncing.
 
 ### Library
 
@@ -233,7 +239,8 @@ phone. It is dark, with chartreuse marking what you act on.
   artists` is one long job, roughly 45 to 50 minutes for 1,000 artists, it
   never starts by itself, and it picks up where it stopped. Then sort by
   `Most played`, `Fewest listeners` or `Fewest fans`; the filter narrows by
-  name and the ranks never renumber.
+  name and the ranks never renumber. _Filter artists_ keeps its text when you
+  switch between the two views.
   The two numbers are **ListenBrainz listeners** (how many ListenBrainz users
   have ever played that artist) and **Deezer fans** (how many Deezer users
   pressed follow). They are small platform-specific audiences, **not** Spotify
@@ -300,8 +307,8 @@ start only here.
   ask only new songs); the section says "Release years: N of M tracks".
   Audio data via ReccoBeats (Spotify audio features).
 - **Re-import once for the Crate.** An import made before the Crate shipped
-  kept no month, start or skip data, so the year, month and finish-rate views
-  stay empty until you import the export again; the app says so once and the
+  kept no month, start or skip data, so the Crate's views stay empty until
+  you import the export again; the app says so once and the
   Listening history section links straight to Import. Play counts from the
   old import keep working everywhere else in the meantime.
 - **Connect again** (Spotify account) signs you out and back in without

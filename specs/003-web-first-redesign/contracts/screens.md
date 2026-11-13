@@ -27,6 +27,17 @@ destinations. One column with 16 px margins.
 
 **Data**: the job states, through `activeJobs()`.
 
+**Activity links** (since spec 030, `specs/030-crate-view-switch/`): a Settings job opens the item that shows it, opened and
+scrolled to (`#/settings/<item>`), not the top of the page.
+
+| Job | Opens |
+|---|---|
+| Syncing playlists | `#/settings/sync` |
+| Looking up BPM and key, Looking up release years, Importing Rekordbox | `#/settings/audio` |
+| Looking up artists | `#/settings/reach` |
+| Saving to server, Loading from server | `#/settings/server` |
+| Importing history, Liking songs, Creating playlist, Checking on Spotify, Looking up mix | unchanged (`#/import`, the playlist, Mix) |
+
 **States**:
 
 - Signing in: the frame is not shown, only the Connect card with "Signing you in…".
@@ -126,6 +137,12 @@ same item in the other columns. Selecting a track opens its details.
 **Phone**: two-line items, "Title" over "Artists · N plays · 126 · 8A". The period and kind controls become two segmented rows
 that scroll horizontally if needed.
 
+**Caption** (since spec 030): one line under the toolbar says where the ranking comes from (`topCaption`, `ui/format.ts`):
+
+- Tracks, with a history import: "Spotify's own ranking for this period. Plays come from your history import."
+- Tracks without an import, and Artists: "Spotify's own ranking for this period."
+- Compare periods: "Spotify's own ranking, period by period."
+
 **Selecting**: a track opens track details (`?d=`). An artist opens the Artist screen.
 
 ---
@@ -157,6 +174,10 @@ The whole card is one link.
 
 **Gates kept**: no import, or an import before month data (`crateStatus`), shows today's `CrateEmpty` card in place of the grid.
 
+**Since round 007** a sixth card, Rarely played (`headphones`), follows Finish rate. **Since spec 030** the gate card counts six
+views: no import, "These six views are built from your Spotify Extended streaming history, …" (rest unchanged); an import before
+month data, "The Crate's views need data the old import didn't keep. Your play counts still work everywhere else."
+
 ---
 
 ## 6. Listening · Crate views · FR-036, FR-025, US4
@@ -167,7 +188,7 @@ The whole card is one link.
 - Opening a row shows the playlists and a text strip ("Jan 3 · Feb — · Mar 1").
 - By year stacks **two horizontally scrolling chip rows**: every year, then 17 period chips.
 
-**Computer (common to the five views)**:
+**Computer (common to the six views)**:
 
 - A back link "‹ Crate" and the view title in the top bar.
 - The view's controls as segmented buttons in the toolbar, with its caption under them (kept word for word).
@@ -193,6 +214,19 @@ The whole card is one link.
 in the item's lead and the menu in its trail.
 
 **Kept**: every rule, threshold, caption, the paging step of 100, `applyPeriod`, "Try 6 months", and the stale-history empty text.
+
+**View switch** (since spec 030, `specs/030-crate-view-switch/contracts/screens.md`): the six views are one screen with a switch
+above the open view's control (`ViewSwitch`, `ui/crate/ViewSwitch.tsx`).
+
+- Medium and wider: a `Crate views` navigation of six links in the hub's order (Heavy rotation, Forgotten gems, All-time classics,
+  By year, Finish rate, Rarely played), the open one marked (`aria-current="page"`, a `primary` underline). Beside the docked sheet
+  the row scrolls inside itself and never pushes the table.
+- Compact: one native picker labelled "Crate view", showing the open view's name.
+- Each name is the view's existing address (`#/crate/<view>`), with no period and no open track: a switch closes the sheet, and
+  By year keeps the owner's year and period. Back steps through the views visited; the top bar's back arrow goes to `#/crate`.
+- Drawn only when the Crate gate passes (`crateStatus` `ready`); the gate card is drawn alone.
+- Below the switch each view is as above: control, caption, legend, filter bar, table, empty message, sheet. A view's setting
+  survives a switch; its sort and filter stay per view.
 
 ---
 
@@ -273,7 +307,8 @@ in the item's lead and the menu in its trail.
 **Computer**:
 
 - Top bar tabs: Playlists · **Artists**.
-- Toolbar: view segmented buttons (Saved tracks · Under the radar) and the filter.
+- Toolbar: view segmented buttons (Saved tracks · Under the radar) and the filter. Since spec 030 "Filter artists" holds one
+  text for both views (`artistFilter`, `ui/artistSelections.ts`): it survives a switch, and the list beside an open artist uses it.
 - One artist table. Selecting an artist opens it beside the list (`#/artist/<key>`), as Playlists does.
 
 | Column                                | Saved tracks               | Under the radar            | Sort first                          |

@@ -52,7 +52,7 @@ Under the toolbar, one caption line:
 | Looking up BPM and key, Looking up release years, Importing Rekordbox | `#/settings/audio` |
 | Looking up artists | `#/settings/reach` |
 | Saving to server, Loading from server | `#/settings/server` |
-| Importing history, Liking songs, Create playlist | unchanged |
+| Importing history, Liking songs, Creating playlist | unchanged |
 
 ## §5 Crate gate card: wording
 
