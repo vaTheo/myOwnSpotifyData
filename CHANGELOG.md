@@ -3,6 +3,23 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-13 — Share links from the phone go to the worker (worker 0.7.4)
+
+The link SoundCloud's phone app copies (`https://on.soundcloud.com/…`) now works with **Identify on my computer**: paste it in
+Mix and tap the button. The app records the request under that link; the worker asks SoundCloud where it leads, downloads that
+set and asks TrackId.net with its real address, and the tracks land on the mix saved under the share link. Before, the app
+refused such a link ("a SoundCloud short link needs Look up first"), so a set copied on the phone that TrackId.net did not know
+could not be sent to the worker. A share link that cannot be followed fails with its reason on the request's row: "Short link
+not found; paste the set's full link", "SoundCloud did not answer for the short link; ask again later" or "Short link does not
+lead to a SoundCloud set". The worker follows a share link only inside SoundCloud's hosts, and a shared worker accepts share
+links under the same rule. The worker also trims every SoundCloud address before using it (everything after `?` and `#` is
+dropped, for instance `?in_system_playlist=…`), with the same rule as the app, pinned by one list of cases both test suites
+read (`src/features/mix/url.cases.json`). Spec `specs/028-worker-short-links/`; ADR-16 amended (the share host).
+
+**What to do**: hard-reload the app, then update the worker to 0.7.4 (the release this push builds, or `git pull` and `uv sync`).
+An older worker does not know share links. Known limit: a set asked by its share link and later looked up or pasted by its full
+link is saved as two mixes. No Spotify read or write, no server change, no stored data change.
+
 ## 2026-11-11 — Sync status shows the state only
 
 The **Sync status** block at the top of Settings is quieter: one short line per source, Spotify, BPM and key, Rekordbox, Artist

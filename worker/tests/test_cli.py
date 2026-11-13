@@ -7,7 +7,7 @@ from unittest import mock
 import io
 import urllib.error
 
-from mix_worker.cli import http_get, PRESS_ENTER, SHARED_LINK_REASON, shared_link_allowed, CliDeps, EXIT_NOT_SHARED, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, code_for, main, make_client, run_queue
+from mix_worker.cli import build_deps, http_get, http_location, PRESS_ENTER, SHARED_LINK_REASON, shared_link_allowed, CliDeps, EXIT_NOT_SHARED, EXIT_OK, EXIT_SETTINGS, EXIT_SIGNED_OUT, EXIT_TEMPLATE, code_for, main, make_client, run_queue
 from mix_worker.config import Settings, SettingsError
 from mix_worker.pipeline import Deps
 from mix_worker.server import Result, ServerClient, SharedServerClient
@@ -648,6 +648,87 @@ class HttpGetTest(unittest.TestCase):
         self.assertEqual(len(out[1]), 100_000)
 
 
+class HttpLocationTest(unittest.TestCase):
+    """The real share-link seam (spec 028): one GET, the redirect read, never followed, the body never read."""
+
+    URL = "https://on.soundcloud.com/abc123XYZ"
+
+    def ask(self, result, timeout=7.5):
+        opener = HttpGetTest.Opener(result)
+        with mock.patch("urllib.request.build_opener", return_value=opener) as build:
+            out = http_location(self.URL, timeout)
+        return out, opener, build
+
+    def test_a_redirect_gives_its_status_and_location_and_is_not_followed(self):
+        import urllib.request
+
+        where = "https://soundcloud.com/user/some-mix?si=abc123"
+        out, opener, build = self.ask(urllib.error.HTTPError(self.URL, 302, "found", {"Location": where}, io.BytesIO(b"")))
+        self.assertEqual(out, (302, where))
+        self.assertEqual(len(opener.calls), 1)
+        req, timeout = opener.calls[0]
+        self.assertEqual((req.full_url, req.get_method(), timeout), (self.URL, "GET", 7.5))
+        self.assertEqual(req.get_header("User-agent"), f"mix-worker/{__version__}")
+        handler = build.call_args.args[0]
+        self.assertIsNone(handler().redirect_request(urllib.request.Request(self.URL), None, 302, "found", {}, where))
+
+    def test_an_error_status_without_location(self):
+        out, _, _ = self.ask(urllib.error.HTTPError(self.URL, 404, "nf", {}, io.BytesIO(b"gone")))
+        self.assertEqual(out, (404, None))
+
+    def test_a_page_answer_gives_its_status_and_its_body_is_not_read(self):
+        res = HttpGetTest.Res(b"x" * 1000)
+        out, _, _ = self.ask(res)
+        self.assertEqual(out, (200, None))
+        self.assertEqual(res.io.tell(), 0)
+
+    def test_a_network_error_raises(self):
+        with self.assertRaises(urllib.error.URLError):
+            self.ask(urllib.error.URLError("down"))
+
+    def test_one_request_on_a_real_socket(self):
+        import http.server
+        import threading
+
+        hits = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                hits.append(self.path)
+                self.send_response(302)
+                self.send_header("Location", "/elsewhere")
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            out = http_location(f"http://127.0.0.1:{srv.server_port}/a", 5)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+        self.assertEqual((out, hits), ((302, "/elsewhere"), ["/a"]))
+
+
+class BuildDepsAddress(unittest.TestCase):
+    def test_the_working_address_is_wired_to_the_real_seam(self):
+        asked = []
+
+        def fake(url, timeout):
+            asked.append((url, timeout))
+            return 302, "https://m.soundcloud.com/user/some-mix/?si=abc123"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            deps = build_deps(queue_settings(tmp, "personal"))
+            self.assertIsNotNone(deps.address)
+            with mock.patch("mix_worker.cli.http_location", fake):
+                self.assertEqual(deps.address("https://on.soundcloud.com/abc123XYZ"), "https://soundcloud.com/user/some-mix")
+                self.assertEqual(deps.address("https://www.youtube.com/watch?v=abc123"), "https://www.youtube.com/watch?v=abc123")
+        self.assertEqual(asked, [("https://on.soundcloud.com/abc123XYZ", 10)])
+
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -657,12 +738,22 @@ class SharedLinkRule(unittest.TestCase):
         for url in ("https://soundcloud.com/a/b", "https://www.soundcloud.com/a/b", "https://m.soundcloud.com/a/b", "https://SoundCloud.com/a/b"):
             self.assertTrue(shared_link_allowed(url), url)
 
+    def test_a_phone_share_link_is_accepted(self):
+        # Spec 028: the short host joins the list; where it leads is checked by the resolver (links.py), in both modes.
+        for url in ("https://on.soundcloud.com/x", "https://On.SoundCloud.com/x", "https://on.soundcloud.com:443/x"):
+            self.assertTrue(shared_link_allowed(url), url)
+        for url in (
+            "http://on.soundcloud.com/x", "https://user:pw@on.soundcloud.com/x", "https://on.soundcloud.com:8443/x",
+            "https://on.soundcloud.com.evil.test/x", "https://evil.test/on.soundcloud.com/x", "https://on.soundcloud.com@evil.test/x",
+        ):
+            self.assertFalse(shared_link_allowed(url), url)
+
     def test_refused(self):
         for url in (
             "https://example.com/a", "http://soundcloud.com/a", "file:///etc/passwd", "https://127.0.0.1/a", "https://192.168.1.5/a",
             "https://soundcloud.com.evil.test/x", "https://evilsoundcloud.com/x", "https://soundcloud.com@evil.test/x",
             "https://evil.test\\@soundcloud.com/x", "https://user:pw@soundcloud.com/x", "https://soundcloud.com:8443/x",
-            "https://on.soundcloud.com/x", "", "soundcloud.com/x",
+            "", "soundcloud.com/x",
         ):
             self.assertFalse(shared_link_allowed(url), url)
         self.assertFalse(shared_link_allowed(None))
@@ -672,7 +763,7 @@ class SharedLinkRun(unittest.TestCase):
     def job(self, url):
         return {"id": "00000000-0000-4000-8000-000000000001", "payload": {"url": url}}
 
-    def run_mode(self, mode, url):
+    def run_mode(self, mode, url, address=None):
         downloads = []
         with tempfile.TemporaryDirectory() as tmp:
             client = QueueClient([Result("ok", self.job(url), 200), Result("ok", None, 200)], Result("ok", True, 200))
@@ -688,9 +779,39 @@ class SharedLinkRun(unittest.TestCase):
 
                 return DownloadFailure("stop here")
 
-            deps = Deps(client=client, download=download, scan=lambda p, d: [], now=lambda: 1_000.0, today=lambda: "2026-11-08", log=RunLog())
+            deps = Deps(client=client, download=download, scan=lambda p, d: [], now=lambda: 1_000.0, today=lambda: "2026-11-08", log=RunLog(), address=address)
             code = run_queue(settings, deps, session, once=True, interval=1, sleep=lambda s: None)
             return code, deps.log.lines, downloads, bodies
+
+    def test_shared_takes_a_share_link_and_downloads_the_set_it_leads_to(self):
+        from mix_worker.links import working_address
+
+        asked = []
+
+        def locate(url, timeout):
+            asked.append(url)
+            return 302, "https://soundcloud.com/user/some-mix?si=abc123&utm_source=clipboard"
+
+        short = "https://on.soundcloud.com/abc123XYZ"
+        code, lines, downloads, bodies = self.run_mode("shared", short, address=lambda url: working_address(url, locate))
+        self.assertEqual(code, 0)
+        self.assertEqual(asked, [short])
+        self.assertEqual(downloads, ["https://soundcloud.com/user/some-mix"])
+        self.assertEqual([(b["status"], b["error"]) for b in bodies], [("failed", "stop here")])  # the fake download's own answer
+        self.assertFalse(any("link not allowed in shared mode" in l for l in lines))
+        self.assertTrue(any(l.startswith("claimed ") and l.endswith(f"· {short}") for l in lines))  # the request's own link
+        self.assertIn("  link · https://soundcloud.com/user/some-mix", lines)
+
+    def test_shared_fails_a_share_link_that_leaves_soundcloud_before_any_download(self):
+        from mix_worker.links import NOT_A_SET, working_address
+
+        code, lines, downloads, bodies = self.run_mode(
+            "shared", "https://on.soundcloud.com/abc123XYZ", address=lambda url: working_address(url, lambda u, t: (302, "https://evil.test/a/b"))
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(downloads, [])
+        self.assertEqual([(b["status"], b["error"]) for b in bodies], [("failed", NOT_A_SET)])
+        self.assertIn("  link · leads to https://evil.test", lines)
 
     def test_shared_refuses_a_foreign_link_before_any_download(self):
         code, lines, downloads, bodies = self.run_mode("shared", "https://example.com/x")

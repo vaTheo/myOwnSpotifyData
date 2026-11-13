@@ -48,6 +48,15 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   cooldown, one pause) is a guess from the surviving Tracklistify copy, and a second refusal fails the request. A set is sampled
   once a minute, so a track played under a minute can be missed. The executables are unsigned; the ffmpeg inside is a GPL build;
   YouTube links need Node or Deno on the computer. Requests wait while the computer is off.
+  Since worker 0.7.4 (the share-link round, F43) a phone share link (`on.soundcloud.com/…`) is followed by the worker and the
+  result lands on the mix saved under that share link; the real address is never sent back to the app. So one set asked by its
+  share link and later looked up or pasted by its full link is two saved mixes. What the short host answers is SoundCloud's to
+  change (checked 2026-11-13: one `302` to the set's page, `404` for an unknown token): if it stops redirecting, a share-link
+  request fails with its reason and the full link still works. A worker before 0.7.4 does not know share links (a shared one
+  fails them with "link not allowed in shared mode"). The worker trims SoundCloud addresses only, with the app's rule ported to
+  Python: a path with characters outside ASCII is encoded by the browser and not by Python (it cannot come from a redirect or
+  from an app request; the shared case file holds ASCII paths). Links on other platforms reach the worker as the app recorded
+  them: the app drops only `utm_*`, `si` and `feature`, so YouTube's `list`, `index` and `t` stay.
   Since worker 0.7.2 (the sandwich round, F35) a song heard between two clips of one song at most the merge gap apart (A, X, A,
   3 minutes by default) is dropped as a false match: a DJ who really plays X inside that stretch loses it, and two songs
   interleaved within the gap (A, B, A, B) keep only the first A and the last B.
@@ -120,8 +129,9 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   - No app screen for workers: the list is edited in the SQL editor, and a user cannot see which worker took a request.
   - An owner can set `claimed_by_user` on their own request through the app's update policy; the only effect is on that request
     (a shared worker will not write to a row it does not hold, so it is left stalled until the stale limit).
-  - Shared mode fetches SoundCloud links only (`https` on `soundcloud.com`, `www.` or `m.`); a request with any other link fails
-    with "link not allowed in shared mode". Personal mode fetches whatever yt-dlp can.
+  - Shared mode fetches SoundCloud links only (`https` on `soundcloud.com`, `www.` or `m.`, and since worker 0.7.4 the phone's
+    share host `on.soundcloud.com`, followed only inside those hosts); a request with any other link fails with "link not allowed
+    in shared mode". Personal mode fetches whatever yt-dlp can.
   - After a personal worker takes over a stale request, `jobs.claimed_by_user` can still hold the earlier shared worker's id;
     harmless, since a write also needs the same worker name.
   - A 42501 on a progress write (a worker removed from the list) is only logged, so a disabled worker stops one step later, at its

@@ -42,7 +42,8 @@ That is all. Nothing to install.
 The **Identify on my computer** button on the **Mix** screen only records a request. A small program, the **worker**, must be
 running on a computer to answer it. It is optional, and it needs the server (see below).
 
-1. **In the app**: open **Mix**, paste the set's link, tap **Identify on my computer**. The request shows as _Queued_.
+1. **In the app**: open **Mix**, paste the set's link, tap **Identify on my computer**. The request shows as _Queued_. The link
+   SoundCloud's phone app copies (`https://on.soundcloud.com/…`) works too: the worker (0.7.4 or newer) finds the set it leads to.
 2. **On your computer**, download the file for your system from the
    [latest `worker-v…` release](https://github.com/vaTheo/myOwnSpotifyData/releases/latest) and put it in a folder of its own.
 3. Start it once. It writes `mix-worker.env` and stops. Open that file and fill in `SUPABASE_URL` and `SUPABASE_KEY` (the same two
@@ -441,6 +442,15 @@ comment without the name of the person who wrote it), and a
 comment that names a track the free catalogues (Deezer, MusicBrainz) hold
 exactly becomes a row marked "from a comment · not heard", kept like every
 track: remove it if it is wrong.
+A link copied in SoundCloud's phone app (`https://on.soundcloud.com/…`) can be
+asked as it is (worker 0.7.4 or newer): the app records the request under that
+link, the worker asks SoundCloud where it leads, only inside SoundCloud's own
+hosts, and the tracks land on the mix saved under the share link. If the link
+cannot be followed, the request fails with its reason ("Short link not found;
+paste the set's full link", "SoundCloud did not answer for the short link; ask
+again later", "Short link does not lead to a SoundCloud set"). A set asked by
+its share link and later pasted by its full `soundcloud.com/…` link is saved
+as two mixes.
 While a set is analysed, its row in the Mixes list shows where it is ("First pass · 47 % · about
 25 min left", "Paused by Shazam until 20:35"); a waiting request has **Move to
 top** and **Cancel**, a running one **Stop** (it keeps the tracks found, and Ask

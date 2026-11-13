@@ -98,8 +98,8 @@ worker/pyproject.toml, worker/uv.lock   # 0.7.4
 worker/tests/
 ├── test_links.py        # NEW: shared cases, the resolver table, working_address
 ├── test_pipeline.py     # added cases only
-├── test_cli.py          # http_location; one edited case (on.soundcloud.com allowed in shared mode)
-└── test_shared_queue.py # a short-link request is taken in shared mode
+├── test_cli.py          # http_location, build_deps; one edited case (on.soundcloud.com allowed in shared mode); a shared run with a share link
+└── test_run_queue.py    # the automatic Ask again keeps the request's link
 ```
 
 **Structure Decision**: the app change stays in the mix feature's link module (`url.ts`), where the rule already lives. The worker
@@ -155,8 +155,10 @@ fetches or saves on disk uses the working address.
   `failed` with its reason and no download call; without `address` nothing changes.
 - `worker/tests/test_cli.py`: `http_location` on a 302 (status and header, never followed), a 404 and a raising opener;
   `shared_link_allowed("https://on.soundcloud.com/x")` is now true (the one edited expectation).
-- `worker/tests/test_shared_queue.py`: a shared worker takes a short-link request; a request for another host still fails with
-  "link not allowed in shared mode".
+- `worker/tests/test_cli.py` (`SharedLinkRun`, where the shared-mode link tests already are): a shared worker takes a short-link
+  request and downloads the set it leads to; one that leaves SoundCloud fails before any download; a request for another host
+  still fails with "link not allowed in shared mode".
+- `worker/tests/test_run_queue.py` (`AutoAskAgain`): a short-link request stopped by refusals is asked again with its own link.
 - Not added: a DOM test (none in this repo) and a regression row. The gate is `requestKey`, covered by its unit test; the two
   changed texts are read by the review.
 

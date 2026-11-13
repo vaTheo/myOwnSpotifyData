@@ -27,6 +27,7 @@ from typing import Any
 from . import __version__
 from .autoresume import AutoResume
 from .config import Settings, SettingsError, load_settings, write_template
+from .links import PAGE_HOSTS, SHORT_HOST, host_on, working_address
 from .pipeline import Deps, Outcome, _fail, run_one
 from .server import Result, ServerClient, SharedServerClient
 from .session import Session, challenge_for, clear, code_from_redirect, ensure_fresh, load, new_verifier, save
@@ -63,21 +64,16 @@ def frozen_dir() -> Path | None:
 
 
 SHARED_LINK_REASON = "link not allowed in shared mode"
-SHARED_HOSTS = ("soundcloud.com", "www.soundcloud.com", "m.soundcloud.com")
+# Spec 028: the phone's share host joins the list; where a share link leads
+# is checked by `links.resolve_short_link`, in both modes.
+SHARED_HOSTS = PAGE_HOSTS + (SHORT_HOST,)
 
 
 def shared_link_allowed(url: Any) -> bool:
     """Shared mode fetches only https links on SoundCloud's own hosts (the
     ones the app creates requests for): a friend's request must never make
     this computer fetch an arbitrary address."""
-    if not isinstance(url, str):
-        return False
-    try:
-        parts = urllib.parse.urlsplit(url)
-        host, port = parts.hostname, parts.port
-    except ValueError:
-        return False
-    return parts.scheme == "https" and host in SHARED_HOSTS and parts.username is None and parts.password is None and port in (None, 443)
+    return host_on(url, SHARED_HOSTS) is not None
 
 
 def code_for(result: Result) -> int:
@@ -138,6 +134,28 @@ def http_get(
         return err.code, body_of(err)
 
 
+def http_location(url: str, timeout: float) -> tuple[int, str | None]:
+    """The real share-link seam (spec 028): one GET, the answer's status and
+    its `Location` header. A redirect is never followed and the body is
+    never read; an HTTP error status is an answer, a network error raises
+    (`links.resolve_short_link` turns it into a reason)."""
+    import urllib.error
+    import urllib.request
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+            return None
+
+    req = urllib.request.Request(url, headers={"User-Agent": f"mix-worker/{__version__}"})
+    opener = urllib.request.build_opener(NoRedirect)
+    try:
+        with opener.open(req, timeout=timeout) as res:  # noqa: S310 - the address is checked by links.py before the call
+            return res.status, None
+    except urllib.error.HTTPError as err:
+        with err:
+            return err.code, err.headers.get("Location") if err.headers is not None else None
+
+
 def build_deps(settings: Settings) -> Deps:
     from .trackid import fetch_trackid
     from .download import download as do_download
@@ -159,6 +177,7 @@ def build_deps(settings: Settings) -> Deps:
         trackid=(lambda link: fetch_trackid(link, http_get, time.sleep, lambda text: log.line("  " + text))) if settings.trackid else None,
         clues=(lambda url, gaps, rows: gather_clues(settings, log, url, gaps, rows, per_set)) if settings.clues else None,
         years=(lambda tracks: fill_years(settings, log, tracks, per_set)) if settings.lookups > 0 else None,
+        address=lambda url: working_address(url, http_location),
     )
 
 

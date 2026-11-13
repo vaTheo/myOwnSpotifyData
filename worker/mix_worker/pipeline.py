@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 from .config import Settings
 from .download import DownloadFailure, Downloaded
+from .links import LinkFailure
 from .scan import ScanOutput, ScanRefused, ScanUnreachable, StopRequested
 from .server import Result
 from .trackid import Record, merge_rows, plan_guides, span_rows, trusted, uncovered
@@ -50,6 +51,10 @@ class Deps:
     # Round 016: link → the TrackId.net record, or None when it knows nothing;
     # None here = no lookup at all (every call is then as before).
     trackid: Callable[[str], Record | None] | None = None
+    # Spec 028: the request's link → the address to work on (a trimmed
+    # SoundCloud address, the one a share link leads to) or a LinkFailure;
+    # None = the link is used as it arrives (every call is then as before).
+    address: Callable[[str], str | LinkFailure] | None = None
 
 
 @dataclass
@@ -159,6 +164,17 @@ def run_one(job: dict[str, Any], settings: Settings, token: Token, deps: Deps) -
     news = _Progress(deps, settings, token, job_id)
     try:
         news.step("download")
+        if deps.address is not None:
+            # Spec 028: the request keeps its link (the app's key, the automatic
+            # Ask again); everything fetched or saved below uses the address.
+            work = deps.address(url)
+            if isinstance(work, LinkFailure):
+                if deps.log is not None:
+                    deps.log.line(f"  link · {work.detail}")
+                return _fail(deps, settings, token, job_id, work.reason)
+            if work != url and deps.log is not None:
+                deps.log.line(f"  link · {work}")
+            url = work
         started = deps.now()
         got = deps.download(url, job_dir)
         if isinstance(got, DownloadFailure):

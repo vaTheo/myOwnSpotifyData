@@ -11,6 +11,14 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.7.4: **share links from the phone**. The link SoundCloud's phone app copies (`https://on.soundcloud.com/…`) can now be asked from
+  the app. The worker asks `on.soundcloud.com` where it leads (one request, at most three, only inside SoundCloud's hosts), then
+  downloads that set and asks TrackId.net with its real address; the log shows `link · https://soundcloud.com/…`. A link that cannot
+  be followed fails with its reason: "Short link not found; paste the set's full link", "SoundCloud did not answer for the short link;
+  ask again later" or "Short link does not lead to a SoundCloud set". Every SoundCloud address is also trimmed before use (everything
+  after `?` and `#` is dropped), with the same rule as the app. A shared worker accepts share links too; any site that is not
+  SoundCloud's still fails with "link not allowed in shared mode". No new setting. **Update the app first** (hard-reload it), then
+  the worker: an older worker does not know share links.
 - 0.7.3: **a set stopped by Shazam is asked again by itself**. When Shazam refuses past the pauses allowed, the tracks found are still
   sent at once ("Stopped early … (rate limited)"); then, 30 minutes later, the worker asks again for that set as if you had pressed
   **Ask again**, and the new request continues where the scan stopped. At most 6 times a set; other requests run during the wait. New

@@ -18,6 +18,7 @@ Design record: `../specs/002-mix-analysis-worker/` (the spec, the research, the 
 4. **Start it again**: type your email, open the email on **this computer**, click the link. Keep the window open; it checks the queue
    every minute.
 5. **In the app**, Mix → paste the set's link → **Identify on my computer**. When the row says _Found tracks_, open it and review.
+   The link SoundCloud's phone app copies (`https://on.soundcloud.com/…`) works too, since worker 0.7.4.
 
 If the window closes or prints an error, find the number in [Exit codes](#exit-codes). No VPN while it runs. Do not have `yarn dev`
 running at sign-in time (same port). Prefer Python? Use form A below instead of steps 2–3.
@@ -190,7 +191,12 @@ With `WORKER_TRACKID` on (the default) the worker asks TrackId.net about the exa
 ## Where things go, what leaves the computer
 
 - Outbound hosts: your Supabase project, the platform of the link (through yt-dlp), `amp.shazam.com` (ShazamIO),
-  `api.deezer.com`, `musicbrainz.org` and `api.discogs.com` (clues and years), `trackid.net` (the exact mix link only), and the proxy if you set one. Never a Spotify host. The audio never leaves the computer; only the tracklist JSON is sent.
+  `api.deezer.com`, `musicbrainz.org` and `api.discogs.com` (clues and years), `trackid.net` (the exact mix link only), `on.soundcloud.com` (only for a share link: where it leads, at most three requests), and the proxy if you set one. Never a Spotify host. The audio never leaves the computer; only the tracklist JSON is sent.
+- The link the worker works on (since 0.7.4): a SoundCloud address is trimmed first (everything after `?` and `#` dropped, the
+  host written `soundcloud.com`), with the same rule as the app; a share link (`on.soundcloud.com/…`) is followed to the set it
+  leads to, only inside SoundCloud's hosts. The log says `link · https://soundcloud.com/…` when that address differs from the
+  request's link. The download, TrackId.net, the clues and the saved run use it; the request keeps its own link, so the result
+  lands on the mix you asked from. Links on other platforms are used as they arrive.
 - On disk: the session file (mode 600), the work folder (emptied after each request), the kept JSON files, the log.
 - Inside the executables: yt-dlp, ShazamIO and a static ffmpeg built by [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)
   under the **GPL v3**, shipped unmodified through the `imageio-ffmpeg` package (BSD-2-Clause). The worker and the app are MIT.
@@ -224,6 +230,13 @@ With `WORKER_TRACKID` on (the default) the worker asks TrackId.net about the exa
 - **"no answer (TimeoutError…)" in the log**: one recognition took over 45 s; the probe is tried 3 times (10 s, then 20 s
   apart), then skipped and the scan goes on. Three probes in a row with no answer fail the request with "Recognition service
   did not answer; try later" (check the connection, then ask again).
+- **"Short link not found; paste the set's full link"**: the share link (`on.soundcloud.com/…`) does not exist (a typo, or it was
+  removed); the log says `link · HTTP 404`. Copy the link again, or paste the set's full `soundcloud.com/…` address.
+- **"SoundCloud did not answer for the short link; ask again later"**: no answer within 10 s, or an error on SoundCloud's side (the
+  log has the status or the error's name). Nothing was downloaded; press Ask again later. The worker tries once, never in a loop.
+- **"Short link does not lead to a SoundCloud set"**: the share link leads to a profile, to another site, or nowhere (the log says
+  where: `link · leads to …`, `not a set address`, `no redirect`). The worker never follows a share link outside SoundCloud.
+- **A share link "link not allowed in shared mode"**: the shared worker is older than 0.7.4; update it.
 - **"Live streams are not supported" / "Playlist links are not supported"**: paste the link of one recorded set.
 - **YouTube: "Download failed"** mentioning a JavaScript runtime: install Node or Deno.
 - **Result rejected** on the phone: the app refused the tracklist's shape; keep the JSON from your music folder and

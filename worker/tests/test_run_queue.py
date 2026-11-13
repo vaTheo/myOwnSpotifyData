@@ -242,7 +242,7 @@ class AutoAskAgain(unittest.TestCase):
         def __call__(self):
             return self.t
 
-    def go(self, *, once=False, mode="personal", minutes=30, until=8 * 3600, stopped="rate limited", url="https://x.y/1", server=None, resume_days=7):
+    def go(self, *, once=False, mode="personal", minutes=30, until=8 * 3600, stopped="rate limited", url="https://x.y/1", server=None, resume_days=7, address=None):
         from dataclasses import replace
 
         from mix_worker.scan import ScanOutput
@@ -258,6 +258,7 @@ class AutoAskAgain(unittest.TestCase):
                 expires_at=9e12,
             )
             settings = replace(settings, worker_mode=mode, auto_resume_minutes=minutes, resume_days=resume_days)
+            deps.address = address
 
             def sleep(s):
                 clock.t += s
@@ -281,6 +282,17 @@ class AutoAskAgain(unittest.TestCase):
         self.assertEqual(len(finishes), 2)  # the inserted request ran like an Ask again
         self.assertIn("  auto ask again · https://x.y/1 in 30 min (1/6)", lines)
         self.assertIn("auto ask again · queued https://x.y/1 (1/6)", lines)
+
+    def test_a_share_link_is_asked_again_with_the_request_s_own_link(self):
+        # Spec 028: the worker works on the set's real address, but the request, its log line and the
+        # automatic Ask again keep the link the app recorded (the key of the saved mix).
+        short, real = "https://on.soundcloud.com/abc123XYZ", "https://soundcloud.com/user/some-mix"
+        _, client, lines = self.go(until=45 * 60, url=short, address=lambda url: real)
+        self.assertEqual([url for url, _ in client.enqueued], [short])
+        self.assertIn(f"  auto ask again · {short} in 30 min (1/6)", lines)
+        self.assertIn(f"auto ask again · queued {short} (1/6)", lines)
+        self.assertTrue(any(line.startswith("claimed ") and line.endswith(f"· {short}") for line in lines))
+        self.assertIn(f"  link · {real}", lines)
 
     def test_at_most_six_cycles(self):
         _, client, lines = self.go(until=12 * 3600)

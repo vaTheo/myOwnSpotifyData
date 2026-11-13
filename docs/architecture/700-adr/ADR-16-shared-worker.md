@@ -68,8 +68,20 @@ failed check ends the run with its exit code and never guesses. The server, the 
 role is still granted only by the owner's row in `shared_workers`. Cost: an account the owner lists and also uses personally now
 takes everyone's requests; keep a dedicated account for the role (the start line names the mode).
 
+## Amendment (spec 028, worker 0.7.4): the phone's share links
+
+"Shared mode fetches SoundCloud links only" gains one host: `on.soundcloud.com`, the short host of the link SoundCloud's phone app
+copies. The rule it protects is kept: a friend's request never makes the owner's computer fetch an arbitrary address. A share link
+is not downloaded as it is. The worker asks the short host where it leads (at most 3 requests, one try each, no redirect followed
+by the library) and accepts an answer only when it is `https`, without user info, on the default port and on `soundcloud.com`,
+`www.soundcloud.com`, `m.soundcloud.com` or the short host again; anything else finishes the request failed ("Short link does not
+lead to a SoundCloud set") before any download. This check runs in both modes (`links.resolve_short_link`), so personal mode gains
+the same guard for share links. Every other host still fails in shared mode with "link not allowed in shared mode". Cost: one more
+outbound host, and what the short host answers is SoundCloud's to change.
+
 ## Links
 
+- Spec: [`specs/028-worker-short-links/spec.md`](../../../specs/028-worker-short-links/spec.md) · [contract](../../../specs/028-worker-short-links/contracts/worker.md) (the share-link amendment)
 - Spec: [`specs/015-shared-worker/spec.md`](../../../specs/015-shared-worker/spec.md) · [plan](../../../specs/015-shared-worker/plan.md) · [research](../../../specs/015-shared-worker/research.md)
 - Amends [ADR-14](ADR-14-users-by-server-account.md) (the shared worker is the one named exception to "the worker reads its signed-in user's queue") and [ADR-08](ADR-08-owner-server-free-tier.md) (the worker may serve every user); keeps [ADR-09](ADR-09-mix-identification-on-the-owners-computer.md) and [ADR-15](ADR-15-shared-track-facts.md)
 - Constitution Principle I

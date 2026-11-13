@@ -109,4 +109,6 @@ The Supabase project (`SUPABASE_URL`), the platform the link points to (yt-dlp),
 set. Never `api.spotify.com` or `accounts.spotify.com`: `test_pipeline.py` asserts the fake opener saw only the project host, and
 the manual lists the hosts.
 
+> Amendment, spec 028 (2026-11-13, worker 0.7.4): "One request" gains an address step between Validate and Download: `Deps.address` (default `None`: nothing changes) gives the working address (a SoundCloud set address trimmed, a share link `on.soundcloud.com/<token>` followed inside SoundCloud's hosts, any other link as it arrives), or a `LinkFailure` that finishes the request `failed` before any download. The download, TrackId.net, the clues, the saved run and `source_url` use that address; the request keeps its own link. New module `links.py`, new seam `cli.http_location`, and `on.soundcloud.com` joins the outbound hosts (a share link's redirect only, at most 3 requests). See `specs/028-worker-short-links/contracts/worker.md`.
+>
 > Amendment, round 016 (2026-11-08): the outbound host list also holds `trackid.net` (the exact mix link only, `WORKER_TRACKID`), and with a known mix the first pass skips its grid probes inside a TrackId.net span; see `specs/016-trackid-worker-clues/contracts/worker.md`. Everything above holds when TrackId.net knows nothing or is off.

@@ -36,7 +36,7 @@ character for character, at least two path parts.
 | Field | Holds |
 |---|---|
 | `reason` | one of the three texts of FR-010; becomes the request's `error`, shown in the app |
-| `detail` | for the log only: `HTTP 404`, `TimeoutError`, `leads to <host>`, `no redirect`, `too many redirects`, `not a set address` |
+| `detail` | for the log only: `HTTP 404`, `TimeoutError`, `leads to <scheme>://<host>`, `no redirect`, `too many redirects`, `not a set address`; never a path or a query |
 
 ## Which step uses which link
 

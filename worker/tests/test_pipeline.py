@@ -658,3 +658,142 @@ class Round016Pipeline(unittest.TestCase):
             finally:
                 runstate.load = real
         self.assertEqual(seen["trackid"], runstate.trackid_key("the-slug", [(110, 390)]))
+
+
+class Round028Address(unittest.TestCase):
+    """Spec 028: the request keeps its link; every fetch and the saved run use `Deps.address`'s answer."""
+
+    SHORT = "https://on.soundcloud.com/abc123XYZ"
+    REAL = "https://soundcloud.com/user/some-mix"
+
+    def test_every_step_uses_the_working_address(self):
+        from mix_worker import runstate
+        from mix_worker.clues import Gathered
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            seen = {}
+
+            def download(url, dest):
+                seen["download"] = url
+                dest.mkdir(parents=True, exist_ok=True)
+                audio = dest / "abc123.webm"
+                audio.write_bytes(b"audio")
+                return Downloaded(path=audio, title="A set", uploader="Someone", duration=7260)
+
+            def trackid(link):
+                seen["trackid"] = link
+                return None
+
+            def clues(url, gaps, rows):
+                seen["clues"] = url
+                return Gathered()
+
+            def stopped_scan(p, d, progress=None, resume=None, remember=None):
+                remember("first", "0", dict(TRACK))
+                return ScanOutput(rows=[TRACK], stopped={"at": "00:00:15", "reason": "by you"})
+
+            settings, deps, log = make(tmp, download=download, scan=stopped_scan)
+            deps.scan_hooks = True
+            deps.trackid, deps.clues = trackid, clues
+            asked = []
+            deps.address = lambda url: asked.append(url) or self.REAL
+            outcome = run_one(job(self.SHORT), settings, "tok", deps)
+            self.assertEqual(outcome.status, "done")
+            self.assertEqual(asked, [self.SHORT])
+            self.assertEqual(seen, {"download": self.REAL, "trackid": self.REAL, "clues": self.REAL})
+            self.assertTrue(runstate.path_for(settings.work_dir, self.REAL).exists())
+            self.assertFalse(runstate.path_for(settings.work_dir, self.SHORT).exists())
+            call = [c for c in deps.client.calls if c[0] == "finish"][-1]
+            self.assertEqual(call[2], JOB_ID)  # the request is finished by its id, whatever the address
+            self.assertEqual(call[4]["result"]["mix_info"]["source_url"], self.REAL)
+            self.assertEqual([line for line in log.lines if line.startswith("  link ·")], [f"  link · {self.REAL}"])
+
+    def test_an_equal_address_adds_no_line_and_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings, deps, log = make(tmp)
+            deps.address = lambda url: url
+            outcome = run_one(job(), settings, "tok", deps)
+            self.assertEqual(outcome.status, "done")
+            self.assertEqual(deps.client.calls[0][4]["result"]["mix_info"]["source_url"], job()["payload"]["url"])
+            self.assertFalse(any(line.startswith("  link ·") for line in log.lines))
+
+    def test_a_link_failure_fails_the_request_before_any_download(self):
+        from mix_worker.links import LinkFailure
+
+        with tempfile.TemporaryDirectory() as tmp:
+            downloads = []
+
+            def download(url, dest):
+                downloads.append(url)
+                return DownloadFailure("never asked")
+
+            settings, deps, log = make(tmp, download=download)
+            deps.address = lambda url: LinkFailure("Short link not found; paste the set's full link", "HTTP 404")
+            outcome = run_one(job(self.SHORT), settings, "tok", deps)
+            self.assertEqual(outcome.status, "failed")
+            self.assertEqual(outcome.reason, "Short link not found; paste the set's full link")
+            self.assertEqual(downloads, [])
+            self.assertEqual(len(deps.client.calls), 1)
+            body = deps.client.calls[0][4]
+            self.assertEqual((body["status"], body["error"]), ("failed", "Short link not found; paste the set's full link"))
+            self.assertNotIn("result", body)
+            self.assertIn("  link · HTTP 404", log.lines)
+            self.assertFalse((Path(tmp) / "work" / JOB_ID).exists())
+
+    def test_a_trimmed_soundcloud_link_and_another_platform_are_used_as_they_arrive(self):
+        from mix_worker.links import working_address
+
+        def never(url, timeout):
+            raise AssertionError(f"no request expected, {url} was asked")
+
+        for link in (self.REAL, "https://www.youtube.com/watch?v=abc123&list=PL1&t=30s", "https://www.mixcloud.com/a/b/?play=fb"):
+            with self.subTest(link=link), tempfile.TemporaryDirectory() as tmp:
+                seen = []
+
+                def download(url, dest):
+                    seen.append(url)
+                    dest.mkdir(parents=True, exist_ok=True)
+                    audio = dest / "abc123.webm"
+                    audio.write_bytes(b"audio")
+                    return Downloaded(path=audio, title="A set", uploader="Someone", duration=7260)
+
+                settings, deps, log = make(tmp, download=download)
+                deps.address = lambda url: working_address(url, never)
+                outcome = run_one(job(link), settings, "tok", deps)
+                self.assertEqual(outcome.status, "done")
+                self.assertEqual(seen, [link])
+                self.assertEqual(deps.client.calls[0][4]["result"]["mix_info"]["source_url"], link)
+                self.assertFalse(any(line.startswith("  link ·") for line in log.lines))
+
+    def test_a_share_link_and_the_full_link_with_parameters_share_one_saved_run(self):
+        from mix_worker import runstate
+        from mix_worker.links import working_address
+        from mix_worker.scan import ScanOutput
+
+        with tempfile.TemporaryDirectory() as tmp:
+            seen = {}
+
+            def stopped_scan(p, d, progress=None, resume=None, remember=None):
+                remember("first", "0", dict(TRACK))
+                return ScanOutput(rows=[TRACK], stopped={"at": "00:00:15", "reason": "by you"})
+
+            def full_scan(p, d, progress=None, resume=None, remember=None):
+                seen["resume"] = resume
+                return ScanOutput(rows=[TRACK])
+
+            def never(url, timeout):
+                raise AssertionError(f"no request expected, {url} was asked")
+
+            settings, deps, log = make(tmp, scan=stopped_scan)
+            deps.scan_hooks = True
+            deps.address = lambda url: working_address(url, lambda u, t: (302, self.REAL + "?si=abc123&utm_source=clipboard"))
+            run_one(job(self.SHORT), settings, "tok", deps)
+            self.assertTrue(runstate.path_for(settings.work_dir, self.REAL).exists())
+
+            deps.scan, deps.client = full_scan, FakeClient()
+            deps.address = lambda url: working_address(url, never)
+            run_one(job(self.REAL + "?in_system_playlist=your-moods%3A123456%3A5"), settings, "tok", deps)
+            self.assertEqual(seen["resume"]["first"], {"0": TRACK})
+            self.assertIn(f"  link · {self.REAL}", log.lines)
+            self.assertFalse(runstate.path_for(settings.work_dir, self.REAL).exists())  # a complete run clears it

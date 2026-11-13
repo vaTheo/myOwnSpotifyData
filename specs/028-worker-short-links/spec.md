@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-13
 
-**Status**: Draft
+**Status**: Built (worker 0.7.4); the owner's run of quickstart.md pending
 
 **Input**: Owner, 2026-11-12: "I have try to lookup a mix with the worker with my phone but it seems the worker do not take link from mobile export with on.soundcloud.com it should be". Owner, 2026-11-13, about a SoundCloud link ending in `?in_system_playlist=…`: "those type of links should also be trimed", then "Create a plan do solve this". Option taken: the worker follows the short link. The other option (the app sends its guess of the real address) was set aside: a wrong guess downloads another set.
 

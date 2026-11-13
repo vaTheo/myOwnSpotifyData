@@ -23,6 +23,7 @@ class LinkFailure:
 Locate = Callable[[str, float], tuple[int, str | None]]   # (status, Location header); may raise
 
 def trim_soundcloud(url: str) -> str | None
+def host_on(url, hosts) -> str | None   # https, no user info, default port, host in hosts; else None
 def resolve_short_link(url: str, locate: Locate) -> str | LinkFailure
 def working_address(url: str, locate: Locate) -> str | LinkFailure
 ```
@@ -42,7 +43,8 @@ A `Location` is accepted only when it is `https`, has no user info, uses the def
 |---|---|
 | 301, 302, 303, 307 or 308, `Location` accepted, on a page host | `trim_soundcloud(Location)`; `None` (a profile) gives `NOT_A_SET`, detail `not a set address` |
 | the same, `Location` on the short host | asked again; after `MAX_REQUESTS` requests, `NOT_A_SET`, detail `too many redirects` |
-| a redirect status with a `Location` not accepted | `NOT_A_SET`, detail `leads to <host>` |
+| a redirect status with a `Location` not accepted | `NOT_A_SET`, detail `leads to <scheme>://<host>[:port]` (never the path or the query: a share token is someone's), or `leads to an unreadable address` |
+| the request link itself is not an accepted `https` share link (user info, a port) | `NOT_A_SET`, the same detail, no request made |
 | a redirect status without `Location` | `NOT_A_SET`, detail `no redirect` |
 | 400, 404, 410 | `NOT_FOUND`, detail `HTTP <status>` (checked 2026-11-13: an unknown token answers 404, a malformed one 400) |
 | any 2xx | `NOT_A_SET`, detail `no redirect` |
@@ -55,7 +57,8 @@ A `Location` is accepted only when it is `https`, has no user info, uses the def
   mix-worker/<version>`, the opener that follows no redirect (as `http_get`), the body not read. An HTTP error status is an
   answer `(status, Location)`, not an exception. A network error or a timeout raises.
 - `SHARED_HOSTS = links.PAGE_HOSTS + (links.SHORT_HOST,)`. `shared_link_allowed` and `SHARED_LINK_REASON` keep their names, their
-  place (checked before `run_one`) and their other rules (https, no user info, default port).
+  place (checked before `run_one`) and their other rules (https, no user info, default port); the test itself is
+  `links.host_on`, the one the resolver applies to every `Location`.
 - `build_deps`: `address=lambda url: working_address(url, http_location)`. No setting turns it off.
 - `run_queue`: unchanged. The `claimed` line, `auto.after(url, outcome)` and `enqueue` use the request's link.
 
@@ -82,5 +85,5 @@ request, only for a request whose link is on that host. Still never a Spotify ho
 
 ## Tests
 
-`worker/tests/test_links.py` (new), additions to `test_pipeline.py`, `test_cli.py` and `test_shared_queue.py`: listed in plan.md,
+`worker/tests/test_links.py` (new), additions to `test_pipeline.py`, `test_cli.py` and `test_run_queue.py`: listed in plan.md,
 "Tests". One existing expectation changes: `shared_link_allowed("https://on.soundcloud.com/x")` (`test_cli.py`) becomes true.
