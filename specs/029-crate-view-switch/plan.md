@@ -65,7 +65,7 @@ Each step is one commit, compiling and green, with its docs.
 
 4. **Activity links (US7; FR-017).** In `src/ui/jobs.ts`: sync → `settings/sync`; lookup and rekordbox → `settings/audio`; reach → `settings/reach`; server → `settings/server`, each built by `routeHref({ name: 'settings', item })`. Import, Like and Create playlist links unchanged. `jobs.test.ts` updated (five expected addresses).
 
-5. **Wording (US8; FR-018).** `CrateEmpty.tsx`: "These six views are built from…"; the import-again text becomes "The Crate's views need data the old import didn't keep. Your play counts still work everywhere else." (owner-visible wording, to confirm at review). Spec 003 `spec.md` FR-015 and FR-035: five → six, with Rarely played named.
+5. **Wording (US8; FR-018).** `CrateEmpty.tsx`: "These six views are built from…"; the import-again text becomes "The Crate's views need data the old import didn't keep. Your play counts still work everywhere else." (owner 2026-11-13: accepted). Spec 003 `spec.md` FR-015 and FR-035: five → six, with Rarely played named.
 
 6. **Regression rows** (`specs/003-web-first-redesign/regression.md` and `tools/shots/regression.spec.ts`), written with the step they check:
    - new: switch shows six names with the open one current, at 1440; picking Forgotten gems changes the address and the title; Back returns; the hub is unchanged.
