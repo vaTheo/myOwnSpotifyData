@@ -25,13 +25,13 @@ function row(over: Partial<TracklistRow> = {}): TracklistRow {
 }
 
 describe('LEVELS', () => {
-  it('lists the five levels, best first', () => {
-    expect(LEVELS).toEqual(['solid', 'once', 'out_of_step', 'candidates', 'inside']);
+  it('lists the four levels, best first', () => {
+    expect(LEVELS).toEqual(['solid', 'once', 'out_of_step', 'candidates']);
   });
 });
 
 describe('evidenceLevel', () => {
-  it.each(['solid', 'once', 'out_of_step', 'candidates', 'inside'] as const)(
+  it.each(['solid', 'once', 'out_of_step', 'candidates'] as const)(
     'reads the known word %s',
     (word) => {
       expect(evidenceLevel(row({ evidence: word }))).toBe(word);
@@ -43,18 +43,21 @@ describe('evidenceLevel', () => {
     expect(evidenceLevel(row({ evidence: 'Solid' }))).toBeNull();
   });
 
+  it('gives null for inside, a level the worker no longer sends', () => {
+    expect(evidenceLevel(row({ evidence: 'inside' }))).toBeNull();
+  });
+
   it('gives null without the field', () => {
     expect(evidenceLevel(row())).toBeNull();
   });
 });
 
 describe('evidenceRank', () => {
-  it('ranks solid 5, once 4, out_of_step 3, candidates 2, inside 1', () => {
-    expect(evidenceRank(row({ evidence: 'solid' }))).toBe(5);
-    expect(evidenceRank(row({ evidence: 'once' }))).toBe(4);
-    expect(evidenceRank(row({ evidence: 'out_of_step' }))).toBe(3);
-    expect(evidenceRank(row({ evidence: 'candidates' }))).toBe(2);
-    expect(evidenceRank(row({ evidence: 'inside' }))).toBe(1);
+  it('ranks solid 4, once 3, out_of_step 2, candidates 1', () => {
+    expect(evidenceRank(row({ evidence: 'solid' }))).toBe(4);
+    expect(evidenceRank(row({ evidence: 'once' }))).toBe(3);
+    expect(evidenceRank(row({ evidence: 'out_of_step' }))).toBe(2);
+    expect(evidenceRank(row({ evidence: 'candidates' }))).toBe(1);
   });
 
   it('gives 0 without a known level', () => {
@@ -64,10 +67,9 @@ describe('evidenceRank', () => {
 });
 
 describe('isFlagged', () => {
-  it('flags out_of_step, candidates and inside', () => {
+  it('flags out_of_step and candidates', () => {
     expect(isFlagged(row({ evidence: 'out_of_step' }))).toBe(true);
     expect(isFlagged(row({ evidence: 'candidates' }))).toBe(true);
-    expect(isFlagged(row({ evidence: 'inside' }))).toBe(true);
   });
 
   it('does not flag solid, once or a row without a level', () => {
@@ -80,10 +82,10 @@ describe('isFlagged', () => {
 
 describe('bestEvidence', () => {
   it('returns the row with the best rank', () => {
-    const inside = row({ evidence: 'inside', title: 'I' });
+    const candidates = row({ evidence: 'candidates', title: 'C' });
     const solid = row({ evidence: 'solid', title: 'S' });
     const once = row({ evidence: 'once', title: 'O' });
-    expect(bestEvidence([inside, solid, once])).toBe(solid);
+    expect(bestEvidence([candidates, solid, once])).toBe(solid);
   });
 
   it('returns the first among equals', () => {

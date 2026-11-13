@@ -11,9 +11,8 @@ from typing import Any
 
 STEP_TOLERANCE_SECONDS = 0.5
 STEP_MAX_GAP_SECONDS = 60
-INSIDE_MARGIN_SECONDS = 30
 MANY_CANDIDATES = 10
-LEVELS = ("solid", "inside", "candidates", "out_of_step", "once")
+LEVELS = ("solid", "candidates", "out_of_step", "once")
 
 # Floating point: 13.08 s after a ×1.09 hit of a 12 s probe is computed as 13.0799…
 _GAP_EPSILON = 0.001
@@ -77,16 +76,6 @@ def levels(rows: list[tuple[str, list[tuple[float, Heard | None]]]], probe_secon
     graded = [bool(hits) and hits[0][1] is not None for _, hits in rows]
     solid = [graded[i] and bool(in_step_hits[i]) for i in range(len(rows))]
 
-    def inside(i: int) -> bool:
-        key, hits = rows[i]
-        t = hits[0][0]
-        return any(
-            solid[j]
-            and rows[j][0] != key
-            and rows[j][1][0][0] + INSIDE_MARGIN_SECONDS < t < rows[j][1][-1][0] - INSIDE_MARGIN_SECONDS
-            for j in range(len(rows))
-        )
-
     out: list[dict[str, Any]] = []
     for i, (_, hits) in enumerate(rows):
         if not graded[i]:
@@ -96,8 +85,6 @@ def levels(rows: list[tuple[str, list[tuple[float, Heard | None]]]], probe_secon
         assert first is not None
         if solid[i]:
             level = "solid"
-        elif inside(i):
-            level = "inside"
         elif first["matches"] >= MANY_CANDIDATES:
             level = "candidates"
         elif len(hits) >= 2:

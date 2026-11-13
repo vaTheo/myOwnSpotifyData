@@ -2,7 +2,7 @@
 // fields read from a worker row. Pure: no fetch, no state.
 import type { TracklistRow } from '../../db/schema';
 
-export type EvidenceLevel = 'solid' | 'once' | 'out_of_step' | 'candidates' | 'inside';
+export type EvidenceLevel = 'solid' | 'once' | 'out_of_step' | 'candidates';
 
 /** Best first. */
 export const LEVELS: readonly EvidenceLevel[] = [
@@ -10,10 +10,9 @@ export const LEVELS: readonly EvidenceLevel[] = [
   'once',
   'out_of_step',
   'candidates',
-  'inside',
 ];
 
-const FLAGGED: readonly EvidenceLevel[] = ['out_of_step', 'candidates', 'inside'];
+const FLAGGED: readonly EvidenceLevel[] = ['out_of_step', 'candidates'];
 
 /** The row's level, or null for an absent or unknown word. */
 export function evidenceLevel(row: TracklistRow): EvidenceLevel | null {
@@ -23,13 +22,13 @@ export function evidenceLevel(row: TracklistRow): EvidenceLevel | null {
     : null;
 }
 
-/** solid 5 … inside 1; 0 without a known level. */
+/** solid 4 … candidates 1; 0 without a known level. */
 export function evidenceRank(row: TracklistRow): number {
   const level = evidenceLevel(row);
   return level === null ? 0 : LEVELS.length - LEVELS.indexOf(level);
 }
 
-/** out_of_step, candidates and inside. */
+/** out_of_step and candidates. */
 export function isFlagged(row: TracklistRow): boolean {
   const level = evidenceLevel(row);
   return level !== null && FLAGGED.includes(level);

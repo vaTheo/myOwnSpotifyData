@@ -100,7 +100,7 @@ class InStep(unittest.TestCase):
 
 
 class Levels(unittest.TestCase):
-    """One level per row, the first that fits: solid, inside, candidates, out_of_step, once."""
+    """One level per row, the first that fits: solid, candidates, out_of_step, once."""
 
     def level(self, rows):
         return [r.get("evidence") for r in evidence.levels(rows, PROBE)]
@@ -119,23 +119,6 @@ class Levels(unittest.TestCase):
     def test_two_hits_out_of_step(self):
         self.assertEqual(self.level([("a", [(100, heard(50)), (112, heard(80))])]), ["out_of_step"])
 
-    def solid_from_100_to_200(self):
-        return ("a", [(100, heard(50)), (112, heard(62)), (200, heard(150))])
-
-    def test_inside_a_solid_row_of_another_key(self):
-        for t, expected in ((131, "inside"), (169, "inside"), (129, "once"), (171, "once")):
-            with self.subTest(time=t):
-                rows = [self.solid_from_100_to_200(), ("b", [(t, heard(10))])]
-                self.assertEqual(self.level(rows), ["solid", expected])
-
-    def test_inside_a_row_of_its_own_key_is_not_inside(self):
-        rows = [self.solid_from_100_to_200(), ("a", [(150, heard(500))])]
-        self.assertEqual(self.level(rows), ["solid", "once"])
-
-    def test_inside_a_row_that_is_not_solid_is_not_inside(self):
-        rows = [("a", [(100, heard(50)), (200, heard(999))]), ("b", [(150, heard(10))])]
-        self.assertEqual(self.level(rows), ["out_of_step", "once"])
-
     def test_ten_entries_are_candidates_nine_are_once(self):
         self.assertEqual(self.level([("a", [(100, heard(50, matches=10))])]), ["candidates"])
         self.assertEqual(self.level([("a", [(100, heard(50, matches=9))])]), ["once"])
@@ -150,10 +133,6 @@ class Levels(unittest.TestCase):
     def test_solid_wins_over_twelve_entries(self):
         rows = [("a", [(100, heard(50, matches=12)), (112, heard(62, matches=12))])]
         self.assertEqual(self.level(rows), ["solid"])
-
-    def test_inside_wins_over_twelve_entries(self):
-        rows = [self.solid_from_100_to_200(), ("b", [(150, heard(10, matches=12))])]
-        self.assertEqual(self.level(rows), ["solid", "inside"])
 
     def test_first_hit_without_evidence_gives_nothing(self):
         rows = [("a", [(100, None), (112, heard(62))]), ("a", [(124, heard(74))])]
@@ -192,7 +171,7 @@ class Levels(unittest.TestCase):
         self.assertEqual(evidence.levels(rows, PROBE)[0]["mix_speed_percent"], -7.7)
 
     def test_the_levels_in_order(self):
-        self.assertEqual(evidence.LEVELS, ("solid", "inside", "candidates", "out_of_step", "once"))
+        self.assertEqual(evidence.LEVELS, ("solid", "candidates", "out_of_step", "once"))
 
 
 if __name__ == "__main__":
