@@ -10,6 +10,7 @@ import type {
 } from '../model/state';
 import { routeHref } from '../router';
 import type { ServerStatus } from '../server/types';
+import type { SectionId } from './settings/sections';
 import type { SyncState } from '../sync/runner';
 
 /** The job signals of `model/state.ts`, read and never written here. */
@@ -45,7 +46,13 @@ export interface ActiveJob {
   href: string;
 }
 
-const SETTINGS = routeHref({ name: 'settings' });
+/**
+ * A Settings job opens the item that shows it (spec 029, FR-017), not the
+ * top of the page.
+ */
+function settingsItem(item: SectionId): string {
+  return routeHref({ name: 'settings', item });
+}
 const MIX = routeHref({ name: 'mix' });
 
 /**
@@ -62,7 +69,7 @@ export function activeJobs(s: JobStates): ActiveJob[] {
       label: 'Syncing playlists',
       done: s.sync.done,
       total: s.sync.total,
-      href: SETTINGS,
+      href: settingsItem('sync'),
     });
   }
   if (s.import.status === 'running') {
@@ -85,7 +92,7 @@ export function activeJobs(s: JobStates): ActiveJob[] {
           : 'Looking up BPM and key',
       done: s.lookup.done,
       total: s.lookup.total,
-      href: SETTINGS,
+      href: settingsItem('audio'),
     });
   }
   if (s.rekordbox.status === 'running') {
@@ -94,7 +101,7 @@ export function activeJobs(s: JobStates): ActiveJob[] {
       label: 'Importing Rekordbox',
       done: s.rekordbox.index,
       total: s.rekordbox.total,
-      href: SETTINGS,
+      href: settingsItem('audio'),
     });
   }
   if (s.reach.status === 'running') {
@@ -103,7 +110,7 @@ export function activeJobs(s: JobStates): ActiveJob[] {
       label: 'Looking up artists',
       done: s.reach.done,
       total: s.reach.total,
-      href: SETTINGS,
+      href: settingsItem('reach'),
     });
   }
   if (s.server.status === 'pushing' || s.server.status === 'pulling') {
@@ -115,7 +122,7 @@ export function activeJobs(s: JobStates): ActiveJob[] {
           : 'Loading from server',
       done: s.server.done,
       total: s.server.total,
-      href: SETTINGS,
+      href: settingsItem('server'),
     });
   }
   if (s.like.status === 'checking' || s.like.status === 'liking') {

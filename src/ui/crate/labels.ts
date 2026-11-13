@@ -2,7 +2,9 @@ import type { PlayRow } from '../../db/schema';
 import type { HistoryRange } from '../../history/importer';
 import type { Model } from '../../model/aggregate';
 import { monthKey } from '../../model/crate';
+import { CRATE_VIEWS, routeHref, type CrateView } from '../../router';
 import { artistNames } from '../format';
+import { CRATE_TITLE } from '../layout/titles';
 
 /**
  * A play row's title and artists. The synced track wins: the export holds
@@ -60,4 +62,25 @@ export function yearSpanLabel(
 /** `month`, `3 months`: the phrase after "the last" and "in the last". */
 export function windowLabel(months: number): string {
   return months === 1 ? 'month' : `${months} months`;
+}
+
+export interface ViewSwitchItem {
+  view: CrateView;
+  label: string;
+  href: string;
+  current: boolean;
+}
+
+/**
+ * The six views of the view switch (spec 029, FR-001), in the hub's order.
+ * Each address is the view's own, without a period or an open track: a
+ * switch closes the sheet and By year keeps the owner's year and period.
+ */
+export function viewSwitchItems(current: CrateView): ViewSwitchItem[] {
+  return CRATE_VIEWS.map((view) => ({
+    view,
+    label: CRATE_TITLE[view],
+    href: routeHref({ name: 'crateView', view }),
+    current: view === current,
+  }));
 }

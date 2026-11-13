@@ -2999,6 +2999,61 @@ a.ov-item:hover {
   width: 100%;
 }
 
+/* Spec 029: the view switch of the Crate view screen. Links drawn as
+   secondary tabs on medium and wider; the row scrolls inside itself when it
+   is narrower than its six names (beside the docked sheet) and never widens
+   the page. One picker on compact. */
+.crate-switch {
+  display: flex;
+  margin: 0 0 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.crate-switch-link {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--app-target);
+  padding: 0 16px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface-variant);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.crate-switch-link.active {
+  color: var(--md-sys-color-on-surface);
+}
+
+.crate-switch-link.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--md-sys-color-primary);
+}
+
+label.crate-switch {
+  border-bottom: 0;
+  overflow: visible;
+}
+
+.crate-switch select {
+  width: 100%;
+  min-height: var(--app-target);
+  padding: 0 8px;
+  font: var(--md-sys-typescale-title-small);
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
 .crate-view .ym-scroll {
   margin: 0 0 8px -6px;
 }
