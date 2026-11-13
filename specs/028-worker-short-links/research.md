@@ -1,6 +1,7 @@
 # Research: The worker takes phone share links and trims SoundCloud links
 
-Every fact below was read in the code or checked on 2026-11-13. No open question remains.
+Every fact below was read in the code or checked on 2026-11-13. No open question remains. Line numbers are those of the code
+before the round (`origin/main` at `146064e`).
 
 ## R1. What `on.soundcloud.com` answers
 
@@ -34,9 +35,14 @@ Every fact below was read in the code or checked on 2026-11-13. No open question
 - **Decision**: `links.trim_soundcloud` ports it with `urllib.parse.urlsplit`. One file, `src/features/mix/url.cases.json`, lists
   links and their expected trimmed form (or `null`); `url.cases.test.ts` and `worker/tests/test_links.py` both read it, as
   `match.cases.json` and `parse.cases.json` already are.
-- **Known difference**: the browser's `URL` percent-encodes characters outside ASCII in a path and removes `.` and `..` parts;
-  Python's `urlsplit` does neither. It cannot matter here: a redirect's `Location` is ASCII, and a request recorded by the app was
-  already trimmed by the browser. The case file holds ASCII paths only. Recorded as a limit.
+- **Known difference**: the browser's `URL` repairs what Python's `urlsplit` leaves alone or refuses. The review ran 60 odd
+  links through both: they agree on every ordinary link and differ only on a path with characters outside ASCII or a raw space
+  (the browser encodes them, Python keeps them), on `.` and `..` parts (the browser resolves them), on a backslash in the path
+  and on a malformed scheme or an encoded host (the browser accepts them, Python gives no trimmed form and the link is used as
+  it arrives). In every such case the host handed on is still `soundcloud.com`. It cannot matter here: a redirect's `Location`
+  is ASCII, and a request recorded by the app was already rewritten by the browser, so what reaches the worker is
+  percent-encoded. That real route is pinned: the case file holds two already encoded paths (`caf%C3%A9-mix`, `a%20set`), which
+  both languages keep as they are. Raw non-ASCII paths stay out of the file. Recorded as a limit.
 - **Alternatives**: two rules tested apart (they drift); the worker not trimming and trusting the app (the address a short link
   leads to never passes through the app).
 

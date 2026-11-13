@@ -108,6 +108,8 @@ existing pipeline test runs unchanged.
 
 ## Design
 
+Line numbers here, in research.md and in tasks.md are those of the code before the round (`origin/main` at `146064e`).
+
 ### App
 
 - `requestKey(input)` (`src/features/mix/url.ts:255`): starts with `classifyMixInput(input)`; a permalink gives its canonical form
@@ -166,9 +168,9 @@ fetches or saves on disk uses the working address.
 
 1. `docs(worker): spec 028, phone share links` (spec, plan, research, data model, contracts, quickstart, tasks).
 2. `feat(mix): a SoundCloud share link can be sent to the worker` (app: `url.ts`, `url.cases.json`, tests, the two texts, with
-   how-it-works §10, the owner's manual, the client contract).
+   how-it-works §10 and the client contract).
 3. `feat(worker): follow a share link and trim SoundCloud addresses, version 0.7.4` (worker code, tests, `uv lock`, with every
-   worker document below).
+   worker document below and the owner's manual, which becomes true with this commit).
 4. A review round, then a `fix(...)` commit if it finds something.
 
 Each commit green: `yarn typecheck`, `yarn lint`, `yarn test`, and the worker's `unittest`, judged by exit code. Before the merge:
@@ -184,7 +186,9 @@ only with the owner's OK.
 | `links.py`, `pipeline.py`, `cli.py` | `worker/CLAUDE.md` (hosts: `on.soundcloud.com`; the working address rule; 54 of 80 lines today); `worker/README.md` (share links; the three reasons under troubleshooting; the host list); `worker/RELEASE_NOTES.md` (0.7.4); `specs/002-mix-analysis-worker/contracts/worker.md` (an amendment note: the address step, the new seam, the host list); how-it-works §17 (a round 028 bullet; the shared-mode sentence) |
 | Shared-mode hosts | ADR-16: an amendment (round 028) and its row in the ADR index; no new ADR (the rule "a friend's request never makes the computer fetch an arbitrary address" is kept, one host joins) |
 | The round | inventory: row F43 and `on.soundcloud.com` in the "what leaves the device" table (worker row); Limits and roadmap §2 (the shared-mode host line; new limits: one set under two links is two saved mixes, a worker before 0.7.4, paths outside ASCII); `CHANGELOG.md`; `docs/README.md` (the specs list) |
-| Not touched, checked | root `CLAUDE.md` (no rule names SoundCloud hosts); `src/features/mix/CLAUDE.md` and `src/server/CLAUDE.md` (neither describes the request link); the constitution (no principle changes); `specs/003-web-first-redesign/contracts/screens.md` and `regression.md` (neither quotes the two texts) |
+| The shared trim rule | `src/features/mix/CLAUDE.md` (a spec 028 bullet: the rule is ported in the worker, a new case goes in `url.cases.json`; added after the review) |
+| A test renamed on purpose | `tools/shots/invariants.ts` `RENAMED_TESTS` (the old "refuses a short link, http, and free text" is now "refuses http and free text"; the share link has its own test), as Contributing asks |
+| Not touched, checked | root `CLAUDE.md` (no rule names SoundCloud hosts); `src/server/CLAUDE.md` (it does not describe the request link); the constitution (no principle changes); `specs/003-web-first-redesign/contracts/screens.md` and `regression.md` (neither quotes the two texts) |
 
 ## Risks
 

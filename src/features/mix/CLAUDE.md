@@ -20,6 +20,9 @@ import), library matching, Create playlist from mix, and dig links.
 - `pickMatch` never returns a wrong track: a "not found" is always better. Artist identity is equality on a leading run, never containment;
   a title is equal or the row's title plus a version tail. A new rule comes with accepted **and** refused test cases.
 - The TrackId guard stays: `result.rowCount === 1` **and** URL equality with `normalizeMixUrl`'s output.
+- Spec 028 (`url.ts`): `normalizeMixUrl` is ported in the worker (`worker/mix_worker/links.py`, `trim_soundcloud`) and both are
+  pinned by `url.cases.json`: a change of the rule changes both, and a new case goes in the file. `requestKey` keeps a phone share
+  link (`on.soundcloud.com/<token>`) as the request's link, in the form the lookup saves a mix under; the app never follows it.
 - Round 016 (`worker.ts`): rows with `origin: 'trackid'` come from the worker, are never edited by the app, and `stepName('trackid')` is "TrackId.net"; the worker's TrackId.net lookup is by the exact mix link (ADR-17), distinct from this folder's `trackid.ts`.
 - Fetches stay behind an injected `fetchFn`, return a discriminated result, never throw; `lookupMix` keeps one layer's failure from hiding
   the other's rows.

@@ -13,7 +13,8 @@ suites must give `expected` for every `input`.
 }
 ```
 
-Every name in it is made up (`user`, `some-mix`, `123456`). Paths are ASCII only (research R3).
+Every name in it is made up (`user`, `some-mix`, `123456`). Paths are ASCII only, percent-encoded where a name is not (research
+R3). 28 cases: the 26 of the plan and two encoded paths added by the review.
 
 ## The cases
 
@@ -36,6 +37,8 @@ port must match it.
 | `https://soundcloud.com/User/Some-Mix` | `https://soundcloud.com/User/Some-Mix` (the path's case is kept) |
 | `https://soundcloud.com/user/some-mix/s-AbCdEf123?si=abc123` | `https://soundcloud.com/user/some-mix/s-AbCdEf123` (a private set) |
 | `https://soundcloud.com/user/sets/some-playlist?si=abc123` | `https://soundcloud.com/user/sets/some-playlist` (a playlist: the download refuses it later) |
+| `https://soundcloud.com/user/caf%C3%A9-mix?si=abc123` | `https://soundcloud.com/user/caf%C3%A9-mix` (an encoded path is kept as it is: how a name outside ASCII reaches the worker) |
+| `https://soundcloud.com/user/a%20set/` | `https://soundcloud.com/user/a%20set` |
 | `http://soundcloud.com/user/some-mix` | `https://soundcloud.com/user/some-mix` |
 | `  https://soundcloud.com/user/some-mix  ` | `https://soundcloud.com/user/some-mix` |
 | `https://soundcloud.com/user` | `null` (a profile) |

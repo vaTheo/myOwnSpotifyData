@@ -687,6 +687,7 @@ class HttpLocationTest(unittest.TestCase):
             self.ask(urllib.error.URLError("down"))
 
     def test_one_request_on_a_real_socket(self):
+        # The loopback only, like HttpGetTest's own: the one proof that the real opener follows nothing.
         import http.server
         import threading
 

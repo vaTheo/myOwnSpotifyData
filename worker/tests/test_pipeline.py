@@ -795,5 +795,6 @@ class Round028Address(unittest.TestCase):
             deps.address = lambda url: working_address(url, never)
             run_one(job(self.REAL + "?in_system_playlist=your-moods%3A123456%3A5"), settings, "tok", deps)
             self.assertEqual(seen["resume"]["first"], {"0": TRACK})
-            self.assertIn(f"  link · {self.REAL}", log.lines)
+            # One line per run: the share link's, then the trimmed full link's.
+            self.assertEqual([line for line in log.lines if line.startswith("  link ·")], [f"  link · {self.REAL}"] * 2)
             self.assertFalse(runstate.path_for(settings.work_dir, self.REAL).exists())  # a complete run clears it

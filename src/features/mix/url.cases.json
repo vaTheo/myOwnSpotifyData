@@ -14,6 +14,8 @@
     { "input": "https://soundcloud.com/User/Some-Mix", "expected": "https://soundcloud.com/User/Some-Mix" },
     { "input": "https://soundcloud.com/user/some-mix/s-AbCdEf123?si=abc123", "expected": "https://soundcloud.com/user/some-mix/s-AbCdEf123" },
     { "input": "https://soundcloud.com/user/sets/some-playlist?si=abc123", "expected": "https://soundcloud.com/user/sets/some-playlist" },
+    { "input": "https://soundcloud.com/user/caf%C3%A9-mix?si=abc123", "expected": "https://soundcloud.com/user/caf%C3%A9-mix" },
+    { "input": "https://soundcloud.com/user/a%20set/", "expected": "https://soundcloud.com/user/a%20set" },
     { "input": "http://soundcloud.com/user/some-mix", "expected": "https://soundcloud.com/user/some-mix" },
     { "input": "  https://soundcloud.com/user/some-mix  ", "expected": "https://soundcloud.com/user/some-mix" },
     { "input": "https://soundcloud.com/user", "expected": null },

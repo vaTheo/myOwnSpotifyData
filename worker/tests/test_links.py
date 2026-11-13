@@ -39,7 +39,7 @@ class TrimCases(unittest.TestCase):
     """The same file the app's `url.cases.test.ts` reads: one trim rule (spec 028)."""
 
     def test_trim(self):
-        self.assertGreaterEqual(len(CASES["trim"]), 26)
+        self.assertGreaterEqual(len(CASES["trim"]), 28)
         for c in CASES["trim"]:
             with self.subTest(input=c["input"]):
                 self.assertEqual(links.trim_soundcloud(c["input"]), c["expected"])
@@ -81,6 +81,9 @@ class ResolveShortLink(unittest.TestCase):
         self.assertEqual(links.resolve_short_link(SHORT, locate), REAL)
         self.assertEqual(len(locate.asked), links.MAX_REQUESTS)
 
+    def test_a_location_without_scheme_takes_https_from_the_address_asked(self):
+        self.assertEqual(links.resolve_short_link(SHORT, FakeLocate((302, "//soundcloud.com/user/some-mix?si=abc123"))), REAL)
+
     def test_the_set_page_itself_is_never_asked(self):
         locate = FakeLocate((302, REAL + SHARING))
         links.resolve_short_link(SHORT, locate)
@@ -106,6 +109,17 @@ class ResolveShortLinkFailures(unittest.TestCase):
         self.failure((302, "https://someone:secret@soundcloud.com/user/some-mix"), reason=NOT_A_SET, detail="leads to https://soundcloud.com")
         self.failure((302, "https://soundcloud.com:8443/user/some-mix"), reason=NOT_A_SET, detail="leads to https://soundcloud.com:8443")
         self.failure((302, "https://soundcloud.com:99999/user/some-mix"), reason=NOT_A_SET, detail="leads to an unreadable address")
+
+    def test_a_location_without_scheme_on_another_site(self):
+        self.failure((302, "//example.com/user/some-mix"), reason=NOT_A_SET, detail="leads to https://example.com")
+
+    def test_user_info_or_a_port_on_the_short_host_ends_the_chain(self):
+        self.failure((302, "https://on.soundcloud.com:8443/next"), reason=NOT_A_SET, detail="leads to https://on.soundcloud.com:8443")
+        self.failure((302, "https://someone:secret@on.soundcloud.com/next"), reason=NOT_A_SET, detail="leads to https://on.soundcloud.com")
+
+    def test_an_answer_of_the_wrong_shape_is_a_reason_not_an_error(self):
+        self.failure((None, None), reason=NO_ANSWER, detail="HTTP None")
+        self.failure((302, 123), reason=NOT_A_SET, detail="no redirect")
 
     def test_the_log_detail_never_carries_a_path_or_a_query(self):
         locate = FakeLocate((302, "https://example.com/private/path?si=secret-token"))

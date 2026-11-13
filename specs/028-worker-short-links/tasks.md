@@ -8,7 +8,8 @@
 
 **Every commit**: `yarn typecheck && yarn lint && yarn test` and `cd worker && uv run python -m unittest discover -s tests`, each
 judged by its exit code, never through a pipe; `type(scope): summary`; the documents of what the commit touches in the same commit.
-No push without the owner's OK. No `yarn shots` unless the owner asks.
+No push without the owner's OK. No `yarn shots` unless the owner asks. Line numbers in the tasks are those of the code before the
+round.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -92,9 +93,9 @@ No push without the owner's OK. No `yarn shots` unless the owner asks.
 - [x] T023 Version 0.7.4: `worker/pyproject.toml`, `worker/mix_worker/__init__.py` (tested equal), `cd worker && uv lock`; a 0.7.4 entry in `worker/RELEASE_NOTES.md`
 - [x] T024 [P] Worker documents: `worker/CLAUDE.md` (hosts: `on.soundcloud.com`; the working address rule; at most 80 lines), `worker/README.md` (share links from the phone, the three reasons under troubleshooting, the host list), an amendment note in `specs/002-mix-analysis-worker/contracts/worker.md` (the address step, the new seam, the host list), `docs/architecture/000-how-it-works.md` §17 (a round 028 bullet; the shared-mode sentence), `docs/architecture/700-adr/ADR-16-shared-worker.md` (an amendment, round 028) and its row in `docs/architecture/700-adr/README.md`
 - [x] T025 [P] Round documents: `docs/architecture/100-features.md` (row F43; `on.soundcloud.com` in the "what leaves the device" table), `docs/architecture/800-limits-roadmap.md` §2 (the shared-mode host line; new limits: one set under two links is two saved mixes, a worker before 0.7.4, paths outside ASCII), `CHANGELOG.md`, `docs/README.md` (the specs list), `specs/028-worker-short-links/spec.md` status
-- [ ] T026 Gates, then commit `feat(worker): follow a share link and trim SoundCloud addresses, version 0.7.4` (worker code, tests, lock, T023–T025)
-- [ ] T027 Final sweep: a file-to-doc map of `git diff origin/main --stat` (each changed file and the document that describes it); the four gates; `yarn regression`; `yarn invariants`; the public-safe check of `docs/dev-guide/000-contributing.md` ("Keep it public-safe")
-- [ ] T028 Review by a separate reviewer of the whole branch against spec.md, contracts/ and the documents (a document claim the code does not keep is a finding); one fix commit if needed, gates again
+- [x] T026 Gates, then commit `feat(worker): follow a share link and trim SoundCloud addresses, version 0.7.4` (worker code, tests, lock, T023–T025)
+- [x] T027 Final sweep: a file-to-doc map of `git diff origin/main --stat` (each changed file and the document that describes it); the four gates; `yarn regression`; `yarn invariants`; the public-safe check of `docs/dev-guide/000-contributing.md` ("Keep it public-safe"). Done 2026-11-13: regression 83 passed; invariants pass once the renamed test is in `RENAMED_TESTS` (`tools/shots/invariants.ts`); the three public-safe commands print nothing; `src/features/mix/CLAUDE.md` gained a bullet on the shared rule
+- [x] T028 Review by a separate reviewer of the whole branch against spec.md, contracts/ and the documents (a document claim the code does not keep is a finding); one fix commit if needed, gates again. Done 2026-11-13, two passes (the code tried with about 30 hostile `Location` values, then every document and every new test read): spec PASS, quality PASS, nothing Critical or Important. Minor points taken: four resolver cases added (a `Location` without scheme both ways, user info or a port on the short host, an answer of the wrong shape), the saved-run test counts its two `link ·` lines, two encoded paths join the shared cases (28), the notes say their line numbers are the baseline's, the plan's document table and commit list match what was done. Left as they are: a relative `Location` on the short host is asked again and can end as "too many redirects" (safe, the host never changes); FR-002 to FR-005 have no test of their own (no DOM tests here; they follow from `requestKey`, and the two texts were read against the contract)
 - [ ] T029 Ask the owner's OK to push and merge; the owner's run of `specs/028-worker-short-links/quickstart.md` checks 1 to 9 stays pending until then
 
 ---

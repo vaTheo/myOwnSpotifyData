@@ -78,6 +78,11 @@ const RENAMED_TESTS: Record<string, string> = {
   // pin the state words and the progress shown only while a source runs.
   'says Rekordbox matched and when, or Not imported':
     'says in words what was never set up, imported or synced (US1.3)',
+  // Spec 028: a phone share link is now a request link (the worker follows
+  // it), so `requestKey` no longer refuses it. The refusals that stay (http,
+  // free text) keep their test; the share link has its own, asserting the
+  // new answer, and one more for a link without a token and a profile.
+  'refuses a short link, http, and free text': 'refuses http and free text',
 };
 
 /**
