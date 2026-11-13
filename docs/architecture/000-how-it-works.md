@@ -511,7 +511,7 @@ screen, grouped by role under `src/ui/`.
   then a Top list's), cached per model by `trackYear`; a Mix row's own `year`/`yearFrom`. Display, sort and filter only
   (FR-049): no ranking, Crate, Match or gate reads it.
   - **Released column**: `yearColumn` (`ui/table/columns.tsx`), priority 2, 88 px, oldest first, undated last; `NoData` in a
-    cell, nothing in the two-line meta line (`Column.compactCell`). On Top (Tracks), Playlist, Artist, the five Crate views
+    cell, nothing in the two-line meta line (`Column.compactCell`). On Top (Tracks), Playlist, Artist, the six Crate views
     (`crateColumns`) and the Mix tracklist (the row's own year, its source in the tooltip, no header sort).
   - **Decade**: `TrackFilter.decade` (`ui/filters/trackFilter.ts`); chips in `FilterBar` for the decades present; an undated
     row fails it; it counts in Clear filters and "Showing N of M"; a decade absent from the rows is ignored (`forDecades`).
