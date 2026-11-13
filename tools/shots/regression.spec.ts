@@ -1591,21 +1591,36 @@ async function escapeWhenDrawn(page: Page, selector: string): Promise<void> {
 
 // ------------------------------- R. Rounds 003 and 004 (inventory F19)
 
-/** Each track row of the open mix: its clip count and best score, if heard. */
-async function heardFigures(
-  grid: Locator
-): Promise<{ hits: number; best: number }[]> {
+/**
+ * Spec 029: the Evidence cell of each heard row, read from its long text.
+ * `rank` is the level's (solid 4 … candidates 1); `hits` is the count the
+ * text says (Heard once is 1; Many candidates says none, so null).
+ */
+type Heard = {
+  level: 'solid' | 'once' | 'out_of_step' | 'candidates';
+  rank: number;
+  hits: number | null;
+};
+async function heardFigures(grid: Locator): Promise<Heard[]> {
   const texts = await grid.evaluate((g) => {
     const body = g.querySelectorAll('[role=rowgroup]')[1];
     return [...body.querySelectorAll('[role=row]')].map(
       (r) => r.getAttribute('aria-label') ?? r.textContent ?? ''
     );
   });
-  return texts.flatMap((t) => {
-    const m = /(\d+)× · (?:best )?(\d+) %/.exec(t);
-    return m ? [{ hits: Number(m[1]), best: Number(m[2]) }] : [];
+  return texts.flatMap((t): Heard[] => {
+    let m = /Solid: heard (\d+)×/.exec(t);
+    if (m) return [{ level: 'solid', rank: 4, hits: Number(m[1]) }];
+    if (/Heard once/.test(t)) return [{ level: 'once', rank: 3, hits: 1 }];
+    m = /Out of step: heard (\d+)×/.exec(t);
+    if (m) return [{ level: 'out_of_step', rank: 2, hits: Number(m[1]) }];
+    if (/Many candidates/.test(t))
+      return [{ level: 'candidates', rank: 1, hits: null }];
+    return [];
   });
 }
+/** The Evidence sort's order, as far as the text shows it. */
+const evidenceKey = (f: Heard): number => f.rank * 1000 + (f.hits ?? 0);
 
 /** The Mixes list with the server signed in (demo controls only). */
 async function signedInQueue(app: App): Promise<Locator> {
@@ -1618,7 +1633,7 @@ async function signedInQueue(app: App): Promise<Locator> {
 }
 
 test.describe('R. rounds 003 and 004', () => {
-  test('R01 a second listen says its speed', async ({ app }) => {
+  test('R01 a second listen, its speed in the Evidence cell', async ({ app }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
     // Artist and Title are two cells (spec 020).
@@ -1627,12 +1642,15 @@ test.describe('R. rounds 003 and 004', () => {
         .getByRole('row')
         .filter({ hasText: artist })
         .filter({ hasText: title });
-    await expect(row('Juno Haze', 'Neon Shadow')).toContainText(
-      'second listen · +4 %'
-    );
-    await expect(row('Lumen Rivers', 'Garden Gravity')).toContainText(
-      'second listen · −4 %'
-    );
+    // Spec 029: with the mix speed, the title line says "second listen" and
+    // the Evidence cell the speed the track plays at.
+    const faster = row('Juno Haze', 'Neon Shadow');
+    await expect(faster).toContainText('second listen');
+    await expect(faster).not.toContainText('second listen ·');
+    await expect(faster).toContainText('played 3.6 % faster');
+    const slower = row('Lumen Rivers', 'Garden Gravity');
+    await expect(slower).toContainText('second listen');
+    await expect(slower).toContainText('played 3.8 % slower');
   });
 
   test('R02 a candidate from a comment is flagged not heard and has no score', async ({
@@ -1718,46 +1736,74 @@ test.describe('R. rounds 003 and 004', () => {
     await expect(head.getByRole('button', { name: 'Ask again' })).toBeVisible();
   });
 
-  test('R06 every heard row says heard N× · best X %', async ({ app }) => {
+  test('R06 every heard row says its evidence', async ({ app }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
     const figures = await heardFigures(grid);
     // 17 tracks: one candidate (not heard), the rest heard.
     expect(figures).toHaveLength(16);
+    for (const level of ['solid', 'once', 'out_of_step', 'candidates']) {
+      expect(figures.some((f) => f.level === level)).toBe(true);
+    }
     expect(
-      figures.every((f) => f.hits >= 1 && f.best > 0 && f.best <= 100)
+      figures.every(
+        (f) =>
+          (f.level !== 'solid' && f.level !== 'out_of_step') ||
+          (f.hits ?? 0) >= 2
+      )
     ).toBe(true);
   });
 
-  test('R07 Sort by Confidence (times heard, then %): most first', async ({
+  test('R07 Sort by Evidence (level, times heard, then %): best first', async ({
     app,
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
-    // Round 010: Clips heard is folded into Confidence.
+    // Round 010: Clips heard is folded into the column (spec 029: Evidence).
     await expect(
       app.page.getByLabel('Sort').locator('option', { hasText: 'Clips heard' })
     ).toHaveCount(0);
-    await app.page.getByLabel('Sort').selectOption({ label: 'Confidence' });
+    await app.page.getByLabel('Sort').selectOption({ label: 'Evidence' });
     const byBest = await heardFigures(grid);
     expect(byBest).toHaveLength(16);
-    expect(nonIncreasing(byBest.map((f) => f.hits * 1000 + f.best))).toBe(true);
+    expect(byBest[0].level).toBe('solid');
+    expect(nonIncreasing(byBest.map(evidenceKey))).toBe(true);
     await app.page.getByLabel('Sort').selectOption({ label: 'Time' });
     const times = await column(grid, 'Time');
     expect(times[0]).toBe('0:00');
   });
 
-  test('R08 Heard once shows only the tracks heard once, with their count', async ({
+  test('R08 Heard once, Solid and Flagged each show their rows, with their count', async ({
     app,
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
-    const once = (await heardFigures(grid)).filter((f) => f.hits === 1).length;
-    const chip = app.page.getByRole('tab', { name: `Heard once (${once})` });
-    await chip.click();
-    const shown = await heardFigures(grid);
+    const all = await heardFigures(grid);
+    // Spec 029: a heard-once row reads "Heard once", or "Many candidates"
+    // (its text names no count); both hold one hit in the demo.
+    const once = all.filter(
+      (f) => f.level === 'once' || f.level === 'candidates'
+    ).length;
+    await app.page.getByRole('tab', { name: `Heard once (${once})` }).click();
+    let shown = await heardFigures(grid);
     expect(shown).toHaveLength(once);
-    expect(shown.every((f) => f.hits === 1)).toBe(true);
+    expect(
+      shown.every((f) => f.level === 'once' || f.level === 'candidates')
+    ).toBe(true);
+    const solid = all.filter((f) => f.level === 'solid').length;
+    await app.page.getByRole('tab', { name: `Solid (${solid})` }).click();
+    shown = await heardFigures(grid);
+    expect(shown).toHaveLength(solid);
+    expect(shown.every((f) => f.level === 'solid')).toBe(true);
+    const flagged = all.filter(
+      (f) => f.level === 'out_of_step' || f.level === 'candidates'
+    ).length;
+    await app.page.getByRole('tab', { name: `Flagged (${flagged})` }).click();
+    shown = await heardFigures(grid);
+    expect(shown).toHaveLength(flagged);
+    expect(
+      shown.every((f) => f.level === 'out_of_step' || f.level === 'candidates')
+    ).toBe(true);
   });
 
   test('R09 the Mixes list draws each request’s progress', async ({ app }) => {
@@ -1993,28 +2039,28 @@ test.describe('Y. release year', () => {
     expect(years.every((y) => y !== null && y >= 1990 && y < 2000)).toBe(true);
   });
 
-  test('M01 Mix header sort: Confidence highest first, then lowest, the select follows', async ({
+  test('M01 Mix header sort: Evidence best first, then weakest, the select follows', async ({
     app,
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
     const header = grid
-      .getByRole('columnheader', { name: 'Confidence' })
+      .getByRole('columnheader', { name: 'Evidence' })
       .getByRole('button');
     await header.click();
     const high = await heardFigures(grid);
     expect(high).toHaveLength(16);
-    expect(nonIncreasing(high.map((f) => f.hits * 1000 + f.best))).toBe(true);
+    expect(nonIncreasing(high.map(evidenceKey))).toBe(true);
     await expect(app.page.getByLabel('Sort')).toHaveValue('confidence');
     await header.click();
     const low = await heardFigures(grid);
     expect(low).toHaveLength(16);
-    expect(nonIncreasing(low.map((f) => -(f.hits * 1000 + f.best)))).toBe(true);
+    expect(nonIncreasing(low.map((f) => -evidenceKey(f)))).toBe(true);
     await app.page.getByLabel('Sort').selectOption({ label: 'Set order' });
     expect((await column(grid, 'Time'))[0]).toBe('0:00');
   });
 
-  test('M02 Mix leaner table: merged Confidence, app link, Shazam and SoundCloud icons', async ({
+  test('M02 Mix leaner table: merged Evidence, app link, Shazam and SoundCloud icons', async ({
     app,
   }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
@@ -2029,11 +2075,19 @@ test.describe('Y. release year', () => {
     await expect(
       app.page.getByRole('tab', { name: /^(To review|Validated) / })
     ).toHaveCount(0);
-    // One cell: times heard, then the best percent.
+    // One cell (spec 029): the level, times heard, then the mix speed.
     const shorts = await grid.locator('.mix-conf-short').allTextContents();
     expect(shorts.length).toBeGreaterThan(0);
-    expect(shorts.every((t) => /^(×\d+ · )?\d+%$/.test(t))).toBe(true);
-    expect(shorts.some((t) => /^×\d+ · \d+%$/.test(t))).toBe(true);
+    expect(
+      shorts.every((t) =>
+        /^(Solid ×\d+|Heard once|Out of step ×\d+|Many candidates)( · ([−+]\d+\.\d|0) %)?$/.test(
+          t
+        )
+      )
+    ).toBe(true);
+    expect(shorts.some((t) => /^Solid ×\d+ · [−+]\d+\.\d %$/.test(t))).toBe(
+      true
+    );
     // A found row opens the Spotify app in place.
     const play = grid.getByRole('link', { name: /^Play .+ on Spotify$/ });
     await expect(play.first()).toHaveAttribute('href', /^spotify:track:\w+$/);

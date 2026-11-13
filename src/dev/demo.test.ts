@@ -7,6 +7,7 @@ import {
   heavyRotation,
 } from '../model/crate';
 import type { MixJobView } from '../db/schema';
+import { evidenceLevel } from '../features/mix/evidence';
 import { jobView } from '../features/mix/worker';
 import { validateMix } from '../server/validate';
 import { DEMO_NOW, buildDemo } from './demo';
@@ -115,6 +116,48 @@ describe('buildDemo Mix (T128)', () => {
     expect(rows.some((r) => (r.hits ?? 0) > 1)).toBe(true);
     expect(rows.some((r) => r.gap && (r.clues?.length ?? 0) > 0)).toBe(true);
     expect(full.mixes.some((m) => (m.clues?.length ?? 0) > 0)).toBe(true);
+  });
+
+  it('seeds every evidence level with coherent values (spec 029)', () => {
+    const heard = (title: string) =>
+      full.mixes
+        .find((m) => m.title?.startsWith(title))!
+        .rows.filter(
+          (r) => !r.gap && r.origin !== 'clue' && r.source === 'tracklistify'
+        );
+    const sunrise = heard('Sunrise');
+    const dock = heard('Closing set at the Dock');
+    expect(sunrise.length).toBeGreaterThan(0);
+    expect(dock.length).toBeGreaterThan(0);
+    for (const level of ['solid', 'once', 'out_of_step', 'candidates']) {
+      expect(sunrise.some((r) => r.evidence === level)).toBe(true);
+    }
+    for (const r of [...sunrise, ...dock]) {
+      expect(evidenceLevel(r)).not.toBeNull();
+      if (r.evidence === 'solid' || r.evidence === 'out_of_step') {
+        expect(r.hits).toBeGreaterThanOrEqual(2);
+      } else {
+        expect(r.hits).toBe(1);
+      }
+      if (r.evidence === 'candidates') {
+        expect(r.candidates).toBeGreaterThanOrEqual(10);
+      } else if (r.candidates !== undefined) {
+        expect(r.candidates).toBeLessThan(10);
+      }
+      expect(typeof r.mixSpeed).toBe('number');
+      const speed = r.mixSpeed!;
+      expect(Math.round(speed * 10) / 10).toBe(speed);
+      expect(speed).toBeGreaterThanOrEqual(-8);
+      expect(speed).toBeLessThanOrEqual(5);
+    }
+    expect(
+      sunrise.some(
+        (r) =>
+          r.origin === 'replay' &&
+          r.mixSpeed !== undefined &&
+          r.mixSpeed !== r.speedPercent
+      )
+    ).toBe(true);
   });
 
   it('seeds the review: runs, checked and removed (S08c)', () => {
