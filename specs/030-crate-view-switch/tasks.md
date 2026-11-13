@@ -54,7 +54,7 @@ Tests: unit tests beside the source and regression rows are part of the plan (st
 - [x] T015 `yarn typecheck && yarn lint && yarn test`, `yarn regression`, `yarn invariants`, each read by exit code
 - [x] T016 Visual loop (owner 2026-11-13): `yarn shots`, `yarn shots:summary` with 0 findings on the pages touched (Crate hub and views, Top, Artists, Settings), `yarn shots:sheet`; read the screenshots at the four widths; fix findings
 - [x] T017 Review by a separate reviewer: the diff against spec.md, contracts/screens.md, the design guide and ADR-11; the docs against the code; fix findings
-- [ ] T018 Public-safe check of docs/dev-guide/000-contributing.md, then push `task/dev-session-2` and open one PR to `main` (owner 2026-11-13)
+- [x] T018 Public-safe check of docs/dev-guide/000-contributing.md, then push `task/dev-session-2` and open one PR to `main` (owner 2026-11-13): PR #18
 
 - [x] T019 Fix round from the visual loop (2026-11-13): the picker on medium windows too (six names are cut at 768 px); Rarely played's playlist select styled, 48 px, never wider than the page; `tools/shots/invariants.ts` compares Rarely played with `main`; row F07d checks 768 px. Shots: 0 findings on the round's pages apart from the "Show 100 more" keyboard test, which fails at random on `main` too
 - [x] T020 Final review (2026-11-13): ready; `docs/README.md` lists the round, how-it-works and the inventory say six views
