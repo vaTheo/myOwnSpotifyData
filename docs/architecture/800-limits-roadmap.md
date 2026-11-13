@@ -68,7 +68,9 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   of answering nothing, so the scan of a pitched set lists wrong rows. Since worker 0.7.5 (spec 029, F45) every heard row carries
   a level (Solid, Many candidates, Out of step, Heard once) and the speed the track plays at in the mix instead of the %; the
   TrackId.net check is asked again at the other second-pass speeds when normal speed does not name the span's track; a probe
-  shorter than 12 s is filled with silence. What stays: a row heard once cannot be told from a wrong one; a real track at its
+  shorter than 12 s is filled with silence. Worker 0.7.6: a level also counts the clips a TrackId.net span took, and the check
+  reads two spellings of one record as the same track (for the check, its retries and what a span absorbs, not for clue
+  lookups; a spelling outside those two, such as "(Mono Remaster)", still reads "differs"). What stays: a row heard once cannot be told from a wrong one; a real track at its
   mix-in (or looped, or with a repeated intro) can read Out of step; a track Shazam does not hold is never found; a set already
   saved has no levels until it is scanned again. A level labels, sorts and filters (the Solid and Flagged chips); it never removes a row. The note holds the
   options not built (more probes to confirm a row, a wider second pass) and what each was measured to gain.

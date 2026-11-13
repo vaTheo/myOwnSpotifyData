@@ -60,10 +60,19 @@ def in_step(a_time: float, a: Heard | None, b_time: float, b: Heard | None, prob
     return abs(b["offset"] - (a["offset"] + gap * mix_speed(a))) <= STEP_TOLERANCE_SECONDS
 
 
-def levels(rows: list[tuple[str, list[tuple[float, Heard | None]]]], probe_seconds: float) -> list[dict[str, Any]]:
-    """One dict per row, in order: `{}` when its first hit has no evidence, else its level, mix speed and candidates."""
+def levels(
+    rows: list[tuple[str, list[tuple[float, Heard | None]]]],
+    probe_seconds: float,
+    elsewhere: dict[str, list[tuple[float, Heard | None]]] | None = None,
+) -> list[dict[str, Any]]:
+    """One dict per row, in order: `{}` when its first hit has no evidence, else its level, mix speed and candidates.
+
+    `elsewhere` holds, per track key, the hits that made no row (a TrackId.net span took them): a row's hit pairs
+    with them as with any hit of its track; they get no level and stay out of the row's speed."""
     by_key: dict[str, list[tuple[float, Heard | None]]] = {}
     for key, hits in rows:
+        by_key.setdefault(key, []).extend(hits)
+    for key, hits in (elsewhere or {}).items():
         by_key.setdefault(key, []).extend(hits)
 
     def paired(time: float, heard: Heard | None, key: str) -> bool:

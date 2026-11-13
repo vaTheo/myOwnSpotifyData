@@ -6,6 +6,7 @@ import urllib.parse
 from pathlib import Path
 
 from mix_worker import __version__
+from mix_worker.match import artist_matches, title_matches
 from mix_worker.trackid import (
     TRACKID_DURATION_TOLERANCE,
     TRACKID_EDGE_SECONDS,
@@ -17,6 +18,7 @@ from mix_worker.trackid import (
     Span,
     check_of,
     merge_rows,
+    names_track,
     span_rows,
     uncovered,
     plan_guides,
@@ -333,6 +335,62 @@ class Guides(unittest.TestCase):
         self.assertEqual(check_of(sp, [dict(o, confidence=33.3333)])["confidence"], 0.333)
         self.assertEqual(check_of(sp, [], probed=True), {"outcome": "no_match"})
         self.assertEqual(check_of(sp, []), {"outcome": "not_asked"})
+
+    # Worker 0.7.6: TrackId.net and Shazam often write one record two ways; the check reads both as the same track.
+    def test_names_track_accepts_two_spellings_of_one_record(self):
+        cases = [
+            # (span artist, span title, heard artist, heard title, expected)
+            ("Nova Kid", "Made Up Song (Original Mix)", "Nova Kid", "Made Up Song", True),  # the shared rule, as before
+            ("No:va Kid", "Made Up Song", "Nova Kid", "Made Up Song", True),  # punctuation inside the name
+            ("Nova Kid", "Made Up Song", "NovaKid", "Made Up Song", True),  # spacing
+            ("Nova-Kid & Someone Else", "Made Up Song", "Nova Kid", "Made Up Song", True),  # a leading run of the credit
+            ("Nova Kid", "Made Up Song (Remastered)", "Nova Kid", "Made Up Song", True),
+            ("Nova Kid", "Made Up Song", "Nova Kid", "Made Up Song (2011 Remaster)", True),
+            ("Nova Kid", "Made Up Song [Remastered 2011]", "Nova Kid", "Made Up Song", True),
+            ("Nova Kid", "Made Up Song (Remastered Version)", "Nova Kid", "Made Up Song", True),
+            ("Nova Kid", "Made Up Song - Remastered", "Nova Kid", "Made Up Song", True),
+            ("Nova Kid", "Made Up Song - 2011 Remaster", "Nova Kid", "Made Up Song - Remastered 2011", True),
+            ("No:va Kid", "Made Up Song (Remastered)", "Nova Kid", "Made Up Song", True),  # both at once
+            ("Nova Kid", "Made Up Song (Remastered)", "Nova Kid", "Made Up Song (Someone Remix)", False),  # another version
+            ("Nova Kid", "Made Up Song (Someone Remix)", "Nova Kid", "Made Up Song", False),
+            ("Nova Kid", "Made Up Song", "Nova Kid", "Made Up Song Remastered Edition", False),  # only the tag forms
+            ("Nova Kid", "Made Up Song", "Nova Kid Band", "Made Up Song", False),  # a word more is another artist
+            ("Nova Kid", "Made Up Song", "Nova", "Made Up Song", False),
+            ("Nova Kid", "Made Up Song", "Someone Else", "Made Up Song", False),
+            ("Nova Kid", "(Remastered)", "Nova Kid", "", False),  # nothing left to compare
+            # What the shared rule already accepted stays accepted, tag or not.
+            ("Nova Kid", "Made Up Song (Remastered)", "Nova Kid", "Made Up Song Remastered", True),
+            ("Nova Kid", "(Remastered)", "Nova Kid", "(Remastered)", True),
+            ("", "Made Up Song", "", "Made Up Song", False),
+        ]
+        for artist, title, heard_artist, heard_title, expected in cases:
+            with self.subTest(span=f"{artist} — {title}", heard=f"{heard_artist} — {heard_title}"):
+                entry = {"artist": heard_artist, "song_name": heard_title}
+                self.assertIs(names_track(Span(0, 100, artist, title), entry), expected)
+        self.assertIs(names_track(Span(0, 100, "Nova Kid", "Made Up Song"), None), False)
+        self.assertIs(names_track(Span(0, 100, "Nova Kid", "Made Up Song"), {}), False)
+
+    def test_names_track_never_refuses_what_the_shared_rule_accepts(self):
+        names = ["Made Up Song", "Made Up Song (Remastered)", "Made Up Song Remastered", "(Remastered)",
+                 "Made Up Song - 2011 Remaster", "Made Up Song (Original Mix)", "Made Up Song (Someone Remix)", ""]
+        for written in names:
+            for candidate in names:
+                if title_matches(written, candidate):
+                    with self.subTest(written=written, candidate=candidate):
+                        entry = {"artist": "Nova Kid", "song_name": candidate}
+                        self.assertTrue(names_track(Span(0, 100, "Nova Kid", written), entry))
+
+    def test_check_of_agrees_on_another_spelling(self):
+        sp = Span(0, 100, "No:va Kid", "Made Up Song (Remastered)")
+        o = {"artist": "Other", "song_name": "Else", "confidence": 90.0}
+        e = {"artist": "Nova Kid", "song_name": "Made Up Song", "confidence": 80.0}
+        self.assertEqual(check_of(sp, [o, e]), {"outcome": "agrees"})
+        self.assertEqual(check_of(sp, [o])["outcome"], "differs")
+
+    def test_the_shared_name_rule_stays_strict(self):
+        # `match.py` is the app's rule and the clue lookup's (ADR-10): the two spellings stay two names there.
+        self.assertFalse(artist_matches("No:va Kid", "Nova Kid"))
+        self.assertFalse(title_matches("Made Up Song (Remastered)", "Made Up Song"))
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import __version__
-from .match import artist_matches, title_matches
+from .match import artist_core, artist_matches, artist_runs, title_matches
 
 TRACKID_LIST_URL = "https://trackid.net/api/public/audiostreams"
 TRACKID_EDGE_SECONDS = 10
@@ -35,6 +35,10 @@ MERGE_TOLERANCE_SECONDS = 5  # the app's MIX_MERGE_TOLERANCE_SEC
 Fetch = Callable[[str, dict[str, str], float], tuple[int, bytes]]
 
 _CLOCK = re.compile(r"^(\d{1,3}):([0-5]\d):([0-5]\d)(?:\.(\d+))?$")
+# A remaster tag names the same recording (worker 0.7.6): "(Remastered)", "[2011 Remaster]", "- Remastered 2011".
+_REMASTER = r"(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?(?:\s+version)?"
+_REMASTER_GROUP = re.compile(r"[(\[]\s*" + _REMASTER + r"\s*[)\]]", re.I)
+_REMASTER_TAIL = re.compile(r"\s+-\s*" + _REMASTER + r"\s*$", re.I)
 
 
 @dataclass(frozen=True)
@@ -224,13 +228,37 @@ def plan_guides(spans: list[Span], step: int, probe_seconds: int) -> list[Guide]
     return guides
 
 
+def _plain_title(title: str) -> str:
+    return _REMASTER_TAIL.sub("", _REMASTER_GROUP.sub(" ", title)).strip()
+
+
+def _squashed(name: str) -> str:
+    return artist_core(name).replace(" ", "")
+
+
+def names_track(span: Span, entry: dict[str, Any] | None) -> bool:
+    """True when a Shazam entry names the span's track: the `match.py` rule, plus the two ways TrackId.net and
+    Shazam write one record differently (worker 0.7.6): an artist with other punctuation or spacing inside the
+    name ("No:va Kid" / "Nova Kid"), a title with a remaster tag ("Song (Remastered)", "Song - 2011 Remaster").
+    Only here: `match.py`, the app's rule and the clue lookup's, is unchanged."""
+    if entry is None:
+        return False
+    artist, title = str(entry.get("artist", "")), str(entry.get("song_name", ""))
+    same_artist = artist_matches(span.artist, artist) or _squashed(artist) in (
+        {_squashed(run) for run in artist_runs(span.artist)} - {""}
+    )
+    return same_artist and (
+        title_matches(span.title, title) or title_matches(_plain_title(span.title), _plain_title(title))
+    )
+
+
 def check_of(span: Span, entries: list[dict[str, Any]], probed: bool = False) -> dict[str, Any]:
     """What the Shazam probes inside a span said about it: `agrees` (some
-    entry names the same track by the `match.py` rule), `differs` (entries, none
+    entry names the same track by `names_track`), `differs` (entries, none
     agreeing; carries the most confident one), `no_match` (a probe was made
     inside the span and nothing matched), `not_asked` (no probe was made)."""
     for e in entries:
-        if artist_matches(span.artist, str(e.get("artist", ""))) and title_matches(span.title, str(e.get("song_name", ""))):
+        if names_track(span, e):
             return {"outcome": "agrees"}
     if entries:
         best = max(entries, key=lambda e: e.get("confidence") or 0)

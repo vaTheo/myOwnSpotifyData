@@ -102,8 +102,8 @@ class InStep(unittest.TestCase):
 class Levels(unittest.TestCase):
     """One level per row, the first that fits: solid, candidates, out_of_step, once."""
 
-    def level(self, rows):
-        return [r.get("evidence") for r in evidence.levels(rows, PROBE)]
+    def level(self, rows, elsewhere=None):
+        return [r.get("evidence") for r in evidence.levels(rows, PROBE, elsewhere)]
 
     def test_two_hits_of_one_row_in_step_are_solid(self):
         self.assertEqual(self.level([("a", [(100, heard(50)), (112, heard(62))])]), ["solid"])
@@ -177,6 +177,44 @@ class Levels(unittest.TestCase):
 
     def test_the_levels_in_order(self):
         self.assertEqual(evidence.LEVELS, ("solid", "candidates", "out_of_step", "once"))
+
+    # Worker 0.7.6: hits of a row's track that made no row (a TrackId.net span took them) pair with the row's hits.
+    def test_a_hit_taken_elsewhere_in_step_makes_the_row_solid(self):
+        rows = [("a", [(100, heard(50))])]
+        self.assertEqual(self.level(rows), ["once"])
+        self.assertEqual(self.level(rows, {"a": [(115, heard(65))]}), ["solid"])
+        self.assertEqual(self.level(rows, {"a": [(85, heard(35))]}), ["solid"])  # the taken hit comes first
+
+    def test_a_row_out_of_step_on_its_own_is_solid_when_one_hit_pairs_with_a_taken_hit(self):
+        # A lead-in hit, then a re-cut hit 142 s later at a wrong place: no pair inside the row.
+        rows = [("a", [(100, heard(12)), (242, heard(136, timeskew=-0.04, speed=1.09))])]
+        self.assertEqual(self.level(rows), ["out_of_step"])
+        self.assertEqual(self.level(rows, {"a": [(115, heard(27))]}), ["solid"])
+
+    def test_a_hit_taken_elsewhere_changes_nothing_when_it_does_not_pair(self):
+        rows = [("a", [(100, heard(50))])]
+        cases = {
+            "out of step": {"a": [(115, heard(90))]},
+            "another track": {"b": [(115, heard(65))]},
+            "without evidence": {"a": [(115, None)]},
+            "sharing audio": {"a": [(106, heard(56))]},
+            "too far": {"a": [(175, heard(125))]},
+            "nothing": {},
+        }
+        for name, elsewhere in cases.items():
+            with self.subTest(name):
+                self.assertEqual(self.level(rows, elsewhere), ["once"])
+
+    def test_hits_taken_elsewhere_make_no_row_and_stay_out_of_the_speed(self):
+        # The row's hit plays at 0.95; the taken hit, 15 s later and in step with it, measured 1.20.
+        rows = [("a", [(100, heard(50, timeskew=-0.05))])]
+        elsewhere = {"a": [(115, heard(64.25, timeskew=0.2))], "c": [(300, heard(1))]}
+        self.assertEqual(
+            evidence.levels(rows, PROBE, elsewhere), [{"evidence": "solid", "mix_speed_percent": -5.0, "candidates": 1}]
+        )
+
+    def test_a_row_without_evidence_stays_without_a_level_whatever_was_taken_elsewhere(self):
+        self.assertEqual(evidence.levels([("a", [(100, None)])], PROBE, {"a": [(115, heard(65))]}), [{}])
 
 
 if __name__ == "__main__":

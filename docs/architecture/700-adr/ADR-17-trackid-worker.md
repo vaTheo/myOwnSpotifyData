@@ -58,6 +58,20 @@ played 6 to 8 % slow, 4 of the 8 failed checks were real tracks Shazam could not
 ([research](../../research/2026-11-13-shazam-mix-accuracy.md) §5.6). Cost: at most two more Shazam calls (with the default speeds) per span
 whose normal-speed check failed; no other probe is added inside a span. TrackId.net stays the source of truth.
 
+## Amendment (worker 0.7.6): what "names the span's track" means
+
+The check compared the two names with the exact rule the clue lookup uses (`match.py`,
+[ADR-10](ADR-10-name-lookup-for-clues.md)). On the first 0.7.5 scan of a real set, 2 of the 3 spans still read `differs` were
+the same record written two ways: an artist with punctuation inside the name on one side, a "(Remastered)" tag on one title.
+Each also spent the two retries of the amendment above. The check, the absorb rule and the retry decision now share one rule,
+`trackid.names_track`: the exact rule, or an artist equal once spaces inside the cleaned names are removed, with a remaster
+tag removed from both titles. Why here and not in `match.py`: that rule decides which catalogue record a name lookup accepts,
+where a looser match can bring a wrong track into the list; here both names already describe the same seconds of audio. The
+worst case is a check reading `agrees` instead of `differs`, and a hit in the other spelling at a span's edge being absorbed
+by the span instead of making a row beside it. Anything the exact rule accepts is still accepted; another version of a title
+(a remix) is still another track. The same round makes a row's level count the hits a span absorbed (spec 029's contract,
+amended): a span still takes those hits, they still make no row.
+
 ## Links
 
 - Spec: [`specs/016-trackid-worker-clues/spec.md`](../../../specs/016-trackid-worker-clues/spec.md) · [plan](../../../specs/016-trackid-worker-clues/plan.md) · [research](../../../specs/016-trackid-worker-clues/research.md)

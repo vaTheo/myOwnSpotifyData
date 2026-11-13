@@ -3,6 +3,20 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-13 — Two fixes to the levels and the TrackId.net check (worker 0.7.6)
+
+Found by comparing the first 0.7.5 scan of a set with its 0.7.2 scan. **A wrong "Out of step".** A track heard just before the
+stretch TrackId.net gives it, then several times in step inside that stretch, read Out of step (or Heard once): the level only
+counted the clips outside the stretch. It now counts the clips the stretch took too, so the track reads **Solid**. **A wrong
+"Shazam heard another track".** TrackId.net and Shazam often write one record two ways. The check now reads as the same track
+an artist written with other punctuation or spacing inside the name, and a title with a remaster tag ("(Remastered)", "[2011
+Remaster]", "- Remastered 2011"); before, such a stretch read as a disagreement and cost up to two more Shazam calls. Name
+lookups for clues keep the exact rule ([ADR-10](docs/architecture/700-adr/ADR-10-name-lookup-for-clues.md)); the decision is
+recorded in [ADR-17](docs/architecture/700-adr/ADR-17-trackid-worker.md).
+
+**What to do**: update the worker to 0.7.6 (the release this push builds, or `git pull` and `uv sync`), then scan a set again:
+a result already saved keeps its levels and checks. Nothing changes in the app.
+
 ## 2026-11-13 — A level on every track the worker hears (worker 0.7.5)
 
 A scanned mix now says how far to trust each track Shazam heard. The **Confidence** column is now **Evidence**, and a track reads

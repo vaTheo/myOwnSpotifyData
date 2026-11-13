@@ -61,3 +61,25 @@ each span whose normal-speed check did not name its track.
 
 `0.7.5` in `worker/mix_worker/__init__.py`, `worker/pyproject.toml` and `worker/uv.lock`; one entry at the top of
 `worker/RELEASE_NOTES.md`.
+
+## Amended in 0.7.6 (two fixes, owner 2026-11-13)
+
+Found on the first 0.7.5 scan of a real set compared with its 0.7.2 scan; the rest of this contract stands.
+
+- **A row's level counts the hits a span took.** `levels(rows, probe_seconds, elsewhere=None)`: `elsewhere` maps a merge key to
+  `[(hit time, heard or None), …]`, the hits of that track that made no row. A row's hit pairs with them as with any hit of its
+  key; they get no item in the result and stay out of `mix_speed_percent`. `scan()` passes every entry `absorb` gave to a
+  TrackId.net span (grid hits, second-pass hits, the check probe and its agreeing retry), with its probe time, on a resumed
+  run too, whichever track the entry names: a hit of another track heard inside a span is still a hit of that track. A saved
+  entry without an artist or a title has no key and pairs with nothing. Before, a row made of a track's lead-in (one hit
+  before the span, the in-step hits inside it) read `out_of_step` or `once`.
+- **One rule for "names the span's track".** `trackid.names_track(span, entry) -> bool` is used by `absorb`, by `confirm_due`
+  (the retry decision and the absorbed retry) and by `check_of`. It is the `match.py` rule, plus two spellings of one record:
+  an artist equal to a leading run of the span's credit once every space is removed from both cleaned names ("No:va Kid" /
+  "Nova Kid" / "NovaKid"), and a remaster tag removed from both titles before they are compared: a bracketed
+  `(Remastered)`, `[2011 Remaster]`, `(Remastered 2011)`, `(Remastered Version)`, or the same after ` - ` at the end. Another
+  version ("(Someone Remix)") is still another title, and whatever the `match.py` rule accepts is still accepted. Because
+  `absorb` uses it, a hit in the other spelling whose window overlaps the span's edge is now absorbed instead of making a row.
+  `match.py` itself, the app's rule and the clue lookup's, is unchanged.
+- **Calls.** No call is added. A span whose normal-speed check names its track in another spelling no longer spends retries.
+- **Version.** `0.7.6` in the same three files; one entry at the top of `worker/RELEASE_NOTES.md`.

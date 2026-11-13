@@ -131,6 +131,9 @@ second pass (after the first when there is no second pass; a level with no row i
 **solid**, heard twice on clips sharing no audio, with the position in the track advancing in step with the mix; **many
 candidates**, Shazam's answer listed 10 entries or more; **out of step**, heard several times but never in step; **heard once**.
 A level never removes a row: it tells you how far to trust it. A row heard before this version (a resumed run) has no level.
+Since 0.7.6 the clips a TrackId.net span took count too: a track heard just before its span and in step inside it is solid.
+The TrackId.net check also reads two spellings of one record as the same track (punctuation or spacing inside the artist's
+name, a remaster tag on the title), so it says "agrees" without asking again at another speed.
 
 A request that fails (a private link, no track identified, the recognition service refusing) is
 marked failed with that reason, the phone shows it, and the worker moves on. Sets of any length are taken. Ctrl-C during a request puts it back in the

@@ -20,8 +20,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from . import evidence
-from .match import artist_matches, title_matches
-from .trackid import check_of
+from .trackid import check_of, names_track
 
 PROBE_SECONDS = 12
 MIN_PROBE_BYTES = 1000
@@ -474,6 +473,7 @@ async def scan(
     # and the spans a probe was made in; only filled when `spans` is given.
     span_list = list(spans or [])
     absorbed: dict[int, list[dict[str, Any]]] = {}
+    span_hits: list[tuple[float, dict[str, Any]]] = []  # 0.7.6: every absorbed entry with its time, for the levels
     probed: set[int] = set()
     guide_list = list(guides or [])
     skipped_probes = 0
@@ -484,7 +484,7 @@ async def scan(
         centre = t + probe_seconds / 2
         taken = False
         for i, sp in enumerate(span_list):
-            if entry is not None and artist_matches(sp.artist, str(entry.get("artist", ""))) and title_matches(sp.title, str(entry.get("song_name", ""))):
+            if names_track(sp, entry):
                 inside = t < sp.end and t + probe_seconds > sp.start
             else:
                 inside = sp.start <= centre < sp.end
@@ -495,13 +495,12 @@ async def scan(
                 probed.add(i)
             if entry is not None:
                 absorbed.setdefault(i, []).append(entry)
+        if taken and entry is not None:
+            span_hits.append((t, entry))
         return taken
 
     def in_core(t: int) -> bool:
         return any(g.core_start <= t and t + step <= g.core_end for g in guide_list)
-
-    def names_span(entry: dict[str, Any] | None, sp: Any) -> bool:
-        return entry is not None and artist_matches(sp.artist, str(entry.get("artist", ""))) and title_matches(sp.title, str(entry.get("song_name", "")))
 
     async def ask_confirm(guide: Any, data: bytes, speed: float) -> tuple[bool, dict[str, Any] | None]:
         """One confirming probe of `guide` cut at `speed`: (answered, entry), logged and remembered."""
@@ -544,7 +543,7 @@ async def scan(
                     continue
                 ok, entry = await ask_confirm(guide, data, 1.0)
                 absorb(guide.confirm_at, entry, ok)
-            if names_span(entry, sp) or cut_at is None or gap_step <= 0:
+            if names_track(sp, entry) or cut_at is None or gap_step <= 0:
                 continue
             for speed in second_pass_order(speeds):
                 if speed == 1.0:
@@ -558,7 +557,7 @@ async def scan(
                     if len(data) < MIN_PROBE_BYTES:
                         continue
                     _, entry = await ask_confirm(guide, data, speed)
-                if names_span(entry, sp):
+                if names_track(sp, entry):
                     absorb(guide.confirm_at, entry, True)  # a retry naming another track is never absorbed (R6)
                     break
 
@@ -835,10 +834,18 @@ async def scan(
         say("  second pass · every probe found a track · nothing to hear again")
     # Spec 029: each row gets its level from its hits and the other hits of its track; nothing else changes.
     # Graded here so the `evidence` line follows the second-pass summary; no hit is added after this point.
+    # 0.7.6: the hits a TrackId.net span took are hits of their track too: they pair, they make no row.
     filtered, sandwiched = drop_sandwiched(hits, gap)
     made = merge_with_hits(filtered, gap)
+    taken_by_spans: dict[str, list[tuple[float, Any]]] = {}
+    for when, taken in span_hits:
+        # A saved run can hold an entry without a name: it has no key, so it pairs with nothing.
+        if isinstance(taken.get("artist"), str) and isinstance(taken.get("song_name"), str):
+            taken_by_spans.setdefault(_key(taken), []).append((when, taken.get("heard")))
     graded = evidence.levels(
-        [(_key(hits_of[0].entry), [(h.time, h.entry.get("heard")) for h in hits_of]) for _, hits_of in made], probe_seconds
+        [(_key(hits_of[0].entry), [(h.time, h.entry.get("heard")) for h in hits_of]) for _, hits_of in made],
+        probe_seconds,
+        taken_by_spans,
     )
     for (row, _), fields in zip(made, graded):
         row.update(fields)

@@ -51,6 +51,11 @@ CASSETTE = {
 NO_MATCH = {"matches": [], "location": {"accuracy": 0.01}}
 
 
+def cassette_at(offset):
+    """CASSETTE heard at another place in the record."""
+    return {**CASSETTE, "matches": [{**CASSETTE["matches"][0], "offset": offset}]}
+
+
 class RateLimited(Exception):
     pass
 
@@ -716,6 +721,14 @@ class GuidedScan(unittest.TestCase):
         self.assertEqual([r for r in rows if r["origin"] != "trackid"], [])
         self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
 
+    def test_k_another_spelling_of_the_spans_track_is_absorbed_by_the_overlap_rule(self):
+        # Worker 0.7.6: TrackId.net wrote the same record another way; the probe at 60 still names the span's track.
+        span = Span(69, 230, "Glo:ria Gaynor", "I Will Survive (Remastered)")
+        hits = []
+        rows, rep = self.go(lambda t: CASSETTE if t == 60 else NO_MATCH, spans=[span], hits_out=hits)
+        self.assertEqual(hits, [])
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+
     def test_k_another_track_is_absorbed_only_when_the_window_center_is_inside(self):
         hits = []
         # probe 60 covers 60-72, center 66: outside [75, 230) -> a neighbour's tail stays a row
@@ -770,10 +783,11 @@ class GuidedScan(unittest.TestCase):
     THIRD = {"matches": [{"id": "3", "offset": 10.0, "timeskew": 0.0, "frequencyskew": 0.0}],
              "track": {"key": "3", "title": "Third Tune", "subtitle": "Nobody Known"}}  # 100 %, above OTHER's
 
-    def retry(self, by, gap_step=30, with_cut_at=True, resume=None, short=()):
+    def retry(self, by, gap_step=30, with_cut_at=True, resume=None, short=(), span=None):
         """A guided scan whose probes say `t@speed`; `by[(t, speed)]` answers, else no match; a `(t, speed)` in
         `short` is cut shorter than MIN_PROBE_BYTES. Returns the report, the calls made at the confirm time 124
         (in order) and every call."""
+        span = span or self.SPAN
         calls, state = [], {}
 
         async def recognise(data, skew):
@@ -799,9 +813,66 @@ class GuidedScan(unittest.TestCase):
         run(scan(300, step=30, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise,
                  cut=lambda t: probe(t, 1.0), cut_at=probe if with_cut_at else None, gap_step=gap_step, speeds=(0.91, 1.09),
                  sleep=sleep, classify=classify, line=self.lines.append, report=report, clock=lambda: 0.0,
-                 guides=plan_guides([self.SPAN], 30, 12), spans=[self.SPAN], remember=remember, resume=resume))
+                 guides=plan_guides([span], 30, 12), spans=[span], remember=remember, resume=resume))
         self.state = state
         return report, [c for c in calls if c[0] == 124], calls
+
+    def test_n_another_spelling_of_the_spans_track_agrees_and_asks_nothing_more(self):
+        # Worker 0.7.6: normal speed heard the span's record under Shazam's spelling: it agrees, no retry is spent.
+        span = Span(60, 200, "Glo:ria Gaynor", "I Will Survive (Remastered)")
+        rep, at, _ = self.retry({(124, 1.0): CASSETTE, (124, 0.91): OTHER, (124, 1.09): OTHER}, span=span)
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual(at, [(124, 1.0)])
+
+    def test_n_a_retry_in_another_spelling_is_the_one_absorbed(self):
+        span = Span(60, 200, "Glo:ria Gaynor", "I Will Survive (Remastered)")
+        rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 0.91): CASSETTE, (124, 1.09): OTHER}, span=span)
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual(at, [(124, 1.0), (124, 0.91)])
+
+    # Worker 0.7.6: a row's level also counts the hits of its track that a span took (they make no row).
+    # Grid 0, 30, 60: the probe at 30 ends at 42, before the span (60-200): a row. The probe at 60 overlaps the
+    # span and names its track: absorbed. The two are 30 s apart.
+    def lead_in(self, second_offset, **kw):
+        by = {30: cassette_at(130.0), 60: cassette_at(second_offset)}
+        rows, rep = self.go(lambda t: by.get(t, NO_MATCH), **kw)
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        return [(r["time_in_mix"], r["hits"], r.get("evidence")) for r in rows]
+
+    def test_o_a_hit_the_span_took_in_step_makes_the_lead_in_row_solid(self):
+        self.assertEqual(self.lead_in(160.0), [("00:00:30", 1, "solid")])
+
+    def test_o_a_hit_the_span_took_out_of_step_leaves_the_row_heard_once(self):
+        self.assertEqual(self.lead_in(200.0), [("00:00:30", 1, "once")])
+
+    def test_o_the_check_probes_answer_counts_too(self):
+        # Span 100-180: its check probe is at 134. The probe at 180 starts where the span ends: a row, 46 s later.
+        span = Span(100, 180, "Gloria Gaynor", "I Will Survive")
+        by = {134: cassette_at(100.0), 180: cassette_at(146.0)}
+        rows, rep = self.go(lambda t: by.get(t, NO_MATCH), spans=[span])
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual([(r["time_in_mix"], r["hits"], r.get("evidence")) for r in rows], [("00:03:00", 1, "solid")])
+
+    def test_o_a_hit_of_another_track_a_span_took_counts_for_that_track(self):
+        # OTHER is heard at 30 (a row) and again at 60, where the span starts: the span takes it ("differs").
+        other = lambda offset: {**OTHER, "matches": [{**OTHER["matches"][0], "offset": offset}]}
+        by = {30: other(20.0), 60: other(50.0)}
+        rows, rep = self.go(lambda t: by.get(t, NO_MATCH), spans=[Span(66, 230, "Gloria Gaynor", "I Will Survive")])
+        self.assertEqual(rep["span_checks"][0]["outcome"], "differs")
+        self.assertEqual([(r["time_in_mix"], r["hits"], r.get("evidence")) for r in rows], [("00:00:30", 1, "solid")])
+
+    def test_o_a_saved_entry_without_a_name_pairs_with_nothing_and_breaks_nothing(self):
+        rows, rep = self.go(lambda t: cassette_at(130.0) if t == 30 else NO_MATCH, resume={"confirm": {"0": {"song_name": "No Artist"}}})
+        self.assertEqual([(r["time_in_mix"], r.get("evidence")) for r in rows], [("00:00:30", "once")])
+        self.assertEqual(rep["span_checks"][0]["outcome"], "differs")
+
+    def test_o_the_span_hits_count_again_on_a_resumed_run(self):
+        state = {}
+        first = self.lead_in(160.0, remember=lambda kind, key, entry: state.setdefault(kind, {}).__setitem__(key, entry))
+        self.setUp()
+        rows, _ = self.go(NO_MATCH, resume=state)  # nothing is asked again: every probe comes from the saved run
+        self.assertEqual(self.asked, [])
+        self.assertEqual([(r["time_in_mix"], r["hits"], r.get("evidence")) for r in rows], first)
 
     def test_n_the_check_asks_again_at_each_speed_until_one_agrees(self):
         rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 0.91): OTHER, (124, 1.09): CASSETTE})

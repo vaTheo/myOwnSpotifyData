@@ -11,6 +11,14 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.7.6: **two fixes found on the first 0.7.5 scans**. A row's level now also counts the hits of its track that a TrackId.net
+  span took: a track heard just before its span (or just after), then several times in step inside it, read `out_of_step` or
+  `once` because the level only saw the hits outside the span; it now reads `solid`. Those hits still make no row and stay out
+  of the row's speed. And the TrackId.net check reads two spellings of one record as the same track: an artist written with
+  other punctuation or spacing inside the name, and a title with a remaster tag (`(Remastered)`, `[2011 Remaster]`,
+  `- Remastered 2011`). Such a span read "Shazam heard another track" and, since 0.7.5, cost up to two more Shazam calls for
+  nothing; it now reads "Shazam agrees" on the first answer. Name lookups for clues keep the exact rule. No new setting, no
+  change to the JSON's shape; scan a set again to get the corrected levels and checks.
 - 0.7.5: **how far to trust each heard row**. Every row Shazam heard now carries a level in the JSON (`evidence`), the first that
   fits in this order of priority: `solid` (heard twice on clips sharing no audio, the place in the track moving in step with the
   mix), `candidates` (Shazam's answer listed 10 entries or more), `out_of_step` (heard several times, never in step), `once` (heard
