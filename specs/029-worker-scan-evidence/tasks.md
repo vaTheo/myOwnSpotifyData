@@ -98,7 +98,7 @@ call to Shazam, TrackId.net or any network in a test. Line numbers in the tasks 
 
 ## Phase 7: Version and release notes
 
-- [ ] T020 `0.7.5` in `worker/mix_worker/__init__.py` and `worker/pyproject.toml`, `uv lock` for `worker/uv.lock`; the version test stays green; the top entry of `worker/RELEASE_NOTES.md` (levels and speed in the result; the check at the second-pass speeds; short probes filled with silence; no new setting; "The app needs no update; update it to see the levels")
+- [x] T020 `0.7.5` in `worker/mix_worker/__init__.py` and `worker/pyproject.toml`, `uv lock` for `worker/uv.lock`; the version test stays green; the top entry of `worker/RELEASE_NOTES.md` (levels and speed in the result; the check at the second-pass speeds; short probes filled with silence; no new setting; "The app needs no update; update it to see the levels")
 
 ---
 
