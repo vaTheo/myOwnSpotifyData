@@ -17,6 +17,7 @@ from mix_worker.scan import (
     gaps_of,
     inside_known,
     StopRequested,
+    _details,
     confidence_of,
     hhmmss,
     merge,
@@ -416,12 +417,13 @@ class Lines(unittest.TestCase):
             pass
 
         run(scan(240, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, clock=lambda: 0.0))
-        self.assertEqual(len(lines), 5)
-        self.assertEqual(lines[0], "  probe 1/4 · 00:00:00 · cut 4 KB 0.00 s · shazam 0.0 s · NEW · Gloria Gaynor — I Will Survive · USUR10200634 · Polydor · 100 %")
+        self.assertEqual(len(lines), 6)
+        self.assertEqual(lines[0], "  probe 1/4 · 00:00:00 · cut 4 KB 0.00 s · shazam 0.0 s · NEW · Gloria Gaynor — I Will Survive · USUR10200634 · Polydor · at 1:32 in the track · 0.0 % · 100 %")
         self.assertIn("probe 2/4 · 00:01:00 · cut 4 KB 0.00 s · shazam 0.0 s · same track · Gloria Gaynor", lines[1])
         self.assertEqual(lines[2], "  probe 3/4 · 00:02:00 · cut 4 KB 0.00 s · shazam 0.0 s · no match")
         self.assertEqual(lines[3], "  probe 4/4 · 00:03:00 · cut 4 KB 0.00 s · skipped (undecodable or silent)")
-        self.assertEqual(lines[4], "  shazam · 3 answers · median 0.0 s · 0 over 5 s (0 %)")
+        self.assertEqual(lines[4], "  evidence · 1 out of step")  # spec 029: the cassette holds an offset
+        self.assertEqual(lines[5], "  shazam · 3 answers · median 0.0 s · 0 over 5 s (0 %)")
 
     def test_answer_time_on_each_line_and_in_the_summary(self):
         # Round 005 follow-up: the clock moves 6.8 s during a slow answer, 1.2 s during a fast one.
@@ -1380,3 +1382,76 @@ class EvidenceResume(unittest.TestCase):
         self.assertEqual(self.without(rows), self.without(whole))
         self.assertEqual([(r["song_name"], r.get("evidence")) for r in rows],
                          [("Tune A", None), ("Tune S", "solid"), ("Tune B", None), ("Tune C", None)])
+
+
+class EvidenceLog(unittest.TestCase):
+    """Spec 029, T010: the log says where in the track a hit was heard, at which speed, and counts the levels."""
+
+    @staticmethod
+    def heard(offset, timeskew=0.0, speed=1.0):
+        return {"offset": offset, "timeskew": timeskew, "frequencyskew": 0.0, "matches": 1, "speed": speed}
+
+    def entry(self, heard=None, **meta):
+        e = {"song_name": "Track", "artist": "Invented Artist", "confidence": 73.0, "metadata": meta}
+        if heard is not None:
+            e["heard"] = heard
+        return e
+
+    def test_details_without_evidence_read_as_today(self):
+        self.assertEqual(_details(self.entry(isrc="XX0000000000", label="Invented Label")), "XX0000000000 · Invented Label · 73 %")
+        self.assertEqual(_details({"confidence": 80}), "80 %")
+
+    def test_details_with_evidence_say_the_position_then_the_speed_before_the_percent(self):
+        slow = self.heard(92.9, timeskew=0.923 * 1.09 - 1, speed=1.09)
+        self.assertEqual(_details(self.entry(slow, isrc="XX0000000000", label="Invented Label")),
+                         "XX0000000000 · Invented Label · at 1:32 in the track · \u22127.7 % · 73 %")
+
+    def test_the_position_in_minutes_and_seconds_rounded_down(self):
+        for offset, said in ((7.9, "at 0:07"), (59.99, "at 0:59"), (92.9, "at 1:32"), (725.4, "at 12:05"), (-3.2, "at 0:00")):
+            self.assertEqual(_details(self.entry(self.heard(offset))), f"{said} in the track · 0.0 % · 73 %", offset)
+
+    def test_the_speed_signed_with_one_decimal(self):
+        for timeskew, speed, said in ((0.034, 1.0, "+3.4 %"), (-0.077, 1.0, "\u22127.7 %"), (0.0, 1.0, "0.0 %"),
+                                      (-0.0004, 1.0, "0.0 %"), (0.94 * 1.09 - 1, 1.09, "\u22126.0 %"), (1.09 * 0.91 - 1, 0.91, "+9.0 %")):
+            self.assertEqual(_details(self.entry(self.heard(10.0, timeskew, speed))), f"at 0:10 in the track · {said} · 73 %", (timeskew, speed))
+
+    def go(self, duration, by_probe, second=False):
+        lines = []
+
+        async def recognise(data, skew):
+            t, speed = data.rstrip().decode().split("@")
+            return by_probe.get((int(t), float(speed)), NO_MATCH)
+
+        async def sleep(s):
+            pass
+
+        def probe(t, speed):
+            return f"{t}@{speed:g}".encode().ljust(5000)
+
+        extra = dict(cut_at=probe, gap_step=30, gap_offset=7, speeds=(1.09,)) if second else {}
+        run(scan(duration, step=30, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise,
+                 cut=lambda t: probe(t, 1.0), sleep=sleep, classify=classify, clock=lambda: 0.0, probe_seconds=12,
+                 line=lines.append, **extra))
+        return lines
+
+    def test_a_whole_scan_says_the_position_and_speed_of_each_hit_and_the_four_levels_after_the_second_pass(self):
+        # A solid, S solid (second pass at x1.09), B many candidates, C out of step, D heard once.
+        lines = self.go(270, {**EvidenceResume.BY_PROBE, (240, 1.0): answer("D", 20.0)}, second=True)
+        first = next(x for x in lines if "probe 1/9" in x)
+        self.assertTrue(first.endswith("NEW · Invented Artist — Tune A · at 1:00 in the track · +0.2 % · 97 %"), first)
+        gap = next(x for x in lines if "00:01:07 ×1.09" in x)
+        self.assertIn("Invented Artist — Tune S · at 0:40 in the track · \u22126.0 % · ", gap)
+        summary = next(i for i, x in enumerate(lines) if x.startswith("  second pass · ") and "new track" in x)
+        self.assertEqual(lines[summary + 1], "  evidence · 2 solid · 1 many candidates · 1 out of step · 1 heard once")
+        self.assertEqual(sum("evidence ·" in x for x in lines), 1)
+
+    def test_levels_with_no_row_are_left_out_and_without_a_second_pass_the_line_comes_before_the_answers(self):
+        lines = self.go(60, {(0, 1.0): answer("A", 50.0), (30, 1.0): answer("B", 5.0, entries=12)})
+        self.assertEqual(lines[-2:], ["  evidence · 1 many candidates · 1 heard once", "  shazam · 2 answers · median 0.0 s · 0 over 5 s (0 %)"])
+
+    def test_no_evidence_line_when_no_row_has_a_level(self):
+        lines = self.go(60, {(0, 1.0): answer("A", None), (30, 1.0): answer("A", None)})
+        self.assertTrue(any("Tune A" in x for x in lines))
+        self.assertFalse(any("evidence" in x for x in lines))
+        self.assertFalse(any("in the track" in x for x in lines))
+        self.assertFalse(any("evidence" in x for x in self.go(60, {}, second=True)))

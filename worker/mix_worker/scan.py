@@ -309,12 +309,42 @@ def gaps_of(misses: list[int], hit_times: list[int], step: int) -> list[tuple[in
     return gaps
 
 
+def _heard_parts(heard: Any) -> tuple[str | None, str | None]:
+    """Spec 029: where in the track a hit was heard (`at 1:32 in the track`) and the speed in the mix (`−7.7 %`)."""
+    if not isinstance(heard, dict):
+        return None, None
+    seconds = max(0, int(heard["offset"]))
+    percent = round((evidence.mix_speed(heard) - 1) * 100, 1)
+    sign = "" if percent == 0 else "+" if percent > 0 else "\u2212"  # U+2212, the minus sign
+    speed = f"{sign}{abs(percent):.1f} %"
+    return f"at {seconds // 60}:{seconds % 60:02d} in the track", speed
+
+
 def _details(entry: dict[str, Any]) -> str:
     meta = entry.get("metadata") or {}
     conf = entry.get("confidence")
+    position, speed = _heard_parts(entry.get("heard"))
     return " · ".join(
-        x for x in (meta.get("isrc"), meta.get("label"), f"{conf:.0f} %" if isinstance(conf, (int, float)) else None) if x
+        x
+        for x in (
+            meta.get("isrc"),
+            meta.get("label"),
+            position,
+            speed,
+            f"{conf:.0f} %" if isinstance(conf, (int, float)) else None,
+        )
+        if x
     )
+
+
+EVIDENCE_WORDS = {"solid": "solid", "candidates": "many candidates", "out_of_step": "out of step", "once": "heard once"}
+
+
+def _evidence_line(rows: list[dict[str, Any]]) -> str | None:
+    """Spec 029: `  evidence · 2 solid · 1 heard once`, the levels with no row left out; `None` when no row has one."""
+    counts = [(sum(1 for r in rows if r.get("evidence") == level), EVIDENCE_WORDS[level]) for level in evidence.LEVELS]
+    parts = [f"{n} {words}" for n, words in counts if n]
+    return "  evidence · " + " · ".join(parts) if parts else None
 
 
 async def scan(
@@ -766,6 +796,18 @@ async def scan(
 
     if cut_at is not None and gap_step > 0 and not misses and stopped is None:
         say("  second pass · every probe found a track · nothing to hear again")
+    # Spec 029: each row gets its level from its hits and the other hits of its track; nothing else changes.
+    # Graded here so the `evidence` line follows the second-pass summary; no hit is added after this point.
+    filtered, sandwiched = drop_sandwiched(hits, gap)
+    made = merge_with_hits(filtered, gap)
+    graded = evidence.levels(
+        [(_key(hits_of[0].entry), [(h.time, h.entry.get("heard")) for h in hits_of]) for _, hits_of in made], probe_seconds
+    )
+    for (row, _), fields in zip(made, graded):
+        row.update(fields)
+    levels_line = _evidence_line([row for row, _ in made])
+    if levels_line:
+        say(levels_line)
     if answers:
         ordered = sorted(answers)
         slow = sum(1 for a in answers if a > SLOW_ANSWER_SECONDS)
@@ -773,7 +815,6 @@ async def scan(
             f"  shazam · {len(answers)} answers · median {ordered[len(ordered) // 2]:.1f} s"
             f" · {slow} over {SLOW_ANSWER_SECONDS:g} s ({round(100 * slow / len(answers))} %)"
         )
-    filtered, sandwiched = drop_sandwiched(hits, gap)
     if sandwiched:
         say(f"  scan · {sandwiched} finding{'' if sandwiched == 1 else 's'} between two hits of the same song dropped")
     if hits_out is not None:
@@ -788,13 +829,6 @@ async def scan(
         report["resumed"] = {"probes_kept": kept, "from": hhmmss(max(first_done))} if kept else None
         report["guided"] = {"spans": len(guide_list), "skipped_probes": skipped_probes} if guide_list else None
         report["span_checks"] = {i: check_of(sp, absorbed.get(i, []), i in probed) for i, sp in enumerate(span_list)}
-    # Spec 029: each row gets its level from its hits and the other hits of its track; nothing else changes.
-    made = merge_with_hits(filtered, gap)
-    graded = evidence.levels(
-        [(_key(hits_of[0].entry), [(h.time, h.entry.get("heard")) for h in hits_of]) for _, hits_of in made], probe_seconds
-    )
-    for (row, _), fields in zip(made, graded):
-        row.update(fields)
     return [row for row, _ in made]
 
 
