@@ -19,9 +19,10 @@ Deno on the computer; other platforms need nothing else.
   clip was heard and at which speed (`at 1:32 in the track · −7.7 %`), and one line counts the rows of each level (`evidence · 11
   solid · 27 many candidates · 4 out of step · 6 heard once`): after the second pass's summary, and also when there is no second
   pass. When the second pass is on and the confirming probe of a TrackId.net span, at normal speed, does not name the span's track,
-  the same place is asked again at the other second-pass speeds, at most one probe per speed, stopping at the first that names it. A probe shorter than 12 s (a shorter `WORKER_PROBE_SECONDS`, or the end of a set) is filled with silence to 12 s
-  before it is sent. A stopped scan keeps the levels when it resumes; hits heard by 0.7.4 before the stop give rows without a level.
-  No new setting. The app needs no update; to see the levels, update the app and scan the set again.
+  the same place is asked again at the other second-pass speeds, at most one probe per speed, stopping at the first that names it.
+  A probe shorter than 12 s (a shorter `WORKER_PROBE_SECONDS`, or the end of a set) is filled with silence to 12 s before it is
+  sent. A stopped scan keeps the levels when it resumes; hits heard by 0.7.4 before the stop give rows without a level. No new
+  setting. The app works unchanged; update it to see the levels, then scan the set again.
 - 0.7.4: **share links from the phone**. The link SoundCloud's phone app copies (`https://on.soundcloud.com/…`) can now be asked from
   the app. The worker asks `on.soundcloud.com` where it leads (one request, at most three, only inside SoundCloud's hosts), then
   downloads that set and asks TrackId.net with its real address; the log shows `link · https://soundcloud.com/…`. A link that cannot

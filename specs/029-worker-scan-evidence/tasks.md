@@ -20,6 +20,11 @@ call to Shazam, TrackId.net or any network in a test. Line numbers in the tasks 
 - The level `inside` is not built (spec.md, decision 7): the sandwich rule already drops those hits. Wherever a task below names
   `inside`, "inside another track", the 30 s margin or five levels, that part is void: there are four levels. Task T008a removes
   it from the two rule modules written before the ruling.
+- T022 as run on 2026-11-13: the four gates, `yarn invariants` and the public-safe checks pass on the head. `yarn regression` could
+  not start on its own port (another worktree's dev server held it); the same suite passed 83 of 83 on another port at T015, and
+  no file under `src/` or `tools/` changed afterwards except a `CLAUDE.md`. To run once more on its own port before the merge.
+- T023: the final review found no Critical and no Important issue; its small fixes (three tests, three wordings) are in the
+  commit `fix(spec 029): the final review's small fixes`.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -105,8 +110,8 @@ call to Shazam, TrackId.net or any network in a test. Line numbers in the tasks 
 ## Phase 8: Documentation sweep and gates
 
 - [x] T021 The documents of plan.md not yet touched: `docs/architecture/100-features.md` (row F44; the lines of F19, F24, F26), `docs/architecture/800-limits-roadmap.md` (the mix-scan accuracy entry: built, and what stays unsolved), `docs/research/2026-11-13-shazam-mix-accuracy.md` (one line: built in spec 029), `CHANGELOG.md`, `specs/016-trackid-worker-clues/contracts/result-shape.md` (a pointer), `src/features/mix/CLAUDE.md` and `worker/CLAUDE.md` if a required input changed. Then the sweep: a file-to-document map of every file the round changed, each claim checked against the code; relative links answered
-- [ ] T022 The four gates, `yarn regression` and `yarn invariants`, each by its exit code; the three public-safe commands of Contributing print nothing
-- [ ] T023 Final review by a second reader: the code against spec.md and the three contracts, the documents against the code; findings fixed test-first, then T022 again
+- [x] T022 The four gates, `yarn regression` and `yarn invariants`, each by its exit code; the three public-safe commands of Contributing print nothing
+- [x] T023 Final review by a second reader: the code against spec.md and the three contracts, the documents against the code; findings fixed test-first, then T022 again
 - [ ] T024 Report to the owner: the commits, the gates' output, what was not done, the push and PR text proposed; `spec.md` status set to Built after the owner's checks of quickstart.md
 
 ---

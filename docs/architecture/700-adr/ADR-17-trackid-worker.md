@@ -52,7 +52,7 @@ edges; there is no per-run cache of records; a commenter can be wrong; `trackid.
 
 "One confirming probe per span" stays the first probe. When the second pass is on and that probe, at normal speed, does not
 name the span's track, the same place is asked again at each other second-pass speed (×0.91 and ×1.09 by default), in the
-configured order, stopping at the first that names it: at most one probe per speed, each answered one remembered and not asked
+configured order, stopping at the first that names it: at most one probe per speed, each answer is remembered and not asked
 again on a resume. Only an answer naming the span's track is absorbed, so `differs` still reports what normal speed heard. Why: on a set
 played 6 to 8 % slow, 4 of the 8 failed checks were real tracks Shazam could not hear at normal speed
 ([research](../../research/2026-11-13-shazam-mix-accuracy.md) §5.6). Cost: at most two more Shazam calls (with the default speeds) per span

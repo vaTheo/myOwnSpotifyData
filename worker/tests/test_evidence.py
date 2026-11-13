@@ -127,6 +127,11 @@ class Levels(unittest.TestCase):
         rows = [("a", [(100, heard(50, matches=1)), (112, heard(80, matches=12))])]
         self.assertEqual(self.level(rows), ["out_of_step"])
 
+    def test_candidates_wins_over_out_of_step(self):
+        # Two hits 12 s apart, 18 s off the clock: not in step; the first answer lists 12 entries.
+        rows = [("a", [(100, heard(50, matches=12)), (112, heard(80))])]
+        self.assertEqual(self.level(rows), ["candidates"])
+
     def test_one_hit_is_once(self):
         self.assertEqual(self.level([("a", [(100, heard(50))])]), ["once"])
 

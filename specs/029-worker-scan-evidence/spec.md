@@ -133,7 +133,7 @@ The worker:
 The app:
 
 - **FR-011**: A row applied from a result MUST keep the three new fields when present and valid; a saved mix pulled from the server MUST accept them, and MUST refuse a speed that is not a finite number or a count that is not a whole number of 1 or more. An unknown level MUST be kept and shown as no level.
-- **FR-012**: The column that shows "×3 · 92%" today MUST show, for a row with a level, the level, the hit count and the speed in the mix; rows without a level MUST read as today.
+- **FR-012**: The column that shows "×3 · 92%" today MUST show, for a row with a level, the level, the hit count on a Solid or an Out of step row, and the speed in the mix; rows without a level MUST read as today.
 - **FR-013**: A second-pass row with a speed in the mix MUST say "second listen" without the re-cut speed.
 - **FR-014**: The sort on that column MUST put Solid first, then Heard once, Out of step, Many candidates, and the most hits first inside a level; rows without a level keep today's order after them.
 - **FR-015**: Two chips MUST be added beside **Heard once** when some row has a level: **Solid** and **Flagged** (Many candidates, Out of step), each with its count.

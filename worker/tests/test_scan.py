@@ -770,9 +770,10 @@ class GuidedScan(unittest.TestCase):
     THIRD = {"matches": [{"id": "3", "offset": 10.0, "timeskew": 0.0, "frequencyskew": 0.0}],
              "track": {"key": "3", "title": "Third Tune", "subtitle": "Nobody Known"}}  # 100 %, above OTHER's
 
-    def retry(self, by, gap_step=30, with_cut_at=True, resume=None):
-        """A guided scan whose probes say `t@speed`; `by[(t, speed)]` answers, else no match. Returns the
-        report, the calls made at the confirm time 124 (in order) and every call."""
+    def retry(self, by, gap_step=30, with_cut_at=True, resume=None, short=()):
+        """A guided scan whose probes say `t@speed`; `by[(t, speed)]` answers, else no match; a `(t, speed)` in
+        `short` is cut shorter than MIN_PROBE_BYTES. Returns the report, the calls made at the confirm time 124
+        (in order) and every call."""
         calls, state = [], {}
 
         async def recognise(data, skew):
@@ -787,6 +788,8 @@ class GuidedScan(unittest.TestCase):
             pass
 
         def probe(t, speed):
+            if (t, speed) in short:
+                return b"x" * (MIN_PROBE_BYTES - 1)
             return f"{t}@{speed:g}".encode().ljust(5000)
 
         def remember(kind, key, entry):
@@ -850,6 +853,20 @@ class GuidedScan(unittest.TestCase):
         rep, at, _ = self.retry(by, resume={"confirm": {"0": dict(track_entry(OTHER, "00:02:04")), "0@0.91": None}})
         self.assertEqual(at, [(124, 1.09)])
         self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+
+    def test_n_a_retry_cut_too_short_is_skipped_and_the_next_speed_is_asked(self):
+        rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 1.09): CASSETTE}, short=((124, 0.91),))
+        self.assertEqual(at, [(124, 1.0), (124, 1.09)])  # ×0.91 not asked
+        self.assertEqual(set(self.state["confirm"]), {"0", "0@1.09"})  # nor remembered
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+
+    def test_n_a_stop_inside_a_retry_leaves_the_scan_as_in_the_first_pass(self):
+        rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 0.91): StopRequested()})
+        self.assertEqual(rep["stopped"]["reason"], "by you")  # with spans: returned, not raised (test_i)
+        self.assertEqual(at, [(124, 1.0), (124, 0.91)])  # nothing asked after the stop
+        # the normal-speed entry was remembered before the retry was asked; the stopped retry is not
+        self.assertEqual(set(self.state["confirm"]), {"0"})
+        self.assertEqual(self.state["confirm"]["0"]["artist"], "Someone Else")
 
     def test_n_the_retry_log_line_holds_the_speed_and_the_heard_position(self):
         self.retry({(124, 1.0): OTHER, (124, 0.91): NO_MATCH, (124, 1.09): CASSETTE})
