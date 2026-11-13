@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from mix_worker import runstate
 from mix_worker.trackid import Span, plan_guides
 from mix_worker.scan import (
     Hit,
@@ -1270,3 +1271,112 @@ class Evidence(unittest.TestCase):
             "origin": "replay", "speed_percent": 9, "hits": 2,
             "evidence": "solid", "mix_speed_percent": -7.7, "candidates": 1,
         }])
+
+
+RUN_LINK = "https://example.com/invented-set"
+RUN_SETTINGS = {"step": 30, "probe_seconds": 12}
+
+
+class EvidenceResume(unittest.TestCase):
+    """Spec 029, T009: the evidence of a hit survives a stopped and resumed run (the real run-state file in between)."""
+
+    LEVEL_FIELDS = Evidence.LEVEL_FIELDS
+    # A at 0 and 30 (solid), misses at 60, 90, 120 (second pass: places 67, 97, 127; S at 67 and 97 at ×1.09, the
+    # track playing 6 % slow), B at 150 (12 candidates), C at 180 and 210 (out of step).
+    BY_PROBE = {
+        **Evidence.SLOW,
+        (0, 1.0): answer("A", 60.0, timeskew=0.002, frequencyskew=-0.004),
+        (30, 1.0): answer("A", 90.0, timeskew=-0.001),
+        (150, 1.0): answer("B", 10.0, entries=12),
+        (180, 1.0): answer("C", 5.0),
+        (210, 1.0): answer("C", 5.2),
+    }
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.work = Path(tmp.name)
+
+    def go(self, stop_at=None, resume=None):
+        """One scan of 240 s at step 30, second pass at ×1 then ×1.09; `stop_at(t, speed)` true stops it at that
+        probe (a Stop, before any answer). Each answer goes to a real `runstate.Recorder`."""
+        calls = []
+        rec = runstate.Recorder(self.work, RUN_LINK, RUN_SETTINGS, base=resume)
+
+        async def recognise(data, skew):
+            t, speed = data.rstrip().decode().split("@")
+            t, speed = int(t), float(speed)
+            if stop_at is not None and stop_at(t, speed):
+                raise StopRequested()
+            calls.append((t, speed))
+            return self.BY_PROBE.get((t, speed), NO_MATCH)
+
+        async def sleep(s):
+            pass
+
+        def probe(t, speed):
+            return f"{t}@{speed:g}".encode().ljust(5000)
+
+        rows = run(scan(240, step=30, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise,
+                        cut=lambda t: probe(t, 1.0), cut_at=probe, gap_step=30, gap_offset=7, speeds=(1.09,),
+                        sleep=sleep, classify=classify, clock=lambda: 0.0, probe_seconds=12,
+                        resume=resume, remember=rec.remember))
+        return rows, calls
+
+    def stopped(self, stop_at):
+        """The whole scan's rows, then a run stopped by `stop_at` in a fresh folder, and the state it saved."""
+        whole, _ = self.go()
+        self.setUp()
+        self.go(stop_at=stop_at)
+        state, why = runstate.load(self.work, RUN_LINK, RUN_SETTINGS, 7)
+        self.assertIsNone(why)
+        return whole, state
+
+    def without(self, rows):
+        return [{k: v for k, v in r.items() if k not in self.LEVEL_FIELDS} for r in rows]
+
+    @staticmethod
+    def as_0_7_4(state, kinds):
+        for kind in kinds:  # entries as worker 0.7.4 wrote them: no `heard`
+            for entry in state[kind].values():
+                if entry is not None:
+                    entry.pop("heard", None)
+
+    def test_stopped_after_the_first_pass_resumes_to_the_same_rows_and_levels_without_asking_again(self):
+        whole, state = self.stopped(lambda t, speed: t % 30 != 0)  # the Stop comes at the second pass's first probe
+        self.assertEqual(sorted(int(k) for k in state["first"]), [0, 30, 60, 90, 120, 150, 180, 210])
+        self.assertEqual(state["second"], {})
+        self.assertEqual(state["first"]["0"]["heard"]["offset"], 60.0)
+        rows, calls = self.go(resume=state)
+        self.assertEqual([c for c in calls if c[0] % 30 == 0], [])  # no first-pass probe asked again
+        self.assertEqual(rows, whole)
+        self.assertEqual([(r["song_name"], r.get("evidence")) for r in rows],
+                         [("Tune A", "solid"), ("Tune S", "solid"), ("Tune B", "candidates"), ("Tune C", "out_of_step")])
+
+    def test_a_second_pass_hit_resumed_keeps_its_level_and_mix_speed(self):
+        whole, state = self.stopped(lambda t, speed: (t, speed) == (97, 1.09))  # 67 at ×1.09 heard and remembered
+        kept = state["second"]["67@1.09"]
+        self.assertEqual((kept["origin"], kept["speed_percent"], kept["heard"]["speed"]), ("replay", 9, 1.09))
+        rows, calls = self.go(resume=state)
+        self.assertEqual(calls, [(97, 1.09), (127, 1.09)])  # only what the stopped run did not hear
+        self.assertEqual(rows, whole)
+        s = next(r for r in rows if r["song_name"] == "Tune S")
+        self.assertEqual((s["evidence"], s["mix_speed_percent"], s["origin"], s["speed_percent"]), ("solid", -6.0, "replay", 9))
+
+    def test_a_state_written_by_0_7_4_gives_rows_without_the_three_fields(self):
+        whole, state = self.stopped(lambda t, speed: (t, speed) == (97, 1.09))
+        self.as_0_7_4(state, ("first", "second"))
+        rows, calls = self.go(resume=state)
+        self.assertEqual(calls, [(97, 1.09), (127, 1.09)])
+        for row in rows:  # every row's first hit comes from an old entry: S's too (67), though 97 is heard afresh
+            for name in (*self.LEVEL_FIELDS, "heard"):
+                self.assertNotIn(name, row)
+        self.assertEqual(rows, self.without(whole))  # the rest of each row is as today
+
+    def test_an_old_first_pass_with_a_fresh_second_pass_grades_only_the_fresh_row(self):
+        whole, state = self.stopped(lambda t, speed: t % 30 != 0)
+        self.as_0_7_4(state, ("first",))
+        rows, _ = self.go(resume=state)
+        self.assertEqual(self.without(rows), self.without(whole))
+        self.assertEqual([(r["song_name"], r.get("evidence")) for r in rows],
+                         [("Tune A", None), ("Tune S", "solid"), ("Tune B", None), ("Tune C", None)])

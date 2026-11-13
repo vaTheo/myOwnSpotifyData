@@ -60,6 +60,21 @@ class RunState(unittest.TestCase):
             self.assertIsNone(runstate.load(w, LINK, SETTINGS, 7, now=lambda: 1.0)[1])
             self.assertEqual(runstate.load(w, LINK, SETTINGS, 7, now=lambda: 1.0, trackid=runstate.trackid_key("s", []))[1], "the TrackId.net spans changed since")
 
+    def test_entries_holding_heard_come_back_equal(self):
+        # Spec 029: a hit's evidence (`heard`) is kept in the file and read back as it was written.
+        first = {"song_name": "T", "artist": "A", "heard": {"offset": 92.9, "timeskew": 4.68e-05, "frequencyskew": None, "matches": 3, "speed": 1.0}}
+        second = {"song_name": "U", "artist": "B", "origin": "replay", "speed_percent": 9,
+                  "heard": {"offset": 40.0, "timeskew": 0.0246, "frequencyskew": -0.000161, "matches": 1, "speed": 1.09}}
+        with tempfile.TemporaryDirectory() as tmp:
+            w = Path(tmp)
+            rec = runstate.Recorder(w, LINK, SETTINGS, now=lambda: 0.0)
+            rec.remember("first", "0", first)
+            rec.remember("second", "67@1.09", second)
+            state, why = runstate.load(w, LINK, SETTINGS, 7, now=lambda: 1.0)
+            self.assertIsNone(why)
+            self.assertEqual(state["first"], {"0": first})
+            self.assertEqual(state["second"], {"67@1.09": second})
+
     def test_written_atomically(self):
         with tempfile.TemporaryDirectory() as tmp:
             w = Path(tmp)
