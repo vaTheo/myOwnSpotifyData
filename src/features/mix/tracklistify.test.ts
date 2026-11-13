@@ -298,3 +298,42 @@ describe('parseTracklistifyJson', () => {
     expect(parseTracklistifyJson(wrongType).status).toBe('error');
   });
 });
+
+describe('parseTracklistifyJson — spec 029 fields', () => {
+  it('ignores the level, the speed and the candidates of a worker row', () => {
+    const result = parseTracklistifyJson(
+      fixture({
+        tracks: [
+          {
+            song_name: 'Glasshour',
+            artist: 'Velto Marr',
+            time_in_mix: '00:10:00',
+            confidence: 90,
+            duration: null,
+            hits: 4,
+            origin: 'replay',
+            speed_percent: 9,
+            evidence: 'solid',
+            mix_speed_percent: -7.7,
+            candidates: 1,
+          },
+        ],
+      })
+    );
+    if (result.status !== 'ok') throw new Error('expected ok');
+    expect(result.rows[0]).toEqual({
+      startSec: 600,
+      endSec: null,
+      artist: 'Velto Marr',
+      title: 'Glasshour',
+      label: null,
+      source: 'tracklistify',
+      gap: false,
+      detected: { artist: 'Velto Marr', title: 'Glasshour' },
+      referenceCount: null,
+      confidence: 90,
+      isrc: null,
+      shazamUrl: null,
+    });
+  });
+});

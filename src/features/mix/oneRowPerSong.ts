@@ -1,6 +1,7 @@
 import type { TracklistRow } from '../../db/schema';
 import { nameKey } from '../../model/normalize';
 import { stripMixMarkers } from '../rekordbox-match';
+import { bestEvidence } from './evidence';
 import { isIdentified } from './spotifySearch';
 
 /** Earlier time first, no time last; equal times keep the input order. */
@@ -22,7 +23,10 @@ function heard(row: TracklistRow): boolean {
  * time; a heard copy outranks a not-heard one (`origin` 'clue' or
  * 'trackid'), whose copies are then dropped. The kept row keeps every field
  * of its own except `hits`, the sum of the ranked copies' (absent when none
- * has one), and `confidence`, the best of their numbers. Gaps and unidentified rows pass unchanged. The kept rows
+ * has one), and `confidence`, the best of their numbers; spec 029: when a
+ * ranked copy has a known level, `evidence` and `mixSpeed` come from
+ * `bestEvidence` of the ranked copies (no `mixSpeed` if that copy has
+ * none), `candidates` stays the kept copy's. Gaps and unidentified rows pass unchanged. The kept rows
  * stay in input order. Rows already in a mix never pass through here.
  */
 export function oneRowPerSong(rows: readonly TracklistRow[]): TracklistRow[] {
@@ -53,6 +57,13 @@ export function oneRowPerSong(rows: readonly TracklistRow[]): TracklistRow[] {
         : {}),
       ...(confidences.length > 0 ? { confidence: Math.max(...confidences) } : {}),
     };
+    // Spec 029: the best level among the ranked copies, with that copy's speed.
+    const best = bestEvidence(ranked);
+    if (best) {
+      merged.evidence = best.evidence;
+      if (best.mixSpeed === undefined) delete merged.mixSpeed;
+      else merged.mixSpeed = best.mixSpeed;
+    }
     for (const r of copies) replaced.set(r, r === first ? merged : null);
   }
   const out: TracklistRow[] = [];

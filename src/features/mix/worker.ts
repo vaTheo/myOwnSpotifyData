@@ -2,6 +2,7 @@ import type { Clue, MixJobView, MixRun, TracklistRow } from '../../db/schema';
 import type { ServerStatus } from '../../server/types';
 import { validateJobRow, type MixJobRow } from '../../server/validate';
 import { decadeOf, parseYear } from '../../model/year';
+import { evidenceExtras } from './evidence';
 import { oneRowPerSong } from './oneRowPerSong';
 import { parseTracklistifyJson } from './tracklistify';
 
@@ -91,6 +92,7 @@ function trackExtras(track: unknown): Partial<TracklistRow> {
         ? { speedPercent: pct }
         : {}),
       ...yearExtras(t.metadata),
+      ...evidenceExtras(t),
     };
   }
   if (t.origin === 'clue') {
@@ -106,7 +108,7 @@ function trackExtras(track: unknown): Partial<TracklistRow> {
       ...(shazamCheck ? { shazamCheck } : {}),
     };
   }
-  return { ...hits, ...yearExtras(t.metadata) };
+  return { ...hits, ...yearExtras(t.metadata), ...evidenceExtras(t) };
 }
 
 const TRACKID_SECONDS_MAX = 100_000;

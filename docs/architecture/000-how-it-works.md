@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-10
+> **Last updated**: 2026-11-13
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -204,7 +204,9 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   rows with the same `nameKey(artist, stripMixMarkers(title))` keep the earliest copy (no time last, ties in input order), with `hits`
   summed (absent when no copy has one) and the best `confidence`; gaps and `ID` rows pass. A heard copy outranks a not-heard one
   (`origin` `clue` or `trackid`): the earliest heard copy is kept and the not-heard copies dropped; with no heard copy, the earliest
-  not-heard copy is kept, no `hits` added. Rows already in a mix never go through it,
+  not-heard copy is kept, no `hits` added. Spec 029: when a counted copy has a known level, the kept line takes `evidence` and
+  `mixSpeed` from `bestEvidence` of those copies (no `mixSpeed` when that copy has none); `candidates` stays the kept copy's; with
+  no level the line is as before. Rows already in a mix never go through it,
   so the owner's rows are never merged and saved mixes are not rewritten.
 - `match.ts` (`libraryTitleIndex`/`matchMixRow`): each row joined to the library live at render time, memoised on `Model` identity.
   Library matches are never stored, because a resync would make a stored match stale.
@@ -245,7 +247,11 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   a mix under. The app never follows a share link; the worker does (§17), and the result lands on the mix of the request's link.
   Round 003: `resultToRows` also maps a track's `origin` (`replay` with `speedPercent`, `clue` with its `clue`), builds gap
   rows (with `clues`) from `mix_info.gaps` and returns the set-wide `clues` (stored on `MixRow.clues`); `toClue` keeps only
-  plain strings within their caps. The Mix screen shows "second listen · ±4 %", "from a comment · not heard" with the clue's
+  plain strings within their caps. Spec 029 (worker 0.7.5): a first-pass or `replay` row may also bring `evidence` (the level
+  word, kept as it came), `mix_speed_percent` (stored as `mixSpeed`) and `candidates`; `trackExtras` spreads
+  `evidenceExtras` (`evidence.ts`) on those two kinds only, never on a `clue` or `trackid` row, and drops a value out of its
+  bounds (a word of 1 to 32 characters, a finite number from −50 to 50, a whole number from 1 to 1000), keeping the row. A row
+  without them is stored exactly as before; the hand import ignores them. The Mix screen shows "second listen · ±4 %", "from a comment · not heard" with the clue's
   text, a folded "N clues around here" on a gap row and a folded set-wide tracklist; clue text is always rendered as text.
   Round 021 (`specs/021-mix-hide-commenter-names/`): the screen never shows a commenter's name. `originText` reads "from a
   comment" and `clueLine` (`ui/mix/rowText.ts`) writes a comment as "mm:ss · text"; a chapter or description line keeps its
@@ -679,6 +685,9 @@ round's full record is under `specs/001-backend-data-sync/`, the users round und
 - `validate.ts` (pure): every pulled row and summary checked before it is written or rendered (keys, finite numbers, `https:` links,
   `open.spotify.com` links, `SC_PLAYER_PREFIX`, the gate versions); a failing row is dropped and counted (security review S3).
   Round 016: `origin` may be `trackid`; `trackid {slug, spanStart, spanEnd, references?}` and `shazamCheck` are accepted only on such a row and bounded (seconds 0 to 100000, texts 200, confidence 0 to 1, the check's extras only on `differs`); a row failing them is dropped.
+  Spec 029: a mix row's `evidence` (a string of 1 to 32 characters, any word), `mixSpeed` (a finite number from −50 to 50) and
+  `candidates` (a whole number from 1 to 1000) are checked when present; a value outside refuses the mix (`mixes.row.evidence`,
+  `mixes.row.mixSpeed`, `mixes.row.candidates`).
   The one exception (round 005): an invalid optional year field (`albumYear`, `releaseYear`, `reccobeats.rid`, a mix row's
   `year`/`yearFrom`) is removed from a copy of the row and the row is kept: a year is display data and must not cost its BPM,
   plays or tracklist.
