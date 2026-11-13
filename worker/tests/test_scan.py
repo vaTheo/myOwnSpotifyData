@@ -762,6 +762,103 @@ class GuidedScan(unittest.TestCase):
         self.go(NO_MATCH, remember=lambda k, key, e: remembered.append(k))
         self.assertIn("confirm", remembered)  # an answered "no match" is remembered
 
+    # Spec 029, User Story 3: the check asks again at the second-pass speeds when normal speed does not agree.
+    # speeds (0.91, 1.09): second_pass_order gives ×1, ×0.91, ×1.09, so the retries come at ×0.91 then ×1.09.
+    THIRD = {"matches": [{"id": "3", "offset": 10.0, "timeskew": 0.0, "frequencyskew": 0.0}],
+             "track": {"key": "3", "title": "Third Tune", "subtitle": "Nobody Known"}}  # 100 %, above OTHER's
+
+    def retry(self, by, gap_step=30, with_cut_at=True, resume=None):
+        """A guided scan whose probes say `t@speed`; `by[(t, speed)]` answers, else no match. Returns the
+        report, the calls made at the confirm time 124 (in order) and every call."""
+        calls, state = [], {}
+
+        async def recognise(data, skew):
+            t, speed = data.rstrip().decode().split("@")
+            calls.append((int(t), float(speed)))
+            r = by.get((int(t), float(speed)), NO_MATCH)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        async def sleep(s):
+            pass
+
+        def probe(t, speed):
+            return f"{t}@{speed:g}".encode().ljust(5000)
+
+        def remember(kind, key, entry):
+            state.setdefault(kind, {})[key] = entry
+
+        report = {}
+        run(scan(300, step=30, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise,
+                 cut=lambda t: probe(t, 1.0), cut_at=probe if with_cut_at else None, gap_step=gap_step, speeds=(0.91, 1.09),
+                 sleep=sleep, classify=classify, line=self.lines.append, report=report, clock=lambda: 0.0,
+                 guides=plan_guides([self.SPAN], 30, 12), spans=[self.SPAN], remember=remember, resume=resume))
+        self.state = state
+        return report, [c for c in calls if c[0] == 124], calls
+
+    def test_n_the_check_asks_again_at_each_speed_until_one_agrees(self):
+        rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 0.91): OTHER, (124, 1.09): CASSETTE})
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual(at, [(124, 1.0), (124, 0.91), (124, 1.09)])  # two extra calls, in second_pass_order
+
+    def test_n_normal_speed_agrees_no_extra_call(self):
+        rep, at, _ = self.retry({(124, 1.0): CASSETTE, (124, 0.91): OTHER, (124, 1.09): OTHER})
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual(at, [(124, 1.0)])
+
+    def test_n_no_speed_agrees_differs_keeps_what_normal_speed_heard(self):
+        rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 0.91): self.THIRD, (124, 1.09): self.THIRD})
+        c = rep["span_checks"][0]
+        self.assertEqual((c["outcome"], c["artist"], c["song_name"]), ("differs", "Someone Else", "Another One"))
+        self.assertEqual(len(at), 3)  # exactly two extra calls
+
+    def test_n_normal_speed_silent_then_the_first_retry_agrees(self):
+        rep, at, _ = self.retry({(124, 0.91): CASSETTE})
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual(at, [(124, 1.0), (124, 0.91)])
+
+    def test_n_no_retry_when_the_second_pass_is_off(self):
+        for kw in ({"gap_step": 0}, {"with_cut_at": False}):
+            self.setUp()
+            rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 0.91): CASSETTE, (124, 1.09): CASSETTE}, **kw)
+            self.assertEqual(at, [(124, 1.0)], kw)
+            self.assertEqual(rep["span_checks"][0]["outcome"], "differs", kw)
+
+    def test_n_an_answered_retry_is_remembered_and_a_resumed_run_asks_nothing_again(self):
+        by = {(124, 1.0): OTHER, (124, 0.91): OTHER, (124, 1.09): CASSETTE}
+        rep, _, _ = self.retry(by)
+        self.assertEqual(set(self.state["confirm"]), {"0", "0@0.91", "0@1.09"})
+        self.assertEqual(self.state["confirm"]["0@1.09"]["song_name"], "I Will Survive")
+        resume = self.state
+        self.setUp()
+        rep2, at, calls = self.retry(by, resume=resume)
+        self.assertEqual(calls, [])
+        self.assertEqual(rep2["span_checks"], rep["span_checks"])
+        # every retry stored as not agreeing: still nothing asked, the outcome still "differs"
+        stored = {**resume, "confirm": {"0": dict(track_entry(OTHER, "00:02:04")), "0@0.91": None, "0@1.09": dict(track_entry(self.THIRD, "00:02:04"))}}
+        self.setUp()
+        rep3, _, calls = self.retry(by, resume=stored)
+        self.assertEqual(calls, [])
+        self.assertEqual(rep3["span_checks"][0]["artist"], "Someone Else")
+
+    def test_n_a_resumed_run_asks_the_retries_not_yet_stored(self):
+        by = {(124, 0.91): OTHER, (124, 1.09): CASSETTE}
+        rep, at, _ = self.retry(by, resume={"confirm": {"0": dict(track_entry(OTHER, "00:02:04")), "0@0.91": None}})
+        self.assertEqual(at, [(124, 1.09)])
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+
+    def test_n_the_retry_log_line_holds_the_speed_and_the_heard_position(self):
+        self.retry({(124, 1.0): OTHER, (124, 0.91): NO_MATCH, (124, 1.09): CASSETTE})
+        confirm = [l for l in self.lines if "trackid confirm" in l]
+        self.assertEqual(len(confirm), 3)
+        self.assertTrue(confirm[0].startswith("  trackid confirm · span 1 · 00:02:04 · shazam "), confirm[0])
+        self.assertIn("at 1:32 in the track", confirm[0])  # the normal-speed entry holds `heard` too
+        self.assertTrue(confirm[1].startswith("  trackid confirm · span 1 · 00:02:04 ×0.91 · shazam "), confirm[1])
+        self.assertTrue(confirm[1].endswith(" · no match"), confirm[1])
+        self.assertTrue(confirm[2].startswith("  trackid confirm · span 1 · 00:02:04 ×1.09 · shazam "), confirm[2])
+        self.assertIn("Gloria Gaynor — I Will Survive · USUR10200634 · Polydor · at 1:32 in the track", confirm[2])
+
 
 if __name__ == "__main__":
     unittest.main()

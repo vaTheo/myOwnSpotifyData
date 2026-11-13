@@ -498,32 +498,67 @@ async def scan(
     def in_core(t: int) -> bool:
         return any(g.core_start <= t and t + step <= g.core_end for g in guide_list)
 
+    def names_span(entry: dict[str, Any] | None, sp: Any) -> bool:
+        return entry is not None and artist_matches(sp.artist, str(entry.get("artist", ""))) and title_matches(sp.title, str(entry.get("song_name", "")))
+
+    async def ask_confirm(guide: Any, data: bytes, speed: float) -> tuple[bool, dict[str, Any] | None]:
+        """One confirming probe of `guide` cut at `speed`: (answered, entry), logged and remembered."""
+        at = hhmmss(guide.confirm_at)
+        where = f"trackid confirm · span {guide.span_index + 1} · {at}" + (f" ×{speed:g}" if speed != 1.0 else "")
+        response = await ask(data, where)
+        if response is None:
+            return False, None  # an undecodable probe is not remembered: asked again on a resume
+        where = answered(where)
+        entry = track_entry(response, at)
+        heard = evidence.heard_of(response, speed) if entry is not None else None
+        if entry is not None and heard is not None:
+            entry["heard"] = heard  # spec 029: the log line says where and at which speed
+        if entry is not None:
+            say(f"  {where} · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
+        else:
+            say(f"  {where} · no match")
+        if remember is not None:
+            ckey = str(guide.span_index) if speed == 1.0 else f"{guide.span_index}@{speed:g}"
+            remember("confirm", ckey, dict(entry) if entry is not None else None)
+        return True, entry
+
     async def confirm_due(limit: float) -> None:
-        """The confirming probe of every guide not yet confirmed with `confirm_at < limit`."""
+        """The confirming probe of every guide not yet confirmed with `confirm_at < limit`. Spec 029: when its
+        normal-speed entry does not name the span's track and the second pass is on, the same place is asked at
+        each other speed of `second_pass_order(speeds)` until one names it; only that entry is absorbed."""
         for guide in sorted(guide_list, key=lambda g: g.confirm_at):
             if guide.span_index in confirmed or guide.confirm_at >= limit:
                 continue
             confirmed.add(guide.span_index)
+            sp = span_list[guide.span_index]
             ckey = str(guide.span_index)
             if ckey in confirm_done:
                 old = confirm_done[ckey]
-                absorb(guide.confirm_at, dict(old) if old is not None else None, True)
+                entry = dict(old) if old is not None else None
+                absorb(guide.confirm_at, entry, True)
+            else:
+                data = cut(guide.confirm_at)
+                if len(data) < MIN_PROBE_BYTES:
+                    continue
+                ok, entry = await ask_confirm(guide, data, 1.0)
+                absorb(guide.confirm_at, entry, ok)
+            if names_span(entry, sp) or cut_at is None or gap_step <= 0:
                 continue
-            data = cut(guide.confirm_at)
-            if len(data) < MIN_PROBE_BYTES:
-                continue
-            where = f"trackid confirm · span {guide.span_index + 1} · {hhmmss(guide.confirm_at)}"
-            response = await ask(data, where)
-            if response is not None:
-                where = answered(where)
-            entry = track_entry(response, hhmmss(guide.confirm_at)) if response is not None else None
-            absorb(guide.confirm_at, entry, response is not None)
-            if entry is not None:
-                say(f"  {where} · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
-            elif response is not None:
-                say(f"  {where} · no match")
-            if remember is not None and response is not None:  # an undecodable probe is asked again on a resume
-                remember("confirm", ckey, dict(entry) if entry is not None else None)
+            for speed in second_pass_order(speeds):
+                if speed == 1.0:
+                    continue
+                rkey = f"{guide.span_index}@{speed:g}"
+                if rkey in confirm_done:
+                    old = confirm_done[rkey]
+                    entry = dict(old) if old is not None else None
+                else:
+                    data = cut_at(guide.confirm_at, speed)
+                    if len(data) < MIN_PROBE_BYTES:
+                        continue
+                    _, entry = await ask_confirm(guide, data, speed)
+                if names_span(entry, sp):
+                    absorb(guide.confirm_at, entry, True)  # a retry naming another track is never absorbed (R6)
+                    break
 
     kept = 0
     first_done: dict[int, Any] = {}

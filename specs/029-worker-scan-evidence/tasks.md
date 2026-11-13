@@ -84,8 +84,8 @@ call to Shazam, TrackId.net or any network in a test. Line numbers in the tasks 
 
 **Independent Test**: a guided scan with a fake that names the span's track only at ×1.09.
 
-- [ ] T016 [US3] Failing tests in `worker/tests/test_scan.py` (`GuidedScan`): normal speed names another track, ×0.91 names another, ×1.09 names the span's: outcome `agrees`, two extra calls, in the order of `second_pass_order`; normal speed agrees: no extra call; no speed agrees: outcome `differs` with what normal speed heard (a retry answer is not absorbed), exactly two extra calls; normal speed silent and ×0.91 agrees: `agrees`, one extra call; `gap_step=0`: no retry; `cut_at=None`: no retry; `remember("confirm", "2@1.09", …)` is called for an answered retry; a resumed run with those keys asks nothing again and gives the same outcome; the log line holds `×1.09`
-- [ ] T017 [US3] `worker/mix_worker/scan.py` `confirm_due` (`:460-485`) per contracts/worker.md; `trackid.py` untouched; T016 passes. Same commit: `worker/README.md` (the TrackId.net section), how-it-works §17
+- [x] T016 [US3] Failing tests in `worker/tests/test_scan.py` (`GuidedScan`): normal speed names another track, ×0.91 names another, ×1.09 names the span's: outcome `agrees`, two extra calls, in the order of `second_pass_order`; normal speed agrees: no extra call; no speed agrees: outcome `differs` with what normal speed heard (a retry answer is not absorbed), exactly two extra calls; normal speed silent and ×0.91 agrees: `agrees`, one extra call; `gap_step=0`: no retry; `cut_at=None`: no retry; `remember("confirm", "2@1.09", …)` is called for an answered retry; a resumed run with those keys asks nothing again and gives the same outcome; the log line holds `×1.09`
+- [x] T017 [US3] `worker/mix_worker/scan.py` `confirm_due` (`:460-485`) per contracts/worker.md; `trackid.py` untouched; T016 passes. Same commit: `worker/README.md` (the TrackId.net section), how-it-works §17
 
 ---
 
