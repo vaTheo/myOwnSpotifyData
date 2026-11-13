@@ -8,6 +8,7 @@ import { Gems } from './Gems';
 import { Rarely } from './Rarely';
 import { Rotation } from './Rotation';
 import { CrateSheet, CrateShell } from './shared';
+import { ViewSwitch } from './ViewSwitch';
 
 function Body({
   view,
@@ -47,7 +48,11 @@ export function CrateView({
   return (
     <CrateShell>
       {crateStatus.value === 'ready' ? (
-        <Body view={view} period={period} detail={detail} />
+        <>
+          {/* Spec 030: the six views are one screen; the gate has no switch. */}
+          <ViewSwitch current={view} />
+          <Body view={view} period={period} detail={detail} />
+        </>
       ) : (
         <>
           <CrateEmpty

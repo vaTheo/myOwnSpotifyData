@@ -11,9 +11,9 @@ const HEADING: Record<EmptyKind, string> = {
 
 const BODY: Record<EmptyKind, string> = {
   empty:
-    'These five views are built from your Spotify Extended streaming history, the zip you request from Spotify. The Web API has no play counts, so nothing here can be filled in by syncing.',
+    'These six views are built from your Spotify Extended streaming history, the zip you request from Spotify. The Web API has no play counts, so nothing here can be filled in by syncing.',
   reimport:
-    "The year, month and skip views need data the old import didn't keep. Your play counts still work everywhere else.",
+    "The Crate's views need data the old import didn't keep. Your play counts still work everywhere else.",
 };
 
 /**

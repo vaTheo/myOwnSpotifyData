@@ -13,7 +13,7 @@ import { artistReachSummary, model } from '../model/state';
 import { routeHref } from '../router';
 import { Artist } from './Artist';
 import { UnderRadar } from './UnderRadar';
-import { artistView, radarFilter, radarSort } from './artistSelections';
+import { artistFilter, artistView, radarSort } from './artistSelections';
 import { Empty } from './components/Empty';
 import { Filter } from './components/Filter';
 import { NoMatch } from './components/NoMatch';
@@ -30,7 +30,6 @@ import { DataTable, type Column } from './table/DataTable';
 import { lastCall } from './table/lastCall';
 import type { SortState } from './table/sort';
 
-const filter = signal('');
 const sort = signal<SortState>({ columnId: null, direction: 'asc' });
 
 /** One artist of the Saved tracks table; a null figure is shown as `NoData`. */
@@ -158,7 +157,7 @@ function SavedTracks(p: { switcher: ComponentChildren }) {
   }
   const reach = artistReachSummary.value?.version === 1;
   const rows = savedRows(m, reach);
-  const query = normalize(filter.value);
+  const query = normalize(artistFilter.value);
   // Rank comes from the full list, so filtering never renumbers the rows.
   const list = filterRows(rows, query);
   return (
@@ -166,18 +165,18 @@ function SavedTracks(p: { switcher: ComponentChildren }) {
       <div class="toolbar">
         {p.switcher}
         <Filter
-          value={filter.value}
+          value={artistFilter.value}
           onInput={(v) => {
-            filter.value = v;
+            artistFilter.value = v;
           }}
           placeholder="Filter artists"
         />
       </div>
       {list.length === 0 ? (
         <NoMatch
-          query={filter.value}
+          query={artistFilter.value}
           onClear={() => {
-            filter.value = '';
+            artistFilter.value = '';
           }}
         />
       ) : (
@@ -205,13 +204,12 @@ function SavedTracks(p: { switcher: ComponentChildren }) {
 /**
  * The narrowed list beside an open artist: the open view's rows in its own
  * order (Under the radar's once its gate is passed, Saved tracks
- * otherwise), its filter on top, and one figure, the saved tracks.
+ * otherwise), the shared filter on top, and one figure, the saved tracks.
  */
 function ArtistPane(p: { m: Model; selected: string }) {
   const radar =
     artistView.value === 'radar' && artistReachSummary.value?.version === 1;
-  const text = radar ? radarFilter : filter;
-  const query = normalize(text.value);
+  const query = normalize(artistFilter.value);
   const order = radarSort.value;
   // Kept while the model, the view and the filter stay, so a `?d=` change
   // (the sheet following the arrows in the artist's tracks) redraws none
@@ -237,18 +235,18 @@ function ArtistPane(p: { m: Model; selected: string }) {
       label={radar ? 'Under the radar' : 'Artists by saved tracks'}
       head={
         <Filter
-          value={text.value}
+          value={artistFilter.value}
           onInput={(v) => {
-            text.value = v;
+            artistFilter.value = v;
           }}
           placeholder="Filter artists"
         />
       }
       empty={
         <NoMatch
-          query={text.value}
+          query={artistFilter.value}
           onClear={() => {
-            text.value = '';
+            artistFilter.value = '';
           }}
         />
       }

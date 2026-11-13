@@ -127,12 +127,12 @@ ActiveJob { id: 'sync' | 'import' | 'lookup' | 'rekordbox' | 'reach' | 'server' 
 
 | State | Running when | Label | Links to |
 |---|---|---|---|
-| `syncState` | `running` | "Syncing playlists" | Settings |
+| `syncState` | `running` | "Syncing playlists" | `#/settings/sync` (spec 030) |
 | `importState` | `running` | "Importing history" | `#/import` |
-| `lookupState` | `running` | "Looking up BPM and key" | Settings |
-| `rekordboxState` | `running` | "Importing Rekordbox" | Settings |
-| `reachState` | `running` | "Looking up artists" | Settings |
-| `serverState` | `pushing` or `pulling` | "Saving to server" or "Loading from server" | Settings |
+| `lookupState` | `running` | "Looking up BPM and key" | `#/settings/audio` (spec 030) |
+| `rekordboxState` | `running` | "Importing Rekordbox" | `#/settings/audio` (spec 030) |
+| `reachState` | `running` | "Looking up artists" | `#/settings/reach` (spec 030) |
+| `serverState` | `pushing` or `pulling` | "Saving to server" or "Loading from server" | `#/settings/server` (spec 030) |
 | `likeState` | `checking` or `liking` | "Liking songs" | the playlist |
 | `createPlaylistState` | `resolving`, `creating` or `adding` | "Creating playlist" | Mix |
 | `mixState` | `looking` | "Looking up mix" | Mix |

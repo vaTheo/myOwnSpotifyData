@@ -18,7 +18,12 @@ import { SegmentedButtons } from './components/SegmentedButtons';
 import { openDetail } from './details/navigate';
 import { TrackSheet } from './details/TrackDetails';
 import { besideSheet } from './layout/SideSheet';
-import { artistNames, artistUrl, TOP_PERIOD_LABEL } from './format';
+import {
+  artistNames,
+  artistUrl,
+  topCaption,
+  TOP_PERIOD_LABEL,
+} from './format';
 import { windowClass } from './layout/windowClass';
 import { spotifyTrackId, type ListenTrack } from './listen';
 import {
@@ -199,6 +204,10 @@ export function Top({ detail }: { detail?: string }) {
           </Button>
         )}
       </div>
+      {/* Spec 030: why this list differs from the Crate's. */}
+      <p class="caption">
+        {topCaption(kind.value, comparing, m.plays.length > 0)}
+      </p>
       {comparing ? (
         <ComparePeriods kind={kind.value} />
       ) : kind.value === 'tracks' ? (
