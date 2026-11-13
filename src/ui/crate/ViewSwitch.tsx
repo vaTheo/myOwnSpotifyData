@@ -3,7 +3,7 @@ import { windowClass } from '../layout/windowClass';
 import { viewSwitchItems } from './labels';
 
 /**
- * The view switch of the Crate view screen (spec 029, FR-001, FR-002): the
+ * The view switch of the Crate view screen (spec 030, FR-001, FR-002): the
  * six views, the open one marked. It is navigation, built as links to the
  * views' own addresses, so a view stays bookmarkable and Back returns to the
  * previous one. On a compact window it is one native picker showing the open

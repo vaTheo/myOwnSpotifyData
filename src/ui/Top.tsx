@@ -204,7 +204,7 @@ export function Top({ detail }: { detail?: string }) {
           </Button>
         )}
       </div>
-      {/* Spec 029: why this list differs from the Crate's. */}
+      {/* Spec 030: why this list differs from the Crate's. */}
       <p class="caption">
         {topCaption(kind.value, comparing, m.plays.length > 0)}
       </p>

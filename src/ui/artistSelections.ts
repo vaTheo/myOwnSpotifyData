@@ -9,7 +9,7 @@ export type ArtistView = 'saved' | 'radar';
 // switcher and `UnderRadar.tsx` reads the view, the sort and the filter, so
 // putting them in either component would make the dispatcher and the view
 // import each other. The "Filter artists" text is one value for both views
-// (spec 029, FR-016): it survives a view switch.
+// (spec 030, FR-016): it survives a view switch.
 export const artistView = signal<ArtistView>('saved');
 export const radarSort = signal<ReachSort>('plays');
 export const artistFilter = signal('');

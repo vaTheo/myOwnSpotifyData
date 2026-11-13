@@ -1,4 +1,4 @@
-# Tasks: One Crate view screen with a view switch, and four small fixes (spec 029)
+# Tasks: One Crate view screen with a view switch, and four small fixes (spec 030)
 
 **Input**: [spec.md](spec.md), [plan.md](plan.md), [research.md](research.md), [data-model.md](data-model.md), [contracts/screens.md](contracts/screens.md), [quickstart.md](quickstart.md)
 
@@ -50,7 +50,7 @@ Tests: unit tests beside the source and regression rows are part of the plan (st
 
 ## Phase 8: Polish and cross-cutting
 
-- [ ] T014 Docs sweep (FR-020): docs/architecture/100-features.md (F7, F23, a row for round 029), README.md (owner's manual), CHANGELOG.md, docs/architecture/800-limits-roadmap.md if a limit was found; a file-to-doc map for the report
+- [ ] T014 Docs sweep (FR-020): docs/architecture/100-features.md (F7, F23, a row for round 030), README.md (owner's manual), CHANGELOG.md, docs/architecture/800-limits-roadmap.md if a limit was found; a file-to-doc map for the report
 - [ ] T015 `yarn typecheck && yarn lint && yarn test`, `yarn regression`, `yarn invariants`, each read by exit code
 - [ ] T016 Visual loop (owner 2026-11-13): `yarn shots`, `yarn shots:summary` with 0 findings on the pages touched (Crate hub and views, Top, Artists, Settings), `yarn shots:sheet`; read the screenshots at the four widths; fix findings
 - [ ] T017 Review by a separate reviewer: the diff against spec.md, contracts/screens.md, the design guide and ADR-11; the docs against the code; fix findings

@@ -49,7 +49,7 @@ export function CrateView({
     <CrateShell>
       {crateStatus.value === 'ready' ? (
         <>
-          {/* Spec 029: the six views are one screen; the gate has no switch. */}
+          {/* Spec 030: the six views are one screen; the gate has no switch. */}
           <ViewSwitch current={view} />
           <Body view={view} period={period} detail={detail} />
         </>

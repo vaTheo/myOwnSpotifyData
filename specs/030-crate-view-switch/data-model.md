@@ -1,4 +1,4 @@
-# Data model: spec 029
+# Data model: spec 030
 
 Nothing is stored. No IndexedDB store, field or version changes (ADR-05). The state below lives in module-level signals for the session and resets on reload.
 

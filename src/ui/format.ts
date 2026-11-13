@@ -182,7 +182,7 @@ export function historyLine(
 }
 
 /**
- * Top's caption (spec 029, FR-015): the ranking is Spotify's own, which is
+ * Top's caption (spec 030, FR-015): the ranking is Spotify's own, which is
  * why it differs from the Crate's. Plays are named only where the table
  * shows them, so the line never promises a figure that is not on screen.
  */

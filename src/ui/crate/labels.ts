@@ -72,7 +72,7 @@ export interface ViewSwitchItem {
 }
 
 /**
- * The six views of the view switch (spec 029, FR-001), in the hub's order.
+ * The six views of the view switch (spec 030, FR-001), in the hub's order.
  * Each address is the view's own, without a period or an open track: a
  * switch closes the sheet and By year keeps the owner's year and period.
  */

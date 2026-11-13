@@ -2999,7 +2999,7 @@ a.ov-item:hover {
   width: 100%;
 }
 
-/* Spec 029: the view switch of the Crate view screen. Links drawn as
+/* Spec 030: the view switch of the Crate view screen. Links drawn as
    secondary tabs on medium and wider; the row scrolls inside itself when it
    is narrower than its six names (beside the docked sheet) and never widens
    the page. One picker on compact. */

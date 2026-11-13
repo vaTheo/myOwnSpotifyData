@@ -1,4 +1,4 @@
-# Research: spec 029
+# Research: spec 030
 
 Sources: two read-only studies of every page (2026-11-13), then the files named below.
 

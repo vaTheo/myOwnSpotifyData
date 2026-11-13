@@ -1,8 +1,8 @@
-# Implementation Plan: One Crate view screen with a view switch, and four small fixes (spec 029)
+# Implementation Plan: One Crate view screen with a view switch, and four small fixes (spec 030)
 
 **Branch**: `task/dev-session-2` from main 9aaf88b | **Date**: 2026-11-13 | **Spec**: [spec.md](spec.md)
 
-**Input**: Feature specification from `specs/029-crate-view-switch/spec.md`
+**Input**: Feature specification from `specs/030-crate-view-switch/spec.md`
 
 ## Summary
 
@@ -77,7 +77,7 @@ Each step is one commit, compiling and green, with its docs.
 
 7. **Docs, with each step, then one sweep (FR-020).**
    - `specs/003-web-first-redesign/contracts/screens.md` §1 (Activity links), §4 (Top caption), §6 (view switch), §9 (one filter); `components.md` (the view switch); `routes.md` (a line: addresses unchanged, the switch links to them).
-   - `docs/architecture/000-how-it-works.md` §13 (Crate views, Top, Artists, Activity); `docs/architecture/100-features.md` (F7 and F23 rows, a new row for round 029); `docs/architecture/800-limits-roadmap.md` if a limit is found.
+   - `docs/architecture/000-how-it-works.md` §13 (Crate views, Top, Artists, Activity); `docs/architecture/100-features.md` (F7 and F23 rows, a new row for round 030); `docs/architecture/800-limits-roadmap.md` if a limit is found.
    - `README.md` (owner's manual: moving between Crate views), `CHANGELOG.md`, `docs/README.md` if a page is added.
    - Final sweep: a file-to-doc map in the report, and the review checks the docs against the code.
 
@@ -90,7 +90,7 @@ Each step is one commit, compiling and green, with its docs.
 ### Documentation (this feature)
 
 ```text
-specs/029-crate-view-switch/
+specs/030-crate-view-switch/
 ├── spec.md
 ├── plan.md
 ├── research.md

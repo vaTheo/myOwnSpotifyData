@@ -47,7 +47,7 @@ export interface ActiveJob {
 }
 
 /**
- * A Settings job opens the item that shows it (spec 029, FR-017), not the
+ * A Settings job opens the item that shows it (spec 030, FR-017), not the
  * top of the page.
  */
 function settingsItem(item: SectionId): string {
