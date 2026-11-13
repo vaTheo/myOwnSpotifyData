@@ -4,7 +4,7 @@ Amends `specs/003-web-first-redesign/contracts/screens.md` §1, §4, §6, §9. E
 
 ## §6 Crate views: the view switch
 
-Medium and wider (a view open from the hub):
+Expanded and wider, 840 px and up (a view open from the hub):
 
 ```
 ←  Forgotten gems                                   [search] [activity]
@@ -15,7 +15,7 @@ Played 10+ times, nothing since Nov 2025 · 31 tracks
 table …                                                   [details sheet]
 ```
 
-Compact (390 px):
+Compact and medium, below 840 px (390 px shown):
 
 ```
 ←  Forgotten gems
@@ -28,6 +28,7 @@ list …
 - The switch names the six views in the hub's order; the open one is marked (`aria-current="page"` on the link, the selected option in the picker).
 - Each name is a link to the view's existing address, with no period and no open track.
 - The top bar title is the open view's name; the up arrow leads to `#/crate`.
+- Below 840 px the switch is the picker: six names do not fit in a medium window's row (found by the visual loop). It takes the full width on compact and its own width, at least five targets, on medium.
 - The switch is drawn only when the Crate gate passes; the gate card is drawn alone.
 - Below the switch, each view is §6 as written: control, caption, legend, filter bar, table, empty message and its action, sheet figures.
 - The row never pushes the table: beside the docked sheet it scrolls inside itself.

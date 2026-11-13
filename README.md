@@ -210,8 +210,8 @@ phone. It is dark, with chartreuse marking what you act on.
   for the classics (a year without plays is a zero mark), the finish rate as
   a meter in its band. **By year** picks its period on a year × month grid:
   click a year, a month or a season. To move from one view to another, use
-  the row of six view names above the open view (on a phone, the view picker
-  under the title); the back arrow in the top bar brings you back to the
+  the row of six view names above the open view (on a phone or a window
+  narrower than 840 px, the view picker under the title); the back arrow in the top bar brings you back to the
   cards. Each view keeps its setting when you come back to it. Spotify's Web
   API has no play counts, so none of this can be filled in by syncing.
 

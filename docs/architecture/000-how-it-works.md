@@ -451,7 +451,7 @@ screen, grouped by role under `src/ui/`.
   `CrateView` dispatching to the six view tables, `shared.tsx`, `labels.ts`, `selections.ts`; gated on
   `historySummary.version === 2`, never on rows; since spec 030 `CrateView` draws `ViewSwitch.tsx` above the open view only when
   `crateStatus` is `ready`: six links from `viewSwitchItems` (`labels.ts`, the hub's order, each view's own address without a
-  period or `?d=`, the open one `aria-current="page"`) on medium and wider, one native select on compact; a view's setting
+  period or `?d=`, the open one `aria-current="page"`) on expanded and wider, one native select on compact and medium; a view's setting
   survives a switch, its sort and filter stay per view), `Playlists.tsx`, `Playlist.tsx` (one strip above the table: meta, Sync and
   Like states, the order control; Match cells in `playlist/matchCells.ts`), `Artists.tsx` with `UnderRadar.tsx` (gated on
   `artistReachSummary.version === 1`; since spec 030 one "Filter artists" text for both views and the list beside an open

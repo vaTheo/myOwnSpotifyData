@@ -3000,9 +3000,10 @@ a.ov-item:hover {
 }
 
 /* Spec 030: the view switch of the Crate view screen. Links drawn as
-   secondary tabs on medium and wider; the row scrolls inside itself when it
+   secondary tabs on expanded and wider; the row scrolls inside itself when it
    is narrower than its six names (beside the docked sheet) and never widens
-   the page. One picker on compact. */
+   the page. One picker on compact and medium, where six names do not fit:
+   full width on compact, its own width (at least five targets) on medium. */
 .crate-switch {
   display: flex;
   margin: 0 0 12px;
@@ -3043,8 +3044,13 @@ label.crate-switch {
   overflow: visible;
 }
 
-.crate-switch select {
-  width: 100%;
+/* The two native pickers of the Crate views: the view switch and Rarely
+   played's playlist. Never wider than their box, so a long playlist name
+   never widens the page. */
+.crate-switch select,
+.rare-playlist select {
+  min-width: 0;
+  max-width: 100%;
   min-height: var(--app-target);
   padding: 0 8px;
   font: var(--md-sys-typescale-title-small);
@@ -3052,6 +3058,27 @@ label.crate-switch {
   background: var(--md-sys-color-surface);
   border: 1px solid var(--md-sys-color-outline);
   border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+.crate-switch select {
+  min-width: min(100%, calc(var(--app-target) * 5));
+}
+
+label.rare-playlist {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 599px) {
+  .crate-switch select,
+  .rare-playlist select {
+    width: 100%;
+  }
+
+  label.rare-playlist {
+    flex: 1 1 100%;
+  }
 }
 
 .crate-view .ym-scroll {

@@ -18,6 +18,7 @@ Sources: two read-only studies of every page (2026-11-13), then the files named 
 
 - **Decision**: a native `<select>` whose change sets the address.
 - **Rationale**: one row of height, the system picker on Android, keyboard and screen reader support without code. Rarely played already uses a native select (`Rarely.tsx:107`). On a view the phone shows: top bar, picker, the view's control, the list; By year: top bar, picker, years, periods, the list.
+- **Medium too**: the visual loop found that six names do not fit in a medium window's row (cut at 768 px), so the picker is drawn on compact and medium, the row from expanded (840 px) up. On medium the picker keeps its own width.
 - **Alternatives**: a scrolling chip row (owner declined, Q1 A); a custom menu (more code, focus and escape handling to write).
 
 ## R4. Sort, filter and settings per view

@@ -1095,9 +1095,18 @@ test.describe('F. features', () => {
     await expect(nav).toHaveCount(0);
   });
 
-  test('F07d the view picker on a phone: the open view, a pick opens it, no sideways scroll', async ({
+  test('F07d the view picker on a phone and at 768: the open view, a pick opens it, no sideways scroll', async ({
     app,
   }) => {
+    const noSideScroll = async () =>
+      expect(
+        await app.page.evaluate(
+          () =>
+            document.documentElement.scrollWidth <=
+            document.documentElement.clientWidth + 1
+        ),
+        'the page scrolls sideways'
+      ).toBe(true);
     await app.page.setViewportSize({ width: 390, height: 844 });
     await app.open('#/crate/rotation');
     const picker = app.page.getByRole('combobox', { name: 'Crate view' });
@@ -1119,14 +1128,16 @@ test.describe('F. features', () => {
       'By year'
     );
     await expect(picker).toHaveValue('year');
-    expect(
-      await app.page.evaluate(
-        () =>
-          document.documentElement.scrollWidth <=
-          document.documentElement.clientWidth + 1
-      ),
-      'the page scrolls sideways'
-    ).toBe(true);
+    await noSideScroll();
+
+    // Medium (768): six names do not fit in a row, so the picker too.
+    await app.page.setViewportSize({ width: 768, height: 1024 });
+    await app.open('#/crate/rarely-played');
+    await expect(picker).toHaveValue('rarely-played');
+    await expect(
+      app.page.getByRole('navigation', { name: 'Crate views' })
+    ).toHaveCount(0);
+    await noSideScroll();
   });
 
   test('F07e "Open <month>" in a Heavy rotation sheet lands on By year, that month pressed', async ({

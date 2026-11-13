@@ -83,7 +83,7 @@ On the phone the switch and the view's own control both fit above the list, and 
 
 **Acceptance Scenarios**:
 
-1. **Given** a phone width, **Then** the switch is one compact picker showing the open view's name; opening it lists the six views, and picking one shows it (Q1 option B, owner 2026-11-13).
+1. **Given** a phone width (and a medium window, 600–839 px), **Then** the switch is one compact picker showing the open view's name; opening it lists the six views, and picking one shows it (Q1 option B, owner 2026-11-13).
 2. **Given** a phone width and By year open, **Then** the switch, the year choices and the period choices are all reachable, and the first rows of the list are visible without scrolling on a common phone screen.
 3. **Given** a phone width, **Then** the order controls of each view (Most years / Most plays, Finished / Skipped) are still there, because the phone has no column header to sort by.
 
@@ -157,7 +157,7 @@ The owner taps a running job in the Activity button. Settings opens on the item 
 - **FR-009**: Every existing Crate address and in-app link MUST open the same view, period and open track as before (spec 003 FR-002a kept); an unknown view name MUST open the hub.
 - **FR-010**: A period carried by an address or an "Open <month>" link MUST be applied each time By year is reached that way, including from another Crate view.
 - **FR-011**: The Crate tab MUST reopen the last view the owner had open, as today.
-- **FR-012**: At phone width the switch and the open view's control MUST be fully usable without sideways page scroll, as one compact picker showing the open view's name (Q1 option B); the per-view order controls MUST stay.
+- **FR-012**: At phone width the switch and the open view's control MUST be fully usable without sideways page scroll, as one compact picker showing the open view's name (Q1 option B), and on medium windows, where six names do not fit (found by the visual loop); the per-view order controls MUST stay.
 - **FR-013**: The switch MUST be operable with the keyboard and expose which view is selected to assistive technology.
 - **FR-014**: Switching view MUST close an open details sheet and show the first page of the list.
 
@@ -196,7 +196,7 @@ The owner taps a running job in the Activity button. Settings opens on the item 
 ## Assumptions
 
 - Picking a view in the switch is an ordinary link to that view's address: the browser's Back steps through the views visited; the top bar's back control goes to the hub.
-- On a computer the switch is a row of the six names above the view's control.
+- On a computer the switch is a row of the six names above the view's control from 840 px (expanded) up; below it, the picker, and on medium windows, where six names do not fit (found by the visual loop).
 - The Top caption wording above is a proposal; the owner can reword it at review.
 - The Activity mapping follows where Settings shows each job today: Rekordbox and release years live in the Audio data item.
 - The sort and filter of a view stay per view because their columns differ (a "Plays in window" sort has no meaning in Finish rate).

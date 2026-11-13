@@ -218,10 +218,11 @@ in the item's lead and the menu in its trail.
 **View switch** (since spec 030, `specs/030-crate-view-switch/contracts/screens.md`): the six views are one screen with a switch
 above the open view's control (`ViewSwitch`, `ui/crate/ViewSwitch.tsx`).
 
-- Medium and wider: a `Crate views` navigation of six links in the hub's order (Heavy rotation, Forgotten gems, All-time classics,
+- Expanded and wider: a `Crate views` navigation of six links in the hub's order (Heavy rotation, Forgotten gems, All-time classics,
   By year, Finish rate, Rarely played), the open one marked (`aria-current="page"`, a `primary` underline). Beside the docked sheet
   the row scrolls inside itself and never pushes the table.
-- Compact: one native picker labelled "Crate view", showing the open view's name.
+- Compact and medium: one native picker labelled "Crate view", showing the open view's name (six names do not fit a medium row);
+  full width on compact, its own width on medium.
 - Each name is the view's existing address (`#/crate/<view>`), with no period and no open track: a switch closes the sheet, and
   By year keeps the owner's year and period. Back steps through the views visited; the top bar's back arrow goes to `#/crate`.
 - Drawn only when the Crate gate passes (`crateStatus` `ready`); the gate card is drawn alone.

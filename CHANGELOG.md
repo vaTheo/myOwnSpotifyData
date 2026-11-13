@@ -6,7 +6,8 @@ by feature, newest first, and name their spec under `docs/specs/`. Entries befor
 ## 2026-11-13 — Move between Crate views without the hub
 
 Each Crate view now has the six views named above it: on a computer a row of six names (Heavy rotation, Forgotten gems, All-time
-classics, By year, Finish rate, Rarely played), the open one underlined; on a phone one **Crate view** picker under the title. Pick a
+classics, By year, Finish rate, Rarely played), the open one underlined; on a phone or a window narrower than 840 px one **Crate
+view** picker under the title. Pick a
 name to open that view: one tap on a computer, two on the phone, instead of going back to the hub. Each name is the view's usual
 address, so bookmarks and links still work and the browser's Back steps through the views you visited; the back arrow in the top bar
 still leads to the hub. A view keeps its setting (window, period, chips) when you come back to it, and its own sort and filter. With

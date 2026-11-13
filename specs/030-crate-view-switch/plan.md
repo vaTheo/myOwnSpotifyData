@@ -6,7 +6,7 @@
 
 ## Summary
 
-UI only. The hub stays, so the route family, the top bar title and up arrow of a view, the Listening tabs, the gate, the selectors and the per-view signals do not change. The six views become one screen by drawing one **view switch** at the top of the Crate view screen, above the open view. The switch is made of links to the six existing addresses: a row of six names on medium and wider windows, one compact picker on compact windows (Q1 B). Four small fixes ride along: a source caption on Top, one filter text for the two Artists views, Activity links to the Settings item, and the "five views" wording.
+UI only. The hub stays, so the route family, the top bar title and up arrow of a view, the Listening tabs, the gate, the selectors and the per-view signals do not change. The six views become one screen by drawing one **view switch** at the top of the Crate view screen, above the open view. The switch is made of links to the six existing addresses: a row of six names on expanded and wider windows, one compact picker on compact and medium windows (Q1 B; medium since the visual loop found six names do not fit there). Four small fixes ride along: a source caption on Top, one filter text for the two Artists views, Activity links to the Settings item, and the "five views" wording.
 
 Findings and choices: [research.md](research.md). What the owner sees: [contracts/screens.md](contracts/screens.md). How to check it: [quickstart.md](quickstart.md).
 
@@ -52,12 +52,12 @@ Each step is one commit, compiling and green, with its docs.
 
 1. **View switch (US1, US3, US4; FR-001–FR-003, FR-009–FR-014).**
    - New `src/ui/crate/ViewSwitch.tsx` and a pure `viewSwitchItems(current)` in `src/ui/crate/labels.ts` (tested in `labels.test.ts`): the six views in `CRATE_VIEWS` order, each with its `CRATE_TITLE` label, its `routeHref({ name: 'crateView', view })` address and whether it is the open one. No period and no `?d=` in the addresses, so a switch closes the sheet and opens By year on the owner's current year and period.
-   - Medium and wider: `<nav aria-label="Crate views">` holding six links, the open one `aria-current="page"`, on the pattern of `ScreenTabs` (navigation drawn as tabs, built as links). Arrow keys are not needed: links take Tab and Enter.
-   - Compact: a labelled native `<select>` (label "Crate view", visually hidden) listing the six names, the open one selected; `onChange` sets `location.hash` to the view's address. Native select = system picker on Android, keyboard and screen reader for free, least height. Same styling as the Rarely played playlist select.
+   - Expanded and wider: `<nav aria-label="Crate views">` holding six links, the open one `aria-current="page"`, on the pattern of `ScreenTabs` (navigation drawn as tabs, built as links). Arrow keys are not needed: links take Tab and Enter.
+   - Compact and medium: a labelled native `<select>` (label "Crate view", visually hidden) listing the six names, the open one selected; `onChange` sets `location.hash` to the view's address. Native select = system picker on Android, keyboard and screen reader for free, least height. Same styling as the Rarely played playlist select.
    - `CrateView.tsx` draws `<ViewSwitch current={view} />` above `<Body>` when `crateStatus` is `ready` only. The gate card is drawn alone, as today (FR-008).
    - Nothing else moves: `titles.ts`, `ScreenTabs.tsx`, `Nav.tsx` (`lastRouteInTab`), `router.ts`, `search/choose.ts` (`OWN_SHEET`), `selections.ts`, the six view files. Browser Back steps through the views because each pick is a normal address change (spec assumption).
    - FR-010 holds by construction: a view change swaps the component in `Body`, so By year mounts again and applies the address period. Checked by a regression row, not assumed.
-   - Styles in `src/styles.css`, tokens only: the row scrolls inside itself if a medium window beside the docked sheet is too narrow, and never pushes the table.
+   - Styles in `src/styles.css`, tokens only: the row scrolls inside itself if the column beside the docked sheet is too narrow, and never pushes the table; the picker is full width on compact, its own width on medium.
 
 2. **Top caption (US5; FR-015).** In `src/ui/Top.tsx`, one `<p class="caption">` under the toolbar. Tracks: "Spotify's own ranking for this period. Plays come from your history import." The second sentence only when the table shows a Plays figure (a history import exists). Artists and Compare periods: "Spotify's own ranking for this period." / "Spotify's own ranking, period by period." A pure `topCaption(kind, comparing, hasPlays)` in `src/ui/format.ts`, tested in `format.test.ts`.
 
