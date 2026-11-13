@@ -25,7 +25,8 @@ the options and what each was **measured** to gain and lose, and a second web ro
    hardest mix (§6.3). Confirming rows heard once (option B) promotes 0, 1 and 2 more rows for 14, 38 and 232 extra calls.
    Scanning a whole mix again at the DJ's speed (option C) found no track the result lacked.
 7. **What stays unsolved:** on the hardest mix, 72 of 127 rows stay plain "heard once", 32 the owner kept and 40 the owner
-   removed, and nothing measured tells them apart.
+   removed, and nothing measured tells them apart. The owner's word after the measurement (2026-11-13): most of those 32 are
+   wrong too, kept because they are good tracks to hear. So on that mix nearly every row that is not Solid is wrong.
 
 ## 2. Method
 
@@ -391,7 +392,9 @@ about magnets and about position jumps is in §5.3 and §5.5.
 ## 9. Limits of this research
 
 - The thresholds (0.5 s, 60 s, 0.003) come from four mixes and were set on the same data. Changing them changes little: see §10.
-- Mix D has no tracklist. "Kept" is the owner's judgement and includes wrong rows the owner likes.
+- Mix D has no tracklist. "Kept" is the owner's judgement and includes wrong rows the owner likes: by the owner's word
+  (2026-11-13), most of the 32 kept rows that stay "heard once". The "good" counts of mix D outside Solid are therefore too
+  high, and option B's two promotions out of 34 fit that: few of those rows were real.
 - Mix C was never scanned by the worker, so it has no row-level table.
 - Option B was asked at 24 s on each side only, and option C at one speed (×1.06) on one mix.
 - The cut of the "many candidates" label (10 entries) was chosen on mix D, the only result where it catches rows.

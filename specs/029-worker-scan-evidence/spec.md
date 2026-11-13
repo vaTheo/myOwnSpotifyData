@@ -17,7 +17,7 @@
 - The TrackId.net check (`confirm_due` in `scan.py`, `check_of` in `trackid.py`) asks one probe per span, at normal speed only. On a set played 6 to 8 % slow it answered "differs" or "no match" for real tracks (research §5.6).
 - A probe shorter than 12 s finds nothing, and none is padded (`cut_probe`): the last probe of a set, and every probe when `WORKER_PROBE_SECONDS` is under 12 (research §5.1).
 
-Measured on three saved results (research §6.1 and §6.3), with the rules of this spec and no extra Shazam call: 39 rows come out Solid, 35 of them right, none wrong and 4 that could not be judged; on the hardest set, 40 of the 80 rows the owner removed carry a specific warning, with 4 of the 47 kept rows among them; 72 rows of that set stay plain "heard once" and nothing tells the kept from the removed.
+Measured on three saved results (research §6.1 and §6.3), with the rules of this spec and no extra Shazam call: 39 rows come out Solid, 35 of them right, none wrong and 4 that could not be judged; on the hardest set, 40 of the 80 rows the owner removed carry a specific warning, with 4 of the 47 kept rows among them; 72 rows of that set stay plain "heard once" and nothing tells the kept from the removed. The owner (2026-11-13): "most of the 32 kept are wrong but good tracks to hear", so on that set nearly every row that is not Solid is wrong, and the rows stay visible because they are worth hearing.
 
 ## User Scenarios & Testing *(mandatory)*
 
