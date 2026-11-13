@@ -358,16 +358,27 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   **Automatic updates** on, never while Spotify's lock-out lasts or another Spotify job runs), and saves the mix when it ends.
   Every track counts as kept; **Remove** (✕, or **Delete** in the row
   menu) takes a wrong one out. The columns are Time, **Artist**, **Title**, Label,
-  **Confidence**, Released (when tracks have a year), Spotify, Listen and
+  **Evidence**, Released (when tracks have a year), Spotify, Listen and
   Review; on a phone each track shows its title, the artist under it, then
-  the rest. **Confidence** reads "×3 · 92%": heard in 3 clips, best match
-  92 %. A song the scan (or an imported JSON) heard at several times shows
-  once, at its first time, its clips added up; rows you added or edited are
-  never merged. The chips **All**, **Not on Spotify** and **Heard once** (tracks one
-  12-second clip matched) show one group at a time; they never change what
-  goes into a playlist. Click a column header to **sort** the tracklist by
-  it (**Confidence** puts the tracks heard most often first, then by their
-  %; click again for the least heard first; also Time, **Artist** (A to Z),
+  the rest. **Evidence** says how sure the scan is of a track, in four levels:
+  **Solid** (heard several times, and the place in the track moves on as the
+  mix does), **Heard once** (one clip only), **Out of step** (heard several
+  times, but the place in the track jumps about) and **Many candidates**
+  (Shazam listed many tracks for that clip). Then comes the speed the track
+  plays at in the mix: "Solid ×11 · −5.8 %" is heard in 11 clips, played
+  5.8 % slower than the original; hover it, or read it on a phone, for the
+  full sentence. A result from an older worker has no level and still reads
+  "×3 · 92%": heard in 3 clips, best match 92 %. A song the scan (or an
+  imported JSON) heard at several times shows once, at its first time, its
+  clips added up; rows you added or edited are never merged. The chips
+  **All**, **Not on Spotify** and **Heard once** (tracks one 12-second clip
+  matched), then **Solid** and **Flagged** (out of step or many candidates:
+  the tracks to check by ear) when the tracks have a level, show one group at
+  a time; they never change what goes into a playlist. Click a column header
+  to **sort** the tracklist by it (**Evidence** puts Solid first, then Heard
+  once, Out of step and Many candidates, the tracks heard most often first
+  inside each, then the tracks without a level, heard most often first, then
+  by their %; click again for the reverse; also Time, **Artist** (A to Z),
   **Title** (A to Z by the track name alone), Label, Released and Spotify); the
   **Sort** menu beside the chips offers the same choices, with **Set order**
   to go back, and is how a phone sorts. Tracks with no value always stay at

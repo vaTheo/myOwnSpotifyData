@@ -1,4 +1,5 @@
 import type { TracklistRow } from '../../db/schema';
+import { evidenceLevel, evidenceRank } from '../../features/mix/evidence';
 import { spotifyStatus } from '../../features/mix/review';
 import { rowYear } from '../../features/mix/worker';
 import type { SortDirection, SortState, SortValue } from '../table/sort';
@@ -41,10 +42,17 @@ export function sortValue(id: SortId, l: SortLine): SortValue {
       // Only a row still reading as the scan heard it has a score. The merged
       // Confidence column (round 010, Clips folded in) sorts by
       // how many clips found it, then by the best percentage: a percentage
-      // never reaches 1000, so the count always decides first.
-      return !row.gap && row.source === 'tracklistify' && row.confidence != null
-        ? (row.hits ?? 0) * 1000 + row.confidence
-        : null;
+      // never reaches 1000, so the count always decides first. Spec 029: the
+      // Evidence column puts a known level first (a count stays far below
+      // 1000); a row without one keeps that value, below every level.
+      if (row.gap || row.source !== 'tracklistify' || row.confidence == null) {
+        return null;
+      }
+      return evidenceLevel(row) !== null
+        ? evidenceRank(row) * 1_000_000 +
+            (row.hits ?? 0) * 1000 +
+            row.confidence
+        : (row.hits ?? 0) * 1000 + row.confidence;
   }
   if (row.gap) return null;
   switch (id) {
@@ -65,7 +73,7 @@ const CHOICES: { id: SortId; label: string }[] = [
   { id: 'artist', label: 'Artist' },
   { id: 'title', label: 'Title' },
   { id: 'label', label: 'Label' },
-  { id: 'confidence', label: 'Confidence' },
+  { id: 'confidence', label: 'Evidence' },
   { id: 'released', label: 'Released' },
   { id: 'spotify', label: 'Spotify' },
 ];

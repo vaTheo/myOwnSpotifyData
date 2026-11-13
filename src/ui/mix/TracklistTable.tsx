@@ -161,9 +161,9 @@ function TitleCell(p: { line: Line }) {
 }
 
 /**
- * Confidence, Clips folded in (round 010): "×3 · 92%" in the column; the
- * full "heard 3× · best 92 %" for a screen reader, in the tooltip, and on a
- * phone's meta line.
+ * Evidence (spec 029; round 010's Confidence, Clips folded in): "Solid ×11
+ * · −5.8 %" in the column, or "×3 · 92%" for an older result; the full
+ * sentence for a screen reader, in the tooltip, and on a phone's meta line.
  */
 function ConfidenceCell(p: { row: TracklistRow }) {
   const short = confidenceShort(p.row);
@@ -360,10 +360,10 @@ function columns(on: {
     {
       id: 'confidence',
       ...sorts('confidence'),
-      header: 'Confidence',
+      header: 'Evidence',
       align: 'end',
       priority: 3,
-      width: '112px',
+      width: '184px',
       cell: (l) => <ConfidenceCell row={l.row} />,
       title: (l) => confidenceText(l.row) ?? undefined,
       compact: 'meta',
@@ -543,8 +543,9 @@ function EditLine(p: {
 
 /**
  * The review's filter chips (T118, T127, round 010): All, Not on Spotify
- * with their counts, and Heard once (N) when a row has clip counts; one at
- * a time. They hide rows, never delete them. Round 004's Sort select and
+ * with their counts, Heard once (N) when a row has clip counts, Solid (N)
+ * and Flagged (N) when a row has an evidence level (spec 029); one at a
+ * time. They hide rows, never delete them. Round 004's Sort select and
  * its direction button beside them whenever there are rows (phones have no
  * header sort).
  */
