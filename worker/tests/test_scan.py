@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from mix_worker import runstate
 from mix_worker.trackid import Span, plan_guides
 from mix_worker.scan import (
     Hit,
@@ -16,9 +17,14 @@ from mix_worker.scan import (
     gaps_of,
     inside_known,
     StopRequested,
+    _details,
     confidence_of,
     hhmmss,
     merge,
+    merge_with_hits,
+    MIN_PROBE_BYTES,
+    PROBE_SECONDS,
+    pad_wav,
     probe_times,
     second_pass_order,
     scan,
@@ -414,12 +420,13 @@ class Lines(unittest.TestCase):
             pass
 
         run(scan(240, step=60, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise, cut=lambda t: b"x" * 5000, sleep=sleep, classify=classify, line=lines.append, clock=lambda: 0.0))
-        self.assertEqual(len(lines), 5)
-        self.assertEqual(lines[0], "  probe 1/4 · 00:00:00 · cut 4 KB 0.00 s · shazam 0.0 s · NEW · Gloria Gaynor — I Will Survive · USUR10200634 · Polydor · 100 %")
+        self.assertEqual(len(lines), 6)
+        self.assertEqual(lines[0], "  probe 1/4 · 00:00:00 · cut 4 KB 0.00 s · shazam 0.0 s · NEW · Gloria Gaynor — I Will Survive · USUR10200634 · Polydor · at 1:32 in the track · 0.0 % · 100 %")
         self.assertIn("probe 2/4 · 00:01:00 · cut 4 KB 0.00 s · shazam 0.0 s · same track · Gloria Gaynor", lines[1])
         self.assertEqual(lines[2], "  probe 3/4 · 00:02:00 · cut 4 KB 0.00 s · shazam 0.0 s · no match")
         self.assertEqual(lines[3], "  probe 4/4 · 00:03:00 · cut 4 KB 0.00 s · skipped (undecodable or silent)")
-        self.assertEqual(lines[4], "  shazam · 3 answers · median 0.0 s · 0 over 5 s (0 %)")
+        self.assertEqual(lines[4], "  evidence · 1 out of step")  # spec 029: the cassette holds an offset
+        self.assertEqual(lines[5], "  shazam · 3 answers · median 0.0 s · 0 over 5 s (0 %)")
 
     def test_answer_time_on_each_line_and_in_the_summary(self):
         # Round 005 follow-up: the clock moves 6.8 s during a slow answer, 1.2 s during a fast one.
@@ -758,6 +765,120 @@ class GuidedScan(unittest.TestCase):
         self.go(NO_MATCH, remember=lambda k, key, e: remembered.append(k))
         self.assertIn("confirm", remembered)  # an answered "no match" is remembered
 
+    # Spec 029, User Story 3: the check asks again at the second-pass speeds when normal speed does not agree.
+    # speeds (0.91, 1.09): second_pass_order gives ×1, ×0.91, ×1.09, so the retries come at ×0.91 then ×1.09.
+    THIRD = {"matches": [{"id": "3", "offset": 10.0, "timeskew": 0.0, "frequencyskew": 0.0}],
+             "track": {"key": "3", "title": "Third Tune", "subtitle": "Nobody Known"}}  # 100 %, above OTHER's
+
+    def retry(self, by, gap_step=30, with_cut_at=True, resume=None, short=()):
+        """A guided scan whose probes say `t@speed`; `by[(t, speed)]` answers, else no match; a `(t, speed)` in
+        `short` is cut shorter than MIN_PROBE_BYTES. Returns the report, the calls made at the confirm time 124
+        (in order) and every call."""
+        calls, state = [], {}
+
+        async def recognise(data, skew):
+            t, speed = data.rstrip().decode().split("@")
+            calls.append((int(t), float(speed)))
+            r = by.get((int(t), float(speed)), NO_MATCH)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+        async def sleep(s):
+            pass
+
+        def probe(t, speed):
+            if (t, speed) in short:
+                return b"x" * (MIN_PROBE_BYTES - 1)
+            return f"{t}@{speed:g}".encode().ljust(5000)
+
+        def remember(kind, key, entry):
+            state.setdefault(kind, {})[key] = entry
+
+        report = {}
+        run(scan(300, step=30, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise,
+                 cut=lambda t: probe(t, 1.0), cut_at=probe if with_cut_at else None, gap_step=gap_step, speeds=(0.91, 1.09),
+                 sleep=sleep, classify=classify, line=self.lines.append, report=report, clock=lambda: 0.0,
+                 guides=plan_guides([self.SPAN], 30, 12), spans=[self.SPAN], remember=remember, resume=resume))
+        self.state = state
+        return report, [c for c in calls if c[0] == 124], calls
+
+    def test_n_the_check_asks_again_at_each_speed_until_one_agrees(self):
+        rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 0.91): OTHER, (124, 1.09): CASSETTE})
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual(at, [(124, 1.0), (124, 0.91), (124, 1.09)])  # two extra calls, in second_pass_order
+
+    def test_n_normal_speed_agrees_no_extra_call(self):
+        rep, at, _ = self.retry({(124, 1.0): CASSETTE, (124, 0.91): OTHER, (124, 1.09): OTHER})
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual(at, [(124, 1.0)])
+
+    def test_n_no_speed_agrees_differs_keeps_what_normal_speed_heard(self):
+        rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 0.91): self.THIRD, (124, 1.09): self.THIRD})
+        c = rep["span_checks"][0]
+        self.assertEqual((c["outcome"], c["artist"], c["song_name"]), ("differs", "Someone Else", "Another One"))
+        self.assertEqual(len(at), 3)  # exactly two extra calls
+
+    def test_n_normal_speed_silent_then_the_first_retry_agrees(self):
+        rep, at, _ = self.retry({(124, 0.91): CASSETTE})
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+        self.assertEqual(at, [(124, 1.0), (124, 0.91)])
+
+    def test_n_no_retry_when_the_second_pass_is_off(self):
+        for kw in ({"gap_step": 0}, {"with_cut_at": False}):
+            self.setUp()
+            rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 0.91): CASSETTE, (124, 1.09): CASSETTE}, **kw)
+            self.assertEqual(at, [(124, 1.0)], kw)
+            self.assertEqual(rep["span_checks"][0]["outcome"], "differs", kw)
+
+    def test_n_an_answered_retry_is_remembered_and_a_resumed_run_asks_nothing_again(self):
+        by = {(124, 1.0): OTHER, (124, 0.91): OTHER, (124, 1.09): CASSETTE}
+        rep, _, _ = self.retry(by)
+        self.assertEqual(set(self.state["confirm"]), {"0", "0@0.91", "0@1.09"})
+        self.assertEqual(self.state["confirm"]["0@1.09"]["song_name"], "I Will Survive")
+        resume = self.state
+        self.setUp()
+        rep2, at, calls = self.retry(by, resume=resume)
+        self.assertEqual(calls, [])
+        self.assertEqual(rep2["span_checks"], rep["span_checks"])
+        # every retry stored as not agreeing: still nothing asked, the outcome still "differs"
+        stored = {**resume, "confirm": {"0": dict(track_entry(OTHER, "00:02:04")), "0@0.91": None, "0@1.09": dict(track_entry(self.THIRD, "00:02:04"))}}
+        self.setUp()
+        rep3, _, calls = self.retry(by, resume=stored)
+        self.assertEqual(calls, [])
+        self.assertEqual(rep3["span_checks"][0]["artist"], "Someone Else")
+
+    def test_n_a_resumed_run_asks_the_retries_not_yet_stored(self):
+        by = {(124, 0.91): OTHER, (124, 1.09): CASSETTE}
+        rep, at, _ = self.retry(by, resume={"confirm": {"0": dict(track_entry(OTHER, "00:02:04")), "0@0.91": None}})
+        self.assertEqual(at, [(124, 1.09)])
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+
+    def test_n_a_retry_cut_too_short_is_skipped_and_the_next_speed_is_asked(self):
+        rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 1.09): CASSETTE}, short=((124, 0.91),))
+        self.assertEqual(at, [(124, 1.0), (124, 1.09)])  # ×0.91 not asked
+        self.assertEqual(set(self.state["confirm"]), {"0", "0@1.09"})  # nor remembered
+        self.assertEqual(rep["span_checks"][0], {"outcome": "agrees"})
+
+    def test_n_a_stop_inside_a_retry_leaves_the_scan_as_in_the_first_pass(self):
+        rep, at, _ = self.retry({(124, 1.0): OTHER, (124, 0.91): StopRequested()})
+        self.assertEqual(rep["stopped"]["reason"], "by you")  # with spans: returned, not raised (test_i)
+        self.assertEqual(at, [(124, 1.0), (124, 0.91)])  # nothing asked after the stop
+        # the normal-speed entry was remembered before the retry was asked; the stopped retry is not
+        self.assertEqual(set(self.state["confirm"]), {"0"})
+        self.assertEqual(self.state["confirm"]["0"]["artist"], "Someone Else")
+
+    def test_n_the_retry_log_line_holds_the_speed_and_the_heard_position(self):
+        self.retry({(124, 1.0): OTHER, (124, 0.91): NO_MATCH, (124, 1.09): CASSETTE})
+        confirm = [l for l in self.lines if "trackid confirm" in l]
+        self.assertEqual(len(confirm), 3)
+        self.assertTrue(confirm[0].startswith("  trackid confirm · span 1 · 00:02:04 · shazam "), confirm[0])
+        self.assertIn("at 1:32 in the track", confirm[0])  # the normal-speed entry holds `heard` too
+        self.assertTrue(confirm[1].startswith("  trackid confirm · span 1 · 00:02:04 ×0.91 · shazam "), confirm[1])
+        self.assertTrue(confirm[1].endswith(" · no match"), confirm[1])
+        self.assertTrue(confirm[2].startswith("  trackid confirm · span 1 · 00:02:04 ×1.09 · shazam "), confirm[2])
+        self.assertIn("Gloria Gaynor — I Will Survive · USUR10200634 · Polydor · at 1:32 in the track", confirm[2])
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -860,6 +981,97 @@ class CutProbeSpeed(unittest.TestCase):
         self.assertEqual(fast[fast.index("-af") + 1], "aresample=16000,asetrate=16640,aresample=16000")
         self.assertEqual(slow[slow.index("-t") + 1], "11.52")
         self.assertEqual(slow[slow.index("-af") + 1], "aresample=16000,asetrate=15360,aresample=16000")
+
+
+def wav_of(seconds: float, rate: int = 16000) -> bytes:
+    """An invented mono 16-bit WAV: a non-zero pattern, `seconds` long."""
+    import io
+    import wave
+
+    frames = round(seconds * rate)
+    out = io.BytesIO()
+    with wave.open(out, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(bytes((i % 251) + 1 for i in range(frames * 2)))
+    return out.getvalue()
+
+
+def wav_read(data: bytes):
+    import io
+    import wave
+
+    with wave.open(io.BytesIO(data), "rb") as w:
+        return w.getparams(), w.readframes(w.getnframes())
+
+
+class PadWav(unittest.TestCase):
+    """Spec 029, FR-007: a probe shorter than 12 s is filled with silence."""
+
+    def test_short_wav_is_filled_with_zeros_to_twelve_seconds(self):
+        short = wav_of(7)
+        params, samples = wav_read(short)
+        padded = pad_wav(short)
+        out_params, out_samples = wav_read(padded)
+        self.assertEqual(PROBE_SECONDS, 12)
+        self.assertEqual(out_params.nframes, 12 * 16000)
+        self.assertEqual(
+            (out_params.nchannels, out_params.sampwidth, out_params.framerate),
+            (params.nchannels, params.sampwidth, params.framerate),
+        )
+        self.assertEqual(out_samples[: len(samples)], samples)
+        self.assertEqual(out_samples[len(samples):], bytes(5 * 16000 * 2))
+
+    def test_twelve_seconds_come_back_byte_for_byte(self):
+        full = wav_of(12)
+        self.assertEqual(pad_wav(full), full)
+        longer = wav_of(13)
+        self.assertEqual(pad_wav(longer), longer)
+
+    def test_no_audio_stays_no_audio(self):
+        for data in (b"", b"RIFF", b"x" * (MIN_PROBE_BYTES - 1), wav_of(0)):
+            self.assertLess(len(data), MIN_PROBE_BYTES)
+            self.assertEqual(pad_wav(data), data)
+
+    def test_bytes_that_are_not_a_wav_come_back_and_nothing_raises(self):
+        broken = wav_of(7)
+        for data in (b"x" * 5000, b"RIFF" + b"x" * 2000, broken[:20] + b"\xff" * 3000, b"\x00" * 5000):
+            self.assertEqual(pad_wav(data), data)
+
+
+class CutProbePads(unittest.TestCase):
+    def cut_with(self, written: bytes, seconds: int = 12) -> bytes:
+        import subprocess
+        import tempfile
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            audio = Path(tmp) / "a.m4a"
+            audio.write_bytes(b"x")
+
+            def fake_run(cmd, **kw):
+                Path(cmd[-1]).write_bytes(written)
+                return subprocess.CompletedProcess(cmd, 0, b"", b"")
+
+            with mock.patch("mix_worker.scan.subprocess.run", fake_run):
+                return cut_probe("ffmpeg", audio, 60, seconds)
+
+    def test_a_short_cut_comes_back_twelve_seconds_long(self):
+        params, _ = wav_read(self.cut_with(wav_of(7)))
+        self.assertEqual(params.nframes, 12 * 16000)
+
+    def test_the_pad_target_is_twelve_seconds_whatever_the_probe_length(self):
+        params, _ = wav_read(self.cut_with(wav_of(8), seconds=8))
+        self.assertEqual(params.nframes, 12 * 16000)
+
+    def test_a_full_cut_comes_back_untouched(self):
+        full = wav_of(12)
+        self.assertEqual(self.cut_with(full), full)
+
+    def test_a_cut_with_no_audio_stays_under_the_floor(self):
+        self.assertEqual(self.cut_with(wav_of(0)), wav_of(0))
+        self.assertLess(len(self.cut_with(wav_of(0))), MIN_PROBE_BYTES)
 
 
 class SecondPassOrder(unittest.TestCase):
@@ -1142,3 +1354,312 @@ class Round004Scan(unittest.TestCase):
         self.assertEqual(report["resumed"], {"probes_kept": 2, "from": "00:00:15"})
         self.assertEqual(remembered, [("first", "30"), ("first", "45")])
         self.assertEqual(rows[0]["hits"], 3)
+
+
+def answer(key, offset, timeskew=0.0, frequencyskew=0.0, entries=1, title=None, isrc=None):
+    """An invented Shazam answer: `entries` matches, the first with this position and these skews."""
+    first = {"id": f"m{key}", "timeskew": timeskew, "frequencyskew": frequencyskew}
+    if offset is not None:
+        first["offset"] = offset
+    track = {"key": key, "title": title or f"Tune {key}", "subtitle": "Invented Artist"}
+    if isrc:
+        track["isrc"] = isrc
+    return {"matches": [first] + [{"id": f"m{key}-{i}"} for i in range(1, entries)], "track": track}
+
+
+class Evidence(unittest.TestCase):
+    """Spec 029, User Story 1: the scan keeps what Shazam says of a hit and grades its rows."""
+
+    LEVEL_FIELDS = ("evidence", "mix_speed_percent", "candidates")
+
+    def go(self, duration, by_probe, step=15, second=False, speeds=(1.09,), plain=False):
+        """A scan whose fake `recognise` answers per probe: `by_probe[(t, speed)]`, else no match."""
+        calls = []
+
+        def strip(r):  # the same answer without a position: the scan of today
+            return {**r, "matches": [{k: v for k, v in m.items() if k != "offset"} for m in r["matches"]]}
+
+        async def recognise(data, skew):
+            t, speed = data.rstrip().decode().split("@")
+            calls.append((int(t), float(speed)))
+            r = by_probe.get((int(t), float(speed)), NO_MATCH)
+            return strip(r) if plain and r is not NO_MATCH else r
+
+        async def sleep(s):
+            pass
+
+        def probe(t, speed):
+            return f"{t}@{speed:g}".encode().ljust(5000)
+
+        extra = dict(cut_at=probe, gap_step=30, gap_offset=7, speeds=speeds) if second else {}
+        rows = run(scan(duration, step=step, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise,
+                        cut=lambda t: probe(t, 1.0), sleep=sleep, classify=classify, clock=lambda: 0.0, probe_seconds=12, **extra))
+        return rows, calls
+
+    def levels(self, rows):
+        return [(r["song_name"], r.get("evidence")) for r in rows]
+
+    # The second-pass case: four first-pass misses (0, 30, 60, 90), places 7, 37, 67, 97 at ×1 then ×1.09;
+    # the track plays 6 % slow, so a ×1.09 re-cut has timeskew 0.94 × 1.09 − 1.
+    SLOW = {(67, 1.09): answer("S", 40.0, timeskew=0.94 * 1.09 - 1), (97, 1.09): answer("S", 68.2, timeskew=0.94 * 1.09 - 1)}
+
+    def test_1_solid_on_the_first_pass(self):
+        rows, _ = self.go(45, {(15, 1.0): answer("A", 60.0), (30, 1.0): answer("A", 75.0)})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0]["evidence"], rows[0]["mix_speed_percent"], rows[0]["candidates"], rows[0]["hits"]), ("solid", 0.0, 1, 2))
+
+    def test_2_solid_on_second_pass_hits_at_the_speed_in_the_mix(self):
+        rows, calls = self.go(120, self.SLOW, step=30, second=True)
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual((row["evidence"], row["mix_speed_percent"], row["origin"], row["speed_percent"], row["hits"]), ("solid", -6.0, "replay", 9, 2))
+        self.assertEqual(len(calls), 4 + 4 + 4)  # every probe asked once, as before
+
+    def test_3_out_of_step(self):
+        rows, _ = self.go(60, {(0, 1.0): answer("A", 30.0), (30, 1.0): answer("A", 30.4)}, step=30)
+        self.assertEqual(self.levels(rows), [("Tune A", "out_of_step")])
+
+    def test_5_many_candidates(self):
+        rows, _ = self.go(30, {(0, 1.0): answer("A", 50.0, entries=12)})
+        self.assertEqual((rows[0]["evidence"], rows[0]["candidates"]), ("candidates", 12))
+
+    def test_6_heard_once(self):
+        rows, _ = self.go(30, {(0, 1.0): answer("A", 50.0)})
+        self.assertEqual((rows[0]["evidence"], rows[0]["candidates"]), ("once", 1))
+
+    def test_a_first_hit_without_a_position_gives_a_row_without_the_three_fields(self):
+        rows, _ = self.go(45, {(15, 1.0): answer("A", None), (30, 1.0): answer("A", 75.0)})
+        self.assertEqual(len(rows), 1)
+        for name in self.LEVEL_FIELDS:
+            self.assertNotIn(name, rows[0])
+
+    def test_rows_hits_confidence_origin_and_speed_are_those_of_today_and_no_row_holds_heard(self):
+        by_probe = {
+            **self.SLOW,
+            (0, 1.0): answer("A", 60.0, timeskew=0.002, frequencyskew=-0.004),
+            (30, 1.0): answer("A", 90.0, timeskew=-0.001),
+            (150, 1.0): answer("B", 10.0, entries=12),
+            (180, 1.0): answer("C", 5.0),
+            (210, 1.0): answer("C", 5.2),
+        }
+        # A at 0 and 30, misses at 60, 90, 120 (second pass: S at 67 and 97 at ×1.09), B at 150, C at 180 and 210.
+        rows, calls = self.go(240, by_probe, step=30, second=True)
+        today, today_calls = self.go(240, by_probe, step=30, second=True, plain=True)
+        self.assertEqual(calls, today_calls)  # the same Shazam calls (SC-001)
+        for row in today:
+            for name in (*self.LEVEL_FIELDS, "heard"):
+                self.assertNotIn(name, row)
+        self.assertEqual([{k: v for k, v in r.items() if k not in self.LEVEL_FIELDS} for r in rows], today)
+        self.assertEqual(self.levels(rows), [("Tune A", "solid"), ("Tune S", "solid"), ("Tune B", "candidates"), ("Tune C", "out_of_step")])
+        for row in rows:
+            self.assertNotIn("heard", row)
+
+    def test_merge_of_hits_holding_heard_returns_rows_without_it(self):
+        heard = {"offset": 1.0, "timeskew": 0.0, "frequencyskew": 0.0, "matches": 1, "speed": 1.0}
+        a, b = hit(0, "A"), hit(60, "A")
+        a.entry["heard"], b.entry["heard"] = dict(heard), dict(heard)
+        rows = merge([a, b], gap=180)
+        self.assertEqual(len(rows), 1)
+        self.assertNotIn("heard", rows[0])
+        self.assertIn("heard", a.entry)  # the hit keeps its evidence
+
+    def test_merge_with_hits_gives_each_row_its_hits_in_time_order(self):
+        hits = [hit(120, "B"), hit(0, "A"), hit(60, "A"), hit(300, "A")]
+        out = merge_with_hits(hits, gap=180)
+        self.assertEqual([row for row, _ in out], merge(hits, gap=180))
+        self.assertEqual([[h.time for h in hs] for _, hs in out], [[0, 60], [120], [300]])
+
+    def test_one_full_row_pinned(self):
+        skew = 0.923 * 1.09 - 1  # the track plays 7.7 % slow, heard on a ×1.09 re-cut
+        first = answer("P", 40.0, timeskew=skew, title="Track", isrc="XX0000000000")
+        later = answer("P", 40.0 + 30 * 0.923, timeskew=skew, title="Track", isrc="XX0000000000")
+        rows, _ = self.go(120, {(67, 1.09): first, (97, 1.09): later}, step=30, second=True)
+        self.assertEqual(rows, [{
+            "song_name": "Track", "artist": "Invented Artist", "time_in_mix": "00:01:07",
+            "confidence": confidence_of(first["matches"][0]), "duration": None,
+            "metadata": {"isrc": "XX0000000000", "shazam_id": "P"},
+            "origin": "replay", "speed_percent": 9, "hits": 2,
+            "evidence": "solid", "mix_speed_percent": -7.7, "candidates": 1,
+        }])
+
+
+RUN_LINK = "https://example.com/invented-set"
+RUN_SETTINGS = {"step": 30, "probe_seconds": 12}
+
+
+class EvidenceResume(unittest.TestCase):
+    """Spec 029, T009: the evidence of a hit survives a stopped and resumed run (the real run-state file in between)."""
+
+    LEVEL_FIELDS = Evidence.LEVEL_FIELDS
+    # A at 0 and 30 (solid), misses at 60, 90, 120 (second pass: places 67, 97, 127; S at 67 and 97 at ×1.09, the
+    # track playing 6 % slow), B at 150 (12 candidates), C at 180 and 210 (out of step).
+    BY_PROBE = {
+        **Evidence.SLOW,
+        (0, 1.0): answer("A", 60.0, timeskew=0.002, frequencyskew=-0.004),
+        (30, 1.0): answer("A", 90.0, timeskew=-0.001),
+        (150, 1.0): answer("B", 10.0, entries=12),
+        (180, 1.0): answer("C", 5.0),
+        (210, 1.0): answer("C", 5.2),
+    }
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.work = Path(tmp.name)
+
+    def go(self, stop_at=None, resume=None):
+        """One scan of 240 s at step 30, second pass at ×1 then ×1.09; `stop_at(t, speed)` true stops it at that
+        probe (a Stop, before any answer). Each answer goes to a real `runstate.Recorder`."""
+        calls = []
+        rec = runstate.Recorder(self.work, RUN_LINK, RUN_SETTINGS, base=resume)
+
+        async def recognise(data, skew):
+            t, speed = data.rstrip().decode().split("@")
+            t, speed = int(t), float(speed)
+            if stop_at is not None and stop_at(t, speed):
+                raise StopRequested()
+            calls.append((t, speed))
+            return self.BY_PROBE.get((t, speed), NO_MATCH)
+
+        async def sleep(s):
+            pass
+
+        def probe(t, speed):
+            return f"{t}@{speed:g}".encode().ljust(5000)
+
+        rows = run(scan(240, step=30, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise,
+                        cut=lambda t: probe(t, 1.0), cut_at=probe, gap_step=30, gap_offset=7, speeds=(1.09,),
+                        sleep=sleep, classify=classify, clock=lambda: 0.0, probe_seconds=12,
+                        resume=resume, remember=rec.remember))
+        return rows, calls
+
+    def stopped(self, stop_at):
+        """The whole scan's rows, then a run stopped by `stop_at` in a fresh folder, and the state it saved."""
+        whole, _ = self.go()
+        self.setUp()
+        self.go(stop_at=stop_at)
+        state, why = runstate.load(self.work, RUN_LINK, RUN_SETTINGS, 7)
+        self.assertIsNone(why)
+        return whole, state
+
+    def without(self, rows):
+        return [{k: v for k, v in r.items() if k not in self.LEVEL_FIELDS} for r in rows]
+
+    @staticmethod
+    def as_0_7_4(state, kinds):
+        for kind in kinds:  # entries as worker 0.7.4 wrote them: no `heard`
+            for entry in state[kind].values():
+                if entry is not None:
+                    entry.pop("heard", None)
+
+    def test_stopped_after_the_first_pass_resumes_to_the_same_rows_and_levels_without_asking_again(self):
+        whole, state = self.stopped(lambda t, speed: t % 30 != 0)  # the Stop comes at the second pass's first probe
+        self.assertEqual(sorted(int(k) for k in state["first"]), [0, 30, 60, 90, 120, 150, 180, 210])
+        self.assertEqual(state["second"], {})
+        self.assertEqual(state["first"]["0"]["heard"]["offset"], 60.0)
+        rows, calls = self.go(resume=state)
+        self.assertEqual([c for c in calls if c[0] % 30 == 0], [])  # no first-pass probe asked again
+        self.assertEqual(rows, whole)
+        self.assertEqual([(r["song_name"], r.get("evidence")) for r in rows],
+                         [("Tune A", "solid"), ("Tune S", "solid"), ("Tune B", "candidates"), ("Tune C", "out_of_step")])
+
+    def test_a_second_pass_hit_resumed_keeps_its_level_and_mix_speed(self):
+        whole, state = self.stopped(lambda t, speed: (t, speed) == (97, 1.09))  # 67 at ×1.09 heard and remembered
+        kept = state["second"]["67@1.09"]
+        self.assertEqual((kept["origin"], kept["speed_percent"], kept["heard"]["speed"]), ("replay", 9, 1.09))
+        rows, calls = self.go(resume=state)
+        self.assertEqual(calls, [(97, 1.09), (127, 1.09)])  # only what the stopped run did not hear
+        self.assertEqual(rows, whole)
+        s = next(r for r in rows if r["song_name"] == "Tune S")
+        self.assertEqual((s["evidence"], s["mix_speed_percent"], s["origin"], s["speed_percent"]), ("solid", -6.0, "replay", 9))
+
+    def test_a_state_written_by_0_7_4_gives_rows_without_the_three_fields(self):
+        whole, state = self.stopped(lambda t, speed: (t, speed) == (97, 1.09))
+        self.as_0_7_4(state, ("first", "second"))
+        rows, calls = self.go(resume=state)
+        self.assertEqual(calls, [(97, 1.09), (127, 1.09)])
+        for row in rows:  # every row's first hit comes from an old entry: S's too (67), though 97 is heard afresh
+            for name in (*self.LEVEL_FIELDS, "heard"):
+                self.assertNotIn(name, row)
+        self.assertEqual(rows, self.without(whole))  # the rest of each row is as today
+
+    def test_an_old_first_pass_with_a_fresh_second_pass_grades_only_the_fresh_row(self):
+        whole, state = self.stopped(lambda t, speed: t % 30 != 0)
+        self.as_0_7_4(state, ("first",))
+        rows, _ = self.go(resume=state)
+        self.assertEqual(self.without(rows), self.without(whole))
+        self.assertEqual([(r["song_name"], r.get("evidence")) for r in rows],
+                         [("Tune A", None), ("Tune S", "solid"), ("Tune B", None), ("Tune C", None)])
+
+
+class EvidenceLog(unittest.TestCase):
+    """Spec 029, T010: the log says where in the track a hit was heard, at which speed, and counts the levels."""
+
+    @staticmethod
+    def heard(offset, timeskew=0.0, speed=1.0):
+        return {"offset": offset, "timeskew": timeskew, "frequencyskew": 0.0, "matches": 1, "speed": speed}
+
+    def entry(self, heard=None, **meta):
+        e = {"song_name": "Track", "artist": "Invented Artist", "confidence": 73.0, "metadata": meta}
+        if heard is not None:
+            e["heard"] = heard
+        return e
+
+    def test_details_without_evidence_read_as_today(self):
+        self.assertEqual(_details(self.entry(isrc="XX0000000000", label="Invented Label")), "XX0000000000 · Invented Label · 73 %")
+        self.assertEqual(_details({"confidence": 80}), "80 %")
+
+    def test_details_with_evidence_say_the_position_then_the_speed_before_the_percent(self):
+        slow = self.heard(92.9, timeskew=0.923 * 1.09 - 1, speed=1.09)
+        self.assertEqual(_details(self.entry(slow, isrc="XX0000000000", label="Invented Label")),
+                         "XX0000000000 · Invented Label · at 1:32 in the track · \u22127.7 % · 73 %")
+
+    def test_the_position_in_minutes_and_seconds_rounded_down(self):
+        for offset, said in ((7.9, "at 0:07"), (59.99, "at 0:59"), (92.9, "at 1:32"), (725.4, "at 12:05"), (-3.2, "at 0:00")):
+            self.assertEqual(_details(self.entry(self.heard(offset))), f"{said} in the track · 0.0 % · 73 %", offset)
+
+    def test_the_speed_signed_with_one_decimal(self):
+        for timeskew, speed, said in ((0.034, 1.0, "+3.4 %"), (-0.077, 1.0, "\u22127.7 %"), (0.0, 1.0, "0.0 %"),
+                                      (-0.0004, 1.0, "0.0 %"), (0.94 * 1.09 - 1, 1.09, "\u22126.0 %"), (1.09 * 0.91 - 1, 0.91, "+9.0 %")):
+            self.assertEqual(_details(self.entry(self.heard(10.0, timeskew, speed))), f"at 0:10 in the track · {said} · 73 %", (timeskew, speed))
+
+    def go(self, duration, by_probe, second=False):
+        lines = []
+
+        async def recognise(data, skew):
+            t, speed = data.rstrip().decode().split("@")
+            return by_probe.get((int(t), float(speed)), NO_MATCH)
+
+        async def sleep(s):
+            pass
+
+        def probe(t, speed):
+            return f"{t}@{speed:g}".encode().ljust(5000)
+
+        extra = dict(cut_at=probe, gap_step=30, gap_offset=7, speeds=(1.09,)) if second else {}
+        run(scan(duration, step=30, cooldown=0.0, pause=0.0, max_skew=0.0, gap=180, recognise=recognise,
+                 cut=lambda t: probe(t, 1.0), sleep=sleep, classify=classify, clock=lambda: 0.0, probe_seconds=12,
+                 line=lines.append, **extra))
+        return lines
+
+    def test_a_whole_scan_says_the_position_and_speed_of_each_hit_and_the_four_levels_after_the_second_pass(self):
+        # A solid, S solid (second pass at x1.09), B many candidates, C out of step, D heard once.
+        lines = self.go(270, {**EvidenceResume.BY_PROBE, (240, 1.0): answer("D", 20.0)}, second=True)
+        first = next(x for x in lines if "probe 1/9" in x)
+        self.assertTrue(first.endswith("NEW · Invented Artist — Tune A · at 1:00 in the track · +0.2 % · 97 %"), first)
+        gap = next(x for x in lines if "00:01:07 ×1.09" in x)
+        self.assertIn("Invented Artist — Tune S · at 0:40 in the track · \u22126.0 % · ", gap)
+        summary = next(i for i, x in enumerate(lines) if x.startswith("  second pass · ") and "new track" in x)
+        self.assertEqual(lines[summary + 1], "  evidence · 2 solid · 1 many candidates · 1 out of step · 1 heard once")
+        self.assertEqual(sum("evidence ·" in x for x in lines), 1)
+
+    def test_levels_with_no_row_are_left_out_and_without_a_second_pass_the_line_comes_before_the_answers(self):
+        lines = self.go(60, {(0, 1.0): answer("A", 50.0), (30, 1.0): answer("B", 5.0, entries=12)})
+        self.assertEqual(lines[-2:], ["  evidence · 1 many candidates · 1 heard once", "  shazam · 2 answers · median 0.0 s · 0 over 5 s (0 %)"])
+
+    def test_no_evidence_line_when_no_row_has_a_level(self):
+        lines = self.go(60, {(0, 1.0): answer("A", None), (30, 1.0): answer("A", None)})
+        self.assertTrue(any("Tune A" in x for x in lines))
+        self.assertFalse(any("evidence" in x for x in lines))
+        self.assertFalse(any("in the track" in x for x in lines))
+        self.assertFalse(any("evidence" in x for x in self.go(60, {}, second=True)))

@@ -1,7 +1,7 @@
 # 800 — Limits and roadmap
 
 > **Status**: Living
-> **Last updated**: 2026-11-08
+> **Last updated**: 2026-11-13
 
 What the app cannot do, what was decided against, and the ideas not built yet. A row moves to the
 [feature inventory](100-features.md) once it ships. The decisions that cause most of these limits are in the
@@ -63,6 +63,15 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   Since worker 0.7.3 (the auto-resume round, F39) a set stopped by refusals is asked again by itself 30 minutes later, at most 6
   times; the plan is kept in memory only, so a worker closed or restarted during the wait forgets it (press Ask again), and a shared
   worker or `run --once` never asks again by itself.
+- Mix scan accuracy (measured 2026-11-13, [research](../research/2026-11-13-shazam-mix-accuracy.md)): Shazam hears a track only
+  within about ±5 % of its original speed; outside that, or for a track it does not hold, it often names another track instead
+  of answering nothing, so the scan of a pitched set lists wrong rows. Since worker 0.7.5 (spec 029, F45) every heard row carries
+  a level (Solid, Many candidates, Out of step, Heard once) and the speed the track plays at in the mix instead of the %; the
+  TrackId.net check is asked again at the other second-pass speeds when normal speed does not name the span's track; a probe
+  shorter than 12 s is filled with silence. What stays: a row heard once cannot be told from a wrong one; a real track at its
+  mix-in (or looped, or with a repeated intro) can read Out of step; a track Shazam does not hold is never found; a set already
+  saved has no levels until it is scanned again. A level labels, sorts and filters (the Solid and Flagged chips); it never removes a row. The note holds the
+  options not built (more probes to confirm a row, a wider second pass) and what each was measured to gain.
 - The server (F18) is a Supabase Free project: it pauses after a week without traffic and only the dashboard resumes it; 500 MB
   of database; no automatic backups; a sign-in link only works in the browser that asked for it, within 10 minutes; the built-in
   email service sends a few links an hour at most.

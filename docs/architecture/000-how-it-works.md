@@ -109,7 +109,7 @@ are in `src/db/CLAUDE.md` ([ADR-05](700-adr/ADR-05-additive-indexeddb.md)).
 - Optional fields added with **no** version bump read back `undefined` on old rows: `MixRow.playlistUrl?`/`playlistId?`,
   `PlayRow.months`/`attempts`/`finished`/`skipped`, `TracklistRow.confidence?`/`isrc?`/`shazamUrl?`; round 005's years:
   `TrackRow.albumYear?`, `TopTrackItem.albumYear?`, `FeatureRow.releaseYear?` (`{year | null, checkedAt}`), `FeatureValue.rid?`,
-  `TracklistRow.year?`/`yearFrom?`; round 012's `TracklistRow.spotifyBy?`.
+  `TracklistRow.year?`/`yearFrom?`; round 012's `TracklistRow.spotifyBy?`; spec 029's `TracklistRow.evidence?`/`mixSpeed?`/`candidates?`.
 - One connection per tab, and it hands over: `openDb` closes its connection when a newer version opens in another tab (`blocking`) and
   reports a blocked upgrade (`blocked`) through `setDbEvents`; `state.ts` turns both into banners. Without this a version bump hangs on
   "Loading your library…" while an old tab lives. A database that has not opened after eight seconds says so.
@@ -204,7 +204,9 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   rows with the same `nameKey(artist, stripMixMarkers(title))` keep the earliest copy (no time last, ties in input order), with `hits`
   summed (absent when no copy has one) and the best `confidence`; gaps and `ID` rows pass. A heard copy outranks a not-heard one
   (`origin` `clue` or `trackid`): the earliest heard copy is kept and the not-heard copies dropped; with no heard copy, the earliest
-  not-heard copy is kept, no `hits` added. Rows already in a mix never go through it,
+  not-heard copy is kept, no `hits` added. Spec 029: when a counted copy has a known level, the kept line takes `evidence` and
+  `mixSpeed` from `bestEvidence` of those copies (no `mixSpeed` when that copy has none); `candidates` stays the kept copy's; with
+  no level the line is as before. Rows already in a mix never go through it,
   so the owner's rows are never merged and saved mixes are not rewritten.
 - `match.ts` (`libraryTitleIndex`/`matchMixRow`): each row joined to the library live at render time, memoised on `Model` identity.
   Library matches are never stored, because a resync would make a stored match stale.
@@ -245,7 +247,11 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   a mix under. The app never follows a share link; the worker does (§17), and the result lands on the mix of the request's link.
   Round 003: `resultToRows` also maps a track's `origin` (`replay` with `speedPercent`, `clue` with its `clue`), builds gap
   rows (with `clues`) from `mix_info.gaps` and returns the set-wide `clues` (stored on `MixRow.clues`); `toClue` keeps only
-  plain strings within their caps. The Mix screen shows "second listen · ±4 %", "from a comment · not heard" with the clue's
+  plain strings within their caps. Spec 029 (worker 0.7.5): a first-pass or `replay` row may also bring `evidence` (the level
+  word, kept as it came), `mix_speed_percent` (stored as `mixSpeed`) and `candidates`; `trackExtras` spreads
+  `evidenceExtras` (`evidence.ts`) on those two kinds only, never on a `clue` or `trackid` row, and drops a value out of its
+  bounds (a word of 1 to 32 characters, a finite number from −50 to 50, a whole number from 1 to 1000), keeping the row. A row
+  without them is stored exactly as before; the hand import ignores them. The Mix screen shows "second listen · −9 %" (the re-cut speed; "second listen" alone when the row has `mixSpeed`, spec 029), "from a comment · not heard" with the clue's
   text, a folded "N clues around here" on a gap row and a folded set-wide tracklist; clue text is always rendered as text.
   Round 021 (`specs/021-mix-hide-commenter-names/`): the screen never shows a commenter's name. `originText` reads "from a
   comment" and `clueLine` (`ui/mix/rowText.ts`) writes a comment as "mm:ss · text"; a chapter or description line keeps its
@@ -289,8 +295,8 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   round 1; Save mix's "Saved ✓" shows it). Answers are put back by the row's place and unchanged artist and title, never object
   identity, so a row whose label was edited or a list reopened during the run keeps them; an edited or deleted row's answer is dropped. A quota
   answer joins the app's one lock-out (§4 `quotaLock.ts`), which disables the button with its message until it lapses.
-- `review.ts` (T118, T127, spec 010): the filter chips All, Not on Spotify and Heard once (N) (only when a row has `hits`), one at a
-  time, gaps under All only; the header line "N tracks · M on Spotify · L not found". Every track is kept: there is no Validate and
+- `review.ts` (T118, T127, spec 010): the filter chips All, Not on Spotify, Heard once (N) (only when a row has `hits`), then Solid (N)
+  and Flagged (N) (spec 029: `evidenceLevel` is `solid`, `isFlagged`; only when a row has a known level), one at a time, gaps under All only; the header line "N tracks · M on Spotify · L not found". Every track is kept: there is no Validate and
   no To review or Validated chip (spec 010). The table's columns (Artist and Title apart since spec 020) and sorts: §13. The Review column's ✕ (**Remove**) is `deleteMixRow`, like More › Delete. The optional
   `TracklistRow.validated` stays in the schema for old saved mixes; nothing sets it any more.
 - `keepReview.ts` (T125, owner's D1): `mergeKeepingReview` replaces `mergeWorkerRows` when a result lands on a saved mix
@@ -534,7 +540,9 @@ screen, grouped by role under `src/ui/`.
 - **Mix tracklist sort** (spec 009): the table's own `SortState` is the one sort. Every column with a comparable value has a
   `sortValue` and a first direction in `ui/mix/tracklistSort.ts` (`sortValue`, `SORT_FIRST`): Time, Artist, Title (spec 020: the
   artist text and the track name alone, A to Z first, an empty one missing), Label,
-  Confidence (how many clips found the track, then the best %; highest first), Released and Spotify (not found, unchecked, found);
+  Evidence (id `confidence`; spec 029: a row with a known level first, by `evidenceRank × 1 000 000 + hits × 1000 + confidence`, so
+  the level, then how many clips found the track, then the best %; a row without a level keeps `hits × 1000 + confidence` and comes
+  after; highest first), Released and Spotify (not found, unchecked, found);
   Listen, Review and More do not sort. Spec 010 removed the Source, Clips, In your library and Validate columns and their sorts. `DataTable` sorts: missing values
   last in both directions, ties in set order. The Sort select (all widths, `TracklistTable.tsx`) is built by `sortChoices` from the
   same columns, with "Set order" and a direction button, so a phone picks what a header would; `effectiveSort` falls back to the
@@ -543,9 +551,17 @@ screen, grouped by role under `src/ui/`.
   `playLinks` (`ui/mix/rowText.ts`: Play on Spotify from the Check answer or the library match, never a local file, always the
   `spotify:track:` app link opened in place, on every device; Shazam while the row is the scan's) before the dig links' search
   pages; no lookup by name is made for the other platforms (ADR-04).
-- **Leaner tracklist** (spec 010): columns Time, Artist, Title (two columns since spec 020), Label, Confidence, Released (when a
-  row has a year), Spotify, Listen, Review (✕ only). The Confidence cell merges the clip count: "×3 · 92%" (`confidenceShort`), the long "heard 3× · best
-  92 %" (`confidenceText`) its tooltip, screen-reader text and phone meta line. A found row's Spotify cell is an icon link to
+- **Leaner tracklist** (spec 010): columns Time, Artist, Title (two columns since spec 020), Label, Evidence (Confidence until spec
+  029, `184px`), Released (when a row has a year), Spotify, Listen, Review (✕ only). The cell's short text (`confidenceShort`) is
+  in the column, the long one (`confidenceText`) its tooltip, screen-reader text and phone meta line; both keep their guards first (a
+  gap, a clue or TrackId.net row, a row no longer `tracklistify`, no confidence: nothing). Spec 029: a row with a known level
+  (`evidenceLevel`, `features/mix/evidence.ts`) reads "Solid ×11", "Heard once", "Out of step ×3" or "Many candidates" (the count
+  is `hits`, on Solid and Out of step only), long "Solid: heard 11×, the position in the track advances in step", "Heard once",
+  "Out of step: heard 3×, the position in the track jumps", "Many candidates: Shazam listed 12 for this answer"; with `mixSpeed`
+  both end with ` · ` and `speedShort` ("−5.8 %", "+3.4 %", "0 %" under 0.05) or `speedText` ("played 5.8 % slower", "played at
+  original speed"), and a replay row's origin line is then "second listen" alone. A row without a known level (an older result,
+  an unknown word) reads as before: "×3 · 92%", long "heard 3× · best 92 %". The chips Solid (N) and Flagged (N) (out of step or
+  many candidates) come after Heard once when a row has a known level (`review.ts`, §10). A found row's Spotify cell is an icon link to
   `spotify:track:<id>`, opened in place; on a phone the meta line says "On Spotify" as plain text, and since spec 022
   (`specs/022-mix-phone-play-button/`) the same ▶ (`PlayOnSpotify`) leads the meta line's icons (the Listen column's
   `compactCell`, `ListenIcons` with `play`); Play on Spotify stays in More › Listen…. Both layouts take the id from one pure rule,
@@ -687,6 +703,9 @@ round's full record is under `specs/001-backend-data-sync/`, the users round und
 - `validate.ts` (pure): every pulled row and summary checked before it is written or rendered (keys, finite numbers, `https:` links,
   `open.spotify.com` links, `SC_PLAYER_PREFIX`, the gate versions); a failing row is dropped and counted (security review S3).
   Round 016: `origin` may be `trackid`; `trackid {slug, spanStart, spanEnd, references?}` and `shazamCheck` are accepted only on such a row and bounded (seconds 0 to 100000, texts 200, confidence 0 to 1, the check's extras only on `differs`); a row failing them is dropped.
+  Spec 029: a mix row's `evidence` (a string of 1 to 32 characters, any word), `mixSpeed` (a finite number from −50 to 50) and
+  `candidates` (a whole number from 1 to 1000) are checked when present; a value outside refuses the mix (`mixes.row.evidence`,
+  `mixes.row.mixSpeed`, `mixes.row.candidates`).
   The one exception (round 005): an invalid optional year field (`albumYear`, `releaseYear`, `reccobeats.rid`, a mix row's
   `year`/`yearFrom`) is removed from a copy of the row and the row is kept: a year is display data and must not cost its BPM,
   plays or tracklist.
@@ -815,7 +834,7 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   hits within the gap), `write_result` (the JSON, saved before it is sent). `pipeline.py`: `run_one` (validate → download → scan →
   write → send → clean, every path logged and the folder removed) and `log.py` (one line per step; tracebacks to the file only).
 - Round 003 (`specs/003-fill-scan-gaps/`): `scan.scan` runs a **second pass** (`gap_positions`: 7 s after the misses, one
-  place every 30 s, heard at ×1, ×0.96, ×1.04 through `cut_probe(speed=…)`'s `asetrate`), marks its hits `origin: "replay"`,
+  place every 30 s, heard at ×1, ×0.96, ×1.04 through `cut_probe(speed=…)`'s `asetrate`; `WORKER_SECOND_PASS_SPEEDS`, ×0.91, ×1.09, then ×1 by default since worker 0.5.3), marks its hits `origin: "replay"`,
   keeps them when refused, and reports the still-empty `gaps`; `run_scan` returns `ScanOutput`. `clues.py` reads the
   description, chapters and comments (`read`: one yt-dlp call without download, in a thread, 90 s at most), parses them
   (`split_tracklist` tries every separator and item start, keeps the cleanest split), places them on gaps (`attach`) and
@@ -833,12 +852,27 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   `GET /ws/2/isrc/{ISRC}?inc=releases&fmt=json`; earliest valid year, `release_date_from` naming the catalogue), on the same
   per-set `WORKER_LOOKUPS` budget as the clues (clues first). An invalid year ("0000") is removed; a catalogue failure stops
   the step with one log line and never fails the set.
-- Round 016 (the guided first pass, `scan.scan(guides=, spans=)`): inside each TrackId.net span whose core (start + 10 s to end − 10 s) is at least 40 s the first pass skips its grid probes and makes one confirming probe centred on the span's middle (made before the first grid probe `t` with `confirm_at < t + step`, so any step and overlapping spans work; remembered and resumed like any probe, except an undecodable one, which is asked again); a Shazam hit is absorbed into the span's check (`agrees`, `differs`, `no_match`, `not_asked`), never a row, when it names the span's track and the probe window `[t, t+probe_seconds]` overlaps `[start, end)`, or names another track and the window's center lies in `[start, end)` (half-open, so abutting spans never both absorb); a miss whose window center is in a span is covered, so neither the second pass nor the gaps see it. Without spans nothing changes; the run state key gains the record's slug and a hash of the cores, so a changed record starts over.
+- Round 016 (the guided first pass, `scan.scan(guides=, spans=)`): inside each TrackId.net span whose core (start + 10 s to end − 10 s) is at least 40 s the first pass skips its grid probes and makes one confirming probe centred on the span's middle (made before the first grid probe `t` with `confirm_at < t + step`, so any step and overlapping spans work; remembered and resumed like any probe, except an undecodable one, which is asked again; spec 029: when its normal-speed entry does not name the span's track and the second pass is on (`cut_at` given, `gap_step > 0`), the same place is asked at each other speed of `second_pass_order(speeds)` until one names it, only that entry is absorbed so `differs` still reports what normal speed heard, and each answered retry is remembered as `confirm` key `<span>@<speed>`); a Shazam hit is absorbed into the span's check (`agrees`, `differs`, `no_match`, `not_asked`), never a row, when it names the span's track and the probe window `[t, t+probe_seconds]` overlaps `[start, end)`, or names another track and the window's center lies in `[start, end)` (half-open, so abutting spans never both absorb); a miss whose window center is in a span is covered, so neither the second pass nor the gaps see it. Without spans nothing changes; the run state key gains the record's slug and a hash of the cores, so a changed record starts over.
 - Round 016 in `pipeline.run_one` (`Deps.trackid`, default `None` = no lookup; the CLI sets it unless `WORKER_TRACKID=off`): after the download and the length check, one call with the request's link (`trackid.fetch_trackid`, `cli.http_get` over `urllib`: no redirect followed, at most 2 MB, a 10 s total deadline; `shazam_check.confidence` goes out as 0..1; any exception is one log line and "unknown"); `trusted` (the record's length within 5 % of the audio's) gates its use; only then `guides` and `spans` go to `deps.scan` (with no record the scan is called exactly as before) and the run state key gains the slug and cores. After the scan `trackid.span_rows` makes one `origin: "trackid"` row per span (`trackid {slug, span_start, span_end, references?}`, `shazam_check`, `metadata.label` when given, `hits: 0`, no `confidence`), `merge_rows` sorts them with the heard rows by start time, and the clue step gets the gaps minus the stretches the spans cover (`uncovered`; a piece under 1 s is dropped). With spans, a Stop, a refusal or an unreachable first pass with only absorbed hits no longer raises in `scan`: the TrackId.net rows are sent, marked stopped early as today. Log lines: `trackid · <title> · <n> spans · <m> guided`, `trackid · record length differs from the audio, not used`, the client's reason when it knows nothing (`trackid · not known`, `trackid · HTTP 503`), and after the scan `trackid · <a> agree · <d> differ · <n> no match` then `trackid · <k> probes skipped`.
 - The sandwich round (worker 0.7.2, `specs/019-worker-drop-sandwiched-hits/`): after both passes, just before `merge`, `scan.drop_sandwiched(hits, gap)` drops every Shazam hit whose time lies strictly between two neighbouring hits of another song at most `WORKER_MERGE_GAP_SECONDS` apart (the key of `merge`: Shazam id, else artist and title); all pairs are judged on the raw hits, so A, B, A, B within the gap keeps the first A and the last B, and the earliest hit always stays. `report["sandwiched"]` holds the count and the log says `scan · N findings between two hits of the same song dropped` when N > 0; `hits_out`, the run state (`remember`, one answer per probe) and `report["gaps"]` keep the raw hits, so a dropped hit's stretch is still known. TrackId.net span rows, clue rows and gaps are built elsewhere and never filtered by it; `merge` and `inside_known` are unchanged; the F15 shape gains no field.
 - The auto-resume round (worker 0.7.3, `specs/023-worker-auto-resume/`): once a request is sent `done` with "Stopped early … (rate limited)" (`Outcome.stopped == "rate limited"`), `cli.run_queue` plans in memory (`autoresume.AutoResume`, keyed by link) one automatic Ask again `WORKER_AUTO_RESUME_MINUTES` (30) later. At the top of the loop, after the session refresh and before the claim, each due link gets `ServerClient.enqueue`: the app's `requestIdentify` (open-request check, then the insert of `{kind: 'identify-mix', payload: {url}}` under the owner's session), one try, a failure one log line; the claim that follows resumes the saved run (`runstate`) and the app's pull merges the result like any Ask again (no app change). At most `WORKER_AUTO_RESUMES` (6) inserts per link; a complete run of the link resets the count, a manual Ask again does not, and any run of the link replaces what was planned. Only a rate-limit stop (not Stop, not "no answer", not a failure); never in shared mode (ADR-16: `SharedServerClient.enqueue` sends nothing), with `--once`, or with `WORKER_RESUME_DAYS=0` (no run state: each ask would rescan from the start); `WORKER_AUTO_RESUME_MINUTES=0` is 0.7.2's behaviour. A restart loses the plan: the owner presses Ask again. Log lines: `auto ask again · <link> in 30 min (n/6)`, `auto ask again · queued <link> (n/6)`, `… is already asked`, `… not queued (<kind>: <message>); press Ask again in the app`, `… 6 of 6 done for this set …`, `… off (shared mode|run --once|WORKER_RESUME_DAYS is 0: …) …`.
 - The share-link round (worker 0.7.4, `specs/028-worker-short-links/`): `links.py` (no I/O of its own, never raises) gives the **working address** of a request, and `pipeline.run_one` asks it once (`Deps.address`, default `None` = the link as it arrives), under the `download` step and before the download. A SoundCloud set address is trimmed by `trim_soundcloud`, the port of the app's `normalizeMixUrl` (§10), both pinned by `src/features/mix/url.cases.json`. A phone share link (`on.soundcloud.com/<token>`, which the app now records as a request link) is followed by `resolve_short_link`: at most 3 requests, to the short host only, through `cli.http_location` (one GET, no redirect followed, the body not read, 10 s); a `Location` is accepted only as `https`, without user info, on the default port, on `soundcloud.com`, `www.`, `m.` or the short host; the set's page itself is never asked. Any other link is used as it arrives. The download, TrackId.net, the clues, the saved run (`runs/<sha1(address)>.json`) and `mix_info.source_url` use the working address, and the log says `link · <address>` when it differs from the request's link. The request keeps its link: finish by id, the `claimed` line, the automatic Ask again and its open-request check. A link that gives no address fails the request before any download with one of three reasons (`NOT_FOUND` for 400/404/410, `NO_ANSWER` for another error status or a network error, `NOT_A_SET` for another site, a page, a profile or more than 3 requests) and one log line `link · <detail>` that never carries a path or a query.
+- The evidence round (worker 0.7.5, `specs/029-worker-scan-evidence/`): `evidence.heard_of` keeps, on every Shazam hit (first pass,
+  second pass, TrackId.net confirm), the first match's `offset`, `timeskew`, `frequencyskew`, the number of `matches` and the speed
+  the probe was cut at, as `heard` on the entry (in the run state, so a resumed run has it; `merge_with_hits` leaves it out of the
+  row). After both passes and `drop_sandwiched`, `evidence.levels` gives each row whose first hit has `heard` three fields, the
+  first level that fits: `solid` (one of its hits in step with another hit of the same key: windows sharing no audio, at most 60 s
+  apart, the position advanced by the gap × the mix speed within 0.5 s), `candidates` (the first hit's answer lists 10 entries or
+  more), `out_of_step` (two hits or more), `once`; `mix_speed_percent` is (1 + `timeskew`) ÷ the cut speed, as a percent with one
+  decimal, the middle value over the hits in step, else the first hit's; `candidates` is the first hit's count. The constants
+  are fixed; no row is added, removed, merged or reordered. A hit's log line adds `at M:SS in the track` and the mix speed, and
+  `evidence · N solid · …` (levels with no row left out) follows the second-pass summary, also without a second pass.
+  `cut_probe` passes its WAV to `pad_wav`, which fills a probe holding less than 12 s with silence to 12 s (Shazam's window, not
+  `WORKER_PROBE_SECONDS`); data under `MIN_PROBE_BYTES` or an unreadable WAV is returned as it is, so a probe with no audio still
+  ends a scan of unknown length. The TrackId.net confirm's retries at the second-pass speeds: the round 016 bullet above.
 - The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
+- How accurate a scan is and why, measured on four mixes, with the options built (spec 029) and not built:
+  [Shazam on DJ mixes](../research/2026-11-13-shazam-mix-accuracy.md).
 
 ## Links
 

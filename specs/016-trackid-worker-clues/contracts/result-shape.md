@@ -17,3 +17,5 @@ Rules: a `trackid` row has no `confidence` of its own; `span_start`, `span_end` 
 `worker/tests/test_scan.py` pins the shape against the app's fixture keys as today; a new pin covers the three fields.
 
 As built: `worker/tests/test_scan.py` (`test_j_trackid_rows_keep_the_f15_pin_with_the_optional_fields`) pins the exact row above; `metadata` is present only when the span has a label, `references` only when known.
+
+Spec 029 (worker 0.7.5) adds three optional fields on heard rows (`evidence`, `mix_speed_percent`, `candidates`), never on a `trackid` row: [`specs/029-worker-scan-evidence/contracts/result-shape.md`](../../029-worker-scan-evidence/contracts/result-shape.md).

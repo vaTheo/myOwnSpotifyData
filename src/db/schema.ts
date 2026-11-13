@@ -278,6 +278,12 @@ export interface TracklistRow {
   hits?: number;
   /** Second-pass speed correction in percent (+4, −4, or 0). */
   speedPercent?: number;
+  /** Spec 029: how much evidence stands behind a heard row; the worker's word, kept as it came. */
+  evidence?: string;
+  /** Spec 029: the speed the track plays at in the mix, in percent of its original speed (−7.7 is 7.7 % slower). */
+  mixSpeed?: number;
+  /** Spec 029: how many entries Shazam's answer listed for the row's first hit. */
+  candidates?: number;
   /** Round 005: release year (whole year, 1900..now+1) or absent. */
   year?: number;
   /** Where `year` came from: Shazam, a catalogue by ISRC (worker), or the

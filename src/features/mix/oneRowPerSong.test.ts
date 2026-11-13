@@ -227,3 +227,70 @@ describe('oneRowPerSong', () => {
     expect(oneRowPerSong([only])[0]).toBe(only);
   });
 });
+
+describe('oneRowPerSong — spec 029 level and speed', () => {
+  it("takes the best level and that copy's mixSpeed; candidates stay the kept copy's", () => {
+    const out = oneRowPerSong([
+      row({ startSec: 100, evidence: 'once', mixSpeed: 1.2, candidates: 3 }),
+      row({ startSec: 200, evidence: 'solid', mixSpeed: -5.8, candidates: 9 }),
+      row({ startSec: 300, evidence: 'out_of_step', mixSpeed: 2 }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      startSec: 100,
+      evidence: 'solid',
+      mixSpeed: -5.8,
+      candidates: 3,
+    });
+  });
+
+  it('takes no mixSpeed when the best copy has none', () => {
+    const out = oneRowPerSong([
+      row({ startSec: 100, evidence: 'candidates', mixSpeed: 1.2 }),
+      row({ startSec: 200, evidence: 'once' }),
+    ]);
+    expect(out[0].evidence).toBe('once');
+    expect('mixSpeed' in out[0]).toBe(false);
+  });
+
+  it('keeps the first of equal best levels and ignores an unknown word', () => {
+    const out = oneRowPerSong([
+      row({ startSec: 300, evidence: 'maybe', mixSpeed: 9 }),
+      row({ startSec: 100, evidence: 'once', mixSpeed: 1 }),
+      row({ startSec: 200, evidence: 'once', mixSpeed: 2 }),
+    ]);
+    expect(out[0]).toMatchObject({
+      startSec: 100,
+      evidence: 'once',
+      mixSpeed: 1,
+    });
+  });
+
+  it("gives today's line when no copy has a level", () => {
+    const copies = [
+      row({ startSec: 200, hits: 2, confidence: 70 }),
+      row({ startSec: 100, hits: 1, confidence: 90, mixSpeed: 3 }),
+    ];
+    expect(oneRowPerSong(copies)).toEqual([
+      { ...copies[1], hits: 3, confidence: 90 },
+    ]);
+    const unknown = [
+      row({ startSec: 200, evidence: 'maybe', mixSpeed: 4 }),
+      row({ startSec: 100 }),
+    ];
+    expect(oneRowPerSong(unknown)).toEqual([{ ...unknown[1] }]);
+  });
+
+  it('never takes a level from a not-heard copy that a heard one outranks', () => {
+    const out = oneRowPerSong([
+      row({ startSec: 50, origin: 'trackid', evidence: 'solid', mixSpeed: 7 }),
+      row({ startSec: 100, evidence: 'once', mixSpeed: 1 }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      startSec: 100,
+      evidence: 'once',
+      mixSpeed: 1,
+    });
+  });
+});

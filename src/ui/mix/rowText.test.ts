@@ -14,6 +14,8 @@ import {
   playLinks,
   referencesText,
   setWideSummary,
+  speedShort,
+  speedText,
   timeText,
 } from './rowText';
 
@@ -351,5 +353,128 @@ describe('round 016: TrackId.net rows', () => {
     expect(
       confidenceText(row({ origin: 'trackid', confidence: 80 }))
     ).toBeNull();
+  });
+});
+
+describe('spec 029: the evidence level and the mix speed', () => {
+  it('speedShort: one decimal, the sign, a space before %, 0 % under 0.05', () => {
+    expect(speedShort(-5.8)).toBe('−5.8 %');
+    expect(speedShort(3.4)).toBe('+3.4 %');
+    expect(speedShort(-7.74)).toBe('−7.7 %');
+    expect(speedShort(2)).toBe('+2.0 %');
+    expect(speedShort(0.04)).toBe('0 %');
+    expect(speedShort(-0.04)).toBe('0 %');
+    expect(speedShort(0)).toBe('0 %');
+  });
+
+  it('speedText: slower, faster, original speed under 0.05', () => {
+    expect(speedText(-5.8)).toBe('played 5.8 % slower');
+    expect(speedText(3.4)).toBe('played 3.4 % faster');
+    expect(speedText(0.04)).toBe('played at original speed');
+    expect(speedText(-0.04)).toBe('played at original speed');
+  });
+
+  const lv = (over: Partial<TracklistRow>) => row({ confidence: 92.2, ...over });
+
+  it('the short and long text of each level, with hits and candidates', () => {
+    const solid = lv({ evidence: 'solid', hits: 11 });
+    expect(confidenceShort(solid)).toBe('Solid ×11');
+    expect(confidenceText(solid)).toBe(
+      'Solid: heard 11×, the position in the track advances in step'
+    );
+    const once = lv({ evidence: 'once', hits: 1 });
+    expect(confidenceShort(once)).toBe('Heard once');
+    expect(confidenceText(once)).toBe('Heard once');
+    const step = lv({ evidence: 'out_of_step', hits: 3 });
+    expect(confidenceShort(step)).toBe('Out of step ×3');
+    expect(confidenceText(step)).toBe(
+      'Out of step: heard 3×, the position in the track jumps'
+    );
+    const many = lv({ evidence: 'candidates', hits: 1, candidates: 12 });
+    expect(confidenceShort(many)).toBe('Many candidates');
+    expect(confidenceText(many)).toBe(
+      'Many candidates: Shazam listed 12 for this answer'
+    );
+  });
+
+  it('without hits or candidates: the level alone', () => {
+    const solid = lv({ evidence: 'solid' });
+    expect(confidenceShort(solid)).toBe('Solid');
+    expect(confidenceText(solid)).toBe(
+      'Solid: the position in the track advances in step'
+    );
+    const step = lv({ evidence: 'out_of_step' });
+    expect(confidenceShort(step)).toBe('Out of step');
+    expect(confidenceText(step)).toBe(
+      'Out of step: the position in the track jumps'
+    );
+    const many = lv({ evidence: 'candidates', hits: 1 });
+    expect(confidenceShort(many)).toBe('Many candidates');
+    expect(confidenceText(many)).toBe('Many candidates');
+  });
+
+  it('with mixSpeed: the speed after " · "', () => {
+    const solid = lv({ evidence: 'solid', hits: 11, mixSpeed: -5.8 });
+    expect(confidenceShort(solid)).toBe('Solid ×11 · −5.8 %');
+    expect(confidenceText(solid)).toBe(
+      'Solid: heard 11×, the position in the track advances in step · played 5.8 % slower'
+    );
+    const once = lv({ evidence: 'once', hits: 1, mixSpeed: 3.4 });
+    expect(confidenceShort(once)).toBe('Heard once · +3.4 %');
+    expect(confidenceText(once)).toBe('Heard once · played 3.4 % faster');
+    const step = lv({ evidence: 'out_of_step', hits: 3, mixSpeed: 0.01 });
+    expect(confidenceShort(step)).toBe('Out of step ×3 · 0 %');
+    expect(confidenceText(step)).toBe(
+      'Out of step: heard 3×, the position in the track jumps · played at original speed'
+    );
+    const many = lv({
+      evidence: 'candidates',
+      hits: 1,
+      candidates: 12,
+      mixSpeed: -2,
+    });
+    expect(confidenceShort(many)).toBe('Many candidates · −2.0 %');
+    expect(confidenceText(many)).toBe(
+      'Many candidates: Shazam listed 12 for this answer · played 2.0 % slower'
+    );
+  });
+
+  it('an unknown level and no level read as today', () => {
+    for (const evidence of [undefined, 'inside', 'great']) {
+      const r = lv({ evidence, hits: 3, mixSpeed: -5.8 });
+      expect(confidenceShort(r)).toBe('×3 · 92%');
+      expect(confidenceText(r)).toBe('heard 3× · best 92 %');
+    }
+    expect(confidenceShort(lv({ evidence: 'inside' }))).toBe('92%');
+    expect(confidenceText(lv({ evidence: 'inside' }))).toBe('92% match');
+  });
+
+  it('a row no longer read as the scan heard it gives null, as today', () => {
+    for (const over of [
+      { source: 'manual' as const },
+      { gap: true },
+      { origin: 'clue' as const },
+      { origin: 'trackid' as const },
+      { confidence: null },
+    ]) {
+      const r = lv({ evidence: 'solid', hits: 11, mixSpeed: -5.8, ...over });
+      expect(confidenceShort(r)).toBeNull();
+      expect(confidenceText(r)).toBeNull();
+    }
+  });
+
+  it('originText: a replay row with mixSpeed reads "second listen"', () => {
+    expect(
+      originText(row({ origin: 'replay', speedPercent: 4, mixSpeed: -3.1 }))
+    ).toBe('second listen');
+    expect(originText(row({ origin: 'replay', mixSpeed: 0 }))).toBe(
+      'second listen'
+    );
+    expect(originText(row({ origin: 'replay', speedPercent: 4 }))).toBe(
+      'second listen · +4 %'
+    );
+    expect(originText(row({ origin: 'replay', speedPercent: -4 }))).toBe(
+      'second listen · −4 %'
+    );
   });
 });

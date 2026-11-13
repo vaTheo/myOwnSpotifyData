@@ -274,6 +274,27 @@ export function validateMix(row: unknown): Valid<MixRow> {
       !(typeof t.hits === 'number' && Number.isInteger(t.hits) && t.hits >= 1)
     )
       return fail('mixes.row.hits');
+    // Spec 029: the scan's level, the speed in the mix, Shazam's candidates.
+    if (
+      t.evidence !== undefined &&
+      !(nonEmpty(t.evidence) && t.evidence.length <= 32)
+    )
+      return fail('mixes.row.evidence');
+    if (
+      t.mixSpeed !== undefined &&
+      !(finite(t.mixSpeed) && t.mixSpeed >= -50 && t.mixSpeed <= 50)
+    )
+      return fail('mixes.row.mixSpeed');
+    if (
+      t.candidates !== undefined &&
+      !(
+        typeof t.candidates === 'number' &&
+        Number.isInteger(t.candidates) &&
+        t.candidates >= 1 &&
+        t.candidates <= 1000
+      )
+    )
+      return fail('mixes.row.candidates');
     if (t.clue !== undefined && !clueOk(t.clue)) return fail('mixes.row.clue');
     if (!cluesOk(t.clues, 30)) return fail('mixes.row.clues');
     if (t.validated !== undefined && typeof t.validated !== 'boolean')

@@ -223,3 +223,75 @@ describe('sortChoices and effectiveSort', () => {
     });
   });
 });
+
+describe('the Evidence sort (spec 029)', () => {
+  const rows = [
+    line(r({ title: 'plain', confidence: 99, hits: 9 })),
+    line(r({ title: 'many', evidence: 'candidates', hits: 1, confidence: 90 })),
+    line(r({ title: 'solid2', evidence: 'solid', hits: 2, confidence: 50 })),
+    line(r({ title: 'step', evidence: 'out_of_step', hits: 5, confidence: 95 })),
+    line(r({ title: 'solid7', evidence: 'solid', hits: 7, confidence: 40 })),
+    line(r({ title: 'once', evidence: 'once', hits: 1, confidence: 99 })),
+    line(r({ title: 'odd', evidence: 'inside', hits: 3, confidence: 80 })),
+    line(r({ title: 'none' })),
+  ];
+  const titles = (d: 'asc' | 'desc') =>
+    sortRows(rows, (l) => sortValue('confidence', l), d).map(
+      (l) => l.row.title
+    );
+
+  it('the four levels best first, the hit count inside a level, then the rows without a level', () => {
+    expect(titles('desc')).toEqual([
+      'solid7',
+      'solid2',
+      'once',
+      'step',
+      'many',
+      'plain',
+      'odd',
+      'none',
+    ]);
+  });
+
+  it('a levelled row is worth its rank, then its hits, then its percentage', () => {
+    expect(
+      sortValue(
+        'confidence',
+        line(r({ evidence: 'solid', hits: 11, confidence: 92 }))
+      )
+    ).toBe(4 * 1_000_000 + 11 * 1000 + 92);
+    expect(
+      sortValue(
+        'confidence',
+        line(r({ evidence: 'candidates', confidence: 60 }))
+      )
+    ).toBe(1_000_000 + 60);
+  });
+
+  it('a row without a known level keeps its value of today', () => {
+    expect(
+      sortValue(
+        'confidence',
+        line(r({ evidence: 'inside', hits: 3, confidence: 80 }))
+      )
+    ).toBe(3080);
+    expect(
+      sortValue(
+        'confidence',
+        line(r({ evidence: 'solid', source: 'manual', confidence: 80 }))
+      )
+    ).toBeNull();
+  });
+
+  it('the choice reads Evidence; its id and first direction stay', () => {
+    const levelled = [r({ evidence: 'solid', hits: 2, confidence: 80 })];
+    expect(
+      sortChoices(levelled).find((c) => c.id === 'confidence')?.label
+    ).toBe('Evidence');
+    expect(
+      sortChoices([r({ confidence: 80 })]).find((c) => c.id === 'confidence')
+        ?.label
+    ).toBe('Evidence');
+    expect(SORT_FIRST.confidence).toBe('desc');
+  });
+});

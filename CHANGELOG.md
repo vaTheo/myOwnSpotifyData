@@ -3,6 +3,25 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-13 — A level on every track the worker hears (worker 0.7.5)
+
+A scanned mix now says how far to trust each track Shazam heard. The **Confidence** column is now **Evidence**, and a track reads
+one of four levels: **Solid** (heard on two clips, and the place in the track moves on as the mix does), **Heard once**, **Out of
+step** (heard several times, but the place in the track jumps) or **Many candidates** (Shazam listed 10 tracks or more for that
+clip). Then comes the speed the track plays at in the mix, instead of the %: "Solid ×11 · −5.8 %" is heard in 11 clips, played
+5.8 % slower than the original; a second-listen track no longer shows the speed its clip was re-cut at. Sorting by Evidence puts
+Solid first, then Heard once, Out of step and Many candidates; two chips, **Solid** and **Flagged** (Out of step or Many
+candidates: the tracks to check by ear), sit beside **Heard once**. No track is hidden or removed by its level. The worker also
+asks the TrackId.net check again at the other second-pass speeds (second pass on, the default) when normal speed does not name the stretch's track, so a real
+track played fast or slow reads "Shazam agrees"; a clip shorter than 12 s (the end of a set) is filled with silence before it is
+sent; and its log says where in the track each clip was heard, at which speed, and counts the levels. A track or mix from an
+older worker reads as before ("×3 · 92%"). Spec `specs/029-worker-scan-evidence/`; the measurement behind it:
+[Shazam on DJ mixes](docs/research/2026-11-13-shazam-mix-accuracy.md).
+
+**What to do**: hard-reload the app, then update the worker to 0.7.5 (the release this push builds, or `git pull` and `uv sync`).
+Scan a set again to get levels on it: a set already saved has none. No new setting, no Spotify read or write, no server change;
+a mix's tracks gain three optional fields, with no database upgrade.
+
 ## 2026-11-13 — Move between Crate views without the hub
 
 Each Crate view now has the six views named above it: on a computer a row of six names (Heavy rotation, Forgotten gems, All-time

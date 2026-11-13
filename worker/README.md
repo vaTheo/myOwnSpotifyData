@@ -81,17 +81,18 @@ claimed 6f1c2d3e · https://soundcloud.com/…
   download · 100 % · 98.0 MB
   download · abc123.m4a · 7260 s · 38.2 s
   scan · ffmpeg …/ffmpeg-linux-x86_64-v9.0.2 · one 12 s probe every 15 s · 484 probes · cooldown 1.9 s (+0-30 %)
-  probe 1/484 · 00:00:00 · cut 375 KB 0.06 s · shazam 1.1 s · NEW · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 99 %
-  probe 2/484 · 00:00:15 · cut 375 KB 0.05 s · shazam 0.9 s · same track · Stefan Gubatz — Noble Booth · DECH62001634 · Primary Colours · 98 %
+  probe 1/484 · 00:00:00 · cut 375 KB 0.06 s · shazam 1.1 s · NEW · Invented Artist — Noble Booth · XX0000000001 · Invented Label · at 1:32 in the track · 0.0 % · 99 %
+  probe 2/484 · 00:00:15 · cut 375 KB 0.05 s · shazam 0.9 s · same track · Invented Artist — Noble Booth · XX0000000001 · Invented Label · at 1:47 in the track · +0.1 % · 98 %
   probe 3/484 · 00:00:30 · cut 375 KB 0.06 s · shazam 1.0 s · no match
   …
-  second pass · 210 probes found nothing · 104 places heard again (+7 s, speed ×1 then ×0.96 then ×1.04)
-  gap 1/104 · 00:00:37 ×1 · shazam 1.2 s · no match
-  gap 1/104 · 00:00:37 ×0.96 · shazam 1.0 s · NEW · Someone — Pitched Track · … · 91 %
+  second pass · 210 probes found nothing · 104 places heard again (+7 s, speed ×0.91 then ×1.09 then ×1)
+  gap 1/104 · 00:00:37 ×0.91 · shazam 1.2 s · no match
+  gap 1/104 · 00:00:37 ×1.09 · shazam 1.0 s · NEW · Someone — Pitched Track · … · at 2:10 in the track · −7.7 % · 91 %
   trackid · Temple Rat @ Off The Map · 14 spans · 11 guided
   trackid · 9 agree · 1 differ · 1 no match
   …
-  second pass · found 9 in 104 places
+  second pass · 9 new tracks in 104 places
+  evidence · 11 solid · 27 many candidates · 4 out of step · 6 heard once
   shazam · 524 answers · median 1.1 s · 31 over 5 s (6 %)
   scan · 2 findings between two hits of the same song dropped
   scan · 48 tracks · 2410.3 s
@@ -108,8 +109,8 @@ queue empty · next look in 60 s
 ```
 
 After the first pass, the **second pass** listens again where nothing was found (not inside a stretch with the same track
-just before and after it, up to 3 minutes: that is the same track): 7 s later than the probe that missed, at
-normal speed, then 4 % slower, then 4 % faster (a DJ's pitch fader), stopping at the first match. Then a clip of another song
+just before and after it, up to 3 minutes: that is the same track): 7 s later than the probe that missed, cut
+at ×0.91, then ×1.09, then at normal speed (`WORKER_SECOND_PASS_SPEEDS`: a DJ's pitch fader), stopping at the first match. Then a clip of another song
 heard between two clips of one song at most `WORKER_MERGE_GAP_SECONDS` apart (A, X, A) is dropped as a false match inside it
 (worker 0.7.2; TrackId.net and comment rows are never dropped by it), and the clips become rows. Then the worker reads the
 set's **description, chapters and comments** (the clues): the ones written around a part still without a track show on that
@@ -122,6 +123,14 @@ track Shazam gave an ISRC but no release year is looked up by that ISRC in Deeze
 gives is written into the JSON (`release_date`, and `release_date_from` naming the catalogue); a valid year from Shazam is kept as is, an invalid one ("0000") is removed.
 These lookups share the `WORKER_LOOKUPS` cap with the clues (clues first); the log says "years · filled N of M by ISRC". A refusal
 during the second pass, comments that cannot be read, or a catalogue that does not answer never fail the request.
+
+Each heard line also says **where in the track** Shazam heard the clip (`at 1:32 in the track`) and **the speed the mix plays it
+at** (`−7.7 %` slower, `+3.4 %` faster, `0.0 %`), worked out from Shazam's own answer and the speed the clip was cut at. From the
+same answers, each heard row gets one level, the first that fits in this order, counted in a line `evidence · …` after the
+second pass (after the first when there is no second pass; a level with no row is left out):
+**solid**, heard twice on clips sharing no audio, with the position in the track advancing in step with the mix; **many
+candidates**, Shazam's answer listed 10 entries or more; **out of step**, heard several times but never in step; **heard once**.
+A level never removes a row: it tells you how far to trust it. A row heard before this version (a resumed run) has no level.
 
 A request that fails (a private link, no track identified, the recognition service refusing) is
 marked failed with that reason, the phone shows it, and the worker moves on. Sets of any length are taken. Ctrl-C during a request puts it back in the
@@ -162,7 +171,7 @@ Only the first two are required.
 | `WORKER_HEARTBEAT_SECONDS` | 30 | `--watch`: an "alive" line this often while waiting, so you can see it still runs |
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit; set a number of seconds to refuse longer sets before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 15 | one probe every N seconds; with 12 s probes, 15 hears 80 % of the set (a 2 h set: 480 probes, about 40 minutes), 12 all of it, 30 or 60 for a quicker scan |
-| `WORKER_PROBE_SECONDS` | 12 | the length of each probe sent to Shazam, 2 to 12 (Shazam fingerprints 12 s at most; 10 s matched 71 % against 94 %) |
+| `WORKER_PROBE_SECONDS` | 12 | the length of each probe sent to Shazam, 2 to 12 (Shazam fingerprints 12 s at most; 10 s matched 71 % against 94 %); a probe shorter than 12 s, or the last one of a set, is filled with silence to 12 s before it is sent |
 | `WORKER_COOLDOWN_SECONDS` | 1.9 | the pause before every recognition call, plus a random 0–30 % (`WORKER_COOLDOWN_SPREAD_PERCENT`): 1.9 to 2.47 s; a network retry is spread the same; not slowed after a refusal |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 180 | the pause after a "rate limited" answer, the same each time, plus a random 0–40 % (`WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`): 3:00 to 4:12 |
 | `WORKER_REFUSAL_WARN_CALLS` | 150 | two refusals closer than this many calls: warn once (a VPN or a shared network?); 0 = never |
@@ -186,7 +195,7 @@ Only the first two are required.
 
 ## TrackId.net: a known mix and an unknown one
 
-With `WORKER_TRACKID` on (the default) the worker asks TrackId.net about the exact mix link, once per request, before the first probe. A **known** mix (TrackId.net has a record whose length is within 5 % of the audio's) is scanned faster: the log shows `trackid · <title> · <n> spans · <m> guided`, the first pass skips the middle of each span it names and makes one confirming probe per span, and each span becomes a row marked "from TrackId.net" with what Shazam said (`agree`, `differ`, `no match`; the line `trackid · <a> agree · <d> differ · <n> no match` totals them). TrackId.net is the source of truth: a Shazam answer that differs never replaces or removes a span's row. An **unknown** mix (no record, `trackid · not known`; or a failure such as `trackid · HTTP 503`; or `trackid · record length differs from the audio, not used`) is scanned exactly as before, and TrackId.net never fails or delays a request: its answer is read at most 2 MB, within 10 s in total, and a redirect is never followed (all three read as "not known"). A Shazam hit that names a span's own track is not a row when its probe overlaps the span; a hit naming another track is not a row only when the middle of its probe is inside the span, so a neighbour's tail at a boundary can still show as a row. The log ends the scan with `trackid · <k> probes skipped`. `off` never asks.
+With `WORKER_TRACKID` on (the default) the worker asks TrackId.net about the exact mix link, once per request, before the first probe. A **known** mix (TrackId.net has a record whose length is within 5 % of the audio's) is scanned faster: the log shows `trackid · <title> · <n> spans · <m> guided`, the first pass skips the middle of each span it names and makes one confirming probe per span (when that probe, at normal speed, does not name the span's track and the second pass is on, the same place is asked again at the second-pass speeds, at most one probe per speed, stopping at the first that names it; the log line then shows the speed, `trackid confirm · span 3 · 00:44:41 ×1.09 · …`), and each span becomes a row marked "from TrackId.net" with what Shazam said (`agree`, `differ`, `no match`; the line `trackid · <a> agree · <d> differ · <n> no match` totals them). TrackId.net is the source of truth: a Shazam answer that differs never replaces or removes a span's row. An **unknown** mix (no record, `trackid · not known`; or a failure such as `trackid · HTTP 503`; or `trackid · record length differs from the audio, not used`) is scanned exactly as before, and TrackId.net never fails or delays a request: its answer is read at most 2 MB, within 10 s in total, and a redirect is never followed (all three read as "not known"). A Shazam hit that names a span's own track is not a row when its probe overlaps the span; a hit naming another track is not a row only when the middle of its probe is inside the span, so a neighbour's tail at a boundary can still show as a row. The log ends the scan with `trackid · <k> probes skipped`. `off` never asks.
 
 ## Where things go, what leaves the computer
 

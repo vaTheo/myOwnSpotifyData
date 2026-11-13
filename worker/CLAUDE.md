@@ -12,7 +12,9 @@ one PyInstaller executable per system.
 | Decision | `../docs/architecture/700-adr/ADR-08-owner-server-free-tier.md`       | the worker is outside the server, polls outbound, holds no Spotify token |
 | Contract | `../specs/002-mix-analysis-worker/contracts/worker.md`                | commands, exit codes, settings, the pipeline, the seams the tests use    |
 | Contract | `../specs/002-mix-analysis-worker/contracts/server-schema.md`         | every request the worker makes and the error mapping                    |
+| Contract | `../specs/029-worker-scan-evidence/contracts/result-shape.md`         | the three optional fields of a heard row: `evidence`, `mix_speed_percent`, `candidates` |
 | Research | `../specs/002-mix-analysis-worker/research.md` D2–D7, D9              | ShazamIO facts, pacing, probes, confidence, merging, download, packaging |
+| Research | `../docs/research/2026-11-13-shazam-mix-accuracy.md`                  | measured: Shazam's speed window, what its answer holds, real against false rows |
 | Shape    | `../src/features/mix/tracklistify.ts`                                 | the JSON the result must satisfy (`mix_info`, `tracks[]`, `metadata`)    |
 | Tests    | `tests/test_*.py`                                                     | `unittest`, every external call injected and faked                       |
 
@@ -40,7 +42,8 @@ one PyInstaller executable per system.
   check), one try, a failure one log line; at most `WORKER_AUTO_RESUMES` (6) per link, reset by a complete run, not by a manual Ask again.
   Only a rate-limit stop (`Outcome.stopped`); never in shared mode (`SharedServerClient.enqueue` sends nothing), with `--once`, or with
   `WORKER_RESUME_DAYS=0` (no saved run: each ask would rescan from the start); each "off" case logs one line.
-- TrackId.net never fails a request; one confirming probe per guided span and no other probe inside it; TrackId.net outranks Shazam inside its spans (ADR-17).
+- TrackId.net never fails a request; one confirming probe per guided span (spec 029: asked again at each other second-pass speed, second pass on, until one names the span's track) and no other probe inside it; TrackId.net outranks Shazam inside its spans (ADR-17).
+- Spec 029 (worker 0.7.5, `evidence.py`, pure): every hit keeps what Shazam said of it (`heard`, in the run state, never in the result); after `drop_sandwiched`, each row of Shazam hits gets `levels`' three fields, the first level that fits (`solid`, `candidates`, `out_of_step`, `once`); a level never adds, removes, merges or reorders a row; the constants are not settings. `cut_probe` pads a probe under 12 s with silence (`pad_wav`), never one under `MIN_PROBE_BYTES`.
 - Round 016 wiring (`Deps.trackid`, default `None`; `cli.http_get` is the one real fetch, one GET with `User-Agent: mix-worker/<version>`): called once per request after the download and length check, any exception caught and logged, `trusted` before use; `guides`/`spans` go to `deps.scan` only for a trusted record with spans, so otherwise the call is byte-identical to today's. `span_rows`/`merge_rows`/`uncovered` build the rows and clip the gaps for the clue step. With spans, `scan` returns instead of raising after a Stop, a refusal or an unreachable first pass (the rows come from the record); without spans it still raises.
 - One probe at a time: `sleep(WORKER_COOLDOWN_SECONDS)` before every `recognize`; a `RateLimited` pauses once, twice fails the
   request; never a retry loop against a paused or unreachable server (exit 2/3).

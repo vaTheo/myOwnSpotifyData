@@ -93,6 +93,7 @@ One design document per feature round, dated. The first one is the base model; l
 
 ## Research (verified external facts)
 
+- [2026-11-13 — Shazam on DJ mixes: what makes a scan accurate](research/2026-11-13-shazam-mix-accuracy.md)
 - [2026-11-07 — ReccoBeats release years](research/2026-11-07-reccobeats-release-years.md)
 - [2026-09-05 — Artist reach sources](research/2026-09-05-artist-reach-sources.md)
 - [2026-09-05 — BPM and key sources](research/2026-09-05-bpm-key-sources.md)

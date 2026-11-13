@@ -362,6 +362,45 @@ describe('validateMix — round 004 hits', () => {
   });
 });
 
+describe('validateMix — spec 029 level, speed and candidates', () => {
+  const r0 = mixRow.rows[0];
+  it('accepts the three fields, their edges and an unknown level word', () => {
+    for (const extra of [
+      { evidence: 'solid', mixSpeed: -7.7, candidates: 1 },
+      { evidence: 'x'.repeat(32), mixSpeed: 50, candidates: 1000 },
+      { evidence: 'maybe', mixSpeed: -50 },
+      { mixSpeed: 0 },
+      { candidates: 12 },
+    ]) {
+      const res = validateMix({ ...mixRow, rows: [{ ...r0, ...extra }] });
+      expect(res.ok && res.row.rows[0]).toMatchObject(extra);
+    }
+  });
+  it('refuses each field out of bounds with its reason', () => {
+    const cases: [Record<string, unknown>, string][] = [
+      [{ evidence: '' }, 'mixes.row.evidence'],
+      [{ evidence: 'x'.repeat(33) }, 'mixes.row.evidence'],
+      [{ evidence: 4 }, 'mixes.row.evidence'],
+      [{ evidence: null }, 'mixes.row.evidence'],
+      [{ mixSpeed: 50.1 }, 'mixes.row.mixSpeed'],
+      [{ mixSpeed: -50.1 }, 'mixes.row.mixSpeed'],
+      [{ mixSpeed: Number.NaN }, 'mixes.row.mixSpeed'],
+      [{ mixSpeed: Number.POSITIVE_INFINITY }, 'mixes.row.mixSpeed'],
+      [{ mixSpeed: '-7.7' }, 'mixes.row.mixSpeed'],
+      [{ candidates: 0 }, 'mixes.row.candidates'],
+      [{ candidates: 1001 }, 'mixes.row.candidates'],
+      [{ candidates: 2.5 }, 'mixes.row.candidates'],
+      [{ candidates: '3' }, 'mixes.row.candidates'],
+    ];
+    for (const [extra, reason] of cases) {
+      expect(validateMix({ ...mixRow, rows: [{ ...r0, ...extra }] })).toEqual({
+        ok: false,
+        reason,
+      });
+    }
+  });
+});
+
 describe('validateMix — the run (T124)', () => {
   const run = {
     secondPass: { places: 41, found: 3, stopped: null },

@@ -1,6 +1,6 @@
 # ADR-17 — The worker asks TrackId.net by the exact mix link, probes each known stretch once, and TrackId.net is the source of truth
 
-> **Status**: Accepted
+> **Status**: Accepted; amended 2026-11-13 (spec 029: the confirming probe is asked again at the second-pass speeds)
 > **Date**: 2026-11-08
 
 ## Context
@@ -48,9 +48,20 @@ the audio agreed.
 **Negative / watch for:** coverage is partial (a record holds part of a set); a wrong record is only checked in the middle and at the
 edges; there is no per-run cache of records; a commenter can be wrong; `trackid.net` joins the worker's outbound hosts.
 
+## Amendment (spec 029, worker 0.7.5): the check at the second-pass speeds
+
+"One confirming probe per span" stays the first probe. When the second pass is on and that probe, at normal speed, does not
+name the span's track, the same place is asked again at each other second-pass speed (×0.91 and ×1.09 by default), in the
+configured order, stopping at the first that names it: at most one probe per speed, each answer is remembered and not asked
+again on a resume. Only an answer naming the span's track is absorbed, so `differs` still reports what normal speed heard. Why: on a set
+played 6 to 8 % slow, 4 of the 8 failed checks were real tracks Shazam could not hear at normal speed
+([research](../../research/2026-11-13-shazam-mix-accuracy.md) §5.6). Cost: at most two more Shazam calls (with the default speeds) per span
+whose normal-speed check failed; no other probe is added inside a span. TrackId.net stays the source of truth.
+
 ## Links
 
 - Spec: [`specs/016-trackid-worker-clues/spec.md`](../../../specs/016-trackid-worker-clues/spec.md) · [plan](../../../specs/016-trackid-worker-clues/plan.md) · [research](../../../specs/016-trackid-worker-clues/research.md)
 - Amends [ADR-10](ADR-10-name-lookup-for-clues.md); keeps [ADR-04](ADR-04-keyless-sources-by-id.md) and [ADR-09](ADR-09-mix-identification-on-the-owners-computer.md)
 - [ADR index](README.md)
 - [Limits and roadmap](../800-limits-roadmap.md)
+- Spec 029: [`specs/029-worker-scan-evidence/spec.md`](../../../specs/029-worker-scan-evidence/spec.md) (the amendment)

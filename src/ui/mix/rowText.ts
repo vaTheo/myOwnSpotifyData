@@ -1,5 +1,9 @@
 import type { Clue, TracklistRow } from '../../db/schema';
 import { digLinks } from '../../features/mix/digLinks';
+import {
+  evidenceLevel,
+  type EvidenceLevel,
+} from '../../features/mix/evidence';
 import { isIdentified } from '../../features/mix/spotifySearch';
 import { formatClock, plural } from '../format';
 
@@ -107,6 +111,8 @@ export function listenIcons(row: TracklistRow): ListenIcon[] {
  */
 export function originText(row: TracklistRow): string | null {
   if (row.origin === 'replay') {
+    // Spec 029: the Evidence cell says the speed the track plays at.
+    if (row.mixSpeed !== undefined) return 'second listen';
     const pct = row.speedPercent ?? 0;
     return pct === 0
       ? 'second listen'
@@ -152,11 +158,14 @@ export function checkText(row: TracklistRow): string | null {
  * Round 004: "heard N× · best X %" when the row has clip counts, else
  * "X% match". Only while the row still reads as the scan detected it (an
  * edit flips `source` away from 'tracklistify'); never for a candidate or a
- * gap, which were not heard.
+ * gap, which were not heard. Spec 029: past those guards, a row with a
+ * known evidence level reads its level's sentence instead.
  */
 export function confidenceText(row: TracklistRow): string | null {
   if (row.gap || row.origin === 'clue' || row.origin === 'trackid') return null;
   if (row.source !== 'tracklistify' || row.confidence == null) return null;
+  const level = evidenceLevel(row);
+  if (level !== null) return levelLong(row, level);
   const best = Math.round(row.confidence);
   return row.hits !== undefined
     ? `heard ${row.hits}× · best ${best} %`
@@ -164,15 +173,76 @@ export function confidenceText(row: TracklistRow): string | null {
 }
 
 /**
- * The merged Confidence cell (round 010, Clips folded in): times heard, then
- * the best percentage, "×3 · 92%"; "92%" without clip counts. Null wherever
- * the long text is null; the long text is its tooltip and what a screen
- * reader and a phone read.
+ * The Evidence cell (spec 029; round 010's Confidence cell, Clips folded
+ * in). A row with a known level reads its level, "Solid ×11 · −5.8 %"; an
+ * older row reads times heard then the best percentage, "×3 · 92%", or
+ * "92%" without clip counts. Null wherever the long text is null; the long
+ * text is its tooltip and what a screen reader and a phone read.
  */
 export function confidenceShort(row: TracklistRow): string | null {
   if (confidenceText(row) === null || row.confidence == null) return null;
+  const level = evidenceLevel(row);
+  if (level !== null) return levelShort(row, level);
   const best = Math.round(row.confidence);
   return row.hits !== undefined ? `×${row.hits} · ${best}%` : `${best}%`;
+}
+
+/** Spec 029: under 0.05 % either way the track plays at its own speed. */
+const isOriginalSpeed = (pct: number): boolean => Math.abs(pct) < 0.05;
+
+/** Spec 029: "−5.8 %", "+3.4 %", "0 %" (the minus sign is U+2212). */
+export function speedShort(pct: number): string {
+  if (isOriginalSpeed(pct)) return '0 %';
+  return `${pct > 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)} %`;
+}
+
+/** Spec 029: "played 5.8 % slower", "played 3.4 % faster", "played at original speed". */
+export function speedText(pct: number): string {
+  if (isOriginalSpeed(pct)) return 'played at original speed';
+  return `played ${Math.abs(pct).toFixed(1)} % ${pct > 0 ? 'faster' : 'slower'}`;
+}
+
+/** Spec 029: the level's short words, the clip count, the mix speed. */
+function levelShort(row: TracklistRow, level: EvidenceLevel): string {
+  const count =
+    (level === 'solid' || level === 'out_of_step') && row.hits !== undefined
+      ? ` ×${row.hits}`
+      : '';
+  const words = {
+    solid: 'Solid',
+    once: 'Heard once',
+    out_of_step: 'Out of step',
+    candidates: 'Many candidates',
+  }[level];
+  const speed =
+    row.mixSpeed !== undefined ? ` · ${speedShort(row.mixSpeed)}` : '';
+  return `${words}${count}${speed}`;
+}
+
+/** Spec 029: the level's sentence, then how fast the track plays. */
+function levelLong(row: TracklistRow, level: EvidenceLevel): string {
+  const heard = row.hits !== undefined ? `heard ${row.hits}×, ` : '';
+  let words: string;
+  switch (level) {
+    case 'solid':
+      words = `Solid: ${heard}the position in the track advances in step`;
+      break;
+    case 'once':
+      words = 'Heard once';
+      break;
+    case 'out_of_step':
+      words = `Out of step: ${heard}the position in the track jumps`;
+      break;
+    case 'candidates':
+      words =
+        row.candidates !== undefined
+          ? `Many candidates: Shazam listed ${row.candidates} for this answer`
+          : 'Many candidates';
+      break;
+  }
+  const speed =
+    row.mixSpeed !== undefined ? ` · ${speedText(row.mixSpeed)}` : '';
+  return `${words}${speed}`;
 }
 
 /** TrackId's "12 other mixes"; null when the source gave no count. */

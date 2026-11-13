@@ -1,4 +1,5 @@
 import type { TracklistRow } from '../../db/schema';
+import { evidenceLevel, isFlagged } from './evidence';
 
 /**
  * The per-track review of the open mix (spec 003 §12, T118, T127): the
@@ -7,7 +8,12 @@ import type { TracklistRow } from '../../db/schema';
  * Round 010: every track is kept, so `validated` is never read here.
  */
 
-export type ReviewFilter = 'all' | 'notOnSpotify' | 'heardOnce';
+export type ReviewFilter =
+  | 'all'
+  | 'notOnSpotify'
+  | 'heardOnce'
+  | 'solid'
+  | 'flagged';
 
 export type SpotifyStatus = 'unchecked' | 'found' | 'notFound';
 
@@ -30,6 +36,11 @@ export function inFilter(row: TracklistRow, filter: ReviewFilter): boolean {
       return spotifyStatus(row) === 'notFound';
     case 'heardOnce':
       return row.hits === 1;
+    // Spec 029: the evidence level; Flagged is out of step or many candidates.
+    case 'solid':
+      return evidenceLevel(row) === 'solid';
+    case 'flagged':
+      return isFlagged(row);
   }
 }
 
@@ -43,16 +54,22 @@ const LABELS: Record<ReviewFilter, string> = {
   all: 'All',
   notOnSpotify: 'Not on Spotify',
   heardOnce: 'Heard once',
+  solid: 'Solid',
+  flagged: 'Flagged',
 };
 
 /**
  * The chips with their counts: All, Not on Spotify,
- * and Heard once only when a row has clip counts (round 004).
+ * Heard once only when a row has clip counts (round 004), then Solid and
+ * Flagged only when a row has a known evidence level (spec 029).
  */
 export function reviewChips(rows: readonly TracklistRow[]): ReviewChip[] {
   const tracks = rows.filter((r) => !r.gap);
   const filters: ReviewFilter[] = ['all', 'notOnSpotify'];
   if (rows.some((r) => r.hits !== undefined)) filters.push('heardOnce');
+  if (rows.some((r) => evidenceLevel(r) !== null)) {
+    filters.push('solid', 'flagged');
+  }
   return filters.map((filter) => {
     const count = tracks.filter((r) => inFilter(r, filter)).length;
     return { filter, label: `${LABELS[filter]} (${count})`, count };

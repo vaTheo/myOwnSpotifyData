@@ -11,6 +11,18 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.7.5: **how far to trust each heard row**. Every row Shazam heard now carries a level in the JSON (`evidence`), the first that
+  fits in this order of priority: `solid` (heard twice on clips sharing no audio, the place in the track moving in step with the
+  mix), `candidates` (Shazam's answer listed 10 entries or more), `out_of_step` (heard several times, never in step), `once` (heard
+  once). It also carries the speed the mix plays the track at (`mix_speed_percent`) and the number of entries Shazam listed
+  (`candidates`). A level never removes a row, and no Shazam call is added for it. The log's hit lines say where in the track the
+  clip was heard and at which speed (`at 1:32 in the track · −7.7 %`), and one line counts the rows of each level (`evidence · 11
+  solid · 27 many candidates · 4 out of step · 6 heard once`): after the second pass's summary, and also when there is no second
+  pass. When the second pass is on and the confirming probe of a TrackId.net span, at normal speed, does not name the span's track,
+  the same place is asked again at the other second-pass speeds, at most one probe per speed, stopping at the first that names it.
+  A probe shorter than 12 s (a shorter `WORKER_PROBE_SECONDS`, or the end of a set) is filled with silence to 12 s before it is
+  sent. A stopped scan keeps the levels when it resumes; hits heard by 0.7.4 before the stop give rows without a level. No new
+  setting. The app works unchanged; update it to see the levels, then scan the set again.
 - 0.7.4: **share links from the phone**. The link SoundCloud's phone app copies (`https://on.soundcloud.com/…`) can now be asked from
   the app. The worker asks `on.soundcloud.com` where it leads (one request, at most three, only inside SoundCloud's hosts), then
   downloads that set and asks TrackId.net with its real address; the log shows `link · https://soundcloud.com/…`. A link that cannot

@@ -7,16 +7,19 @@ ShazamIO, merged into one row per run of hits, written in the F15 shape
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import random
 import subprocess
 import time
+import wave
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from . import evidence
 from .match import artist_matches, title_matches
 from .trackid import check_of
 
@@ -202,24 +205,34 @@ def _key(entry: dict[str, Any]) -> str:
     return "name:" + entry["artist"].strip().lower() + "|" + entry["song_name"].strip().lower()
 
 
-def merge(hits: list[Hit], gap: int) -> list[dict[str, Any]]:
+def merge_with_hits(hits: list[Hit], gap: int) -> list[tuple[dict[str, Any], list[Hit]]]:
     """One row per run of hits of the same track (D5): a hit of the same key
     within `gap` seconds of the row's last hit extends it (best confidence
-    kept, start time kept, `hits` counted); anything else opens a new row."""
-    rows: list[dict[str, Any]] = []
+    kept, start time kept, `hits` counted); anything else opens a new row.
+    Each row comes with the hits it was made of, in time order; a row never
+    holds a hit's evidence (`heard`, spec 029)."""
+    out: list[tuple[dict[str, Any], list[Hit]]] = []
     current_key: str | None = None
     last_time = 0
     for hit in sorted(hits, key=lambda h: h.time):
         key = _key(hit.entry)
-        if rows and key == current_key and hit.time - last_time <= gap:
-            rows[-1]["confidence"] = max(rows[-1]["confidence"], hit.entry["confidence"])
-            rows[-1]["hits"] += 1  # clips that matched this row (owner, round 004)
+        if out and key == current_key and hit.time - last_time <= gap:
+            row, made_of = out[-1]
+            row["confidence"] = max(row["confidence"], hit.entry["confidence"])
+            row["hits"] += 1  # clips that matched this row (owner, round 004)
+            made_of.append(hit)
         else:
-            rows.append(dict(hit.entry))
-            rows[-1]["hits"] = 1
+            row = {k: v for k, v in hit.entry.items() if k != "heard"}
+            row["hits"] = 1
+            out.append((row, [hit]))
             current_key = key
         last_time = hit.time
-    return rows
+    return out
+
+
+def merge(hits: list[Hit], gap: int) -> list[dict[str, Any]]:
+    """The rows of `merge_with_hits`, without their hits."""
+    return [row for row, _ in merge_with_hits(hits, gap)]
 
 
 def drop_sandwiched(hits: list[Hit], gap: int) -> tuple[list[Hit], int]:
@@ -298,12 +311,42 @@ def gaps_of(misses: list[int], hit_times: list[int], step: int) -> list[tuple[in
     return gaps
 
 
+def _heard_parts(heard: Any) -> tuple[str | None, str | None]:
+    """Spec 029: where in the track a hit was heard (`at 1:32 in the track`) and the speed in the mix (`−7.7 %`)."""
+    if not isinstance(heard, dict):
+        return None, None
+    seconds = max(0, int(heard["offset"]))
+    percent = round((evidence.mix_speed(heard) - 1) * 100, 1)
+    sign = "" if percent == 0 else "+" if percent > 0 else "\u2212"  # U+2212, the minus sign
+    speed = f"{sign}{abs(percent):.1f} %"
+    return f"at {seconds // 60}:{seconds % 60:02d} in the track", speed
+
+
 def _details(entry: dict[str, Any]) -> str:
     meta = entry.get("metadata") or {}
     conf = entry.get("confidence")
+    position, speed = _heard_parts(entry.get("heard"))
     return " · ".join(
-        x for x in (meta.get("isrc"), meta.get("label"), f"{conf:.0f} %" if isinstance(conf, (int, float)) else None) if x
+        x
+        for x in (
+            meta.get("isrc"),
+            meta.get("label"),
+            position,
+            speed,
+            f"{conf:.0f} %" if isinstance(conf, (int, float)) else None,
+        )
+        if x
     )
+
+
+EVIDENCE_WORDS = {"solid": "solid", "candidates": "many candidates", "out_of_step": "out of step", "once": "heard once"}
+
+
+def _evidence_line(rows: list[dict[str, Any]]) -> str | None:
+    """Spec 029: `  evidence · 2 solid · 1 heard once`, the levels with no row left out; `None` when no row has one."""
+    counts = [(sum(1 for r in rows if r.get("evidence") == level), EVIDENCE_WORDS[level]) for level in evidence.LEVELS]
+    parts = [f"{n} {words}" for n, words in counts if n]
+    return "  evidence · " + " · ".join(parts) if parts else None
 
 
 async def scan(
@@ -457,32 +500,67 @@ async def scan(
     def in_core(t: int) -> bool:
         return any(g.core_start <= t and t + step <= g.core_end for g in guide_list)
 
+    def names_span(entry: dict[str, Any] | None, sp: Any) -> bool:
+        return entry is not None and artist_matches(sp.artist, str(entry.get("artist", ""))) and title_matches(sp.title, str(entry.get("song_name", "")))
+
+    async def ask_confirm(guide: Any, data: bytes, speed: float) -> tuple[bool, dict[str, Any] | None]:
+        """One confirming probe of `guide` cut at `speed`: (answered, entry), logged and remembered."""
+        at = hhmmss(guide.confirm_at)
+        where = f"trackid confirm · span {guide.span_index + 1} · {at}" + (f" ×{speed:g}" if speed != 1.0 else "")
+        response = await ask(data, where)
+        if response is None:
+            return False, None  # an undecodable probe is not remembered: asked again on a resume
+        where = answered(where)
+        entry = track_entry(response, at)
+        heard = evidence.heard_of(response, speed) if entry is not None else None
+        if entry is not None and heard is not None:
+            entry["heard"] = heard  # spec 029: the log line says where and at which speed
+        if entry is not None:
+            say(f"  {where} · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
+        else:
+            say(f"  {where} · no match")
+        if remember is not None:
+            ckey = str(guide.span_index) if speed == 1.0 else f"{guide.span_index}@{speed:g}"
+            remember("confirm", ckey, dict(entry) if entry is not None else None)
+        return True, entry
+
     async def confirm_due(limit: float) -> None:
-        """The confirming probe of every guide not yet confirmed with `confirm_at < limit`."""
+        """The confirming probe of every guide not yet confirmed with `confirm_at < limit`. Spec 029: when its
+        normal-speed entry does not name the span's track and the second pass is on, the same place is asked at
+        each other speed of `second_pass_order(speeds)` until one names it; only that entry is absorbed."""
         for guide in sorted(guide_list, key=lambda g: g.confirm_at):
             if guide.span_index in confirmed or guide.confirm_at >= limit:
                 continue
             confirmed.add(guide.span_index)
+            sp = span_list[guide.span_index]
             ckey = str(guide.span_index)
             if ckey in confirm_done:
                 old = confirm_done[ckey]
-                absorb(guide.confirm_at, dict(old) if old is not None else None, True)
+                entry = dict(old) if old is not None else None
+                absorb(guide.confirm_at, entry, True)
+            else:
+                data = cut(guide.confirm_at)
+                if len(data) < MIN_PROBE_BYTES:
+                    continue
+                ok, entry = await ask_confirm(guide, data, 1.0)
+                absorb(guide.confirm_at, entry, ok)
+            if names_span(entry, sp) or cut_at is None or gap_step <= 0:
                 continue
-            data = cut(guide.confirm_at)
-            if len(data) < MIN_PROBE_BYTES:
-                continue
-            where = f"trackid confirm · span {guide.span_index + 1} · {hhmmss(guide.confirm_at)}"
-            response = await ask(data, where)
-            if response is not None:
-                where = answered(where)
-            entry = track_entry(response, hhmmss(guide.confirm_at)) if response is not None else None
-            absorb(guide.confirm_at, entry, response is not None)
-            if entry is not None:
-                say(f"  {where} · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
-            elif response is not None:
-                say(f"  {where} · no match")
-            if remember is not None and response is not None:  # an undecodable probe is asked again on a resume
-                remember("confirm", ckey, dict(entry) if entry is not None else None)
+            for speed in second_pass_order(speeds):
+                if speed == 1.0:
+                    continue
+                rkey = f"{guide.span_index}@{speed:g}"
+                if rkey in confirm_done:
+                    old = confirm_done[rkey]
+                    entry = dict(old) if old is not None else None
+                else:
+                    data = cut_at(guide.confirm_at, speed)
+                    if len(data) < MIN_PROBE_BYTES:
+                        continue
+                    _, entry = await ask_confirm(guide, data, speed)
+                if names_span(entry, sp):
+                    absorb(guide.confirm_at, entry, True)  # a retry naming another track is never absorbed (R6)
+                    break
 
     kept = 0
     first_done: dict[int, Any] = {}
@@ -641,6 +719,9 @@ async def scan(
             if response is not None:
                 where = answered(where)
             entry = track_entry(response, hhmmss(t)) if response is not None else None
+            heard = evidence.heard_of(response, 1.0) if entry is not None else None
+            if entry is not None and heard is not None:
+                entry["heard"] = heard  # spec 029: what Shazam said of the hit, kept in the run state too
             covered = bool(span_list) and absorb(t, entry, response is not None)
             if covered:
                 if entry is not None:
@@ -717,6 +798,9 @@ async def scan(
                     if response is not None:
                         where = answered(where)
                     entry = track_entry(response, hhmmss(p)) if response is not None else None
+                    heard = evidence.heard_of(response, speed) if entry is not None else None
+                    if entry is not None and heard is not None:
+                        entry["heard"] = heard  # spec 029: at the speed the probe was re-cut at
                     if entry is not None and span_list and absorb(p, entry, True):
                         say(f"  {where} · inside a TrackId.net span · {entry['artist']} — {entry['song_name']} · {_details(entry)}")
                     elif entry is not None:
@@ -749,6 +833,18 @@ async def scan(
 
     if cut_at is not None and gap_step > 0 and not misses and stopped is None:
         say("  second pass · every probe found a track · nothing to hear again")
+    # Spec 029: each row gets its level from its hits and the other hits of its track; nothing else changes.
+    # Graded here so the `evidence` line follows the second-pass summary; no hit is added after this point.
+    filtered, sandwiched = drop_sandwiched(hits, gap)
+    made = merge_with_hits(filtered, gap)
+    graded = evidence.levels(
+        [(_key(hits_of[0].entry), [(h.time, h.entry.get("heard")) for h in hits_of]) for _, hits_of in made], probe_seconds
+    )
+    for (row, _), fields in zip(made, graded):
+        row.update(fields)
+    levels_line = _evidence_line([row for row, _ in made])
+    if levels_line:
+        say(levels_line)
     if answers:
         ordered = sorted(answers)
         slow = sum(1 for a in answers if a > SLOW_ANSWER_SECONDS)
@@ -756,7 +852,6 @@ async def scan(
             f"  shazam · {len(answers)} answers · median {ordered[len(ordered) // 2]:.1f} s"
             f" · {slow} over {SLOW_ANSWER_SECONDS:g} s ({round(100 * slow / len(answers))} %)"
         )
-    filtered, sandwiched = drop_sandwiched(hits, gap)
     if sandwiched:
         say(f"  scan · {sandwiched} finding{'' if sandwiched == 1 else 's'} between two hits of the same song dropped")
     if hits_out is not None:
@@ -771,7 +866,7 @@ async def scan(
         report["resumed"] = {"probes_kept": kept, "from": hhmmss(max(first_done))} if kept else None
         report["guided"] = {"spans": len(guide_list), "skipped_probes": skipped_probes} if guide_list else None
         report["span_checks"] = {i: check_of(sp, absorbed.get(i, []), i in probed) for i, sp in enumerate(span_list)}
-    return merge(filtered, gap)
+    return [row for row, _ in made]
 
 
 def write_result(
@@ -863,12 +958,43 @@ def cut_probe(
             return b""
         # The size and time of a good cut go on the probe's own line (scan);
         # ffmpeg gets a line here only when it printed something or failed.
-        return scratch.read_bytes()
+        # The pad target is Shazam's window, not `seconds` (spec 029, FR-007).
+        return pad_wav(scratch.read_bytes())
     finally:
         try:
             scratch.unlink()
         except OSError:
             pass
+
+
+def pad_wav(data: bytes, seconds: float = PROBE_SECONDS) -> bytes:
+    """A WAV shorter than `seconds`, filled with silence up to `seconds`
+    (spec 029, FR-007): Shazam hears 8 to 11 s of audio padded to 12 s, not
+    11 s alone. Data under `MIN_PROBE_BYTES` stays as it is, so a probe with
+    no audio still ends a scan of unknown length (research R5); so do a WAV
+    already long enough and bytes that are not a readable WAV. Never raises."""
+    if len(data) < MIN_PROBE_BYTES:
+        return data
+    try:
+        with wave.open(io.BytesIO(data), "rb") as source:
+            params = source.getparams()
+            frames = source.readframes(params.nframes)
+        width = params.nchannels * params.sampwidth
+        if width <= 0 or params.framerate <= 0:
+            return data
+        have = len(frames) // width
+        want = round(seconds * params.framerate)
+        if have >= want:
+            return data
+        out = io.BytesIO()
+        with wave.open(out, "wb") as target:
+            target.setnchannels(params.nchannels)
+            target.setsampwidth(params.sampwidth)
+            target.setframerate(params.framerate)
+            target.writeframes(frames[: have * width] + bytes((want - have) * width))
+        return out.getvalue()
+    except Exception:
+        return data
 
 
 def default_classify(err: Exception) -> str:

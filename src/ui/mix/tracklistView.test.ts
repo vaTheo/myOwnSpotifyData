@@ -65,3 +65,27 @@ describe('tracklistView (S13c review M2)', () => {
     expect(tracklistView(rows, { ...ALL, decade: 2000 }, 9).order).toEqual([0]);
   });
 });
+
+describe('tracklistView: the Solid and Flagged chips (spec 029)', () => {
+  const rows = [
+    r({ evidence: 'solid', hits: 5 }),
+    r({ evidence: 'candidates', hits: 1, candidates: 14 }),
+    r({ gap: true, artist: '', title: '' }),
+    r({ evidence: 'out_of_step', hits: 2 }),
+    r({ evidence: 'once', hits: 1 }),
+    r({ hits: 3 }),
+  ];
+
+  it('Solid keeps the solid rows, Flagged the flagged ones, in set order', () => {
+    expect(tracklistView(rows, { ...ALL, filter: 'solid' }, null).order).toEqual(
+      [0]
+    );
+    expect(
+      tracklistView(rows, { ...ALL, filter: 'flagged' }, null).order
+    ).toEqual([1, 3]);
+  });
+
+  it('a gap row shows under All only', () => {
+    expect(tracklistView(rows, ALL, null).order).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+});

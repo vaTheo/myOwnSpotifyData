@@ -704,6 +704,36 @@ const JOB = {
   found: '00000000-0000-4000-8000-00000000d004',
   failedLatest: '00000000-0000-4000-8000-00000000f002',
 } as const;
+/**
+ * Spec 029: the evidence of a heard Sunrise row, by its position. Two rows
+ * heard more than once are out of step, one row heard once had many
+ * candidates; the others are solid (two hits or more) or once. The mix runs
+ * between −8 % and +5 %; a second-listen row's mix speed is not its replay
+ * speed.
+ */
+function sunriseEvidence(
+  i: number,
+  hits: number,
+  replay: number | null
+): Pick<TracklistRow, 'evidence' | 'mixSpeed' | 'candidates'> {
+  const mixSpeed =
+    replay === 4
+      ? 3.6
+      : replay === -4
+        ? -3.8
+        : Math.round(((i * 37) % 130) - 80) / 10;
+  if (hits === 1) {
+    return i === 11
+      ? { evidence: 'candidates', mixSpeed, candidates: 14 }
+      : { evidence: 'once', mixSpeed, candidates: 1 + (i % 4) };
+  }
+  return {
+    evidence: i === 8 || i === 14 ? 'out_of_step' : 'solid',
+    mixSpeed,
+    candidates: 1 + (i % 3),
+  };
+}
+
 function buildMixes(
   rand: Rand,
   lib: Built
@@ -796,6 +826,9 @@ function buildMixes(
       continue;
     }
     const replay = i === 4 ? 4 : i === 10 ? -4 : null;
+    // Same draw order as before (confidence, then hits): the demo stays as it was.
+    const confidence = int(rand, 55, 99);
+    const hits = i % 5 === 1 || replay !== null ? 1 : int(rand, 2, 7);
     second.push(
       tracklistRow({
         startSec: at,
@@ -804,14 +837,16 @@ function buildMixes(
         title,
         source: 'tracklistify',
         detected: { artist, title },
-        confidence: int(rand, 55, 99),
+        confidence,
         isrc: t.isrc,
         // Round 010: a Shazam page on some rows, for the row's Shazam icon.
         shazamUrl:
           i % 3 === 0
             ? `https://www.shazam.com/track/${900100 + i}/demo-${i}`
             : null,
-        hits: i % 5 === 1 || replay !== null ? 1 : int(rand, 2, 7),
+        hits,
+        // Spec 029: every level, a speed and a candidate count, by position.
+        ...sunriseEvidence(i, hits, replay),
         // Round 005: Shazam's year on most heard rows, a catalogue's on some.
         ...(i % 4 === 3
           ? {}
@@ -850,18 +885,25 @@ function buildMixes(
   // The Dock: a result asked again after a stop, merged into the rows the
   // owner had reviewed (T125): the review kept, a removed track left out,
   // the new tracks added.
-  const scanRow = (t: (typeof known)[number], startSec: number) =>
-    tracklistRow({
+  const scanRow = (t: (typeof known)[number], startSec: number) => {
+    const confidence = int(rand, 60, 98);
+    const hits = int(rand, 1, 5);
+    return tracklistRow({
       startSec,
       endSec: startSec + 12,
       artist: t.artists[0].name,
       title: t.name,
       source: 'tracklistify',
       detected: { artist: t.artists[0].name, title: t.name },
-      confidence: int(rand, 60, 98),
+      confidence,
       isrc: t.isrc,
-      hits: int(rand, 1, 5),
+      hits,
+      // Spec 029: a level that fits the hits; the Dock was played 1.2 % slow.
+      evidence: hits >= 2 ? 'solid' : 'once',
+      mixSpeed: -1.2,
+      candidates: 1 + (hits % 3),
     });
+  };
   const before: TracklistRow[] = [];
   at = 0;
   for (let i = 0; i < 6; i += 1) {

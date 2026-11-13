@@ -706,7 +706,7 @@ export const PAGES: ShotPage[] = [
   },
   {
     // Rounds 003–004 rows, seeded (T120, T128): clip counts, second listen
-    // at +4 % and −4 %, a candidate "not heard" with its clue, a gap with
+    // at +4 % and −4 % (spec 029: their speed in the Evidence cell), a candidate "not heard" with its clue, a gap with
     // clues, set-wide clues; the Sort select shows.
     id: 'mix-round004',
     hash: `#/mix/${enc('https://www.youtube.com/watch?v=demoSet0001')}`,
@@ -956,8 +956,8 @@ export const PAGES: ShotPage[] = [
     },
   },
   {
-    // The Sort select on Confidence (round 010: clips merged into it):
-    // most heard first, then the best percent.
+    // The Sort select on Evidence (round 010: clips merged into it; spec
+    // 029: the level first, then most heard, then the best percent).
     id: 'mix-sort-confidence',
     hash: `#/mix/${enc(SUNRISE)}`,
     setup: async (page) => {

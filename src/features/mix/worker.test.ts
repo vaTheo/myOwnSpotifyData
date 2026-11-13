@@ -1015,3 +1015,166 @@ describe('resultToRows — spec 018 one row per song', () => {
     expect(kept).toHaveLength(3);
   });
 });
+
+describe('resultToRows — spec 029 level, speed and candidates', () => {
+  const three = { evidence: 'solid', mix_speed_percent: -7.7, candidates: 1 };
+  const withTracks = (tracks: Record<string, unknown>[]): unknown =>
+    resultFixture({ tracks });
+  const heard = (title: string, extra: Record<string, unknown> = {}) => ({
+    song_name: title,
+    artist: 'Velto Marr',
+    time_in_mix: '00:10:00',
+    confidence: 90,
+    duration: null,
+    hits: 4,
+    ...extra,
+  });
+  const FIELDS = ['evidence', 'mixSpeed', 'candidates'] as const;
+
+  it('keeps the three fields on a first-pass row and on a replay row', () => {
+    const r = resultToRows(
+      withTracks([
+        heard('Glasshour', three),
+        heard('Undertow Lane', {
+          time_in_mix: '00:20:00',
+          origin: 'replay',
+          speed_percent: 9,
+          evidence: 'out_of_step',
+          mix_speed_percent: 3.4,
+          candidates: 12,
+        }),
+      ])
+    );
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows.find((x) => x.title === 'Glasshour')).toMatchObject({
+      evidence: 'solid',
+      mixSpeed: -7.7,
+      candidates: 1,
+    });
+    expect(r.rows.find((x) => x.title === 'Undertow Lane')).toMatchObject({
+      origin: 'replay',
+      speedPercent: 9,
+      evidence: 'out_of_step',
+      mixSpeed: 3.4,
+      candidates: 12,
+    });
+  });
+
+  it('never puts them on a clue or a TrackId.net row', () => {
+    const r = resultToRows(
+      withTracks([
+        heard('Glasshour', three),
+        {
+          song_name: 'Paper Coast',
+          artist: 'Ondin',
+          time_in_mix: null,
+          origin: 'clue',
+          clue: {
+            at: null,
+            author: 'dj',
+            text: 'Ondin - Paper Coast',
+            kind: 'description',
+          },
+          ...three,
+        },
+        {
+          song_name: 'Low Harbour',
+          artist: 'Kessa Rue',
+          time_in_mix: '00:30:00',
+          origin: 'trackid',
+          trackid: { slug: 'a-mix', span_start: 1800, span_end: 1900 },
+          ...three,
+        },
+      ])
+    );
+    if (!r.ok) throw new Error(r.message);
+    for (const title of ['Paper Coast', 'Low Harbour']) {
+      const row = r.rows.find((x) => x.title === title);
+      if (!row) throw new Error(`no row ${title}`);
+      for (const f of FIELDS) expect(f in row).toBe(false);
+    }
+  });
+
+  it('drops a field out of bounds and keeps the row', () => {
+    const cases: [Record<string, unknown>, (typeof FIELDS)[number]][] = [
+      [{ ...three, evidence: '' }, 'evidence'],
+      [{ ...three, evidence: 'x'.repeat(33) }, 'evidence'],
+      [{ ...three, evidence: 4 }, 'evidence'],
+      [{ ...three, mix_speed_percent: 50.1 }, 'mixSpeed'],
+      [{ ...three, mix_speed_percent: -50.1 }, 'mixSpeed'],
+      [{ ...three, mix_speed_percent: Number.NaN }, 'mixSpeed'],
+      [{ ...three, mix_speed_percent: '-7.7' }, 'mixSpeed'],
+      [{ ...three, candidates: 0 }, 'candidates'],
+      [{ ...three, candidates: 1001 }, 'candidates'],
+      [{ ...three, candidates: 2.5 }, 'candidates'],
+    ];
+    for (const [extra, field] of cases) {
+      const r = resultToRows(withTracks([heard('Glasshour', extra)]));
+      if (!r.ok) throw new Error(r.message);
+      const row = r.rows.find((x) => x.title === 'Glasshour');
+      if (!row) throw new Error('row dropped');
+      for (const f of FIELDS) expect(f in row, `${f} / ${field}`).toBe(f !== field);
+    }
+  });
+
+  it('accepts the edges of the bounds and an unknown level word', () => {
+    const r = resultToRows(
+      withTracks([
+        heard('Glasshour', {
+          evidence: 'x'.repeat(32),
+          mix_speed_percent: 50,
+          candidates: 1000,
+        }),
+        heard('Undertow Lane', {
+          time_in_mix: '00:20:00',
+          evidence: 'maybe',
+          mix_speed_percent: -50,
+          candidates: 1,
+        }),
+      ])
+    );
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows.find((x) => x.title === 'Glasshour')).toMatchObject({
+      evidence: 'x'.repeat(32),
+      mixSpeed: 50,
+      candidates: 1000,
+    });
+    expect(r.rows.find((x) => x.title === 'Undertow Lane')).toMatchObject({
+      evidence: 'maybe',
+      mixSpeed: -50,
+      candidates: 1,
+    });
+  });
+
+  it("gives a 0.7.4 row exactly today's row: no key for the three fields", () => {
+    const r = resultToRows(
+      withTracks([
+        heard('Glasshour'),
+        heard('Undertow Lane', {
+          time_in_mix: '00:20:00',
+          origin: 'replay',
+          speed_percent: -4,
+        }),
+      ])
+    );
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows.find((x) => x.title === 'Glasshour')).toEqual({
+      startSec: 600,
+      endSec: null,
+      artist: 'Velto Marr',
+      title: 'Glasshour',
+      label: null,
+      source: 'tracklistify',
+      gap: false,
+      detected: { artist: 'Velto Marr', title: 'Glasshour' },
+      referenceCount: null,
+      confidence: 90,
+      isrc: null,
+      shazamUrl: null,
+      hits: 4,
+    });
+    expect(r.rows).toHaveLength(2);
+    for (const row of r.rows)
+      for (const f of FIELDS) expect(f in row).toBe(false);
+  });
+});
