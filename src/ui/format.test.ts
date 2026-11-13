@@ -11,6 +11,7 @@ import {
   plural,
   profileLine,
   reachLine,
+  topCaption,
 } from './format';
 
 describe('format helpers', () => {
@@ -128,5 +129,25 @@ describe('format helpers', () => {
     expect(formatBpm(128.04)).toBe('128');
     expect(formatBpm(124.96)).toBe('125');
     expect(formatBpm(0)).toBe('0');
+  });
+});
+
+describe('topCaption', () => {
+  it('names Spotify as the source of the ranking', () => {
+    expect(topCaption('artists', false, true)).toBe(
+      "Spotify's own ranking for this period."
+    );
+    expect(topCaption('tracks', true, true)).toBe(
+      "Spotify's own ranking, period by period."
+    );
+  });
+
+  it('names the history import only where plays are shown', () => {
+    expect(topCaption('tracks', false, true)).toBe(
+      "Spotify's own ranking for this period. Plays come from your history import."
+    );
+    expect(topCaption('tracks', false, false)).toBe(
+      "Spotify's own ranking for this period."
+    );
   });
 });

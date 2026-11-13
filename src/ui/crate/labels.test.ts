@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { STALE_MS, staleMonthKey, windowLabel, yearSpanLabel } from './labels';
+import {
+  STALE_MS,
+  staleMonthKey,
+  viewSwitchItems,
+  windowLabel,
+  yearSpanLabel,
+} from './labels';
 
 // The device zone is the whole point of these helpers, so the file pins one
 // far from UTC. Kiritimati is UTC+14: 31 Aug 23:30 UTC is 1 Sep there.
@@ -58,5 +64,23 @@ describe('windowLabel', () => {
     expect(windowLabel(1)).toBe('month');
     expect(windowLabel(3)).toBe('3 months');
     expect(windowLabel(6)).toBe('6 months');
+  });
+});
+
+describe('viewSwitchItems', () => {
+  it('names the six views in the hub order, each at its own address', () => {
+    expect(viewSwitchItems('gems').map((i) => [i.label, i.href])).toEqual([
+      ['Heavy rotation', '#/crate/rotation'],
+      ['Forgotten gems', '#/crate/gems'],
+      ['All-time classics', '#/crate/classics'],
+      ['By year', '#/crate/year'],
+      ['Finish rate', '#/crate/finish'],
+      ['Rarely played', '#/crate/rarely-played'],
+    ]);
+  });
+
+  it('marks the open view only', () => {
+    const current = viewSwitchItems('year').filter((i) => i.current);
+    expect(current.map((i) => i.view)).toEqual(['year']);
   });
 });

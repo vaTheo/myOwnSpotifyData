@@ -140,7 +140,7 @@ The app:
 - **FR-016**: The demo data MUST hold rows of every level, so the mix pages can be checked without the owner's data.
 - **FR-017**: No Spotify read or write, no new network call, no `DB_VERSION` bump (optional fields, ADR-05).
 
-Documentation (same batch as the code): this spec's plan and tasks; an addition to the result-shape contract of `specs/016-trackid-worker-clues/`; how-it-works §10, §13, §16, §17; the feature inventory (F44, and the lines of F19, F24, F26 that name the %); Limits and roadmap (the mix-scan accuracy entry); the README's tracklist columns; the CHANGELOG; `worker/README.md` and `worker/RELEASE_NOTES.md`.
+Documentation (same batch as the code): this spec's plan and tasks; an addition to the result-shape contract of `specs/016-trackid-worker-clues/`; how-it-works §10, §13, §16, §17; the feature inventory (F45, and the lines of F19, F24, F26 that name the %); Limits and roadmap (the mix-scan accuracy entry); the README's tracklist columns; the CHANGELOG; `worker/README.md` and `worker/RELEASE_NOTES.md`.
 
 ### Key Entities
 

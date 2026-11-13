@@ -65,7 +65,7 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   worker or `run --once` never asks again by itself.
 - Mix scan accuracy (measured 2026-11-13, [research](../research/2026-11-13-shazam-mix-accuracy.md)): Shazam hears a track only
   within about ±5 % of its original speed; outside that, or for a track it does not hold, it often names another track instead
-  of answering nothing, so the scan of a pitched set lists wrong rows. Since worker 0.7.5 (spec 029, F44) every heard row carries
+  of answering nothing, so the scan of a pitched set lists wrong rows. Since worker 0.7.5 (spec 029, F45) every heard row carries
   a level (Solid, Many candidates, Out of step, Heard once) and the speed the track plays at in the mix instead of the %; the
   TrackId.net check is asked again at the other second-pass speeds when normal speed does not name the span's track; a probe
   shorter than 12 s is filled with silence. What stays: a row heard once cannot be told from a wrong one; a real track at its

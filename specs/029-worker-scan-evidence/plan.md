@@ -12,7 +12,7 @@ the hits of a scan into a level per row (Solid, Many candidates, Out of step, He
 track plays at in the mix. The result gains three optional fields on a heard row; nothing else in it moves, no row is removed, and
 the scan asks nothing more of Shazam. Two small worker changes ride along: a probe shorter than 12 s is filled with silence, and
 the TrackId.net check asks again at the second-pass speeds when normal speed does not agree. The app keeps the three fields, shows
-the level and the speed in the column that showed the %, sorts on the level and adds two chips. Worker 0.7.5, feature F44.
+the level and the speed in the column that showed the %, sorts on the level and adds two chips. Worker 0.7.5, feature F45.
 
 ## Technical Context
 
@@ -226,7 +226,7 @@ Line numbers here, in research.md and in tasks.md are those of the code before t
 | `worker/.env.example`, `worker/mix_worker/env.example` | the `WORKER_PROBE_SECONDS` comment (both files stay identical) |
 | `specs/002-mix-analysis-worker/contracts/worker.md` | the `WORKER_PROBE_SECONDS` row, an amendment note |
 | `docs/architecture/000-how-it-works.md` | §10 (the fields a result row brings), §13 (the Evidence cell, chips, sort), §16 (validation), §17 (evidence, levels, padding, the check's speeds) |
-| `docs/architecture/100-features.md` | new row F44; the lines of F19, F24 and F26 that name the % or the Confidence column |
+| `docs/architecture/100-features.md` | new row F45; the lines of F19, F24 and F26 that name the % or the Confidence column |
 | `docs/architecture/800-limits-roadmap.md` | the mix-scan accuracy entry: what is now built, what stays unsolved |
 | `docs/research/2026-11-13-shazam-mix-accuracy.md` | one line under the recommendation: built in spec 029 |
 | `README.md` | the tracklist columns (Evidence, the levels in plain words, the chips, the sort) |

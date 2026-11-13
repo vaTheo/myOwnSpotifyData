@@ -413,7 +413,7 @@ corresponding screens, and reads nothing from Spotify.
 
 #### Data presentation
 
-- **FR-015**: Every track collection (Top tracks, Playlist, Artist, the five Crate views, the Mix tracklist) MUST be shown as a table
+- **FR-015**: Every track collection (Top tracks, Playlist, Artist, the six Crate views (Rarely played since round 007), the Mix tracklist) MUST be shown as a table
   on medium windows and wider: one column per attribute, header cells and a visible sort order.
 - **FR-016**: The owner MUST be able to sort a table by any of its columns, ascending or descending, with the direction shown in the
   header. The screen's own ranking MUST stay the default. Rank numbers MUST come from the full list, so filtering or re-sorting never
@@ -470,7 +470,7 @@ corresponding screens, and reads nothing from Spotify.
 - **FR-034 Artist**: a header with name, saved tracks, playlists and Spotify link, and the reach block (listeners, fans, Wikipedia
   profile, as-of date, credit, outbound links, "Look up artists" when unresolved). A track table: title, album, plays, BPM, key,
   playlists. The details list the playlists that hold each track.
-- **FR-035 Crate hub** (Listening): five cards (Heavy rotation, Forgotten gems, All-time classics, By year, Finish rate), each with its name, a
+- **FR-035 Crate hub** (Listening): six cards (Heavy rotation, Forgotten gems, All-time classics, By year, Finish rate, and Rarely played since round 007), each with its name, a
   one-line description, its track count, its current setting and its top track, computed with the view's current setting as today.
   The import status line (range, plays, imported date, stale-history warning, Update import) above the cards.
 - **FR-036 Crate views**: each view keeps its control (window, unplayed-for, sort, year and period, Finished/Skipped), its caption

@@ -550,6 +550,7 @@ type Mod = Record<string, any>;
 interface ModelMods {
   aggregate: Mod;
   crate: Mod;
+  rarely: Mod;
   match: Mod;
   reach: Mod;
   features: Mod;
@@ -596,7 +597,7 @@ function yearOutputs(year: Mod, model: any, now: number): unknown {
 
 /** Every output the model areas give on one dataset. */
 function modelOutputs(m: ModelMods, rows: unknown, now: number): unknown {
-  const { aggregate, crate, match, reach, features, year } = m;
+  const { aggregate, crate, rarely, match, reach, features, year } = m;
   const model = aggregate.buildModel(rows);
   const date = new Date(now);
   const periods = ['short_term', 'medium_term', 'long_term'];
@@ -617,7 +618,7 @@ function modelOutputs(m: ModelMods, rows: unknown, now: number): unknown {
     tracks: aggregate.artistTracks(model, a.key),
   }));
 
-  // Crate: the five views over every window, year and period.
+  // Crate: the six views over every window, year, period and playlist.
   const plays = model.plays;
   out.rotation = crate.ROTATION_WINDOWS.map((w: number) =>
     crate.heavyRotation(plays, date, w)
@@ -639,6 +640,9 @@ function modelOutputs(m: ModelMods, rows: unknown, now: number): unknown {
     periods: yearPeriods.map((p) => crate.byYear(plays, y, p)),
   }));
   out.finish = ['finished', 'skipped'].map((t) => crate.finishRate(plays, t));
+  out.rarely = [null, ...model.playlists.map((p: any) => p.id)].map((id) =>
+    rarely.rarelyPlayed(model, new Set(rarely.RARE_COUNTS), id)
+  );
 
   // Match: every playlist, its first five seeds with a feature.
   out.match = model.playlists.map((p: any) => {
@@ -729,6 +733,7 @@ async function loadModel(
   return {
     aggregate: await load('src/model/aggregate.ts'),
     crate: await load('src/model/crate.ts'),
+    rarely: await load('src/model/rarelyPlayed.ts'),
     match: await load('src/model/match.ts'),
     reach: await load('src/model/reach.ts'),
     features: await load('src/model/features.ts'),

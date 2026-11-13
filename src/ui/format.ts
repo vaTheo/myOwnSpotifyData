@@ -180,3 +180,20 @@ export function historyLine(
   if (zoneAtImport) parts.push(`Months bucketed in ${zoneAtImport}.`);
   return parts.join(' ');
 }
+
+/**
+ * Top's caption (spec 030, FR-015): the ranking is Spotify's own, which is
+ * why it differs from the Crate's. Plays are named only where the table
+ * shows them, so the line never promises a figure that is not on screen.
+ */
+export function topCaption(
+  kind: 'tracks' | 'artists',
+  comparing: boolean,
+  hasPlays: boolean
+): string {
+  if (comparing) return "Spotify's own ranking, period by period.";
+  const ranking = "Spotify's own ranking for this period.";
+  return kind === 'tracks' && hasPlays
+    ? `${ranking} Plays come from your history import.`
+    : ranking;
+}

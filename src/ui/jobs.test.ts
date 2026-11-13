@@ -74,7 +74,7 @@ describe('activeJobs (data-model §7)', () => {
         label: 'Syncing playlists',
         done: 3,
         total: 40,
-        href: '#/settings',
+        href: '#/settings/sync',
       },
       {
         id: 'import',
@@ -88,28 +88,28 @@ describe('activeJobs (data-model §7)', () => {
         label: 'Looking up BPM and key',
         done: 10,
         total: 200,
-        href: '#/settings',
+        href: '#/settings/audio',
       },
       {
         id: 'rekordbox',
         label: 'Importing Rekordbox',
         done: 0,
         total: 1,
-        href: '#/settings',
+        href: '#/settings/audio',
       },
       {
         id: 'reach',
         label: 'Looking up artists',
         done: 5,
         total: 900,
-        href: '#/settings',
+        href: '#/settings/reach',
       },
       {
         id: 'server',
         label: 'Saving to server',
         done: 1,
         total: 4,
-        href: '#/settings',
+        href: '#/settings/server',
       },
       {
         id: 'like',
@@ -168,7 +168,7 @@ describe('activeJobs (data-model §7)', () => {
       },
     });
     expect(jobs.map((j) => [j.id, j.label, j.href, j.total])).toEqual([
-      ['server', 'Loading from server', '#/settings', 0],
+      ['server', 'Loading from server', '#/settings/server', 0],
       ['like', 'Liking songs', '#/playlist/p%202', 9],
       ['createPlaylist', 'Creating playlist', '#/mix', null],
     ]);

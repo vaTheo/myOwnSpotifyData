@@ -22,6 +22,23 @@ older worker reads as before ("×3 · 92%"). Spec `specs/029-worker-scan-evidenc
 Scan a set again to get levels on it: a set already saved has none. No new setting, no Spotify read or write, no server change;
 a mix's tracks gain three optional fields, with no database upgrade.
 
+## 2026-11-13 — Move between Crate views without the hub
+
+Each Crate view now has the six views named above it: on a computer a row of six names (Heavy rotation, Forgotten gems, All-time
+classics, By year, Finish rate, Rarely played), the open one underlined; on a phone or a window narrower than 840 px one **Crate
+view** picker under the title. Pick a
+name to open that view: one tap on a computer, two on the phone, instead of going back to the hub. Each name is the view's usual
+address, so bookmarks and links still work and the browser's Back steps through the views you visited; the back arrow in the top bar
+still leads to the hub. A view keeps its setting (window, period, chips) when you come back to it, and its own sort and filter. With
+no import, or an import to redo, the card shows alone, without the names. Four small fixes come with it: **Top** says under its
+controls that its ranking is Spotify's own ("Spotify's own ranking for this period.", with "Plays come from your history import." on
+Tracks when you have one), which is why it can differ from the Crate; **Filter artists** keeps its text when you switch between Saved
+tracks and Under the radar; a Settings job in the **Activity** button opens its own Settings item (Spotify sync, Audio data, Artist
+reach or Server) instead of the top of the page; the Crate's empty card says "six views", and its import-again card "The Crate's
+views need data the old import didn't keep." Spec `specs/030-crate-view-switch/`.
+
+**What to do**: nothing; hard-reload the app. No Spotify read or write, no server change, no stored data change.
+
 ## 2026-11-13 — Share links from the phone go to the worker (worker 0.7.4)
 
 The link SoundCloud's phone app copies (`https://on.soundcloud.com/…`) now works with **Identify on my computer**: paste it in

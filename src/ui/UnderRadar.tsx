@@ -10,7 +10,7 @@ import {
 } from '../model/reach';
 import { artistReachSummary, model, reachCoverage } from '../model/state';
 import { routeHref } from '../router';
-import { radarFilter, radarSort } from './artistSelections';
+import { artistFilter, radarSort } from './artistSelections';
 import { Button } from './components/Button';
 import { Card } from './components/Card';
 import { Empty } from './components/Empty';
@@ -218,7 +218,7 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
   // below costs one `includes` per row and no re-sort. The array it returns
   // is the memo's own and is never sorted or mutated here; `filter` copies.
   const rows = rankUnderTheRadar(m, radarSort.value);
-  const query = normalize(radarFilter.value);
+  const query = normalize(artistFilter.value);
   // Ranks were assigned over the unfiltered list, so nothing renumbers, and a
   // heading whose rows have all been filtered out is not rendered.
   const shown = filterRows(rows, query);
@@ -251,9 +251,9 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
           />
         )}
         <Filter
-          value={radarFilter.value}
+          value={artistFilter.value}
           onInput={(v) => {
-            radarFilter.value = v;
+            artistFilter.value = v;
           }}
           placeholder="Filter artists"
         />
@@ -265,9 +265,9 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
       {shown.length === 0 ? (
         query ? (
           <NoMatch
-            query={radarFilter.value}
+            query={artistFilter.value}
             onClear={() => {
-              radarFilter.value = '';
+              artistFilter.value = '';
             }}
           />
         ) : (

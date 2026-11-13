@@ -13,7 +13,8 @@ fix responsibilities; exact TypeScript lives in the code.
 | `NavBar` | Navigation bar | The same five on compact: 80 px, active indicator, labels always shown | `.tabs` |
 | `TopBar` | Small top app bar | Title (and back arrow on a detail), the search field (large) or search icon, the activity button, the screen's actions | `h1` per screen |
 | `ScreenTabs` | Primary tabs | Top / Crate inside Listening; Playlists / Artists inside Library | — |
-| `ActivityButton` | Icon button + menu + progress indicator | Shows `activeJobs()` (research D13); the menu links each job to its owner; never starts a job | — |
+| `ViewSwitch` | Secondary tabs (expanded and wider) / native select (compact, medium) | Spec 030: the six Crate views above the open one, links to their own addresses (`viewSwitchItems`, `ui/crate/labels.ts`), the open one `aria-current="page"`; one "Crate view" picker on compact and medium; drawn only when the Crate gate passes | the hub round trip between views |
+| `ActivityButton` | Icon button + menu + progress indicator | Shows `activeJobs()` (research D13); the menu links each job to its owner (a Settings job to its item, `#/settings/<item>`, since spec 030); never starts a job | — |
 | `Banner` | Banner | `errorBanner` / `warnBanner` messages: icon, text, dismiss; top of the content area | `Banner` (restyled) |
 
 ## Data display

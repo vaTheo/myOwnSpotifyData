@@ -22,7 +22,7 @@ After the first visit, each destination's link opens the last route used inside 
 | `#/`, empty, unknown | `overview` | Overview | **new**; was `top` |
 | `#/top` | `top` | Listening · Top | unchanged |
 | `#/crate` | `crate` | Listening · Crate | unchanged |
-| `#/crate/<view>` | `crateView` | Listening · Crate | unchanged |
+| `#/crate/<view>` | `crateView` | Listening · Crate | unchanged; since spec 030 the view switch links to each view's address, without a period or `?d=` |
 | `#/crate/year/<YYYY-MM>` | `crateView` + period | Listening · Crate | unchanged |
 | `#/playlists` | `playlists` | Library · Playlists | unchanged |
 | `#/playlist/<id>` | `playlist` | Library · Playlists | on expanded and large it renders as list + detail |

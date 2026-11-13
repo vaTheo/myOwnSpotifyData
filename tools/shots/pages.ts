@@ -494,6 +494,7 @@ export const PAGES: ShotPage[] = [
     },
   },
   { id: 'crate-finish', hash: '#/crate/finish' },
+  { id: 'crate-rarely-played', hash: '#/crate/rarely-played' },
 
   // Library: Playlists
   { id: 'playlists', hash: '#/playlists' },
