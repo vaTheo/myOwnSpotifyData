@@ -170,7 +170,7 @@ Only the first two are required.
 | `WORKER_HEARTBEAT_SECONDS` | 30 | `--watch`: an "alive" line this often while waiting, so you can see it still runs |
 | `WORKER_MAX_DURATION_SECONDS` | 0 | no limit; set a number of seconds to refuse longer sets before the download |
 | `WORKER_PROBE_STEP_SECONDS` | 15 | one probe every N seconds; with 12 s probes, 15 hears 80 % of the set (a 2 h set: 480 probes, about 40 minutes), 12 all of it, 30 or 60 for a quicker scan |
-| `WORKER_PROBE_SECONDS` | 12 | the length of each probe sent to Shazam, 2 to 12 (Shazam fingerprints 12 s at most; 10 s matched 71 % against 94 %) |
+| `WORKER_PROBE_SECONDS` | 12 | the length of each probe sent to Shazam, 2 to 12 (Shazam fingerprints 12 s at most; 10 s matched 71 % against 94 %); a probe shorter than 12 s, or the last one of a set, is filled with silence to 12 s before it is sent |
 | `WORKER_COOLDOWN_SECONDS` | 1.9 | the pause before every recognition call, plus a random 0–30 % (`WORKER_COOLDOWN_SPREAD_PERCENT`): 1.9 to 2.47 s; a network retry is spread the same; not slowed after a refusal |
 | `WORKER_RATE_LIMIT_PAUSE_SECONDS` | 180 | the pause after a "rate limited" answer, the same each time, plus a random 0–40 % (`WORKER_RATE_LIMIT_PAUSE_SPREAD_PERCENT`): 3:00 to 4:12 |
 | `WORKER_REFUSAL_WARN_CALLS` | 150 | two refusals closer than this many calls: warn once (a VPN or a shared network?); 0 = never |

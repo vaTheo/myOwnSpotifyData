@@ -22,6 +22,9 @@ from mix_worker.scan import (
     hhmmss,
     merge,
     merge_with_hits,
+    MIN_PROBE_BYTES,
+    PROBE_SECONDS,
+    pad_wav,
     probe_times,
     second_pass_order,
     scan,
@@ -961,6 +964,97 @@ class CutProbeSpeed(unittest.TestCase):
         self.assertEqual(fast[fast.index("-af") + 1], "aresample=16000,asetrate=16640,aresample=16000")
         self.assertEqual(slow[slow.index("-t") + 1], "11.52")
         self.assertEqual(slow[slow.index("-af") + 1], "aresample=16000,asetrate=15360,aresample=16000")
+
+
+def wav_of(seconds: float, rate: int = 16000) -> bytes:
+    """An invented mono 16-bit WAV: a non-zero pattern, `seconds` long."""
+    import io
+    import wave
+
+    frames = round(seconds * rate)
+    out = io.BytesIO()
+    with wave.open(out, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(bytes((i % 251) + 1 for i in range(frames * 2)))
+    return out.getvalue()
+
+
+def wav_read(data: bytes):
+    import io
+    import wave
+
+    with wave.open(io.BytesIO(data), "rb") as w:
+        return w.getparams(), w.readframes(w.getnframes())
+
+
+class PadWav(unittest.TestCase):
+    """Spec 029, FR-007: a probe shorter than 12 s is filled with silence."""
+
+    def test_short_wav_is_filled_with_zeros_to_twelve_seconds(self):
+        short = wav_of(7)
+        params, samples = wav_read(short)
+        padded = pad_wav(short)
+        out_params, out_samples = wav_read(padded)
+        self.assertEqual(PROBE_SECONDS, 12)
+        self.assertEqual(out_params.nframes, 12 * 16000)
+        self.assertEqual(
+            (out_params.nchannels, out_params.sampwidth, out_params.framerate),
+            (params.nchannels, params.sampwidth, params.framerate),
+        )
+        self.assertEqual(out_samples[: len(samples)], samples)
+        self.assertEqual(out_samples[len(samples):], bytes(5 * 16000 * 2))
+
+    def test_twelve_seconds_come_back_byte_for_byte(self):
+        full = wav_of(12)
+        self.assertEqual(pad_wav(full), full)
+        longer = wav_of(13)
+        self.assertEqual(pad_wav(longer), longer)
+
+    def test_no_audio_stays_no_audio(self):
+        for data in (b"", b"RIFF", b"x" * (MIN_PROBE_BYTES - 1), wav_of(0)):
+            self.assertLess(len(data), MIN_PROBE_BYTES)
+            self.assertEqual(pad_wav(data), data)
+
+    def test_bytes_that_are_not_a_wav_come_back_and_nothing_raises(self):
+        broken = wav_of(7)
+        for data in (b"x" * 5000, b"RIFF" + b"x" * 2000, broken[:20] + b"\xff" * 3000, b"\x00" * 5000):
+            self.assertEqual(pad_wav(data), data)
+
+
+class CutProbePads(unittest.TestCase):
+    def cut_with(self, written: bytes, seconds: int = 12) -> bytes:
+        import subprocess
+        import tempfile
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            audio = Path(tmp) / "a.m4a"
+            audio.write_bytes(b"x")
+
+            def fake_run(cmd, **kw):
+                Path(cmd[-1]).write_bytes(written)
+                return subprocess.CompletedProcess(cmd, 0, b"", b"")
+
+            with mock.patch("mix_worker.scan.subprocess.run", fake_run):
+                return cut_probe("ffmpeg", audio, 60, seconds)
+
+    def test_a_short_cut_comes_back_twelve_seconds_long(self):
+        params, _ = wav_read(self.cut_with(wav_of(7)))
+        self.assertEqual(params.nframes, 12 * 16000)
+
+    def test_the_pad_target_is_twelve_seconds_whatever_the_probe_length(self):
+        params, _ = wav_read(self.cut_with(wav_of(8), seconds=8))
+        self.assertEqual(params.nframes, 12 * 16000)
+
+    def test_a_full_cut_comes_back_untouched(self):
+        full = wav_of(12)
+        self.assertEqual(self.cut_with(full), full)
+
+    def test_a_cut_with_no_audio_stays_under_the_floor(self):
+        self.assertEqual(self.cut_with(wav_of(0)), wav_of(0))
+        self.assertLess(len(self.cut_with(wav_of(0))), MIN_PROBE_BYTES)
 
 
 class SecondPassOrder(unittest.TestCase):

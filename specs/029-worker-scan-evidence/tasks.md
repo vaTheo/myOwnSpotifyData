@@ -91,8 +91,8 @@ call to Shazam, TrackId.net or any network in a test. Line numbers in the tasks 
 
 ## Phase 6: User Story 4 - No probe is lost to its length (P3)
 
-- [ ] T018 [US4] Failing tests in `worker/tests/test_scan.py`: `pad_wav` (a 7 s mono 16 kHz WAV comes back 12 s long with the same parameters, its samples first and zeros after; a 12 s WAV comes back byte for byte; data under `MIN_PROBE_BYTES` and bytes that are not a WAV come back as they are; it never raises); `cut_probe` returns padded data for a short cut (through the seam the existing `CutProbeSpeed` tests use, `:835`); a scan of unknown length still ends on a probe with no audio
-- [ ] T019 [US4] `worker/mix_worker/scan.py`: `pad_wav` and its use in `cut_probe` (`:830-871`); T018 passes. Same commit: the `WORKER_PROBE_SECONDS` line in `worker/.env.example` and `worker/mix_worker/env.example` (identical), its row in `worker/README.md` and in `specs/002-mix-analysis-worker/contracts/worker.md` (an amendment note)
+- [x] T018 [US4] Failing tests in `worker/tests/test_scan.py`: `pad_wav` (a 7 s mono 16 kHz WAV comes back 12 s long with the same parameters, its samples first and zeros after; a 12 s WAV comes back byte for byte; data under `MIN_PROBE_BYTES` and bytes that are not a WAV come back as they are; it never raises); `cut_probe` returns padded data for a short cut (through the seam the existing `CutProbeSpeed` tests use, `:835`); a scan of unknown length still ends on a probe with no audio
+- [x] T019 [US4] `worker/mix_worker/scan.py`: `pad_wav` and its use in `cut_probe` (`:830-871`); T018 passes. Same commit: the `WORKER_PROBE_SECONDS` line in `worker/.env.example` and `worker/mix_worker/env.example` (identical), its row in `worker/README.md` and in `specs/002-mix-analysis-worker/contracts/worker.md` (an amendment note)
 
 ---
 

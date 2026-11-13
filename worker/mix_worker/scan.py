@@ -7,10 +7,12 @@ ShazamIO, merged into one row per run of hits, written in the F15 shape
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import random
 import subprocess
 import time
+import wave
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -956,12 +958,43 @@ def cut_probe(
             return b""
         # The size and time of a good cut go on the probe's own line (scan);
         # ffmpeg gets a line here only when it printed something or failed.
-        return scratch.read_bytes()
+        # The pad target is Shazam's window, not `seconds` (spec 029, FR-007).
+        return pad_wav(scratch.read_bytes())
     finally:
         try:
             scratch.unlink()
         except OSError:
             pass
+
+
+def pad_wav(data: bytes, seconds: float = PROBE_SECONDS) -> bytes:
+    """A WAV shorter than `seconds`, filled with silence up to `seconds`
+    (spec 029, FR-007): Shazam hears 8 to 11 s of audio padded to 12 s, not
+    11 s alone. Data under `MIN_PROBE_BYTES` stays as it is, so a probe with
+    no audio still ends a scan of unknown length (research R5); so do a WAV
+    already long enough and bytes that are not a readable WAV. Never raises."""
+    if len(data) < MIN_PROBE_BYTES:
+        return data
+    try:
+        with wave.open(io.BytesIO(data), "rb") as source:
+            params = source.getparams()
+            frames = source.readframes(params.nframes)
+        width = params.nchannels * params.sampwidth
+        if width <= 0 or params.framerate <= 0:
+            return data
+        have = len(frames) // width
+        want = round(seconds * params.framerate)
+        if have >= want:
+            return data
+        out = io.BytesIO()
+        with wave.open(out, "wb") as target:
+            target.setnchannels(params.nchannels)
+            target.setsampwidth(params.sampwidth)
+            target.setframerate(params.framerate)
+            target.writeframes(frames[: have * width] + bytes((want - have) * width))
+        return out.getvalue()
+    except Exception:
+        return data
 
 
 def default_classify(err: Exception) -> str:
