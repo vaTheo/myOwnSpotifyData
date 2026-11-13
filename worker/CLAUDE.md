@@ -13,6 +13,7 @@ one PyInstaller executable per system.
 | Contract | `../specs/002-mix-analysis-worker/contracts/worker.md`                | commands, exit codes, settings, the pipeline, the seams the tests use    |
 | Contract | `../specs/002-mix-analysis-worker/contracts/server-schema.md`         | every request the worker makes and the error mapping                    |
 | Research | `../specs/002-mix-analysis-worker/research.md` D2–D7, D9              | ShazamIO facts, pacing, probes, confidence, merging, download, packaging |
+| Research | `../docs/research/2026-11-13-shazam-mix-accuracy.md`                  | measured: Shazam's speed window, what its answer holds, real against false rows |
 | Shape    | `../src/features/mix/tracklistify.ts`                                 | the JSON the result must satisfy (`mix_info`, `tracks[]`, `metadata`)    |
 | Tests    | `tests/test_*.py`                                                     | `unittest`, every external call injected and faked                       |
 
