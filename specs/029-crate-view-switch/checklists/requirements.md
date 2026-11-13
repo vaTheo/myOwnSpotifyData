@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain (Q1 open: the form of the view switch on the phone)
+- [x] No [NEEDS CLARIFICATION] markers remain (Q1 B, owner 2026-11-13)
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -32,4 +32,4 @@
 ## Notes
 
 - The "Today" section and the address list name existing addresses only to anchor what must keep working; requirements stay technology-agnostic.
-- 15 of 16 items pass; Q1 must be answered before `/speckit-plan`.
+- 16 of 16 items pass.

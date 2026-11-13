@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-13
 
-**Status**: Draft (owner 2026-11-13: "Hub stay as landing page and scope 2"; one question open, Q1)
+**Status**: Draft (owner 2026-11-13: "Hub stay as landing page and scope 2"; Q1 option B: "b is fine")
 
 **Input**: Owner (2026-11-13): "i have feeling that we could regroup things together. we ahve multiple page for each of the features like havy rotation, forgotten gems, all-time classics and so one for each track list, but it could be a better made view with just some option to display things differently, this way we could lower number op pages and complexity of the app."
 
@@ -83,7 +83,7 @@ On the phone the switch and the view's own control both fit above the list, and 
 
 **Acceptance Scenarios**:
 
-1. **Given** a phone width, **Then** the switch shows as [NEEDS CLARIFICATION: Q1, the form of the view switch on the phone: one scrolling row of six names, or one compact picker showing the open view's name].
+1. **Given** a phone width, **Then** the switch is one compact picker showing the open view's name; opening it lists the six views, and picking one shows it (Q1 option B, owner 2026-11-13).
 2. **Given** a phone width and By year open, **Then** the switch, the year choices and the period choices are all reachable, and the first rows of the list are visible without scrolling on a common phone screen.
 3. **Given** a phone width, **Then** the order controls of each view (Most years / Most plays, Finished / Skipped) are still there, because the phone has no column header to sort by.
 
@@ -157,7 +157,7 @@ The owner taps a running job in the Activity button. Settings opens on the item 
 - **FR-009**: Every existing Crate address and in-app link MUST open the same view, period and open track as before (spec 003 FR-002a kept); an unknown view name MUST open the hub.
 - **FR-010**: A period carried by an address or an "Open <month>" link MUST be applied each time By year is reached that way, including from another Crate view.
 - **FR-011**: The Crate tab MUST reopen the last view the owner had open, as today.
-- **FR-012**: At phone width the switch and the open view's control MUST be fully usable without sideways page scroll, in the form the owner picks (Q1); the per-view order controls MUST stay.
+- **FR-012**: At phone width the switch and the open view's control MUST be fully usable without sideways page scroll, as one compact picker showing the open view's name (Q1 option B); the per-view order controls MUST stay.
 - **FR-013**: The switch MUST be operable with the keyboard and expose which view is selected to assistive technology.
 - **FR-014**: Switching view MUST close an open details sheet and show the first page of the list.
 
@@ -184,7 +184,7 @@ The owner taps a running job in the Activity button. Settings opens on the item 
 
 ### Measurable Outcomes
 
-- **SC-001**: From any Crate view, the owner reaches any other Crate view in one tap (two with a compact picker on the phone), against two taps and a page change through the hub today.
+- **SC-001**: From any Crate view, the owner reaches any other Crate view in one tap on a computer and two on the phone (open the picker, pick the view), against two taps and a page change through the hub today.
 - **SC-002**: The Crate offers two screens to learn (the hub and the view screen) instead of seven pages.
 - **SC-003**: 100 % of the existing Crate addresses and in-app links open the same view and period as before.
 - **SC-004**: For each of the six views on the demo data, the rows and their order are identical before and after the change.
