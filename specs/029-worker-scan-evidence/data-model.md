@@ -27,7 +27,7 @@ Two hits a and b of one merge key, a before b, both with evidence, are in step w
 
 | Result field | App field | Type | Meaning |
 |---|---|---|---|
-| `evidence` | `evidence` | string | `solid`, `inside`, `candidates`, `out_of_step` or `once` |
+| `evidence` | `evidence` | string | `solid`, `candidates`, `out_of_step` or `once` |
 | `mix_speed_percent` | `mixSpeed` | number, one decimal | `(mix_speed − 1) × 100`: the middle value over the row's hits that are in step, else the first hit's |
 | `candidates` | `candidates` | whole number ≥ 1 | the number of entries of the first hit's answer |
 
@@ -39,7 +39,6 @@ carry them.
 | Level | Rule |
 |---|---|
 | `solid` | one of the row's hits is in step with another hit of the same key (kept after the sandwich rule), of this row or another |
-| `inside` | the time of the row's first hit `t` satisfies `first + 30 < t < last − 30` for a `solid` row of another key, `first` and `last` being that row's first and last hit times |
 | `candidates` | the first hit's `matches` is 10 or more |
 | `out_of_step` | the row has two hits or more |
 | `once` | the row has one hit |
@@ -56,7 +55,9 @@ A level word the app does not know is kept and shown as no level.
 
 ## Order of the levels (sort, and the line of one song)
 
-`solid` (5), `once` (4), `out_of_step` (3), `candidates` (2), `inside` (1). **Flagged** is `out_of_step`, `candidates`, `inside`.
+`solid` (4), `once` (3), `out_of_step` (2), `candidates` (1). **Flagged** is `out_of_step` and `candidates`.
+
+There is no level for a hit lying between two hits of another track: the sandwich rule drops such a hit before the rows are made.
 
 ## Run state
 

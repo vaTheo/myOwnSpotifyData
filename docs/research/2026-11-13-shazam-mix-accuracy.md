@@ -21,8 +21,8 @@ the options and what each was **measured** to gain and lose, and a second web ro
    that share no audio (§5.4). Shazam returns that position; the worker throws it away.
 5. **The % column is a speed measure, not a certainty** (§4).
 6. **Measured on three saved results** (§6): keeping the evidence and labelling rows (option A) marks a core of rows as certain,
-   with no wrong row among them and no extra call. Two more labels, also free, put a warning on half of the removed rows of the
-   hardest mix (§6.3). Confirming rows heard once (option B) promotes 0, 1 and 2 more rows for 14, 38 and 232 extra calls.
+   with no wrong row among them and no extra call. One more label, also free, marks 27 more of the removed rows of the hardest mix;
+   10 others are rows the worker no longer lists since 0.7.2 (§6.3). Confirming rows heard once (option B) promotes 0, 1 and 2 more rows for 14, 38 and 232 extra calls.
    Scanning a whole mix again at the DJ's speed (option C) found no track the result lacked.
 7. **What stays unsolved:** on the hardest mix, 72 of 127 rows stay plain "heard once", 32 the owner kept and 40 the owner
    removed, and nothing measured tells them apart. The owner's word after the measurement (2026-11-13): most of those 32 are
@@ -249,12 +249,12 @@ stretches; 173 named a track.
   505 place-speeds.
 - What the scan missed at normal speed is therefore mostly absent from Shazam's catalogue, not hidden by the speed.
 
-### 6.3 Two more labels that cost no call
+### 6.3 One more label that costs no call, and one the worker already makes useless
 
 Checked on the same rows after the second web round suggested them.
 
-- **Inside another track.** The row starts inside the stretch of a Solid song, more than 30 s from its ends.
 - **Many candidates.** The answer of the row's first hit lists 10 or more entries.
+- **Inside another track.** The row starts inside the stretch of a Solid song, more than 30 s from its ends.
 
 Applied after "Solid" and before the other levels:
 
@@ -266,8 +266,12 @@ Applied after "Solid" and before the other levels:
 | Out of step | 2 bad | 2 bad, 2 unsure | 1 good, 3 bad | 1 good, 7 bad, 2 unsure |
 | Heard once | 2 bad | 4 good, 3 bad, 8 unsure | 32 good, 40 bad | 36 good, 45 bad, 8 unsure |
 
-- On mix D, 40 of the 80 removed rows now carry a specific warning, with 4 of the 47 kept rows among them. The plain "heard
-  once" pile falls from 103 rows to 72.
+- **Correction (2026-11-13, found while building spec 029).** "Inside another track" is not a new gain. The three saved
+  results were made by workers older than 0.7.2. Since 0.7.2 the worker drops a hit that lies between two hits of another song
+  at most 180 s apart (the sandwich rule, spec 019), so a scan made today no longer lists those 13 rows at all. The label is not
+  built.
+- On mix D, 30 of the 80 removed rows carry a specific warning (27 Many candidates, 3 Out of step), with 4 of the 47 kept rows
+  among them; the 10 "inside" rows are ones a current worker drops. The plain "heard once" pile falls from 103 rows to 72.
 - With the cut at 6 entries instead of 10: 32 removed and 6 kept rows on mix D. At 3 entries: 40 and 11. No Solid row of any
   result has 3 entries or more.
 - The cut was chosen on these data, and only mix D has rows it catches. It is a label to show, not a rule to delete on.
@@ -282,7 +286,7 @@ Applied after "Solid" and before the other levels:
 
 ### 6.4 Recommendation after the measurement
 
-1. **Build A, with the two labels of §6.3.** It is where the measured gain is, and it costs no call.
+1. **Build A, with the Many candidates label of §6.3.** It is where the measured gain is, and it costs no call.
 2. **Do not build B now.** Its gain is real but small (3 rows over three results for 284 calls). It could come later as an
    optional setting.
 3. **Do not build C.** On the mix where it should help most it found nothing new.

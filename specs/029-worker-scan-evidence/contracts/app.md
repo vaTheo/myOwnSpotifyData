@@ -16,11 +16,11 @@ candidates?: number;
 ## `src/features/mix/evidence.ts` (new, pure)
 
 ```ts
-export type EvidenceLevel = 'solid' | 'once' | 'out_of_step' | 'candidates' | 'inside';
+export type EvidenceLevel = 'solid' | 'once' | 'out_of_step' | 'candidates';
 export const LEVELS: readonly EvidenceLevel[];            // best first, the order above
 export function evidenceLevel(row: TracklistRow): EvidenceLevel | null;  // null for an absent or unknown word
-export function evidenceRank(row: TracklistRow): number;  // solid 5 … inside 1; 0 without a level
-export function isFlagged(row: TracklistRow): boolean;    // out_of_step, candidates, inside
+export function evidenceRank(row: TracklistRow): number;  // solid 4, once 3, out_of_step 2, candidates 1; 0 without a level
+export function isFlagged(row: TracklistRow): boolean;    // out_of_step, candidates
 export function bestEvidence(rows: readonly TracklistRow[]): TracklistRow | null;  // the first row with the best rank, null when none has a level
 export function evidenceExtras(track: Record<string, unknown>): Pick<TracklistRow, 'evidence' | 'mixSpeed' | 'candidates'>;
 ```
@@ -53,7 +53,6 @@ export function speedText(pct: number): string;   // "played 5.8 % slower", "pla
 | once | `Heard once` | `Heard once` |
 | out_of_step | `Out of step ×3` | `Out of step: heard 3×, the position in the track jumps` |
 | candidates | `Many candidates` | `Many candidates: Shazam listed 12 for this answer` |
-| inside | `Inside another` | `Inside another track: heard once while a Solid track plays` |
 
   With `mixSpeed`, the short text ends with ` · ` + `speedShort` and the long text with ` · ` + `speedText`. The count (`×11`,
   `heard 11×`) is the row's `hits`; without `hits` the short text is the level alone and the long text drops the "heard N×, "

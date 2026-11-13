@@ -14,10 +14,12 @@ design choices they lead to and the code facts those choices rest on. Line numbe
 
 ## R2. The level rules and their numbers
 
-- **Decision**: the five levels of spec.md in that order, with 0.5 s, 60 s, 30 s and 10 entries as constants.
+- **Decision**: the four levels of spec.md in that order, with 0.5 s, 60 s and 10 entries as constants.
 - **Rationale**: measured. In step never confirmed a wrong answer on four sets; true pairs are within 0.11 s, the closest wrong
   pair is 0.95 s off (note §5.4). Tolerances from 0.2 to 1.0 s give the same counts; a 180 s gap instead of 60 s moves one row
-  (note §10). "Inside" and "many candidates" are the two labels of note §6.3.
+  (note §10). "Many candidates" is the label of note §6.3. The note's other label, "inside another track", is not built: the
+  sandwich rule (spec 019) already drops a hit lying between two hits of another track, and the saved results the note
+  measured it on are older than that rule (spec.md, decision 7).
 - **Alternatives**: settings for the four numbers (rejected: nothing to tune yet, and ADR-06 asks for the minimum); using the
   shape of the two skews as a level (rejected: 13 of 18 kept rows fail it on one set, note §5.4).
 
@@ -60,7 +62,7 @@ design choices they lead to and the code facts those choices rest on. Line numbe
 
 ## R8. The same words on both sides
 
-- **Decision**: the app stores the worker's level word as it came (`solid`, `inside`, `candidates`, `out_of_step`, `once`) and
+- **Decision**: the app stores the worker's level word as it came (`solid`, `candidates`, `out_of_step`, `once`) and
   maps it to text only when shown.
 - **Rationale**: `validateMix` refuses a whole pulled mix on an unknown `origin` (`validate.ts:254-260`), which forced "update the
   app first" in round 016. A level that is any short string, shown only when known, lets a later worker add a level without

@@ -17,7 +17,7 @@
 - The TrackId.net check (`confirm_due` in `scan.py`, `check_of` in `trackid.py`) asks one probe per span, at normal speed only. On a set played 6 to 8 % slow it answered "differs" or "no match" for real tracks (research §5.6).
 - A probe shorter than 12 s finds nothing, and none is padded (`cut_probe`): the last probe of a set, and every probe when `WORKER_PROBE_SECONDS` is under 12 (research §5.1).
 
-Measured on three saved results (research §6.1 and §6.3), with the rules of this spec and no extra Shazam call: 39 rows come out Solid, 35 of them right, none wrong and 4 that could not be judged; on the hardest set, 40 of the 80 rows the owner removed carry a specific warning, with 4 of the 47 kept rows among them; 72 rows of that set stay plain "heard once" and nothing tells the kept from the removed. The owner (2026-11-13): "most of the 32 kept are wrong but good tracks to hear", so on that set nearly every row that is not Solid is wrong, and the rows stay visible because they are worth hearing.
+Measured on three saved results (research §6.1 and §6.3), with the rules of this spec and no extra Shazam call: 39 rows come out Solid, 35 of them right, none wrong and 4 that could not be judged; on the hardest set, 30 of the 80 rows the owner removed carry a specific warning (Many candidates or Out of step), with 4 of the 47 kept rows among them; 10 more removed rows lay between two hits of a Solid track, and a worker since 0.7.2 no longer lists those (the sandwich rule); 72 rows of that set stay plain "heard once" and nothing tells the kept from the removed. The owner (2026-11-13): "most of the 32 kept are wrong but good tracks to hear", so on that set nearly every row that is not Solid is wrong, and the rows stay visible because they are worth hearing.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -28,8 +28,7 @@ The owner opens a scanned mix. Each row Shazam heard says how much evidence stan
 | Level | Rule (in this order; the first that fits wins) |
 |---|---|
 | **Solid** | two hits of the track, on windows that share no audio and are at most 60 s apart, whose position in the track advanced in step: by the time between the windows × the playing speed, within 0.5 s |
-| **Inside another track** | not Solid, and the row starts inside the stretch of a Solid row of another track (from its first hit to its last), more than 30 s from both of its ends |
-| **Many candidates** | not Solid, not inside, and Shazam's answer for the row's first hit lists 10 entries or more |
+| **Many candidates** | not Solid, and Shazam's answer for the row's first hit lists 10 entries or more |
 | **Out of step** | two hits or more, none in step |
 | **Heard once** | one hit |
 
@@ -42,9 +41,9 @@ The owner opens a scanned mix. Each row Shazam heard says how much evidence stan
 1. **Given** a track heard at 0:15 and 0:30 with positions 60.0 s and 75.0 s at original speed, **When** the scan ends, **Then** its row is Solid.
 2. **Given** a track played 6 % slow, heard on the second pass at ×1.09 at 1:07 and 1:37 with positions 40.0 s and 68.2 s, **When** the scan ends, **Then** its row is Solid (the speed in the mix is used, not the re-cut speed).
 3. **Given** two hits of one track 30 s apart whose positions are 30.0 s and 30.4 s, **When** the scan ends, **Then** the row is Out of step.
-4. **Given** one hit of track X at 2:00 while track A is Solid from 1:00 to 4:00, **When** the scan ends, **Then** X's row is Inside another track; the same hit at 1:10 is not (within 30 s of A's start).
-5. **Given** one hit whose answer lists 12 entries and that is not inside a Solid row, **When** the scan ends, **Then** its row is Many candidates.
-6. **Given** one hit with one entry, outside every Solid row, **When** the scan ends, **Then** its row is Heard once.
+4. **Given** one hit of track X between two hits of track A that are at most 180 s apart, **When** the scan ends, **Then** X has no row, as today (the sandwich rule drops it), and A's row is Solid.
+5. **Given** one hit whose answer lists 12 entries, **When** the scan ends, **Then** its row is Many candidates.
+6. **Given** one hit with one entry, **When** the scan ends, **Then** its row is Heard once.
 7. **Given** any scan, **When** levels are computed, **Then** the rows, their order, `hits` and `confidence` are what they are today: a level never removes or merges a row.
 8. **Given** a TrackId.net row or a row from the description, **Then** it carries no level.
 
@@ -110,7 +109,7 @@ A probe that holds audio but less than 12 s is filled with silence to 12 s befor
 - A track the DJ loops, or a repeated intro, reads Out of step although it is real (research §5.5): it is a warning, the row stays.
 - A track played twice in one set: pairs are only looked for within 60 s.
 - A row made of hits from both passes: each hit's own re-cut speed is used.
-- "One row per song": the line of a song takes the best level of its rows (Solid, then Heard once, then Out of step, then Many candidates, then Inside another track).
+- "One row per song": the line of a song takes the best level of its rows (Solid, then Heard once, then Out of step, then Many candidates).
 - A level the app does not know (a later worker): the row is kept and shown with no level.
 - The result's size bound: the new fields add a few dozen bytes a row; tracks are never dropped today and stay so.
 
@@ -121,7 +120,7 @@ A probe that holds audio but less than 12 s is filled with silence to 12 s befor
 The worker:
 
 - **FR-001**: For every Shazam answer that becomes a hit, the worker MUST keep the position in the track, both skews, the number of entries in `matches[]` and the speed the probe was cut at, in the run state too, so a resumed run has them.
-- **FR-002**: After both passes the worker MUST give every row made of Shazam hits one level, by the table of User Story 1, from its own hits and the other hits of the same track. The constants (0.5 s, 60 s, 30 s, 10 entries) are fixed in the code, not settings.
+- **FR-002**: After both passes the worker MUST give every row made of Shazam hits one level, by the table of User Story 1, from its own hits and the other hits of the same track. The constants (0.5 s, 60 s, 10 entries) are fixed in the code, not settings.
 - **FR-003**: The speed in the mix of a hit MUST be (1 + time skew) ÷ the speed its probe was cut at. A row's speed is the middle value over its hits that are in step, else the speed of its first hit.
 - **FR-004**: The result MUST carry, on such a row, three new optional fields: the level, the speed in the mix as a percentage with one decimal, and the number of entries of its first hit. The fields `confidence`, `hits`, `origin` and `speed_percent` MUST stay as they are.
 - **FR-005**: A level MUST NOT remove, merge, reorder or rewrite any row. The sandwich rule is unchanged.
@@ -136,8 +135,8 @@ The app:
 - **FR-011**: A row applied from a result MUST keep the three new fields when present and valid; a saved mix pulled from the server MUST accept them, and MUST refuse a speed that is not a finite number or a count that is not a whole number of 1 or more. An unknown level MUST be kept and shown as no level.
 - **FR-012**: The column that shows "×3 · 92%" today MUST show, for a row with a level, the level, the hit count and the speed in the mix; rows without a level MUST read as today.
 - **FR-013**: A second-pass row with a speed in the mix MUST say "second listen" without the re-cut speed.
-- **FR-014**: The sort on that column MUST put Solid first, then Heard once, Out of step, Many candidates, Inside another track, and the most hits first inside a level; rows without a level keep today's order after them.
-- **FR-015**: Two chips MUST be added beside **Heard once** when some row has a level: **Solid** and **Flagged** (Inside another track, Many candidates, Out of step), each with its count.
+- **FR-014**: The sort on that column MUST put Solid first, then Heard once, Out of step, Many candidates, and the most hits first inside a level; rows without a level keep today's order after them.
+- **FR-015**: Two chips MUST be added beside **Heard once** when some row has a level: **Solid** and **Flagged** (Many candidates, Out of step), each with its count.
 - **FR-016**: The demo data MUST hold rows of every level, so the mix pages can be checked without the owner's data.
 - **FR-017**: No Spotify read or write, no new network call, no `DB_VERSION` bump (optional fields, ADR-05).
 
@@ -152,12 +151,13 @@ Documentation (same batch as the code): this spec's plan and tasks; an addition 
 
 Proposed; each stands unless the owner changes it in the review.
 
-1. **Words.** Solid, Inside another track, Many candidates, Out of step, Heard once: the words of the research note.
+1. **Words.** Solid, Many candidates, Out of step, Heard once: the words of the research note.
 2. **The column** is renamed **Evidence**. A row with a level shows no % at all.
 3. **Chips.** Solid and Flagged are added; Heard once stays as it is (one hit).
 4. **The TrackId.net check** (User Story 3) is part of this round.
 5. **Nothing is hidden by default.** Every row stays visible; the level only labels and sorts.
 6. **Visual check.** `yarn shots` on the mix pages is run only if the owner asks for it.
+7. **No "Inside another track" level** (ruled during the build, 2026-11-13; the first draft of this spec had it). A hit lying between two hits of another track is already dropped by the sandwich rule (spec 019, worker 0.7.2), which this round keeps, so no scan can produce such a row. The measurement behind the label was made on saved results older than that rule.
 
 ## Out of scope
 

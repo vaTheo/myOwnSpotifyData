@@ -12,6 +12,15 @@ judged by its exit code, never through a pipe; `type(scope): summary`; the docum
 call to Shazam, TrackId.net or any network in a test. Line numbers in the tasks are those of the code before the round
 (`origin/main` at `9aaf88b`).
 
+**Amendments during the build (2026-11-13)**
+
+- Commits: the owner chose that implementers never stage or commit; each step is committed after its review passes.
+- Steps: every step has its own implementer and its own reviewer (the owner's word); the larger batches are split
+  (C1 T007+T008, C2 T009, C3 T010; E1 T013+T014, E2 T015; H1 T020, H2 T021).
+- The level `inside` is not built (spec.md, decision 7): the sandwich rule already drops those hits. Wherever a task below names
+  `inside`, "inside another track", the 30 s margin or five levels, that part is void: there are four levels. Task T008a removes
+  it from the two rule modules written before the ruling.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: can run in parallel (another file, no dependency on an unfinished task)
@@ -45,6 +54,7 @@ call to Shazam, TrackId.net or any network in a test. Line numbers in the tasks 
 
 - [x] T007 [US1] Failing tests in `worker/tests/test_scan.py`, class `Evidence`, with a fake `recognise` that returns an answer per probe time (track, `offset`, skews, number of entries): the six acceptance scenarios of User Story 1 (solid on the first pass; solid on second-pass hits at ×1.09 with `mix_speed_percent` −6.0; out_of_step; inside and its 30 s margin; candidates; once); rows, their order, `hits`, `confidence`, `origin` and `speed_percent` equal those of the same scan today (FR-005); no row holds the key `heard`; `merge` of hits whose entries hold `heard` returns rows without it; the number of `recognise` calls is the number of probes, as before (SC-001); one full row pinned as in contracts/result-shape.md
 - [x] T008 [US1] `worker/mix_worker/scan.py`: `heard` set on the entry at `:641` and `:718` (speed 1, then the second-pass speed); `merge_with_hits` beside `merge` (`:205-222`), `merge` built on it; after `drop_sandwiched` (`:759-774`) the rows get the fields of `evidence.levels`; T007 passes. Existing tests whose pinned rows now carry the three fields (the cassette holds an `offset`) are updated, each named in the commit message; no other expectation changes
+- [ ] T008a Amendment (spec.md, decision 7): the level `inside` and `INSIDE_MARGIN_SECONDS` removed from `worker/mix_worker/evidence.py` and its tests; `'inside'` removed from `src/features/mix/evidence.ts` and its tests (four levels; ranks 4 to 1; Flagged is `out_of_step` and `candidates`; the word `inside` on a row reads as no level)
 - [ ] T009 [US1] Failing tests then code for the run state: a run stopped after the first pass and resumed gives the same levels and asks nothing again (`heard` is in the remembered entries); a state whose entries have no `heard` (as written by 0.7.4) gives rows without the three fields (User Story 5, scenario 3)
 - [ ] T010 [US1] Failing tests then code for the log (`scan.py:301-306` `_details`, and one line after the second-pass summary): a hit line with evidence holds `at 1:32 in the track · −7.7 %` before the %; a hit without evidence reads as today; the line `evidence · 1 solid · 1 inside another track · 1 many candidates · 1 out of step · 1 heard once`, levels with no row left out, no line when no row has a level. Same commit: `worker/README.md` (the log example, the levels in words)
 - [ ] T011 [P] [US1] Failing tests in `src/features/mix/worker.test.ts` (`trackExtras` through `resultToRows`: the three fields kept on a first-pass row and on a replay row; never on a clue or trackid row; a field out of bounds dropped and the row kept; a 0.7.4 row gives exactly today's row), `src/server/validate.test.ts` (`validateMix`: the three fields accepted; each refused out of bounds with its `mixes.row.…` reason; an unknown level word accepted), `src/features/mix/oneRowPerSong.test.ts` (the merged line takes the best level and that copy's `mixSpeed`; no level among the copies: today's line), `src/features/mix/tracklistify.test.ts` (the hand import ignores the three fields)

@@ -8,7 +8,7 @@
 
 The worker stops throwing away what Shazam says about a match. Each hit keeps its position in the track, its two skews, the
 number of entries of the answer and the speed its probe was cut at. One new pure module, `worker/mix_worker/evidence.py`, turns
-the hits of a scan into a level per row (Solid, Inside another track, Many candidates, Out of step, Heard once) and the speed the
+the hits of a scan into a level per row (Solid, Many candidates, Out of step, Heard once) and the speed the
 track plays at in the mix. The result gains three optional fields on a heard row; nothing else in it moves, no row is removed, and
 the scan asks nothing more of Shazam. Two small worker changes ride along: a probe shorter than 12 s is filled with silence, and
 the TrackId.net check asks again at the second-pass speeds when normal speed does not agree. The app keeps the three fields, shows
@@ -80,7 +80,7 @@ specs/029-worker-scan-evidence/
 
 ```text
 worker/mix_worker/
-├── evidence.py          # NEW, pure: heard_of, mix_speed, in_step, levels, the four constants
+├── evidence.py          # NEW, pure: heard_of, mix_speed, in_step, levels, the three constants
 ├── scan.py              # heard on every entry; merge keeps each row's hits; levels on the rows; log lines;
 │                        #   pad_wav in cut_probe; confirm_due asks again at the second-pass speeds
 ├── __init__.py          # 0.7.5
@@ -131,15 +131,14 @@ Line numbers here, in research.md and in tasks.md are those of the code before t
 - `evidence.levels(rows, probe_seconds) -> list[dict]` takes, per row, its key and its hits as `(time, heard | None)`, and returns
   per row the fields to add (possibly none). Rules, first that fits (data-model.md has them in full):
   1. **solid**: a hit of the row is in step with another hit of the same key, of this row or another.
-  2. **inside**: the row's first hit lies between `first + 30 s` and `last − 30 s` of a solid row of another key.
-  3. **candidates**: the first hit's answer has 10 entries or more.
-  4. **out_of_step**: the row has two hits or more.
-  5. **once**.
+  2. **candidates**: the first hit's answer has 10 entries or more.
+  3. **out_of_step**: the row has two hits or more.
+  4. **once**.
+  There is no level for a hit lying between two hits of another track: `drop_sandwiched` removes it before (spec.md, decision 7).
   A row whose first hit has no `heard` gets no field at all.
 - In step (`evidence.in_step`): for hits a before b, `probe_seconds × a.speed ≤ tb − ta ≤ 60` and
   `|b.offset − (a.offset + (tb − ta) × mix_speed(a))| ≤ 0.5`, with `mix_speed(h) = (1 + h.timeskew) / h.speed`.
-- Constants in `evidence.py`: `STEP_TOLERANCE_SECONDS = 0.5`, `STEP_MAX_GAP_SECONDS = 60`, `INSIDE_MARGIN_SECONDS = 30`,
-  `MANY_CANDIDATES = 10`.
+- Constants in `evidence.py`: `STEP_TOLERANCE_SECONDS = 0.5`, `STEP_MAX_GAP_SECONDS = 60`, `MANY_CANDIDATES = 10`.
 - In `scan()` (`:759-774`): after `drop_sandwiched`, `pairs = merge_with_hits(filtered, gap)`, the fields of `levels(...)` are
   set on each row, one log line counts the levels, the rows are returned. `drop_sandwiched` and the order of rows are untouched.
 - Row fields (contracts/result-shape.md): `evidence`, `mix_speed_percent` (one decimal; the middle value over the row's hits
@@ -149,7 +148,7 @@ Line numbers here, in research.md and in tasks.md are those of the code before t
 
 - `_details(entry)` (`:301-306`) appends, when the entry has `heard`, `at M:SS in the track` and the speed in the mix
   (`−5.8 %`), before the %.
-- One line after the second-pass summary: `  evidence · 11 solid · 10 inside another track · 27 many candidates · 4 out of step ·
+- One line after the second-pass summary: `  evidence · 11 solid · 27 many candidates · 4 out of step ·
   72 heard once` (levels with no row are left out; no line when no row has a level).
 
 ### Worker: padding
@@ -174,9 +173,9 @@ Line numbers here, in research.md and in tasks.md are those of the code before t
 
 - `TracklistRow` (`src/db/schema.ts:275-280`): `evidence?: string` (the worker's word, kept as it came), `mixSpeed?: number`
   (percent), `candidates?: number`.
-- `src/features/mix/evidence.ts`: `LEVELS = ['solid', 'once', 'out_of_step', 'candidates', 'inside']` (best first),
+- `src/features/mix/evidence.ts`: `LEVELS = ['solid', 'once', 'out_of_step', 'candidates']` (best first),
   `evidenceLevel(row)` (a known level, else `null`: an unknown word shows as no level), `evidenceRank(row)`, `isFlagged(row)`
-  (inside, candidates, out_of_step), `bestEvidence(rows)` (the row with the best level).
+  (candidates, out_of_step), `bestEvidence(rows)` (the row with the best level).
 - `trackExtras` (`src/features/mix/worker.ts:74-110`): for a heard row (first pass and replay) only, `evidence` when a non-empty
   string of at most 32 characters, `mixSpeed` from `mix_speed_percent` when finite and between −50 and 50, `candidates` when a
   whole number from 1 to 1000. Anything else is dropped, the row stays.
@@ -196,13 +195,12 @@ Line numbers here, in research.md and in tasks.md are those of the code before t
   | once | `Heard once · −3.9 %` | `Heard once · played 3.9 % slower` |
   | out_of_step | `Out of step ×3 · −0.8 %` | `Out of step: heard 3×, the position in the track jumps · played 0.8 % slower` |
   | candidates | `Many candidates · −3.6 %` | `Many candidates: Shazam listed 12 for this answer · played 3.6 % slower` |
-  | inside | `Inside another · −1.4 %` | `Inside another track: heard once while a Solid track plays · played 1.4 % slower` |
 
   The speed part is left out when the row has no `mixSpeed`. A row without a level reads as today.
 - `originText` (`:108-114`): a replay row with `mixSpeed` reads `second listen`; without it, as today.
 - `TracklistTable.tsx` (`:360-370`): header `Evidence`, width `184px`; the cell and its title use the same two functions.
 - `tracklistSort.ts` (`:40-47`, `:68`): the choice reads `Evidence`; the value of a levelled row is
-  `rank × 1 000 000 + hits × 1000 + confidence` with rank solid 5, once 4, out_of_step 3, candidates 2, inside 1, so every levelled
+  `rank × 1 000 000 + hits × 1000 + confidence` with rank solid 4, once 3, out_of_step 2, candidates 1, so every levelled
   row sorts before a row without a level and the hit count decides inside a level. The id stays `confidence`.
 - `review.ts` (`:10-60`): `ReviewFilter` gains `'solid'` and `'flagged'`; the chips `Solid (n)` and `Flagged (n)` are offered
   when some row has a known level, after `Heard once`.

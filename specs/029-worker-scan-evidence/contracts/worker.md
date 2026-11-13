@@ -7,9 +7,8 @@ No new setting, no new dependency, no new host. Every function below is pure unl
 ```python
 STEP_TOLERANCE_SECONDS = 0.5
 STEP_MAX_GAP_SECONDS = 60
-INSIDE_MARGIN_SECONDS = 30
 MANY_CANDIDATES = 10
-LEVELS = ("solid", "inside", "candidates", "out_of_step", "once")
+LEVELS = ("solid", "candidates", "out_of_step", "once")
 
 def heard_of(response: Any, speed: float = 1.0) -> dict[str, Any] | None
 def mix_speed(heard: dict[str, Any]) -> float
@@ -47,7 +46,7 @@ def levels(rows: list[tuple[str, list[tuple[float, dict[str, Any] | None]]]], pr
   probe 207/729 · 00:51:30 · cut 375 KB 0.21 s · shazam 0.9 s · NEW · Artist — Track · XX0000000000 · Label · at 1:32 in the track · −7.7 % · 73 %
   gap 12/245 · 00:51:52 ×1.09 · shazam 1.0 s · same track · Artist — Track · at 1:53 in the track · −7.7 % · 73 %
   trackid confirm · span 3 · 00:44:41 ×1.09 · shazam 0.8 s · Artist — Track · at 2:10 in the track · −7.7 % · 80 %
-  evidence · 11 solid · 10 inside another track · 27 many candidates · 4 out of step · 72 heard once
+  evidence · 11 solid · 27 many candidates · 4 out of step · 72 heard once
 ```
 
 - The position and the speed appear only when the entry has evidence. The speed is `−7.7 %`, `+3.4 %` or `0.0 %`.

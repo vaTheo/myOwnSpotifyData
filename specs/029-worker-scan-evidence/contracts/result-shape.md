@@ -13,7 +13,7 @@ Additive. A result without them stays valid and shows as before. They sit on a r
 
 | Field | Type | Rule |
 |---|---|---|
-| `evidence` | string | one of `solid`, `inside`, `candidates`, `out_of_step`, `once` (data-model.md) |
+| `evidence` | string | one of `solid`, `candidates`, `out_of_step`, `once` (data-model.md) |
 | `mix_speed_percent` | number | one decimal; the speed the track plays at in the mix, in percent of its original speed (−7.7 is 7.7 % slower) |
 | `candidates` | integer ≥ 1 | the number of entries Shazam's answer listed for the row's first hit |
 
