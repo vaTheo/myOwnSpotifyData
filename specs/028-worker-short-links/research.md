@@ -32,7 +32,7 @@ Every fact below was read in the code or checked on 2026-11-13. No open question
   kept as it is; the answer always `https://soundcloud.com<path>`. The owner's example
   (`…/<user>/<set>?in_system_playlist=…`) already gives the clean address in the app (run on 2026-11-13).
 - **Decision**: `links.trim_soundcloud` ports it with `urllib.parse.urlsplit`. One file, `src/features/mix/url.cases.json`, lists
-  links and their expected trimmed form (or `null`); `url.test.ts` and `worker/tests/test_links.py` both read it, as
+  links and their expected trimmed form (or `null`); `url.cases.test.ts` and `worker/tests/test_links.py` both read it, as
   `match.cases.json` and `parse.cases.json` already are.
 - **Known difference**: the browser's `URL` percent-encodes characters outside ASCII in a path and removes `.` and `..` parts;
   Python's `urlsplit` does neither. It cannot matter here: a redirect's `Location` is ASCII, and a request recorded by the app was

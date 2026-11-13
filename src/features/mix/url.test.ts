@@ -318,8 +318,21 @@ describe('requestKey (worker round)', () => {
       'https://soundcloud.com/user/some-mix'
     );
   });
-  it('refuses a short link, http, and free text', () => {
-    expect(requestKey('https://on.soundcloud.com/abc123')).toBeNull();
+  it('keeps a phone share link as it is: the worker follows it (spec 028)', () => {
+    expect(requestKey('https://on.soundcloud.com/abc123')).toBe(
+      'https://on.soundcloud.com/abc123'
+    );
+    // The form Look up saves the mix under, so a result joins that mix.
+    const pasted = 'http://On.SoundCloud.com/abc123?x=1#f';
+    expect(requestKey(pasted)).toBe('https://on.soundcloud.com/abc123?x=1#f');
+    expect(requestKey(pasted)).toBe(classifyMixInput(pasted)?.url);
+  });
+  it('refuses a share link without a token and a SoundCloud profile', () => {
+    expect(requestKey('https://on.soundcloud.com')).toBeNull();
+    expect(requestKey('https://on.soundcloud.com/')).toBeNull();
+    expect(requestKey('https://soundcloud.com/user')).toBeNull();
+  });
+  it('refuses http and free text', () => {
     expect(requestKey('http://www.youtube.com/watch?v=abc')).toBeNull();
     expect(requestKey('some mix I heard')).toBeNull();
     expect(requestKey('')).toBeNull();

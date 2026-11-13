@@ -577,7 +577,10 @@ export function requestStatusText(
 
 /** One row of the Mix screen's "Requests to your computer" card. */
 export interface RequestListItem {
-  /** The request key (`requestKey` output): the link the worker downloads. */
+  /**
+   * The request key (`requestKey` output): the link the request carries. The
+   * worker downloads it, or for a phone share link the set it leads to.
+   */
   key: string;
   /** Round 004: the latest request's id and status, for Cancel, Move to top, Stop. */
   id: string;

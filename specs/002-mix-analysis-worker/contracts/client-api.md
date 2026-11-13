@@ -10,6 +10,11 @@ Everything here is additive; no `DB_VERSION` bump; no new dependency.
   says "Look up first"); any other `https:` URL → host lower-cased, hash dropped, `utm_*`, `si`, `feature` params dropped,
   the rest kept; `http:`, free text → `null`.
 
+  > Amendment, spec 028 (2026-11-13): an `on.soundcloud.com/<token>` short link is now a request link. `requestKey` returns
+  > `classifyMixInput(input).url` (`https`, the host lower-cased, the rest as pasted), the key Look up saves the mix under, and
+  > the worker follows it (`specs/028-worker-short-links/contracts/app.md`). A short link without a token and a SoundCloud
+  > profile stay `null`. The screen no longer says "Look up first".
+
 ## `src/features/mix/worker.ts` (pure, new)
 
 - `mergeWorkerRows(existing: TracklistRow[], incoming: TracklistRow[]): TracklistRow[]` — the rule of data-model.md: untouched

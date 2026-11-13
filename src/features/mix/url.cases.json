@@ -1,0 +1,30 @@
+{
+  "trim": [
+    { "input": "https://soundcloud.com/user/some-mix", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://soundcloud.com/user/some-mix?si=abc123&utm_source=clipboard", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://soundcloud.com/user/some-mix?in=someone/sets/favourites", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://soundcloud.com/user/some-mix?in_system_playlist=your-moods%3A123456%3A5", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://soundcloud.com/user/some-mix?ref=clipboard&p=a&c=0&si=abc123&utm_source=clipboard&utm_medium=text&utm_campaign=social_sharing", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://soundcloud.com/user/some-mix#t=1:23", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://m.soundcloud.com/user/some-mix?si=abc123", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://www.soundcloud.com/user/some-mix", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://SoundCloud.com/user/some-mix", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://soundcloud.com/user/some-mix/", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://soundcloud.com/user/some-mix//", "expected": "https://soundcloud.com/user/some-mix/" },
+    { "input": "https://soundcloud.com/User/Some-Mix", "expected": "https://soundcloud.com/User/Some-Mix" },
+    { "input": "https://soundcloud.com/user/some-mix/s-AbCdEf123?si=abc123", "expected": "https://soundcloud.com/user/some-mix/s-AbCdEf123" },
+    { "input": "https://soundcloud.com/user/sets/some-playlist?si=abc123", "expected": "https://soundcloud.com/user/sets/some-playlist" },
+    { "input": "http://soundcloud.com/user/some-mix", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "  https://soundcloud.com/user/some-mix  ", "expected": "https://soundcloud.com/user/some-mix" },
+    { "input": "https://soundcloud.com/user", "expected": null },
+    { "input": "https://soundcloud.com/user/", "expected": null },
+    { "input": "https://soundcloud.com/", "expected": null },
+    { "input": "https://on.soundcloud.com/abc123XYZ", "expected": null },
+    { "input": "https://example.com/user/some-mix", "expected": null },
+    { "input": "https://soundcloud.com.example.com/user/some-mix", "expected": null },
+    { "input": "soundcloud.com/user/some-mix", "expected": null },
+    { "input": "ftp://soundcloud.com/user/some-mix", "expected": null },
+    { "input": "not a link", "expected": null },
+    { "input": "", "expected": null }
+  ]
+}

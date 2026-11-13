@@ -60,8 +60,9 @@ function Provenance(p: { view: MixView }) {
         <p class="mix-caption">
           This is a mobile share link, so the TrackId.net lookup could not be
           confirmed for it. The player and any tracklist in the description are
-          shown below — or paste a tracklist. On a computer, open the mix and
-          copy its full soundcloud.com/… link for a TrackId lookup.
+          shown below — or paste a tracklist. Identify on my computer works
+          with this link. On a computer, open the mix and copy its full
+          soundcloud.com/… link for a TrackId lookup.
         </p>
       )}
       {tid && tid.count > 0 && (

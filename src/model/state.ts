@@ -1902,7 +1902,7 @@ export const mixJobs = signal<MixJobs>({});
 export const ALREADY_REQUESTED =
   'Already requested. Your computer takes it the next time the worker runs.';
 export const NOT_A_REQUEST_LINK =
-  'That is not a link the worker can take: paste an https link to the set (a SoundCloud short link needs Look up first).';
+  'That is not a link the worker can take: paste an https link to the set.';
 
 /**
  * "Identify on my computer": one request on the owner's server for the link

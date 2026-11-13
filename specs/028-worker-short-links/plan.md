@@ -82,8 +82,9 @@ specs/028-worker-short-links/
 ```text
 src/features/mix/
 ├── url.ts               # requestKey: a short link is a request link
-├── url.test.ts          # the shared cases against normalizeMixUrl; requestKey cases
-└── url.cases.json       # NEW: links and their trimmed form, read by both suites
+├── url.test.ts          # requestKey cases
+├── url.cases.json       # NEW: links and their trimmed form, read by both suites
+└── url.cases.test.ts    # NEW: the shared cases against normalizeMixUrl (as match.cases.test.ts)
 src/model/state.ts       # NOT_A_REQUEST_LINK: the short-link clause removed
 src/ui/mix/MixDetail.tsx # the share-link note names Identify on my computer
 src/features/mix/worker.ts  # one comment (the request key is no longer always the download link)
@@ -142,7 +143,8 @@ fetches or saves on disk uses the working address.
 
 ## Tests (written first)
 
-- `src/features/mix/url.test.ts`: every case of `url.cases.json` through `normalizeMixUrl`; `requestKey` of a short link is the
+- `src/features/mix/url.cases.test.ts` (new, beside `match.cases.test.ts`): every case of `url.cases.json` through
+  `normalizeMixUrl`. `src/features/mix/url.test.ts`: `requestKey` of a short link is the
   `https` short link and equals `classifyMixInput(...).url`; bare `on.soundcloud.com` and a profile stay `null`; the existing
   permalink and other-host cases unchanged.
 - `worker/tests/test_links.py`: the same case file through `trim_soundcloud`; the resolver table of contracts/worker.md row by

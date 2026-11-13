@@ -1,6 +1,6 @@
 # Contract: the shared trim cases
 
-`src/features/mix/url.cases.json` (new), read by `src/features/mix/url.test.ts` (through `normalizeMixUrl`) and by
+`src/features/mix/url.cases.json` (new), read by `src/features/mix/url.cases.test.ts` (through `normalizeMixUrl`) and by
 `worker/tests/test_links.py` (through `links.trim_soundcloud`), as `match.cases.json` and `parse.cases.json` already are. Both
 suites must give `expected` for every `input`.
 

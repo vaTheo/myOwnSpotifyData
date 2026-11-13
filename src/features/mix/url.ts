@@ -247,14 +247,17 @@ const TRACKING_PARAMS = new Set(['si', 'feature']);
 /**
  * The canonical link of an identify request and the `mixes` key it lands on
  * (worker round, contracts/client-api.md). A SoundCloud permalink keeps
- * `normalizeMixUrl`'s form so the result joins the mix the lookup saved; a
- * SoundCloud link that form refuses (a user page, a short link the app cannot
- * resolve) is refused too; any other `https:` link is kept with its hash and
+ * `normalizeMixUrl`'s form so the result joins the mix the lookup saved. A
+ * phone share link (`on.soundcloud.com/<token>`) keeps `classifyMixInput`'s
+ * form, the one the lookup saves a mix under: the app cannot follow it, the
+ * worker does (spec 028), so it is the request's link but not the address
+ * downloaded. Any other SoundCloud link (a user page, a share link without a
+ * token) is refused; any other `https:` link is kept with its hash and
  * tracking parameters dropped. Never `http:`, never free text.
  */
 export function requestKey(input: string): string | null {
-  const permalink = normalizeMixUrl(input);
-  if (permalink !== null) return permalink;
+  const soundcloud = classifyMixInput(input);
+  if (soundcloud !== null) return soundcloud.url;
   let parsed: URL;
   try {
     parsed = new URL(input.trim());

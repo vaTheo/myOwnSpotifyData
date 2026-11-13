@@ -190,7 +190,9 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 **Lookup** (runs only from the screen's `Look up` button):
 
 - `url.ts` (`normalizeMixUrl`): the one canonical string sent to both providers, compared by the guard and used as the `mixes` key;
-  `on.soundcloud.com` short links are resolved by trying several safe slug spellings.
+  `on.soundcloud.com` short links are resolved by trying several safe slug spellings. The rule is shared with the worker:
+  `url.cases.json` lists links and their trimmed form, read by `url.cases.test.ts` and by the worker's `tests/test_links.py`
+  (spec 028); a new case goes in the file.
 - `oembed.ts` (`fetchOembed`): SoundCloud oEmbed → title, author, description and the validated player iframe src.
 - `trackid.ts` (`fetchTrackId`): TrackId.net's two-call list-then-detail flow behind the mandatory `result.rowCount === 1` **and**
   URL-equality guard, mapping the identified spans to rows with `ID · unidentified` gaps.
@@ -238,7 +240,9 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   `applyAnswers` dates an undated row from it.
 - `worker.ts` (pure, worker round): `resultToRows` (the worker's result through `parseTracklistifyJson`, re-checked), `mergeWorkerRows`
   (a new result replaces untouched scan rows only; the result's own copies of a song are first collapsed by `oneRowPerSong`), `jobView` and `requestStatusText` (the one wording of the Identify button and the
-  request's state line for every server and request state). `url.ts` gains `requestKey`, the canonical link of a request.
+  request's state line for every server and request state). `url.ts` gains `requestKey`, the canonical link of a request: a SoundCloud set address trimmed, another `https` link without
+  its tracking parameters and, since spec 028, a phone share link (`on.soundcloud.com/<token>`) kept in the form Look up saves
+  a mix under. The app never follows a share link; the worker does (§17), and the result lands on the mix of the request's link.
   Round 003: `resultToRows` also maps a track's `origin` (`replay` with `speedPercent`, `clue` with its `clue`), builds gap
   rows (with `clues`) from `mix_info.gaps` and returns the set-wide `clues` (stored on `MixRow.clues`); `toClue` keeps only
   plain strings within their caps. The Mix screen shows "second listen · ±4 %", "from a comment · not heard" with the clue's
