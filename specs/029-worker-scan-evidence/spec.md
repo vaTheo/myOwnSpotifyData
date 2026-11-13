@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-13
 
-**Status**: Draft, waiting for the owner's review of this document (no plan and no code before it)
+**Status**: Approved (owner 2026-11-13: "Ok you can plan for everrything you have said"); the plan and the tasks wait for the owner's OK before any code
 
 **Input**: Owner (2026-11-12): "With the current setup I found a lot of sound but there are mostly trash and not at all in the mix i put in. […] The issue is i got a lot of falsepositive but some times I manage to get some positive findings with lo % and 1 time found. I would love not miss that one". After the research and its measured options ([Shazam on DJ mixes](../../docs/research/2026-11-13-shazam-mix-accuracy.md), §6), the report recommended option A with two extra labels plus the TrackId.net check asked at the second-pass speeds; owner (2026-11-13): "OK you can proceed opening a branch and worktree for that".
 
@@ -60,7 +60,7 @@ Where a row has its evidence, the owner reads the speed the DJ plays the track a
 
 **Acceptance Scenarios**:
 
-1. **Given** a Solid row heard 11 times, played 5.8 % slow, **Then** its cell reads "Solid · ×11" and "−5.8 %", and its full text says so in words.
+1. **Given** a Solid row heard 11 times, played 5.8 % slow, **Then** its cell reads "Solid ×11 · −5.8 %", and its full text says so in words.
 2. **Given** a row found on the second pass at ×1.09 whose track plays 7.7 % slow, **Then** the row says "second listen" and "−7.7 %", not "−9 %" or "+9 %".
 3. **Given** a row of an older result with no evidence, **Then** it reads as today ("×3 · 92%").
 
