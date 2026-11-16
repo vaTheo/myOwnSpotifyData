@@ -52,11 +52,13 @@ function outputs(fn: (...args: never[]) => string): string[] {
   );
 }
 
-const ALL = leaves(en as Node, fr as Node, '');
+const ALL = leaves(en as unknown as Node, fr as unknown as Node, '');
 
 describe('the English and French catalogues (spec 031)', () => {
   it('hold the same entries', () => {
-    expect(keys(fr as Node, '').sort()).toEqual(keys(en as Node, '').sort());
+    expect(keys(fr as unknown as Node, '').sort()).toEqual(
+      keys(en as unknown as Node, '').sort()
+    );
   });
 
   it('give each entry the same kind in both languages', () => {

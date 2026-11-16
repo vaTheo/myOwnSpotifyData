@@ -1,52 +1,37 @@
-import { intIn } from './fmt';
+import { format, language, months, n } from './fr/common';
+import { core } from './fr/core';
+import { crate } from './fr/crate';
+import { demo } from './fr/demo';
+import { frame } from './fr/frame';
+import { library } from './fr/library';
+import { mix } from './fr/mix';
+import { overview } from './fr/overview';
+import { settings } from './fr/settings';
+import { signin } from './fr/signin';
+import { sources } from './fr/sources';
+import { table } from './fr/table';
 import type { Messages } from './index';
 
 /**
  * Every text the app writes, in French (spec 031, ADR-18). Same shape as
- * `en.ts`; the names are the ones of the round's glossary. French agrees 0
- * and 1 in the singular, and keeps a no-break space before `:`, `?`, `!`.
+ * `en.ts`, one file per area under `fr/`; the names are the ones of the
+ * round's glossary. French agrees 0 and 1 in the singular, and keeps a
+ * no-break space (written `\u00A0`) before `:`, `?`, `!` and `;`.
  */
-const int = (n: number): string => intIn('fr', n);
-const count =
-  (one: string, many: string) =>
-  (n: number): string =>
-    `${int(n)} ${n < 2 ? one : many}`;
-
 export const fr: Messages = {
-  n: {
-    track: count('titre', 'titres'),
-    play: count('écoute', 'écoutes'),
-    artist: count('artiste', 'artistes'),
-    playlist: count('playlist', 'playlists'),
-    year: count('année', 'années'),
-    month: count('mois', 'mois'),
-    day: count('jour', 'jours'),
-    song: count('titre', 'titres'),
-    file: count('fichier', 'fichiers'),
-    row: count('ligne', 'lignes'),
-  },
-  settings: {
-    groups: {
-      spotify: 'Spotify',
-      data: 'Vos données',
-      devices: 'Entre appareils',
-      device: 'Cet appareil',
-    },
-    items: {
-      account: 'Compte Spotify',
-      sync: 'Synchronisation Spotify',
-      history: 'Historique d’écoute',
-      audio: 'Données audio',
-      reach: 'Audience des artistes',
-      server: 'Serveur',
-      language: 'Langue',
-      danger: 'Zone de danger',
-    },
-  },
-  language: {
-    names: { fr: 'Français', en: 'English' },
-    choose: 'Langue',
-    description: 'La langue dans laquelle l’application est écrite.',
-    kept: 'Conservé sur cet appareil.',
-  },
+  n,
+  months,
+  format,
+  language,
+  core,
+  crate,
+  demo,
+  frame,
+  library,
+  mix,
+  overview,
+  settings,
+  signin,
+  sources,
+  table,
 };
