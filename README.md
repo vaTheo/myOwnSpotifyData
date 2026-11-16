@@ -269,9 +269,10 @@ line shows the progress ("Updating · 22,353 of 33,888 tracks", "Importing ·
 dates and the server's rows are in each item, opened; what Automatic updates
 does is explained in **Spotify sync**.
 
-Below it, seven items grouped under **Spotify** (Spotify account, Spotify
-sync), **Your data** (Listening history, Audio data, Artist reach) and
-**Between devices** (Server), then the **Danger zone** apart. Each item is
+Below it, eight items grouped under **Spotify** (Spotify account, Spotify
+sync), **Your data** (Listening history, Audio data, Artist reach),
+**Between devices** (Server) and **This device** (Language), then the
+**Danger zone** apart. Each item is
 closed to one line: its name, its state in a few words and in its colour
 ("Synced", "Running 40 %", "Failed"; an error or a warning shows even
 closed; the numbers are in the item, opened) and its main button, highlighted

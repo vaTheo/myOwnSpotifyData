@@ -61,11 +61,11 @@ Each step is one or more commits, compiling and green, with its docs. Tests firs
 
 1. **Foundation (US2, US3; FR-001, FR-005 to FR-007, FR-016).**
    - `src/i18n/lang.ts` with `lang.test.ts`: `Lang`, `initialLang(saved, preferred)`, the `lang` signal, `setLang`, the `lang` storage key in a try/catch, `<html lang>`.
-   - `src/i18n/en.ts` (the shape, starting with the switch's own texts), `src/i18n/fr.ts`, `src/i18n/index.ts` (`m()`, `Messages`).
+   - `src/i18n/en.ts` (the shape, starting with the switch's own texts), `src/i18n/fr.ts`, `src/i18n/index.ts` (`msg()`, `Messages`).
    - `src/i18n/fmt.ts` with `fmt.test.ts`: `fmt.int`, `fmt.date`, `fmt.time`, `fmt.dateTime` on `en-GB` and `fr-FR`.
    - `src/i18n/catalogue.test.ts`: both catalogues complete, non-empty, counts right for 0, 1 and 2, the same-text allow-list.
 
-2. **The switch (US2; FR-004).** The Settings group "This device" and its item "Language" (`sections.ts`, a new `LanguageSection.tsx`, `SettingsPage.tsx`); the small control on `SignInGate.tsx` and `Connect.tsx`. Regression rows L01 to L05 are written here: pick French in Settings, reload keeps it, back to English, the control on the sign-in screen, the first-visit rule with a French browser.
+2. **The switch (US2; FR-004).** The Settings group "This device" and its item "Language" (`sections.ts`, a new `LanguageSection.tsx`, `SettingsPage.tsx`); the small control on `SignInGate.tsx` and `Connect.tsx`. Regression rows G01 to G05 are written here: pick French in Settings, reload keeps it, back to English, the control on the sign-in screen, the first-visit rule with a French browser.
 
 3. **Dates, numbers and counts (FR-008, FR-009).** The 60 direct `toLocaleString` calls go through `fmt`; `plural()` and the copy in `likePlaylist.ts` give way to counted-noun entries; `searchIndex.ts` drops its fixed `en-GB`. English output is unchanged under `en-GB`, held by the existing tests.
 
@@ -91,7 +91,7 @@ Each step is one or more commits, compiling and green, with its docs. Tests firs
    - `docs/dev-guide/000-contributing.md`: "One change, several files" gains "a new text is two catalogue entries"; `docs/dev-guide/100-design-guide.md`: French typography and the longer-text rule;
    - `docs/architecture/100-features.md` (a new row), `docs/architecture/800-limits-roadmap.md` (the limit of research R4; the worker stays English; the sign-in email stays as it is);
    - `CLAUDE.md` (one rule line, one routing row for `src/i18n/`), a short `src/i18n/CLAUDE.md` with its `AGENTS.md` link;
-   - `specs/003-web-first-redesign/contracts/screens.md` §13 (the item), `regression.md` (rows L01 to L05);
+   - `specs/003-web-first-redesign/contracts/screens.md` §13 (the item), `regression.md` (rows G01 to G05);
    - `README.md` (owner's manual: choosing the language), `CHANGELOG.md`, `docs/README.md` (the new pages).
    - Final sweep: a file-to-doc map in the report; the review checks the docs against the code.
 
@@ -121,17 +121,17 @@ specs/031-french-english-switch/
 ```text
 src/i18n/lang.ts (+ .test)         new: the language, the first-visit rule, the saved choice
 src/i18n/en.ts, fr.ts              new: the two catalogues
-src/i18n/index.ts                  new: m(), Messages
+src/i18n/index.ts                  new: msg(), Messages
 src/i18n/fmt.ts (+ .test)          new: dates and numbers in the language shown
 src/i18n/catalogue.test.ts         new: complete, non-empty, counts
 src/ui/settings/LanguageSection.tsx new: the Settings item
 src/ui/settings/sections.ts        the group "This device", the item, labels read when drawn
 src/ui/signin/SignInGate.tsx, src/ui/Connect.tsx   the small switch
-src/**/*.ts(x)                     about 135 files: texts read from m(), numbers and dates from fmt
+src/**/*.ts(x)                     about 135 files: texts read from msg(), numbers and dates from fmt
 src/styles.css                     the switch; fixes for longer French labels, tokens only
 eslint.config.*                    the local no-literal-text rule
 tools/shots/playwright.config.ts   the French project
-tools/shots/regression.spec.ts     rows L01 to L05
+tools/shots/regression.spec.ts     rows G01 to G05
 index.html                         unchanged; <html lang> is set at start
 ```
 
@@ -141,7 +141,7 @@ index.html                         unchanged; <html lang> is set at start
 
 - **Width.** A miss leaves an English sentence in French. Nets: the lint rule for screens, the catalogue test, the French pass read screen by screen.
 - **English drift.** A text reworded while it moves breaks FR-003. Net: the existing tests and regression keep their assertions; a step that needs to edit one stops and says why.
-- **Stale constants.** A text read once at load keeps the first language. Net: regression row L01 switches on a screen already drawn and reads the navigation, a table heading and a Settings label.
+- **Stale constants.** A text read once at load keeps the first language. Net: regression row G01 switches on a screen already drawn and reads the navigation, a table heading and a Settings label.
 - **Longer French.** Navigation, table headings, buttons and pills. Net: the French visual pass at four widths.
 
 ## Noticed, not done

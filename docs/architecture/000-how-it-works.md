@@ -462,8 +462,9 @@ screen, grouped by role under `src/ui/`.
   Like states, the order control; Match cells in `playlist/matchCells.ts`), `Artists.tsx` with `UnderRadar.tsx` (gated on
   `artistReachSummary.version === 1`; since spec 030 one "Filter artists" text for both views and the list beside an open
   artist, `artistFilter` in `ui/artistSelections.ts`; **Well known** is a heading at the bottom, never a filter; listeners and fans in two
-  columns), `Artist.tsx`, `settings/` (spec 026: `SettingsPage.tsx` draws `SyncStatus.tsx` first, never folded, then the seven items of
-  `sections.ts` under their groups Spotify · Your data · Between devices, the Danger zone apart; each item is a `SettingsItem.tsx`,
+  columns), `Artist.tsx`, `settings/` (spec 026: `SettingsPage.tsx` draws `SyncStatus.tsx` first, never folded, then the eight items of
+  `sections.ts` under their groups Spotify · Your data · Between devices · This device (spec 031: the Language item,
+  `LanguageSection.tsx`, its labels read from the catalogue when drawn, §18), the Danger zone apart; each item is a `SettingsItem.tsx`,
   closed to its name, its state in words (`stateOnly`: no counts or dates, those are in the opened item) and its main button (filled only
   when it is the action needed now), opened on a header tap, on arrival or later while open when failing or running (not after a
   close by hand: `opensLater`), or when
@@ -874,6 +875,30 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
 - The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
 - How accurate a scan is and why, measured on four mixes, with the options built (spec 029) and not built:
   [Shazam on DJ mixes](../research/2026-11-13-shazam-mix-accuracy.md).
+
+## 18. `i18n/`: French and English
+
+Spec 031, [ADR-18](700-adr/ADR-18-two-languages-typed-catalogue.md) (written at the end of the round). The app is written in two
+languages with no library.
+
+- **The catalogue.** `en.ts` holds every text the app writes, in today's words; it gives the shape (`Messages` in `index.ts`).
+  `fr.ts` must satisfy that shape, so a text with no French version fails `yarn typecheck`. A text is a string; a text with a value
+  is a function of it; a counted noun (`n.track(count)`) agrees inside its own entry, French taking 0 and 1 as singular.
+  `catalogue.test.ts` walks both: same entries, none empty, no English sentence left in French outside a short list of words that
+  are the same ("Mix", "Top", "Crate", "Spotify").
+- **The language shown.** `lang.ts`: the signal `lang` (`'en' | 'fr'`). `msg()` returns the catalogue of `lang.value`; a component
+  or a pure function called while drawing subscribes by reading it, so a pick redraws the app with no reload. A text is therefore
+  read when drawn and never kept in a module constant (the Settings labels of `ui/settings/sections.ts` are getters).
+- **The choice.** `setLang` shows the language, sets `<html lang>` and saves `lang` in `localStorage` (per device, never synced,
+  kept by Disconnect). With nothing saved, `initialLang` gives French when the browser's first preferred language starts with
+  `fr`, English otherwise, and saves nothing. `main.tsx` sets `<html lang>` before the first draw. Vitest has no browser, so tests
+  run in English.
+- **Where it is picked.** Settings · This device · Language (`#/settings/language`), and the same two choices on the Connect and
+  sign-in cards (`LanguageSwitch`), each language under its own name whatever is shown.
+- **Dates and numbers.** `fmt.ts`: `fmt.int`, `fmt.date`, `fmt.time`, `fmt.dateTime` use `en-GB` in English and `fr-FR` in French,
+  not the browser's own setting.
+- **State of the round.** The mechanism, the switch and the Settings names are built; the other screens move to the catalogue
+  folder by folder (spec 031 tasks T012 to T026) and are English until then.
 
 ## Links
 

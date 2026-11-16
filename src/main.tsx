@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { App, bootPhase, installRouter, route } from './app';
 import { auth } from './auth/browser';
 import { demoVariant } from './dev/flag';
+import { applyDocumentLang } from './i18n';
 import {
   activateServerUser,
   completeServerLink,
@@ -31,6 +32,7 @@ import './styles.css';
  * blank page. Every await below therefore comes after `render`.
  */
 async function boot(): Promise<void> {
+  applyDocumentLang();
   const params = new URLSearchParams(location.search);
   // The server's magic link and Spotify's PKCE callback both come back with
   // `?code=`; the `link=server` marker is what tells them apart (S2).

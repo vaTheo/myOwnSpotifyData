@@ -22,7 +22,7 @@ Findings from the code at main fc086a3 (2026-11-16), then one decision per quest
 
 ### R1. No library: a typed catalogue in the repo
 
-- **Decision**: a new folder `src/i18n/` holds one catalogue per language. `en.ts` is the source and gives the shape; `fr.ts` must have the same shape. `m()` returns the catalogue of the language shown.
+- **Decision**: a new folder `src/i18n/` holds one catalogue per language. `en.ts` is the source and gives the shape; `fr.ts` must have the same shape. `msg()` returns the catalogue of the language shown.
 - **Rationale**: no new dependency (ADR-06); two languages only; a missing French text fails `yarn typecheck`, which CI already runs (FR-017).
 - **Alternatives considered**: i18next or Lingui (a dependency, an extraction step, features for many languages that two do not need); the English sentence as the key (`t('Sync now')`: a reworded English text silently loses its French one).
 
@@ -34,7 +34,7 @@ Findings from the code at main fc086a3 (2026-11-16), then one decision per quest
 
 ### R3. The language is a signal; module constants become functions
 
-- **Decision**: `lang` is a signal in `src/i18n/lang.ts`. `m()` reads it, so every component and every pure function called while drawing follows a change at once, without a reload (FR-005). A constant that holds text at module level becomes a function or a table of ids whose label is read when drawn (`CRATE_TITLE[view]` becomes `crateTitle(view)`, the Settings items keep their ids and lose their `label`).
+- **Decision**: `lang` is a signal in `src/i18n/lang.ts`. `msg()` reads it, so every component and every pure function called while drawing follows a change at once, without a reload (FR-005). A constant that holds text at module level becomes a function or a table of ids whose label is read when drawn (`CRATE_TITLE[view]` becomes `crateTitle(view)`, the Settings items keep their ids and lose their `label`).
 - **Rationale**: a constant is read once at load and would keep the first language.
 - **Alternatives considered**: reload the page on a switch (simple, but FR-005 and US2 scenario 2 say no reload, and a running job would stop).
 

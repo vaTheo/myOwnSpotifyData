@@ -556,7 +556,7 @@ test.describe('A. addresses', () => {
     await expect(sheet).toHaveCount(0);
   });
 
-  test('A14 #/settings opens Settings: Sync status, then seven items under their groups, closed', async ({
+  test('A14 #/settings opens Settings: Sync status, then eight items under their groups, closed', async ({
     app,
   }) => {
     await app.open('#/settings');
@@ -570,6 +570,7 @@ test.describe('A. addresses', () => {
       'Spotify',
       'Your data',
       'Between devices',
+      'This device',
       // The item set apart heads its own part of the outline.
       'Danger zone',
     ]);
@@ -581,6 +582,7 @@ test.describe('A. addresses', () => {
       'Audio data',
       'Artist reach',
       'Server',
+      'Language',
       'Danger zone',
     ]);
     // Nothing runs or fails on the demo: every item is closed (FR-005).
@@ -1992,7 +1994,9 @@ async function signedInQueue(app: App): Promise<Locator> {
 }
 
 test.describe('R. rounds 003 and 004', () => {
-  test('R01 a second listen, its speed in the Evidence cell', async ({ app }) => {
+  test('R01 a second listen, its speed in the Evidence cell', async ({
+    app,
+  }) => {
     await app.open(`#/mix/${enc(SUNRISE)}`);
     const grid = await openGrid(app.page);
     // Artist and Title are two cells (spec 020).
@@ -3148,6 +3152,136 @@ test.describe('L. play button and Listen menu', () => {
     // Its text still opens the details.
     await li.locator('a.ov-item').click();
     await expect(page).toHaveURL(/\?d=/);
+  });
+});
+
+// ------------------------------------------- G. Languages (spec 031)
+
+test.describe('G. languages', () => {
+  const language = (page: Page) =>
+    main(page).locator('#settings-language').getByRole('tab');
+
+  test('G01 picking Français in Settings turns the drawn screen French at once, with no reload', async ({
+    app,
+  }) => {
+    await app.open('#/settings/language');
+    const m = main(app.page);
+    await expect(language(app.page)).toHaveText(['Français', 'English']);
+    await expect(
+      language(app.page).filter({ hasText: 'English' })
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(m.getByText('Kept on this device.')).toBeVisible();
+    // A mark on the page proves the same document is still there afterwards.
+    await app.page.evaluate(() => {
+      (window as unknown as { __same?: true }).__same = true;
+    });
+    await language(app.page).filter({ hasText: 'Français' }).click();
+    await expect(m.getByText('Conservé sur cet appareil.')).toBeVisible();
+    await expect(
+      m.getByRole('heading', { level: 2, name: 'Cet appareil' })
+    ).toBeVisible();
+    await expect(
+      m.getByRole('button', { name: 'Langue', exact: true })
+    ).toHaveAttribute('aria-expanded', 'true');
+    await expect(
+      m.getByRole('button', { name: 'Synchronisation Spotify' })
+    ).toBeVisible();
+    await expect(
+      language(app.page).filter({ hasText: 'Français' })
+    ).toHaveAttribute('aria-selected', 'true');
+    expect(
+      await app.page.evaluate(
+        () => (window as unknown as { __same?: true }).__same
+      )
+    ).toBe(true);
+    await expect(app.page).toHaveURL(/#\/settings\/language$/);
+    expect(await app.page.evaluate(() => document.documentElement.lang)).toBe(
+      'fr'
+    );
+    expect(await app.page.evaluate(() => localStorage.getItem('lang'))).toBe(
+      'fr'
+    );
+  });
+
+  test('G02 the pick is kept on the device: a reload opens in French', async ({
+    app,
+  }) => {
+    await app.open('#/settings/language');
+    await language(app.page).filter({ hasText: 'Français' }).click();
+    await app.open('#/settings/language');
+    await expect(
+      main(app.page).getByText('Conservé sur cet appareil.')
+    ).toBeVisible();
+    expect(await app.page.evaluate(() => document.documentElement.lang)).toBe(
+      'fr'
+    );
+  });
+
+  test('G03 picking English again restores every label', async ({ app }) => {
+    await app.open('#/settings/language');
+    const m = main(app.page);
+    await language(app.page).filter({ hasText: 'Français' }).click();
+    await expect(
+      m.getByRole('button', { name: 'Langue', exact: true })
+    ).toBeVisible();
+    await language(app.page).filter({ hasText: 'English' }).click();
+    await expect(
+      m.getByRole('button', { name: 'Language', exact: true })
+    ).toBeVisible();
+    await expect(
+      m.getByRole('heading', { level: 2, name: 'This device' })
+    ).toBeVisible();
+    expect(await app.page.evaluate(() => document.documentElement.lang)).toBe(
+      'en'
+    );
+    expect(await app.page.evaluate(() => localStorage.getItem('lang'))).toBe(
+      'en'
+    );
+  });
+
+  test('G04 the Connect screen offers the same choice before any sign-in, and keeps it', async ({
+    app,
+  }) => {
+    await app.open('#/', 'signed-out');
+    const choice = app.page.getByRole('group', { name: 'Language' });
+    await expect(choice.getByRole('tab')).toHaveText(['Français', 'English']);
+    await choice.getByRole('tab', { name: 'Français' }).click();
+    await expect(app.page.getByRole('group', { name: 'Langue' })).toBeVisible();
+    expect(await app.page.evaluate(() => localStorage.getItem('lang'))).toBe(
+      'fr'
+    );
+    await app.open('#/', 'signed-out');
+    await expect(app.page.getByRole('group', { name: 'Langue' })).toBeVisible();
+  });
+
+  test.describe('with a French browser', () => {
+    test.use({ locale: 'fr-FR' });
+
+    test('G05 a first visit follows the browser and saves nothing; a saved choice wins', async ({
+      app,
+    }) => {
+      await app.open('#/settings/language');
+      const m = main(app.page);
+      await expect(m.getByText('Conservé sur cet appareil.')).toBeVisible();
+      await expect(
+        language(app.page).filter({ hasText: 'Français' })
+      ).toHaveAttribute('aria-selected', 'true');
+      expect(await app.page.evaluate(() => document.documentElement.lang)).toBe(
+        'fr'
+      );
+      expect(
+        await app.page.evaluate(() => localStorage.getItem('lang'))
+      ).toBeNull();
+      // Still nothing saved after a reload: the browser decides each time.
+      await app.open('#/settings/language');
+      expect(
+        await app.page.evaluate(() => localStorage.getItem('lang'))
+      ).toBeNull();
+      // A pick wins over the browser from then on.
+      await language(app.page).filter({ hasText: 'English' }).click();
+      await app.open('#/settings/language');
+      await expect(m.getByText('Kept on this device.')).toBeVisible();
+    });
   });
 });
 

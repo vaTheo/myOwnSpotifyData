@@ -20,6 +20,7 @@ import {
   syncState,
 } from '../../model/state';
 import { updateLines, type UpdateJob } from '../../model/updateLines';
+import { lang, msg } from '../../i18n';
 import { accountLine } from './AccountSection';
 import { historyZoneWarning } from './HistorySection';
 import {
@@ -184,6 +185,7 @@ export function useSettingsLines(): {
         {},
         of(server)
       ),
+      language: { tone: 'off', text: msg().language.names[lang.value] },
       danger: DANGER_LINE,
     },
   };

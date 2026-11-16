@@ -1310,6 +1310,20 @@ a {
   background: var(--md-sys-color-surface-container);
 }
 
+/* The language choice on the two entry screens (spec 031): small, top right. */
+.connect-lang {
+  align-self: flex-end;
+  margin: -16px -8px 0 0;
+}
+
+.connect-lang .segmented {
+  margin: 0;
+}
+
+.settings-language .segmented {
+  max-width: 320px;
+}
+
 .connect-card h1 {
   margin: 0;
   font: var(--md-sys-typescale-headline-small);

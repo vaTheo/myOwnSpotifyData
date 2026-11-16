@@ -4,12 +4,14 @@ import {
   ACCOUNT_DESCRIPTION,
 } from './AccountSection';
 import { AudioMain, AudioSection, AUDIO_DESCRIPTION } from './AudioSection';
+import { msg } from '../../i18n';
 import { DangerZone, dangerText } from './DangerZone';
 import {
   HistoryMain,
   HistorySection,
   HISTORY_DESCRIPTION,
 } from './HistorySection';
+import { LanguageSection } from './LanguageSection';
 import { ReachMain, ReachSection, REACH_DESCRIPTION } from './ReachSection';
 import {
   itemOfRoute,
@@ -70,6 +72,11 @@ function parts(id: SectionId, act: boolean): Parts {
         main: <ServerMain act={act} />,
         description: SERVER_DESCRIPTION,
         body: <ServerSection />,
+      };
+    case 'language':
+      return {
+        description: msg().language.description,
+        body: <LanguageSection />,
       };
     case 'danger':
       return {

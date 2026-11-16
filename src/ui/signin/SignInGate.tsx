@@ -1,6 +1,7 @@
 import { serverState, spotifyReturnDropped } from '../../model/state';
 import { StatusLine } from '../components/StatusLine';
 import { Icon } from '../icons';
+import { LanguageSwitch } from '../settings/LanguageSection';
 import { gateNotices } from './gate';
 import { ServerLinkForm } from './ServerLinkForm';
 
@@ -16,6 +17,7 @@ export function SignInGate(p: { linking?: boolean }) {
   return (
     <main class="connect">
       <section class="connect-card">
+        <LanguageSwitch class="connect-lang" />
         <Icon name="headphones" size={40} class="connect-mark" />
         <h1>DJ Data</h1>
         <p class="connect-purpose">

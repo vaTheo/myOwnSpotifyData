@@ -9,6 +9,7 @@ import {
 import { Button } from './components/Button';
 import { StatusLine } from './components/StatusLine';
 import { Icon } from './icons';
+import { LanguageSwitch } from './settings/LanguageSection';
 import { signedInLine } from './settings/lines';
 
 /**
@@ -27,6 +28,7 @@ export function Connect(p: { signingIn?: boolean }) {
   return (
     <main class="connect">
       <section class="connect-card">
+        <LanguageSwitch class="connect-lang" />
         <Icon name="headphones" size={40} class="connect-mark" />
         <h1>DJ Data</h1>
         <p class="connect-purpose">
