@@ -52,7 +52,7 @@ Re-checked after the design: no violation, Complexity Tracking is empty.
 
 1. **Research R4**: a failure message already on screen keeps its language until its job runs again ("ok for the 3 points"). The spec's edge case is amended.
 2. **Research R5**: English dates are fixed to the British form ("16 Nov 2026") on every device. FR-008 says so.
-3. **Glossary**: [contracts/glossary.md](contracts/glossary.md) is approved, with Crate = « Bac » and All-time classics = « Classiques ».
+3. **Glossary**: [contracts/glossary.md](contracts/glossary.md) is approved, with Crate kept as « Crate » and All-time classics = « Classiques ».
 4. **Visual loop**: `yarn shots` runs in this round, with a French pass.
 
 ## Approach

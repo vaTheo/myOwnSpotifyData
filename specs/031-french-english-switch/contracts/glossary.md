@@ -1,6 +1,6 @@
 # Glossary: the app's names in French (spec 031, FR-012)
 
-Approved by the owner on 2026-11-16 ("Bac", "all-time classics = Classiques"; the rest of the list left as proposed). One name is used everywhere: navigation, titles, cards, captions, messages. A name the owner changes later is changed here first.
+Approved by the owner on 2026-11-16 ("Crate keep Crate as name", "all-time classics = Classiques"; the rest of the list left as proposed). One name is used everywhere: navigation, titles, cards, captions, messages. A name the owner changes later is changed here first.
 
 ## Sections and views
 
@@ -9,7 +9,7 @@ Approved by the owner on 2026-11-16 ("Bac", "all-time classics = Classiques"; th
 | Overview | Vue d’ensemble | |
 | Listening | Écoute | tab group: Top, Crate |
 | Top | Top | same word |
-| Crate | Bac | owner 2026-11-16; a DJ's record crate is a « bac à disques » |
+| Crate | Crate | owner 2026-11-16: "Crate keep Crate as name"; the name stays in French |
 | Heavy rotation | Rotation intensive | |
 | Forgotten gems | Pépites oubliées | |
 | All-time classics | Classiques | owner 2026-11-16 |
