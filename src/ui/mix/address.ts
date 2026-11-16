@@ -2,7 +2,7 @@ import { routeHref } from '../../router';
 
 /**
  * The Mix workspace's address rules (spec 003 §12, contracts/routes.md):
- * `#/mix/<key>` names an open saved mix; an unsaved lookup stays at `#/mix`.
+ * `#/mix/<key>` names an open saved mix; an unsaved import stays at `#/mix`.
  * Two pure halves so the workspace never fights itself: `routeAction` runs
  * when the address changes, `addressAfter` when the open mix changes.
  */
@@ -23,7 +23,7 @@ export function routeAction(p: {
     if (!p.loaded || p.openUrl === p.key) return 'none';
     return p.saved.includes(p.key) ? 'open' : 'missing';
   }
-  // Back from `#/mix/<key>`: close that mix, but never an unsaved lookup
+  // Back from `#/mix/<key>`: close that mix, but never an unsaved import
   // that replaced it on screen.
   if (p.prevKey !== undefined && p.openUrl === p.prevKey) return 'close';
   return 'none';
@@ -41,8 +41,8 @@ export function addressAfter(p: {
   hold?: boolean;
 }): string | null {
   if (p.openUrl === null) {
-    // A failed or running Look up closed the addressed mix: the address
-    // follows the screen, so a reload does not reopen it.
+    // The addressed mix is no longer on screen: the address follows the
+    // screen, so a reload does not reopen it.
     return p.key !== undefined && !p.hold ? routeHref({ name: 'mix' }) : null;
   }
   if (p.saved) {

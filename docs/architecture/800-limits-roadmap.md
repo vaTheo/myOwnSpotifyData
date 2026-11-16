@@ -36,8 +36,8 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   WebKit needs system libraries (libicu74, libjpeg-turbo8) the owner's Debian lacks. It is not run in CI.
 - Check on Spotify (F21) saves its answers when it ends: a page reload in the middle loses the answers read so far.
 - A Spotify link pasted on a Mix row (F28) is trusted as given, never verified: a wrong link adds the wrong track until replaced;
-  `spotify.link` short links (they need a redirect) are refused. It is saved like an edit: at once on a saved mix (spec 024); on a
-  lookup never saved, a reload before Save mix loses it.
+  `spotify.link` short links (they need a redirect) are refused. It is saved like an edit: at once on a saved mix (spec 024); on an
+  import never saved, a reload before Save mix loses it.
 - The marked Mix row (F29) is the place of a row in the list, kept for the page only: a reload or another mix forgets it; a delete,
   a paste, the description, a lookup or a reopened mix clears it rather than follow the track; an answer written into the rows in
   place (Check on Spotify, release years) keeps it. A worker result or another device's change reaches the open list after a pull
@@ -50,7 +50,7 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
   YouTube links need Node or Deno on the computer. Requests wait while the computer is off.
   Since worker 0.7.4 (the share-link round, F43) a phone share link (`on.soundcloud.com/…`) is followed by the worker and the
   result lands on the mix saved under that share link; the real address is never sent back to the app. So one set asked by its
-  share link and later looked up or pasted by its full link is two saved mixes. What the short host answers is SoundCloud's to
+  share link and later asked by its full link is two saved mixes. What the short host answers is SoundCloud's to
   change (checked 2026-11-13: one `302` to the set's page, `404` for an unknown token): if it stops redirecting, a share-link
   request fails with its reason and the full link still works. A worker before 0.7.4 does not know share links (a shared one
   fails them with "link not allowed in shared mode"). The worker trims SoundCloud addresses only, with the app's rule ported to

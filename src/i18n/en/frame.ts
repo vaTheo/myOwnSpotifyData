@@ -68,7 +68,6 @@ export const frame = {
     like: 'Liking songs',
     createPlaylist: 'Creating playlist',
     spotifyCheck: 'Checking on Spotify',
-    mixLookup: 'Looking up mix',
   },
   /** `components/`. */
   banner: { dismiss: 'Dismiss' },

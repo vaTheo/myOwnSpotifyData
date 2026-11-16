@@ -3,6 +3,21 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-16 — Mix keeps only Identify on my computer
+
+**Look up** is removed from the Mix screen, on the owner's request. The link field now has one action: **Identify on my
+computer** (the button, or Enter in the field). Gone with it: **Look up again** (beside the field and in the open mix's
+header), **Replace with the description tracklist**, the phone-share-link note, the "TrackId.net could not be reached" and
+"The mix page could not be read" lines, and the "Looking up mix" entry of the Activity button. The app no longer reads
+SoundCloud's oEmbed or TrackId.net from the browser: both hosts left the page's content policy, and the code that read them
+is deleted. The worker still asks TrackId.net by the exact mix link and reads the description as clues. On a phone,
+Identify on my computer now sits right under the link field. Kept: the Mixes list, the Tracklistify JSON import, Paste a
+tracklist, Check on Spotify, Create playlist, every row action. A mix saved by the old Look up still opens, with its player
+and its source line. Spec `specs/032-mix-identify-only/`.
+
+**What to do**: hard-reload the app. A link shows nothing until your computer has answered: run the worker. No stored data
+change, no server change, no Spotify read or write.
+
 ## 2026-11-16 — The app in French, with a French / English switch
 
 Every screen of the web app can now be read in French: the navigation, titles, buttons, table headings, captions, empty

@@ -19,7 +19,6 @@ import {
   serverState,
   startCancelRequest,
   startIdentifyRequest,
-  startMixLookup,
   startMoveToTop,
   startServerSync,
   startStopRequest,
@@ -49,18 +48,17 @@ function openUrl(): string | null {
   return s.status === 'ready' ? s.view.url : null;
 }
 
-/** The link field and Look up (Look up again for an open mix, Looking up… while busy). */
+/** The link field: the link Identify on my computer sends (Enter asks too). */
 export function LinkForm() {
   const state = mixState.value;
   const url = linkText.value;
-  // A hand-imported scan has a synthetic `tracklistify:` key and no page; a
-  // worker mix has a real link, so it keeps the box and Look up again.
-  const isTracklistifyView =
-    state.status === 'ready' && !state.view.url.startsWith('https://');
+  // A hand-imported scan has a synthetic `tracklistify:` key and no page:
+  // it never fills the field. Opening a mix with a real link does, so
+  // Identify on my computer asks for the mix on screen.
   const viewUrl =
-    state.status === 'ready' && !isTracklistifyView ? state.view.url : null;
-  // Opening a saved mix seeds the field from its url, so the button is the
-  // "Look up again" re-fetch path. A Tracklistify view never fills it.
+    state.status === 'ready' && state.view.url.startsWith('https://')
+      ? state.view.url
+      : null;
   useEffect(() => {
     if (viewUrl !== null) linkText.value = viewUrl;
   }, [viewUrl]);
@@ -70,9 +68,8 @@ export function LinkForm() {
         class="mix-link-form"
         onSubmit={(e) => {
           e.preventDefault();
-          if (url.trim() !== '' && state.status !== 'looking') {
-            void startMixLookup(url);
-          }
+          // Enter in the field is the one action left: ask the computer.
+          if (url.trim() !== '') void startIdentifyRequest(url);
         }}
       >
         <TextField
@@ -84,39 +81,8 @@ export function LinkForm() {
             linkText.value = v;
           }}
         />
-        <Button
-          type="submit"
-          variant="filled"
-          disabled={state.status === 'looking' || url.trim() === ''}
-        >
-          {state.status === 'looking'
-            ? msg().mix.pane.lookingUp
-            : state.status === 'ready' && !isTracklistifyView
-              ? msg().mix.common.lookUpAgain
-              : msg().mix.pane.lookUp}
-        </Button>
       </form>
     </div>
-  );
-}
-
-/**
- * The lookup's own lines, under Identify on my computer (so the error's
- * "the button above" stays true): Looking up the mix… and the
- * not-SoundCloud error, inline, never a banner. `mixError` shows in the
- * Mixes list (S08b), where the requests and saved mixes are.
- */
-export function LookupLines() {
-  const state = mixState.value;
-  return (
-    <>
-      {state.status === 'looking' && (
-        <StatusLine>{msg().mix.pane.lookingUpMix}</StatusLine>
-      )}
-      {state.status === 'error' && (
-        <StatusLine kind="error">{msg().mix.pane.notSoundcloud}</StatusLine>
-      )}
-    </>
   );
 }
 
@@ -127,7 +93,6 @@ export function LookupLines() {
  */
 export function IdentifyRequest() {
   const url = linkText.value;
-  const busy = mixState.value.status === 'looking';
   const key = requestKey(url);
   const history = key !== null ? (mixJobs.value[key] ?? []) : [];
   const status = requestStatusText(history[0], serverState.value);
@@ -135,7 +100,7 @@ export function IdentifyRequest() {
     <div class="mix-identify">
       <Button
         icon="computer"
-        disabled={!status.canAsk || busy || url.trim() === ''}
+        disabled={!status.canAsk || url.trim() === ''}
         onClick={() => void startIdentifyRequest(url)}
       >
         {status.button}
@@ -510,7 +475,6 @@ export function MixListPane() {
     <div class="mix-pane" id="mix-pane">
       <LinkForm />
       <IdentifyRequest />
-      <LookupLines />
       <JsonImport />
       <MixesList />
       <WorkerHelp />

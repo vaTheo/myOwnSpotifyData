@@ -143,13 +143,7 @@ export const core = {
   },
   /** The Mix screen's jobs (`model/state.ts`). */
   mix: {
-    notALink:
-      "That is not a SoundCloud track link. Paste the link to the mix's page.",
-    replaceDescription:
-      'Replace your edited tracklist with the one from the description?',
     replacePasted: 'Replace your edited tracklist with the pasted tracks?',
-    replaceLookup:
-      'Looking up again replaces the current tracklist, including your edits. Continue?',
     replaceTracklistify:
       'Importing this file replaces the current tracklist, including your edits. Continue?',
     readFileFailed: (error: string): string =>

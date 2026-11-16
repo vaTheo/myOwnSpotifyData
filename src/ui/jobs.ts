@@ -6,7 +6,6 @@ import type { ImportState } from '../history/importer';
 import type {
   CreatePlaylistJob,
   LikeState,
-  MixState,
   SpotifyCheckState,
 } from '../model/state';
 import { routeHref } from '../router';
@@ -24,7 +23,6 @@ export interface JobStates {
   server: ServerStatus;
   like: LikeState;
   createPlaylist: CreatePlaylistJob;
-  mix: MixState;
   spotifyCheck: SpotifyCheckState;
 }
 
@@ -38,8 +36,7 @@ export interface ActiveJob {
     | 'server'
     | 'like'
     | 'createPlaylist'
-    | 'spotifyCheck'
-    | 'mixLookup';
+    | 'spotifyCheck';
   label: string;
   done: number | null;
   total: number | null;
@@ -159,15 +156,6 @@ export function activeJobs(s: JobStates): ActiveJob[] {
       done: s.spotifyCheck.done,
       total: s.spotifyCheck.total,
       href: routeHref({ name: 'mix', key: s.spotifyCheck.url }),
-    });
-  }
-  if (s.mix.status === 'looking') {
-    jobs.push({
-      id: 'mixLookup',
-      label: t.mixLookup,
-      done: null,
-      total: null,
-      href: MIX,
     });
   }
   return jobs;

@@ -88,6 +88,18 @@ const RENAMED_TESTS: Record<string, string> = {
     'lists the items in page order, Language before the Danger zone (spec 031)',
   'groups them under Spotify, Your data and Between devices, the Danger zone apart':
     'groups them under Spotify, Your data, Between devices and This device, the Danger zone apart',
+  // Spec 032: Look up is removed; an unsaved mix is now an import, and the
+  // description no longer replaces the list. The tests of the removed code
+  // (lookupMix, the app's TrackId.net and oEmbed readers, the short-link
+  // reconstruction, parseDescription) show as missing against `main` once.
+  'counts a paste, the description and a saved mix reopened; not an edit':
+    'counts a paste and a saved mix reopened; not an edit',
+  'a lookup never saved stays unsaved after a delete':
+    'an import never saved stays unsaved after a delete',
+  'keeps an unsaved lookup open at #/mix':
+    'keeps an unsaved import open at #/mix',
+  'returns to #/mix for an unsaved lookup':
+    'returns to #/mix for an unsaved import',
 };
 
 /**

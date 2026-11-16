@@ -140,8 +140,6 @@ describe('the English and French catalogues (spec 031)', () => {
       'Cancel this request? It leaves the queue; you can ask again later.',
       "Delete this mix forever? Its saved tracks and request history are removed and can't be restored.",
       'Remove all your data from the server? Local data on this browser is kept.',
-      'Replace your edited tracklist with the one from the description?',
-      'Looking up again replaces the current tracklist, including your edits. Continue?',
       'Replace your edited tracklist with the pasted tracks?',
       'Importing this file replaces the current tracklist, including your edits. Continue?',
       'Stop this scan? The computer ends it within about a minute and keeps the tracks found so far.',

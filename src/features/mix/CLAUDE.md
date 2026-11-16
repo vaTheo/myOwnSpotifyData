@@ -1,6 +1,6 @@
 # Rules for the Mix screen's logic
 
-Complements `../CLAUDE.md` for changes under `src/features/mix/`: the tracklist lookup (oEmbed, TrackId.net, paste grammar, Tracklistify
+Complements `../CLAUDE.md` for changes under `src/features/mix/`: the tracklist (paste grammar, Tracklistify
 import), library matching, Create playlist from mix, and dig links.
 
 ## Required inputs
@@ -20,13 +20,14 @@ import), library matching, Create playlist from mix, and dig links.
 
 - `pickMatch` never returns a wrong track: a "not found" is always better. Artist identity is equality on a leading run, never containment;
   a title is equal or the row's title plus a version tail. A new rule comes with accepted **and** refused test cases.
-- The TrackId guard stays: `result.rowCount === 1` **and** URL equality with `normalizeMixUrl`'s output.
+- Spec 032: the app reads no mix page and no TrackId.net (Look up, `lookupMix`, `trackid.ts`, the oEmbed read and
+  `parseDescription` are removed); the one way from a link to a tracklist is the identify request. Never bring a browser
+  fetch of a mix source back without the owner's word. `rowEdit.ts` holds the row edit rule, `player.ts` the player address.
 - Spec 028 (`url.ts`): `normalizeMixUrl` is ported in the worker (`worker/mix_worker/links.py`, `trim_soundcloud`) and both are
   pinned by `url.cases.json`: a change of the rule changes both, and a new case goes in the file. `requestKey` keeps a phone share
-  link (`on.soundcloud.com/<token>`) as the request's link, in the form the lookup saves a mix under; the app never follows it.
-- Round 016 (`worker.ts`): rows with `origin: 'trackid'` come from the worker, are never edited by the app, and `stepName('trackid')` is "TrackId.net"; the worker's TrackId.net lookup is by the exact mix link (ADR-17), distinct from this folder's `trackid.ts`.
-- Fetches stay behind an injected `fetchFn`, return a discriminated result, never throw; `lookupMix` keeps one layer's failure from hiding
-  the other's rows.
+  link (`on.soundcloud.com/<token>`) as the request's link, in the form a mix is saved under; the app never follows it.
+- Round 016 (`worker.ts`): rows with `origin: 'trackid'` come from the worker, are never edited by the app, and `stepName('trackid')` is "TrackId.net"; the worker's TrackId.net lookup is by the exact mix link (ADR-17), the app has no TrackId.net reader of its own (spec 032).
+- Fetches stay behind an injected `fetchFn`, return a discriminated result, never throw.
 - Spec 018 (`oneRowPerSong.ts`): a worker result and a hand-imported Tracklistify JSON hold one row per song (earliest time, `hits`
   summed, best `confidence`); it runs on the incoming rows only, never on rows already in a mix, and never inside
   `parseTracklistifyJson` (the worker's extras line up with its rows by index). A heard copy outranks a not-heard one (`origin`

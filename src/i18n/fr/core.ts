@@ -137,14 +137,8 @@ export const core: Messages['core'] = {
       `Impossible de supprimer les données locales\u00a0: ${error}`,
   },
   mix: {
-    notALink:
-      'Ce n’est pas un lien de titre SoundCloud. Collez le lien de la page du mix.',
-    replaceDescription:
-      'Remplacer votre tracklist modifiée par celle de la description\u00a0?',
     replacePasted:
       'Remplacer votre tracklist modifiée par les titres collés\u00a0?',
-    replaceLookup:
-      'Une nouvelle recherche remplace la tracklist actuelle, vos modifications comprises. Continuer\u00a0?',
     replaceTracklistify:
       'Importer ce fichier remplace la tracklist actuelle, vos modifications comprises. Continuer\u00a0?',
     readFileFailed: (error: string): string =>

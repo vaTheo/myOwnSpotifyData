@@ -10,7 +10,6 @@ export const mix: Messages['mix'] = {
     stop: 'Arrêter',
     stopping: 'Arrêt…',
     askAgain: 'Redemander',
-    lookUpAgain: 'Rechercher à nouveau',
     removeLink: 'Retirer le lien',
     moreFor: (name) => `Plus d’actions pour ${name}`,
     mixes: 'Mix',
@@ -58,10 +57,7 @@ export const mix: Messages['mix'] = {
     link: 'Lier',
   },
   detail: {
-    shortLink:
-      'Ceci est un lien de partage mobile, la recherche TrackId.net n’a donc pas pu être confirmée. Le lecteur et toute tracklist de la description sont affichés ci-dessous — ou collez une tracklist. Identifier sur mon ordinateur fonctionne avec ce lien. Sur un ordinateur, ouvrez le mix et copiez son lien complet soundcloud.com/… pour une recherche TrackId.',
     fromTrackid: (n) => `Depuis TrackId.net · ${count('titre')(n)}`,
-    identifiedShare: (pct) => `${pct}\u00a0% du mix identifié`,
     openTrackid: 'Ouvrir sur TrackId.net ›',
     trackidEmpty:
       'TrackId.net connaît ce mix mais n’a encore identifié aucun titre ·',
@@ -73,9 +69,6 @@ export const mix: Messages['mix'] = {
     linkOut: 'La description renvoie à une tracklist complète ·',
     nothingFound:
       'Rien trouvé automatiquement — collez une tracklist ci-dessous, ou lisez les commentaires du lecteur.',
-    trackidError: (message) => `TrackId.net est injoignable\u00a0: ${message}`,
-    oembedError: (message) =>
-      `La page du mix n’a pas pu être lue\u00a0: ${message}`,
     player: 'Lecteur SoundCloud',
     largerPlayer: 'Lecteur plus grand',
     pasteLinkOnly:
@@ -85,16 +78,10 @@ export const mix: Messages['mix'] = {
     pastePlaceholder: 'p. ex. depuis MixesDB ou un commentaire du lecteur',
     addTracks: 'Ajouter ces titres',
     close: 'Fermer ce mix',
-    replace: 'Remplacer par la tracklist de la description',
   },
   pane: {
     linkPlaceholder:
       'Collez un lien de mix (SoundCloud, ou tout set pour votre ordinateur)',
-    lookingUp: 'Recherche…',
-    lookUp: 'Rechercher',
-    lookingUpMix: 'Recherche du mix…',
-    notSoundcloud:
-      'Ce n’est pas un lien de titre SoundCloud, il n’y a donc rien à rechercher ici. Tout lien de set peut quand même être envoyé à votre ordinateur avec le bouton ci-dessus.',
     earlier: (n) => `Demandes précédentes (${int(n)})`,
     importLabel: 'Ou importez un tracklist.json de Tracklistify',
     importHint: 'ou déposez-le ici',
@@ -326,6 +313,5 @@ export const mix: Messages['mix'] = {
     notTracklistify:
       'Cela ne ressemble pas à un tracklist.json de Tracklistify.',
     noTracks: 'Aucun titre trouvé dans ce fichier.',
-    pageNotJson: 'la page du mix n’était pas un JSON lisible',
   },
 };

@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  classifyMixInput,
-  isShortLink,
-  normalizeMixUrl,
-  permalinkCandidates,
-  permalinkFromOembed,
-  requestKey,
-} from './url';
+import { classifyMixInput, normalizeMixUrl, requestKey } from './url';
 
 describe('normalizeMixUrl', () => {
   it('returns a plain permalink unchanged', () => {
@@ -145,170 +138,6 @@ describe('classifyMixInput', () => {
   });
 });
 
-describe('isShortLink', () => {
-  it('is true only for an on.soundcloud.com link', () => {
-    expect(isShortLink('https://on.soundcloud.com/IPnhLSLBYZqoFYpagL')).toBe(
-      true
-    );
-    expect(isShortLink('https://soundcloud.com/user/some-mix')).toBe(false);
-    expect(isShortLink('not a url')).toBe(false);
-  });
-});
-
-describe('permalinkFromOembed', () => {
-  it('reconstructs the Lot Radio permalink from the profile and title', () => {
-    expect(
-      permalinkFromOembed(
-        'https://soundcloud.com/thelotradio',
-        'Naone @ The Lot Radio 01-11-2025'
-      )
-    ).toBe('https://soundcloud.com/thelotradio/naone-the-lot-radio-01-11-2025');
-  });
-
-  it('strips a trailing " by <author>" suffix (the real oEmbed title shape)', () => {
-    // Verified 2026-09-06: oEmbed returns the title WITH " by The Lot Radio";
-    // the real permalink slug omits it, so the suffix must be dropped or
-    // TrackId returns rowCount 0 for the -by-... tail.
-    expect(
-      permalinkFromOembed(
-        'https://soundcloud.com/thelotradio',
-        'Naone @ The Lot Radio 01-11-2025 by The Lot Radio',
-        'The Lot Radio'
-      )
-    ).toBe('https://soundcloud.com/thelotradio/naone-the-lot-radio-01-11-2025');
-  });
-
-  it('leaves the title alone when the author suffix is absent or would empty it', () => {
-    // No " by <author>" tail: unchanged.
-    expect(
-      permalinkFromOembed('https://soundcloud.com/u', 'A Mix - Live', 'Someone')
-    ).toBe('https://soundcloud.com/u/a-mix-live');
-    // Stripping would leave nothing: keep the original.
-    expect(
-      permalinkFromOembed('https://soundcloud.com/u', 'by DJ X', 'DJ X')
-    ).toBe('https://soundcloud.com/u/by-dj-x');
-  });
-
-  it('strips even when the real slug may keep the suffix (guard catches it)', () => {
-    // A mix genuinely titled "… by <author>" reconstructs one segment short;
-    // the TrackId guard turns that into notFound, never a wrong mix (§8). This
-    // is the accepted limitation the design records, pinned as a test.
-    expect(
-      permalinkFromOembed('https://soundcloud.com/u', 'Mixed by DJ X', 'DJ X')
-    ).toBe('https://soundcloud.com/u/mixed');
-  });
-
-  it('strips diacritics via NFKD before slugging', () => {
-    expect(
-      permalinkFromOembed('https://soundcloud.com/cafe', 'Café Del Mar Mix')
-    ).toBe('https://soundcloud.com/cafe/cafe-del-mar-mix');
-  });
-
-  it('returns null when the title slugs to nothing (empty or symbol-only)', () => {
-    expect(permalinkFromOembed('https://soundcloud.com/user', '')).toBeNull();
-    expect(permalinkFromOembed('https://soundcloud.com/user', '@')).toBeNull();
-  });
-
-  it('returns null when author_url is not a one-segment soundcloud profile', () => {
-    // A track permalink (two segments), not a profile.
-    expect(
-      permalinkFromOembed(
-        'https://soundcloud.com/thelotradio/some-set',
-        'Some Mix'
-      )
-    ).toBeNull();
-    // A foreign host.
-    expect(
-      permalinkFromOembed('https://example.com/thelotradio', 'Some Mix')
-    ).toBeNull();
-    // Not a URL at all.
-    expect(permalinkFromOembed('thelotradio', 'Some Mix')).toBeNull();
-  });
-});
-
-describe('permalinkCandidates', () => {
-  it('offers both the apostrophe-dropped and the apostrophe-as-hyphen slug', () => {
-    // SoundCloud DROPS the apostrophe (don't -> dont); the older slug turned it
-    // into a hyphen (don-t). Both spellings are tried so the guard can pick.
-    const out = permalinkCandidates('https://soundcloud.com/dj', "Don't Stop");
-    expect(out).toContain('https://soundcloud.com/dj/dont-stop');
-    expect(out).toContain('https://soundcloud.com/dj/don-t-stop');
-  });
-
-  it('transliterates ß / ø / æ the way SoundCloud does, not to a hyphen', () => {
-    // None of these decompose under NFKD, so the old slug dropped each to a
-    // hyphen; the transliteration map turns them into ss / o / ae.
-    expect(
-      permalinkCandidates('https://soundcloud.com/x', 'Große Straße Fest')[0]
-    ).toBe('https://soundcloud.com/x/grosse-strasse-fest');
-    expect(
-      permalinkCandidates('https://soundcloud.com/x', 'Øya Æther œuvre')[0]
-    ).toBe('https://soundcloud.com/x/oya-aether-oeuvre');
-  });
-
-  it('offers both the suffix-stripped and the not-stripped slug', () => {
-    const out = permalinkCandidates(
-      'https://soundcloud.com/lr',
-      'Naone @ The Lot Radio by The Lot Radio',
-      'The Lot Radio'
-    );
-    expect(out).toContain('https://soundcloud.com/lr/naone-the-lot-radio');
-    expect(out).toContain(
-      'https://soundcloud.com/lr/naone-the-lot-radio-by-the-lot-radio'
-    );
-  });
-
-  it('dedupes candidates that collapse to the same slug', () => {
-    // Rock 'n' Roll: the ' n ' run collapses to a single hyphen under BOTH the
-    // apostrophe-removed and apostrophe-as-hyphen rules, so all four variants
-    // (no author suffix here) become one candidate.
-    expect(
-      permalinkCandidates('https://soundcloud.com/dj', "Rock 'n' Roll")
-    ).toEqual(['https://soundcloud.com/dj/rock-n-roll']);
-  });
-
-  it('collapses to a single candidate when there is no apostrophe or suffix', () => {
-    expect(
-      permalinkCandidates('https://soundcloud.com/x', 'Simple Mix')
-    ).toEqual(['https://soundcloud.com/x/simple-mix']);
-  });
-
-  it('returns [] when the title slugs to nothing (empty or symbol-only)', () => {
-    expect(permalinkCandidates('https://soundcloud.com/x', '')).toEqual([]);
-    expect(permalinkCandidates('https://soundcloud.com/x', '@')).toEqual([]);
-  });
-
-  it('returns [] when author_url is not a one-segment soundcloud profile', () => {
-    // Two segments (a track permalink, not a profile).
-    expect(
-      permalinkCandidates('https://soundcloud.com/x/some-set', 'Some Mix')
-    ).toEqual([]);
-    // Foreign host.
-    expect(permalinkCandidates('https://example.com/x', 'Some Mix')).toEqual(
-      []
-    );
-    // Not a URL at all.
-    expect(permalinkCandidates('x', 'Some Mix')).toEqual([]);
-  });
-
-  it('orders suffix-stripped + apostrophe-removed first, four distinct spellings', () => {
-    // Both an intra-word apostrophe AND a " by <author>" suffix: all four
-    // variants are distinct, and the order is fixed.
-    expect(
-      permalinkCandidates(
-        'https://soundcloud.com/dj',
-        "Don't Stop by DJ X",
-        'DJ X'
-      )
-    ).toEqual([
-      'https://soundcloud.com/dj/dont-stop',
-      'https://soundcloud.com/dj/don-t-stop',
-      'https://soundcloud.com/dj/dont-stop-by-dj-x',
-      'https://soundcloud.com/dj/don-t-stop-by-dj-x',
-    ]);
-  });
-});
-
 describe('requestKey (worker round)', () => {
   it('normalises a SoundCloud permalink like normalizeMixUrl', () => {
     expect(requestKey('https://m.soundcloud.com/user/some-mix?in=x')).toBe(
@@ -339,11 +168,15 @@ describe('requestKey (worker round)', () => {
   });
   it('keeps any other https link, dropping the hash, tracking params and host case', () => {
     expect(
-      requestKey('https://www.youtube.com/watch?v=abc&si=xyz&feature=share#t=10')
+      requestKey(
+        'https://www.youtube.com/watch?v=abc&si=xyz&feature=share#t=10'
+      )
     ).toBe('https://www.youtube.com/watch?v=abc');
-    expect(requestKey('https://Mixcloud.com/a/b/?utm_source=x&utm_medium=y')).toBe(
-      'https://mixcloud.com/a/b/'
+    expect(
+      requestKey('https://Mixcloud.com/a/b/?utm_source=x&utm_medium=y')
+    ).toBe('https://mixcloud.com/a/b/');
+    expect(requestKey('https://youtu.be/abc?t=5')).toBe(
+      'https://youtu.be/abc?t=5'
     );
-    expect(requestKey('https://youtu.be/abc?t=5')).toBe('https://youtu.be/abc?t=5');
   });
 });

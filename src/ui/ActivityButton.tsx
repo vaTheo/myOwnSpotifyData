@@ -5,7 +5,6 @@ import {
   importState,
   likeState,
   lookupState,
-  mixState,
   reachState,
   rekordboxState,
   serverState,
@@ -56,7 +55,6 @@ export function ActivityButton() {
     server: serverState.value,
     like: likeState.value,
     createPlaylist: createPlaylistState.value,
-    mix: mixState.value,
     spotifyCheck: spotifyCheckState.value,
   });
   const [open, setOpen] = useState(false);

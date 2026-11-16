@@ -12,7 +12,7 @@ One row per feature and old address to exercise before the redesign merges, from
 - `yarn invariants` (T113): `DB_VERSION`, the `confirm()` texts, the external hosts (code, CSP, Vite config), the dependencies and `yarn.lock`, every unit test of main still running, and the
   model outputs (ranking, Crate, Match, Under the radar, release year) on the demo dataset, compared with `main`;
 - unit tests, for what the demo cannot drive (a network answer);
-- **owner (T115)**: what needs the real Spotify account, the network or the owner's server or computer, marked **owner (T115)**: 22 of the 113 rows name it; 6 rows only the owner can check (C01, C08, C09, their rows F10c and F12e, and Check on Spotify, F21f).
+- **owner (T115)**: what needs the real Spotify account, the network or the owner's server or computer, marked **owner (T115)**: 20 of the 109 rows name it; 4 rows only the owner can check (C01, C08, the row F10c, and Check on Spotify, F21f).
 
 Fixtures (fake data only): `tools/shots/fixtures/Streaming_History_Audio_2026_0.json` (8 plays of two made-up tracks, Sept–Oct 2026),
 `tracklist.json` (a Tracklistify file of three made-up tracks), `rekordbox.xml` (one demo track, one stranger).
@@ -57,7 +57,6 @@ Run `yarn build && yarn preview --host 127.0.0.1 --port 5173 --strictPort` (or t
 - [ ] **Check on Spotify**: on a real mix, it goes one track at a time, Stop works, answers are kept (F21f).
 - [ ] **Server sync on two devices**: Sync now with server on both; a mix saved on one shows on the other; Remove server data asks first.
 - [ ] **Account switch** (C01): syncing with another Spotify account asks "This is a different Spotify account. Delete all local data for the previous account?".
-- [ ] **Look up again** (C09): on an edited, looked-up mix it asks before replacing the edits.
 - [ ] **Lighthouse (T101)**: the steps in quickstart.md section 12 on four pages; LCP 2.5 s or less, CLS under 0.1, each interaction under 200 ms, no Accessibility failure.
 - [ ] **WebKit / Safari** (only if you want it): `sudo apt install libicu74 libjpeg-turbo8`, then `REGRESSION_BROWSERS=webkit yarn regression`, or open the app in Safari.
 
@@ -118,8 +117,6 @@ Run `yarn build && yarn preview --host 127.0.0.1 --port 5173 --strictPort` (or t
 | F12  | F12 Mix tracklist, saved mixes         | `#/mix`, Closing set at the Dock, Remove a row (✕), Save mix                                                       | The mix opens at its address; tracks − 1, kept on reopening; "Saved ✓"; no Validate (round 010)                                                                                                  | regression F12; a SoundCloud/TrackId lookup: **owner (T115)**                           |
 | F12b | F12 remove a saved mix                 | The row menu · Remove; No, then Yes                                                                                  | "Remove this saved mix?"; No keeps it, Yes removes it                                                                                                              | regression F12b                                                                         |
 | F12c | F12 paste over edited rows             | Harbour, Add track (a manual row), Paste a tracklist; No, then Yes                                                   | "Replace your edited tracklist with the pasted tracks?"; No keeps the manual row; Yes puts the pasted rows in                                                      | regression F12c                                                                         |
-| F12d | F12 description over edited rows       | Harbour; the demo sets a view with description rows; Add track; Replace with the description tracklist; No, then Yes | "Replace your edited tracklist with the one from the description?"; No keeps the manual row; Yes puts the description's rows in                                    | regression F12d                                                                         |
-| F12e | F12 look up again over edited rows     | Edit a row of a looked-up mix, Look up again                                                                         | "Looking up again replaces the current tracklist, including your edits. Continue?" after the lookup answers                                                        | **owner (T115)** (needs SoundCloud and TrackId); invariants (text)                      |
 | F13  | F13 Create playlist from mix (write 1) | Sunrise; a read-only token, Create playlist from mix                                     | "N tracks will be added", N the All chip's count, no Validated only / All tracks choice (round 010); without `playlist-modify-private` a tap says "This app cannot create playlists yet" and sends nothing                 | regression F13; the write itself: **owner (T115)**; `createPlaylist.test.ts`            |
 | F14  | F14 Like all songs (write 2)           | A playlist; a read-only token, Like all songs                                                                        | The button on the playlist; without the library scopes a tap says "This app cannot like songs yet", asks nothing, sends nothing                                    | regression F14; the count question and the write: **owner (T115)**                      |
 | F15  | F15 Tracklistify import                | `#/mix`, pick `tracklist.json`; Add track; pick it again (at 1600, the Mixes pane beside)                            | The mix "Fixture set at the test bench" with its three tracks; over a manual row the §14 question, and No keeps the row                                            | regression F15; ISRC-exact Search: **owner (T115)**; `tracklistify.test.ts`             |
@@ -157,9 +154,7 @@ Every text is held to the list in how-it-works §14 by `yarn regression` when me
 | C06 | Disconnect            | regression F10b                             |
 | C07 | Remove a saved mix    | regression F12b                             |
 | C08 | Like all songs' count | **owner (T115)** (W2, after a Spotify read) |
-| C09 | Look up again         | **owner (T115)** (F12e)                     |
 | C10 | A Tracklistify file   | regression F15                              |
-| C11 | The description       | regression F12d                             |
 | C12 | Pasted tracks         | regression F12c                             |
 
 ## R · Rounds 003 and 004 (inventory F19, main-sync §2)

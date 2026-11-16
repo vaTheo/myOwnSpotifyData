@@ -9,9 +9,8 @@ IndexedDB, and Spotify's _Extended streaming history_ export imported locally
 for play counts. Nothing is uploaded anywhere except the track ids the BPM and
 key lookup sends to ReccoBeats, the artist ids, ISRCs and article titles the
 artist-reach lookup sends to MusicBrainz, ListenBrainz, Deezer, Wikidata and
-Wikimedia, and the SoundCloud link you paste into the Mix tracklist screen,
-which goes to SoundCloud and TrackId.net (and loads the player from
-`w.soundcloud.com`) — and only when you start one of them. The app writes to
+Wikimedia — and only when you start one of them. An open mix loads its player
+from `w.soundcloud.com`. The app writes to
 Spotify only when you explicitly ask, on that tap alone: **Create playlist
 from mix** sends a name and the matched track ids to your own account, and
 **Like all songs** saves a synced playlist's songs to your Liked Songs. No
@@ -128,7 +127,7 @@ phone. It is dark, with chartreuse marking what you act on.
   only from what is already stored: opening it never reads Spotify. A card
   with nothing to show says why and offers the one action that fixes it.
 - **The activity button** in the top bar shows any job running (sync, import,
-  lookups, server sync, Like, Create playlist, a mix lookup) from every
+  lookups, server sync, Like, Create playlist) from every
   screen, with its progress; tapping a job leads to where it lives (a
   Settings job opens its own item there, such as Artist reach). It never
   starts or stops one.
@@ -340,29 +339,26 @@ request to your computer in one list), the open mix on the right. On a
 narrower window the list folds away while a mix is open; the **Mixes**
 button brings it back. A saved mix has its own address (`#/mix/…`).
 
-- **Look up** drafts the tracklist of a SoundCloud DJ mix from its link. It
-  reads two free public sources — TrackId.net (a corpus of already-analysed
-  mixes) and the mix's own SoundCloud description — matches each row against
-  your synced library, shows BPM, key and how many of your playlists hold it,
-  and lets you correct any row (the row's **More** menu: Edit, Delete) or add
-  your own. There is also a box to paste a tracklist you found elsewhere
-  (MixesDB, a player comment) and the embedded player with its timed
-  comments. **Save mix** keeps the working list in this browser (and on your
+- **Identify on my computer** is the one way to get a mix's tracklist from
+  its link: paste the link and tap it (or press Enter); see "Identify a mix
+  from your computer" below. The app itself reads no mix page: the old
+  **Look up** button is gone (a mix it saved still opens). An open mix
+  matches each row against your synced library, shows BPM, key and how many
+  of your playlists hold it, and lets you correct any row (the row's
+  **More** menu: Edit, Delete) or add your own. There is also a box to paste
+  a tracklist you found elsewhere (MixesDB, a player comment) and the
+  embedded player with its timed comments. **Save mix** keeps the working list in this browser (and on your
   server when you have one). Once a mix is saved, every Delete, Edit, Link
   and Remove link on it is saved at once, with no tap, and reaches your other
   devices at their next sync; a mix open on the other device switches to the
   newer list unless you are editing a row there. Changing one mix on two
   devices at once keeps the change saved last.
-  It is a **draft with holes, not the full tracklist.** TrackId identified
-  32.6% of the one real 190-minute mix measured, and a fresh upload is often
-  not in its corpus at all; a SoundCloud description carries a tracklist only
-  when the uploader wrote one. Every stretch nothing was identified shows as
-  an `ID · unidentified` row, and unreleased promos and dubplates are in no
-  database, so expect to fill gaps by hand. The app never listens to the
-  audio. **To identify every track, ask your computer**: tap **Identify on
-  my computer** (any set link yt-dlp supports, YouTube and Mixcloud
-  included) and run the worker when you are back at it; see "Identify a mix
-  from your computer" below. You can also scan a local file with an
+  Every stretch nothing was identified shows as an `ID · unidentified` row,
+  and unreleased promos and dubplates are in no database, so expect to fill
+  gaps by hand. The app never listens to the audio; your computer does:
+  **Identify on my computer** takes any set link yt-dlp supports (YouTube
+  and Mixcloud included), and the worker runs when you are back at it. You
+  can also scan a local file with an
   open-source tool such as SongRec and import its JSON. Or, on the phone,
   turn on Shazam's **Sync Shazam Library to Spotify**: a "My Shazam Tracks"
   playlist then shows up under Playlists and syncs like any other.
@@ -424,8 +420,7 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   or another tab you see where you were. With the keyboard, Enter or Space
   on a row marks it too. It follows the track when you sort
   or filter and stays while you edit or link it. Deleting a row, opening
-  another mix, or replacing the whole list (a paste, the description,
-  reopening the mix) clears it; it is not saved.
+  another mix, or replacing the whole list (a paste, reopening the mix) clears it; it is not saved.
 - **Link a track Spotify did not find.** Find it on Spotify yourself and
   copy its link (Share › Copy song link). Then tap the red "not found" mark
   in the **Spotify** column (on a phone, the "Not found on Spotify" words),
@@ -454,7 +449,7 @@ button brings it back. A saved mix has its own address (`#/mix/…`).
   playlist on its own — only on that tap — and tapping it again makes
   **another** new playlist rather than editing the last one. A mix with a
   playlist shows **Playlist created · Open in Spotify ›**.
-- Every Mix message (lookup states, errors, Create playlist results, the
+- Every Mix message (errors, Create playlist results, the
   queue) stays on the Mix screen, inline, never as a banner.
 
 ## Identify a mix from your computer (optional, needs the server)

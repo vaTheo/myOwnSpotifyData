@@ -1,7 +1,5 @@
 import type { MixRowSource, TracklistRow } from '../../db/schema';
 
-/** ≥ this many matching lines in a run before a description block is accepted. */
-export const MIX_DESCRIPTION_MIN_RUN = 5;
 /** A deliberate paste accepts a single matching line. */
 export const MIX_PASTE_MIN_RUN = 1;
 
@@ -101,7 +99,7 @@ function parseTrackLine(
  * "full tracklist at <url>" link and returns it as `linkOut`.
  *
  * `source` is a defaulted internal extension of the spec's quoted two-arg
- * signature: only `parseDescription` / `parsePasted` call `parseLines`, so no
+ * signature: only `parsePasted` calls `parseLines`, so no
  * task boundary sees the third argument.
  */
 export function parseLines(
@@ -130,31 +128,6 @@ export function parseLines(
   }
   flush();
   return { rows, linkOut };
-}
-
-const ENTITIES: Array<[RegExp, string]> = [
-  [/&amp;/gi, '&'],
-  [/&lt;/gi, '<'],
-  [/&gt;/gi, '>'],
-  [/&quot;/gi, '"'],
-  [/&#0*39;/g, "'"],
-  [/&apos;/gi, "'"],
-  // Decodes to U+00A0 itself (not an ASCII space) — regex `\s` matches it
-  // too, so e.g. `1.&nbsp;Artist - Title` still parses under the
-  // index-prefix shape instead of garbling the artist (M8).
-  [/&nbsp;/gi, '\u00A0'],
-];
-
-function htmlToLines(raw: string): string {
-  const withBreaks = raw.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n');
-  let text = withBreaks.replace(/<[^>]+>/g, '');
-  for (const [re, to] of ENTITIES) text = text.replace(re, to);
-  return text;
-}
-
-/** oEmbed description: unescape entities, strip tags, then the ≥5 run guard. */
-export function parseDescription(rawDescription: string): ParsedTracklist {
-  return parseLines(htmlToLines(rawDescription), MIX_DESCRIPTION_MIN_RUN);
 }
 
 /** Pasted text: the owner deliberately pasted a list, so a single line counts. */

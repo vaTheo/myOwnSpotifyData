@@ -74,7 +74,7 @@ describe('routeAction: what an address asks of the workspace', () => {
     ).toBe('close');
   });
 
-  it('keeps an unsaved lookup open at #/mix', () => {
+  it('keeps an unsaved import open at #/mix', () => {
     expect(
       routeAction({
         prevKey: A,
@@ -106,7 +106,7 @@ describe('addressAfter: the address the open mix asks for', () => {
     );
   });
 
-  it('returns to #/mix for an unsaved lookup', () => {
+  it('returns to #/mix for an unsaved import', () => {
     expect(addressAfter({ key: A, openUrl: B, saved: false })).toBe('#/mix');
   });
 

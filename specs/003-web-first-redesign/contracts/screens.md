@@ -36,7 +36,7 @@ scrolled to (`#/settings/<item>`), not the top of the page.
 | Looking up BPM and key, Looking up release years, Importing Rekordbox | `#/settings/audio` |
 | Looking up artists | `#/settings/reach` |
 | Saving to server, Loading from server | `#/settings/server` |
-| Importing history, Liking songs, Creating playlist, Checking on Spotify, Looking up mix | unchanged (`#/import`, the playlist, Mix) |
+| Importing history, Liking songs, Creating playlist, Checking on Spotify (Looking up mix: removed, spec 032) | unchanged (`#/import`, the playlist, Mix) |
 
 **States**:
 
@@ -398,6 +398,10 @@ aggregate.
    playlist, paste box);
 7. the worker how-to card, always open, with four OS sections.
 
+**Spec 032 (2026-11-16)**: Look up, Look up again and Replace with the description tracklist are removed, with their
+messages (Looking up…, the not-SoundCloud error) and their two `confirm()` questions; the link field keeps Identify on my
+computer only, and Enter asks too (`specs/032-mix-identify-only/spec.md`). The lines below are read with that change.
+
 **Computer**: the list–detail workspace.
 
 - **Left pane (360 px)**, top to bottom:
@@ -527,7 +531,8 @@ findings are folded into the spec's clarifications and tasks T120–T129.
 - **Unchanged rules**: no Spotify read on load or open; no new poll; no banner; no `DB_VERSION` bump (every new field is
   optional: `validated`, `spotify`, `checkedAt` on a row; `removed` and `run` on the mix).
 
-**Phone**: one column in this order: link field, open mix (if any), Identify, JSON import, Mixes list, worker help.
+**Phone**: one column in this order: link field, Identify, open mix (if any), JSON import, Mixes list, worker help
+(spec 032: Identify moved up beside its field).
 
 **Kept**:
 

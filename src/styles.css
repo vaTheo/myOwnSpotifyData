@@ -3655,12 +3655,6 @@ details.mix-clues > summary:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.mix-head-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .mix-provenance .status {
   margin: 4px 0;
 }
