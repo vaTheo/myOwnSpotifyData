@@ -61,15 +61,15 @@ Each step is one or more commits, compiling and green, with its docs. Tests firs
 
 1. **Foundation (US2, US3; FR-001, FR-005 to FR-007, FR-016).**
    - `src/i18n/lang.ts` with `lang.test.ts`: `Lang`, `initialLang(saved, preferred)`, the `lang` signal, `setLang`, the `lang` storage key in a try/catch, `<html lang>`.
-   - `src/i18n/en.ts` (the shape, starting with the switch's own texts), `src/i18n/fr.ts`, `src/i18n/index.ts` (`msg()`, `Messages`).
+   - `src/i18n/en.ts` (the shape, starting with the switch's own texts), `src/i18n/fr.ts`, `src/i18n/index.ts` (`msg()`, `Messages`). As built, `en.ts` and `fr.ts` only assemble one file per area under `src/i18n/en/` and `src/i18n/fr/`.
    - `src/i18n/fmt.ts` with `fmt.test.ts`: `fmt.int`, `fmt.date`, `fmt.time`, `fmt.dateTime` on `en-GB` and `fr-FR`.
    - `src/i18n/catalogue.test.ts`: both catalogues complete, non-empty, counts right for 0, 1 and 2, the same-text allow-list.
 
 2. **The switch (US2; FR-004).** The Settings group "This device" and its item "Language" (`sections.ts`, a new `LanguageSection.tsx`, `SettingsPage.tsx`); the small control on `SignInGate.tsx` and `Connect.tsx`. Regression rows G01 to G05 are written here: pick French in Settings, reload keeps it, back to English, the control on the sign-in screen, the first-visit rule with a French browser.
 
-3. **Dates, numbers and counts (FR-008, FR-009).** The 60 direct `toLocaleString` calls go through `fmt`; `plural()` and the copy in `likePlaylist.ts` give way to counted-noun entries; `searchIndex.ts` drops its fixed `en-GB`. English output is unchanged under `en-GB`, held by the existing tests.
+3. **Dates, numbers and counts (FR-008, FR-009).** As built, not a pass of its own: each folder's move in step 4 also routed its dates and numbers. The 60 direct `toLocaleString` calls go through `fmt`; `plural()` and the copy in `likePlaylist.ts` give way to counted-noun entries; `searchIndex.ts` drops its fixed `en-GB`. English output is unchanged under `en-GB`, held by the existing tests.
 
-4. **Glossary approved**, then the texts move, one folder per commit. For each folder: the English texts go to `en.ts` word for word, the French ones to `fr.ts`, module constants become functions (research R3), the existing tests stay as they are.
+4. **Glossary approved**, then the texts move, one folder per commit. For each folder: the English texts go to its area's file under `src/i18n/en/` word for word, the French ones to the same area under `src/i18n/fr/`, module constants become functions (research R3), the existing tests stay as they are.
    - a. frame and navigation: `src/ui/layout`, `src/app.tsx`, `src/main.tsx`, `src/ui/components`, `src/ui/icons.tsx`, `src/ui/ActivityButton.tsx`, `src/ui/jobs.ts`
    - b. tables and filters: `src/ui/table`, `src/ui/filters`, `src/ui/details`, `src/ui/charts`, `src/ui/format.ts`
    - c. Settings: `src/ui/settings`, `src/model/updateLines.ts`
@@ -120,7 +120,8 @@ specs/031-french-english-switch/
 
 ```text
 src/i18n/lang.ts (+ .test)         new: the language, the first-visit rule, the saved choice
-src/i18n/en.ts, fr.ts              new: the two catalogues
+src/i18n/en/*.ts, fr/*.ts          new: the two catalogues, one file per area
+src/i18n/en.ts, fr.ts              new: assemble the areas
 src/i18n/index.ts                  new: msg(), Messages
 src/i18n/fmt.ts (+ .test)          new: dates and numbers in the language shown
 src/i18n/catalogue.test.ts         new: complete, non-empty, counts
@@ -129,7 +130,7 @@ src/ui/settings/sections.ts        the group "This device", the item, labels rea
 src/ui/signin/SignInGate.tsx, src/ui/Connect.tsx   the small switch
 src/**/*.ts(x)                     about 135 files: texts read from msg(), numbers and dates from fmt
 src/styles.css                     the switch; fixes for longer French labels, tokens only
-eslint.config.*                    the local no-literal-text rule
+eslint.config.js                   the local no-literal-text rule (`no-restricted-syntax`)
 tools/shots/playwright.config.ts   the French project
 tools/shots/regression.spec.ts     rows G01 to G05
 index.html                         unchanged; <html lang> is set at start

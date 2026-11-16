@@ -30,7 +30,7 @@ State: `absent → 'fr' | 'en'` on a pick; `'fr' ↔ 'en'` on a pick. Nothing re
 
 ## Catalogue
 
-One per language, same shape.
+One per language, same shape: `src/i18n/en.ts` and `src/i18n/fr.ts` assemble one file per area under `en/` and `fr/`.
 
 | Entry kind | Form | Example |
 |---|---|---|

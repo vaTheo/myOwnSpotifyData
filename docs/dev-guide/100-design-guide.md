@@ -1,7 +1,7 @@
 # 100 — Design guide
 
 > **Status**: Living
-> **Last updated**: 2026-11-07
+> **Last updated**: 2026-11-16
 
 How a screen of this app is designed and built. Read it before you add or change anything under `src/ui/` or `src/styles.css`, in any
 session. It states the rules and where each one is pinned; the values live in the contracts, so this page links them and does not copy
@@ -77,7 +77,20 @@ Nothing animates on its own once the page is idle.
 constants or `useMemo`); memoise scans of the whole library on their inputs; page lists by 100; never recompute a ranking in render.
 
 **Language.** Short, plain, present tense; the owner reads on a phone. Sentence case. Say what happened and what to do. Keep `confirm()`
-and existing UI strings word for word unless the owner rules otherwise.
+and existing UI strings word for word unless the owner rules otherwise. Every text is written twice, English and French, in the
+catalogue of `src/i18n/` ([ADR-18](../architecture/700-adr/ADR-18-two-languages-typed-catalogue.md)); a translation never rewords the English.
+
+**French.** Written for « vous », with short sentences and the names of the round's
+[glossary](../../specs/031-french-english-switch/contracts/glossary.md) (one name per thing, « Crate » kept).
+
+- A no-break space before `:`, `?`, `!` and `;`, and inside « », written `\u00A0` in the catalogue (a raw one inside a template fails `yarn lint`).
+- The typographic apostrophe `’`, never `'`.
+- Sentence case for titles and buttons: « Synchroniser maintenant », not « Synchroniser Maintenant ».
+- Counts agree with 0 and 1 in the singular: « 0 titre », « 1 titre », « 2 titres ».
+- Dates and numbers come from `fmt`: « 16 nov. 2026 », « 1 234 ».
+
+**Longer French text.** French is often longer than English. A French label that does not fit (navigation, table heading, button,
+chip) is shortened first; a style changes only if the English screen stays the same.
 
 ## What a screen never does
 
@@ -104,4 +117,5 @@ Read Spotify on load or without a tap; call a host that is not already named; sh
 - [How the app works](../architecture/000-how-it-works.md) §13 (the UI), §14 (jobs and `confirm()` texts)
 - [ADR-11 — Web-first, Material Design 3, the visual loop](../architecture/700-adr/ADR-11-web-first-material-3.md)
 - [ADR-06 — Lean tooling](../architecture/700-adr/ADR-06-lean-tooling.md)
+- [ADR-18 — Two languages, one typed catalogue](../architecture/700-adr/ADR-18-two-languages-typed-catalogue.md)
 - [Design tokens](../../specs/003-web-first-redesign/contracts/design-tokens.md) · [Components](../../specs/003-web-first-redesign/contracts/components.md) · [Screens](../../specs/003-web-first-redesign/contracts/screens.md) · [Routes](../../specs/003-web-first-redesign/contracts/routes.md)

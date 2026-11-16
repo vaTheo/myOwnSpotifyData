@@ -34,7 +34,7 @@ export const core: Messages['core'] = {
       'Ce compte Spotify n’est pas dans la liste des utilisateurs de l’app. Ajoutez-le dans le tableau de bord développeur Spotify, sous User Management.',
     quotaReached: 'Quota Spotify atteint',
     networkError: (reason: string): string => `Erreur réseau\u00a0: ${reason}`,
-    rateLimited: 'Trop de limitations de débit à la suite',
+    rateLimited: 'Limite de débit atteinte trop de fois de suite',
     serverError: (status: number): string =>
       `Erreur du serveur Spotify ${status}`,
     error: (status: number): string => `Erreur Spotify ${status}`,
@@ -42,15 +42,15 @@ export const core: Messages['core'] = {
   quota: {
     held: {
       sync: (at: string): string =>
-        `Quota Spotify atteint. Synchronisez de nouveau après ${at}.`,
+        `Quota Spotify atteint. Synchronisez à nouveau après ${at}.`,
       check: (at: string): string =>
-        `Quota Spotify atteint. Vérifiez de nouveau après ${at}.`,
+        `Quota Spotify atteint. Vérifiez à nouveau après ${at}.`,
       create: (at: string): string =>
         `Quota Spotify atteint. Réessayez après ${at}.`,
       like: (at: string): string =>
         `Quota Spotify atteint. Réessayez après ${at}.`,
       account: (at: string): string =>
-        `Quota Spotify atteint. Synchronisez de nouveau après ${at}.`,
+        `Quota Spotify atteint. Synchronisez à nouveau après ${at}.`,
     },
     readerName: {
       sync: 'Une synchronisation',
@@ -128,7 +128,7 @@ export const core: Messages['core'] = {
   },
   library: {
     crateNotice:
-      'Les nouvelles vues du Crate demandent d’importer de nouveau votre historique.',
+      'Les nouvelles vues du Crate demandent de réimporter votre historique.',
     openStorageFailed: (error: string): string =>
       `Impossible d’ouvrir le stockage local\u00a0: ${error}`,
     disconnectBusy:

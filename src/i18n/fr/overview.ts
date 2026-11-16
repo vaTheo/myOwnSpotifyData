@@ -12,11 +12,11 @@ export const overview: Messages['overview'] = {
   },
   actions: {
     importHistory: 'Importer l’historique',
-    syncInSettings: 'Synchroniser dans Réglages',
+    syncInSettings: 'Synchro dans Réglages',
     importAgain: 'Importer à nouveau',
     lookUp: 'Rechercher dans Réglages',
     openMix: 'Ouvrir Mix',
-    signIn: 'Se connecter dans Réglages',
+    signIn: 'Se connecter au serveur dans Réglages',
   },
   listening: {
     title: 'Écoute',
@@ -32,8 +32,7 @@ export const overview: Messages['overview'] = {
     title: 'Rotation intensive',
     empty:
       'La rotation intensive est calculée à partir de votre historique d’écoute.',
-    reimport:
-      'Votre historique doit être importé à nouveau pour les vues par mois.',
+    reimport: 'Votre historique doit être réimporté pour les vues par mois.',
     tracks: 'Titres',
     window: 'Période',
     windowValue: (months) => lastMonths(months),
@@ -89,7 +88,7 @@ export const overview: Messages['overview'] = {
     offline: (message) =>
       `Serveur hors ligne\u00A0: ${message} Les données locales sont utilisées.`,
     paused:
-      'Serveur en pause. Relancez-le depuis le tableau de bord Supabase, puis rouvrez l’application.',
+      'Serveur en pause. Relancez-le depuis le tableau de bord Supabase, puis rouvrez l’app.',
     rejected: (rows) =>
       rows < 2
         ? `${count('ligne')(rows)} rejetée par le contrôle de sécurité et écartée.`
@@ -106,8 +105,8 @@ export const overview: Messages['overview'] = {
     playlists: 'Playlists',
     playlistOne: 'playlist',
     playlistMany: 'playlists',
-    tracksLabel: (period) => `Top titres, ${period}`,
-    artistsLabel: (period) => `Top artistes, ${period}`,
+    tracksLabel: (period) => `Top titres · ${period}`,
+    artistsLabel: (period) => `Top artistes · ${period}`,
   },
   search: {
     groups: {

@@ -21,6 +21,7 @@ Every page of the docs: [docs/README.md](docs/README.md). What is built and the 
 | `src/server/`, sync between devices, the job queue | `src/server/CLAUDE.md`, [ADR-08](docs/architecture/700-adr/ADR-08-owner-server-free-tier.md), how-it-works §16 | no Spotify read from a pull; pending flags survive a failure; every pulled row validated |
 | `worker/` (the owner's-computer worker), an `identify-mix` request | `worker/CLAUDE.md`, [ADR-08](docs/architecture/700-adr/ADR-08-owner-server-free-tier.md), how-it-works §17 | never a Spotify host; one probe at a time; the F15 JSON shape; `python -m unittest discover -s worker/tests` green |
 | a screen, `src/ui/`, `tools/shots/` | [Design guide](docs/dev-guide/100-design-guide.md), [ADR-11](docs/architecture/700-adr/ADR-11-web-first-material-3.md), how-it-works §13, `specs/003-web-first-redesign/contracts/` | tokens only; `yarn shots` 0 findings on the pages touched |
+| `src/i18n/`, any text shown on screen | `src/i18n/CLAUDE.md`, [ADR-18](docs/architecture/700-adr/ADR-18-two-languages-typed-catalogue.md), how-it-works §18, [Design guide](docs/dev-guide/100-design-guide.md) "French" | an English and a French entry; `yarn typecheck && yarn lint && yarn test` |
 | a Spotify scope, a write, `src/spotify/client.ts` | [ADR-03](docs/architecture/700-adr/ADR-03-library-writes-on-tap.md), how-it-works §3–§4 | inventory §3 "The two Spotify writes" |
 | sync, quota, anything that reads Spotify | [ADR-02](docs/architecture/700-adr/ADR-02-no-spotify-reads-on-load.md), how-it-works §7 | no read on load |
 | history import, Crate, play counts | [ADR-07](docs/architecture/700-adr/ADR-07-play-counts-from-export.md), how-it-works §8, §12–§13 | the summary-version gate |
@@ -80,6 +81,8 @@ Details: [Contributing](docs/dev-guide/000-contributing.md).
   `model/state.ts`, Disconnect's in its Settings button. A new question joins that list.
 - `moduleResolution: bundler`: relative imports carry **no** extension. Tests sit next to source; no DOM tests.
 - `typescript` stays `~6.0.3` (typescript-eslint 8.x needs TS `<6.1`); `vite` stays an explicit devDependency. No blind bumps (ADR-06).
+- Every text shown on screen comes from the catalogue of `src/i18n/`, in English and in French, read with `msg()` when drawn; a
+  translation task never changes the English wording (ADR-18).
 - Under the radar: Well known is a heading at the bottom, never a filter; listeners and fans are shown side by side, never summed, and a
   missing number is never printed as zero.
 - Commits `type(scope): summary`, each compiling and green; push only with the owner's OK.
@@ -89,4 +92,4 @@ Details: [Contributing](docs/dev-guide/000-contributing.md).
 - [Documentation map](docs/README.md) · [Feature inventory](docs/architecture/100-features.md) · [Limits and roadmap](docs/architecture/800-limits-roadmap.md)
 - [How the app works](docs/architecture/000-how-it-works.md) · [Contributing](docs/dev-guide/000-contributing.md)
 - [ADR index](docs/architecture/700-adr/README.md) · [CHANGELOG](CHANGELOG.md) · [README](README.md) (owner's manual)
-- Local rules: `src/db/CLAUDE.md`, `src/features/CLAUDE.md`, `src/features/mix/CLAUDE.md`
+- Local rules: `src/db/CLAUDE.md`, `src/features/CLAUDE.md`, `src/features/mix/CLAUDE.md`, `src/i18n/CLAUDE.md`

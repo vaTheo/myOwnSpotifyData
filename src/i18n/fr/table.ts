@@ -16,7 +16,7 @@ export const table: Messages['table'] = {
     key: 'Tonalité',
     released: 'Sortie',
     openInSpotify: 'Ouvrir dans Spotify',
-    play: 'Lire',
+    play: 'Écouter sur Spotify',
     listen: 'Écouter',
     byName: 'Compté par artiste et titre',
     notInPlaylist: 'dans aucune playlist',
@@ -37,7 +37,8 @@ export const table: Messages['table'] = {
     sortedDesc: (column) => `Trié par ${column}, décroissant`,
     sortedDefault: 'Trié dans l’ordre par défaut',
     reset: 'Réinitialiser',
-    showingTop: (shown, total) => `Affichage de ${int(shown)} sur ${total}`,
+    showingTop: (shown, total) =>
+      `${int(shown)} ${word('premier affiché', 'premiers affichés')(shown)} sur ${total}`,
     showMore: (n) => `Afficher ${int(n)} de plus`,
   },
   filter: {
@@ -53,7 +54,8 @@ export const table: Messages['table'] = {
     yearSort: 'Trier par année, plus anciens d’abord',
     minAboveMax: 'Min supérieur au max',
     bpmError: 'Min supérieur au max\u00a0: aucun filtre BPM appliqué',
-    showing: (shown, total) => `Affichage de ${int(shown)} sur ${int(total)}`,
+    showing: (shown, total) =>
+      `${int(shown)} ${word('affiché', 'affichés')(shown)} sur ${int(total)}`,
     noMatch: 'Aucun titre ne correspond à ces filtres.',
     anyKey: 'Toute tonalité',
     withCompatible: (key) => `${key} + compatibles`,
@@ -78,6 +80,7 @@ export const table: Messages['table'] = {
     firstPlay: 'Première écoute',
     lastPlay: 'Dernière écoute',
     starts: 'Lancements',
+    // Feminine on purpose: these qualify écoutes; the Crate's columns use the masculine (titres).
     finished: 'Terminées',
     skipped: 'Passées',
     unclear: 'Incertaines',
@@ -100,7 +103,7 @@ export const table: Messages['table'] = {
       'Synchronisez vos playlists dans Réglages pour voir où il se trouve',
     notInAny: (n) =>
       n < 2
-        ? `Absent de votre ${count('playlist')(n)}`
+        ? 'Absent de votre seule playlist'
         : `Absent de vos ${count('playlist')(n)}`,
     openMonth: (month) => `Ouvrir ${month} ›`,
     unknownTitle: 'Titre inconnu',
@@ -108,7 +111,7 @@ export const table: Messages['table'] = {
   },
   charts: {
     perMonth: 'Écoutes par mois',
-    gridCaption: 'Écoutes par mois et par année',
+    gridCaption: 'Écoutes par mois et par an',
     seasons: {
       winter: 'Hiver',
       spring: 'Printemps',

@@ -24,11 +24,11 @@ export const mix: Messages['mix'] = {
     released: 'Sortie',
     spotify: 'Spotify',
     listen: 'Écouter',
-    review: 'Revue',
+    review: 'Vérif.',
     more: 'Plus',
   },
   create: {
-    title: 'Créer une playlist',
+    title: 'Créer la playlist',
     notFound: (n) => count('introuvable')(n),
     notFoundSongs: (n, tracks) =>
       `${count('introuvable')(n)} (${count('titre')(tracks)})`,
@@ -47,7 +47,7 @@ export const mix: Messages['mix'] = {
     creating: 'Création de la playlist…',
     adding: 'Ajout des titres…',
     created: (name, added, total) =>
-      `Playlist «\u00a0${name}\u00a0» créée — ${int(added)} titres sur ${int(total)}`,
+      `Playlist «\u00a0${name}\u00a0» créée — ${int(added)} sur ${count('titre')(total)}`,
     failed: (message) => `Impossible de créer la playlist\u00a0: ${message}`,
     playlistCreated: 'Playlist créée ·',
     addedBefore: (added, total) =>
@@ -104,7 +104,7 @@ export const mix: Messages['mix'] = {
     remove: 'Retirer',
     deleteForever: 'Supprimer définitivement',
     waiting: (n) =>
-      `${count('demande')(n)} en attente ou en cours · vérifié chaque minute.`,
+      `${count('demande')(n)} en attente ou en cours · vérification chaque minute.`,
     nothingWaiting: 'Rien en attente.',
     checking: 'Vérification…',
     checkNow: 'Vérifier maintenant',
@@ -149,12 +149,13 @@ export const mix: Messages['mix'] = {
     busyOther:
       'Vérifier sur Spotify lit un autre mix\u00a0: vérifiez celui-ci quand il se termine.',
     check: 'Vérifier sur Spotify',
-    checked: (done, total) => `${int(done)} vérifiés sur ${int(total)}`,
+    checked: (done, total) =>
+      `${int(done)} ${word('vérifié', 'vérifiés')(done)} sur ${int(total)}`,
     stopped: (line) => `Arrêté · ${line}`,
     line: (n, found, notFound) =>
       `${count('titre')(n)} · ${int(found)} sur Spotify · ${count('introuvable')(notFound)}`,
     filterCaption:
-      'Masqués, pas supprimés. Créer une playlist ajoute chaque titre identifié, pas ce filtre.',
+      'Masqués, pas supprimés. Créer la playlist ajoute tous les titres identifiés, pas seulement ceux du filtre.',
     chips: {
       all: 'Tous',
       notOnSpotify: 'Pas sur Spotify',
@@ -169,7 +170,7 @@ export const mix: Messages['mix'] = {
   },
   row: {
     playOnSpotify: 'Écouter sur Spotify',
-    shazam: (track) => `${track} sur Shazam`,
+    shazam: (track) => `Ouvrir ${track} dans Shazam`,
     searchSoundcloud: (track) => `Chercher ${track} sur SoundCloud`,
     secondListen: 'deuxième écoute',
     secondListenSpeed: (speed) => `deuxième écoute · ${speed}`,
@@ -213,13 +214,13 @@ export const mix: Messages['mix'] = {
     yearFrom: {
       shazam: 'd’après Shazam',
       catalogue: 'd’après l’ISRC (Deezer ou MusicBrainz)',
-      spotify: 'd’après Spotify (Créer une playlist ou Vérifier sur Spotify)',
+      spotify: 'd’après Spotify (Créer la playlist ou Vérifier sur Spotify)',
     },
     year: (year, from) => `${year}, ${from}`,
     wideDescription: (n) =>
-      `Tracklist de la description (${count('ligne')(n)}, sans minutage)`,
+      `Tracklist de la description (${count('ligne')(n)}, sans repères de temps)`,
     wideComments: (n) =>
-      `Tracklist des commentaires (${count('ligne')(n)}, sans minutage)`,
+      `Tracklist des commentaires (${count('ligne')(n)}, sans repères de temps)`,
     gapClues: (n) => `${count('indice')(n)} dans ce passage`,
   },
   table: {
@@ -288,18 +289,18 @@ export const mix: Messages['mix'] = {
       `Deuxième passage\u00a0: ${count('endroit')(places)} · ${count('trouvé')(found)} · arrêté (${why})`,
     resumed: (kept) =>
       `Repris (${count('extrait conservé', 'extraits conservés')(kept)})`,
-    stoppedEarly: (at, reason) => `Arrêté tôt à ${at} (${reason})`,
+    stoppedEarly: (at, reason) => `Arrêté prématurément à ${at} (${reason})`,
     ask: 'Identifier sur mon ordinateur',
     steps: {
       download: 'Téléchargement',
       first: 'Premier passage',
       clues: 'Lecture des commentaires',
       send: 'Envoi',
-      paused: 'Mis en pause par Shazam',
+      paused: 'En pause (Shazam)',
     },
     second: 'Deuxième passage',
     secondAt: (rest) => `Deuxième passage ${rest}`,
-    pausedUntil: (time) => `Mis en pause par Shazam jusqu’à ${time}`,
+    pausedUntil: (time) => `En pause (Shazam) jusqu’à ${time}`,
     minutesLeft: (n) => `environ ${n}\u00a0min restantes`,
     stale: (time) =>
       `dernières nouvelles ${time}\u00a0: l’ordinateur n’envoie plus de nouvelles`,
@@ -314,7 +315,7 @@ export const mix: Messages['mix'] = {
     failedNoReason: (when) => `Échec ${when}\u00a0: aucune raison donnée`,
     server: {
       unset: 'Serveur non configuré (Réglages)',
-      signedOut: 'Se connecter au serveur (Réglages)',
+      signedOut: 'Connectez-vous au serveur (Réglages)',
       offline: 'Serveur injoignable',
       paused: 'Serveur en pause — relancez-le depuis le tableau de bord',
       syncing: 'Synchronisation avec le serveur…',

@@ -31,7 +31,7 @@ export const frame: Messages['frame'] = {
   },
   topBar: {
     back: 'Retour',
-    search: 'Rechercher',
+    search: 'Recherche',
   },
   loading: 'Chargement de votre bibliothèque…',
   closeDetails: 'Fermer les détails',
@@ -64,7 +64,7 @@ export const frame: Messages['frame'] = {
     playlists: 'Aucune playlist pour l’instant.',
     topLists: 'Aucun classement Top pour l’instant.',
     artists: 'Aucun artiste pour l’instant.',
-    action: 'Synchroniser dans Réglages',
+    action: 'Synchro dans Réglages',
   },
   noData: 'aucune donnée',
   noMatch: {
@@ -76,7 +76,7 @@ export const frame: Messages['frame'] = {
     `Écouter ${artist} – ${title} sur Spotify`,
   openInSpotify: 'Ouvrir dans Spotify',
   dig: {
-    search: (site: string): string => `Rechercher sur ${site}`,
+    search: (site: string): string => `Chercher sur ${site}`,
     openInShazam: 'Ouvrir dans Shazam',
   },
   fileDrop: {

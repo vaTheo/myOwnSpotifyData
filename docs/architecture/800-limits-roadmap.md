@@ -1,7 +1,7 @@
 # 800 — Limits and roadmap
 
 > **Status**: Living
-> **Last updated**: 2026-11-13
+> **Last updated**: 2026-11-16
 
 What the app cannot do, what was decided against, and the ideas not built yet. A row moves to the
 [feature inventory](100-features.md) once it ships. The decisions that cause most of these limits are in the
@@ -160,6 +160,19 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
     user, so the trust model accepts it).
   - No backfill: values found before the round are not uploaded; the owner clears the results and runs again (no button for it).
   - The real-project run (`specs/014-shared-track-facts/quickstart.md`, T033) is the owner's and pending.
+
+- French and English (F46, spec 031, [ADR-18](700-adr/ADR-18-two-languages-typed-catalogue.md)):
+  - A failure message already built keeps the language it was written in until its job runs again (research R4): a switch
+    redraws everything else at once, but a sync or job error kept in state (the sync's is stored in IndexedDB) stays as written.
+  - The worker on the owner's computer (its terminal, log and messages, and the reason of a failed scan shown in the app), the
+    sign-in email (the server's own template) and the repo's documents stay English.
+  - The history import's Web Worker writes its two skip reasons in English and the import summary stores them so; the page
+    translates them each time they are shown. A reason it does not know is shown as received.
+  - English dates and numbers are now always British (`en-GB`): a browser set to US English reads "16 Nov 2026" where it read
+    "Nov 16, 2026", and the progress bar's count gains a thousands separator ("1,234 / 5,678 playlists").
+  - Two languages only; the lint net sees `.tsx` markup only, so a sentence built in a `.ts` file is caught by the catalogue test
+    only once it is in the catalogue, by review and by reading the French screens otherwise.
+  - Sorting a name column keeps the browser's collation, whatever the language shown (research R13).
 
 ## 3. Out of scope, decided (not to be re-litigated without the owner)
 

@@ -1,5 +1,5 @@
 import type { Messages } from '../index';
-import { count, int } from './count';
+import { count, int, word } from './count';
 
 const track = count('titre');
 const artist = count('artiste');
@@ -46,7 +46,7 @@ export const settings: Messages['settings'] = {
     syncing: 'Synchronisation',
     updating: 'Mise à jour',
     importing: 'Import',
-    spotifyLimit: 'En pause (limite de Spotify)',
+    spotifyLimit: 'En pause (Spotify)',
     offline: 'Hors ligne',
     paused: 'En pause',
     changesToSend: 'Modifications à envoyer',
@@ -74,32 +74,32 @@ export const settings: Messages['settings'] = {
       `BPM et tonalité pour ${int(covered)} sur ${track(total)}`,
     years: (dated, total) =>
       `Années de sortie\u00A0: ${int(dated)} sur ${track(total)}`,
-    found: (n) => `${int(n)} trouvés`,
-    notFound: (n) => `${int(n)} non trouvés`,
-    yearsFound: (n) => `${int(n)} années`,
+    found: (n) => `${int(n)} ${word('trouvé', 'trouvés')(n)}`,
+    notFound: (n) => `${int(n)} ${word('non trouvé', 'non trouvés')(n)}`,
+    yearsFound: (n) => count('année')(n),
     sharedNoticeBpm:
       'Les BPM et tonalités trouvés par une recherche sont partagés avec les autres personnes de ce serveur\u00A0; votre bibliothèque, vos écoutes, vos valeurs rekordbox et vos mix ne le sont jamais.',
     sharedNoticeReach:
       'Les auditeurs et fans trouvés par une recherche sont partagés avec les autres personnes de ce serveur\u00A0; votre bibliothèque, vos écoutes, vos valeurs rekordbox et vos mix ne le sont jamais.',
     sharedError: (error) =>
-      `La base partagée n’a pas pu être utilisée (${error})\u00A0; tout a été recherché à l’extérieur, comme avant.`,
+      `La base partagée n’a pas pu être utilisée (${error})\u00A0; tout a été recherché directement auprès des sources, comme avant.`,
     sharedTracks: (fromStore, sent) =>
-      `Depuis la base partagée\u00A0: ${track(fromStore)}, sans recherche. Partagés\u00A0: ${int(sent)} nouveaux.`,
+      `Depuis la base partagée\u00A0: ${track(fromStore)}, sans recherche. Partagés\u00A0: ${count('nouveau', 'nouveaux')(sent)}.`,
     sharedArtists: (fromStore, sent) =>
-      `Depuis la base partagée\u00A0: les chiffres de ${artist(fromStore)}, sans recherche. Partagés\u00A0: ${int(sent)} nouveaux.`,
-    parsed: (n) => `${int(n)} lus`,
+      `Depuis la base partagée\u00A0: les chiffres de ${artist(fromStore)}, sans recherche. Partagés\u00A0: ${count('nouveau', 'nouveaux')(sent)}.`,
+    parsed: (n) => `${int(n)} ${word('lu', 'lus')(n)}`,
     withBpm: (n) => `${int(n)} avec BPM`,
     withKey: (n) => `${int(n)} avec tonalité`,
-    matched: (n) => `${int(n)} associés`,
-    unmatched: (n) => `${int(n)} non associés`,
+    matched: (n) => `${int(n)} ${word('associé', 'associés')(n)}`,
+    unmatched: (n) => `${int(n)} ${word('non associé', 'non associés')(n)}`,
     reachFor: (covered, artists) =>
       `Audience connue pour ${int(covered)} sur ${artist(artists)}`,
-    wellKnown: (n) => `${int(n)} connus`,
-    lookedUp: (n) => `${artist(n)} recherchés`,
+    wellKnown: (n) => `${int(n)} ${word('connu', 'connus')(n)}`,
+    lookedUp: (n) => `${artist(n)} ${word('recherché', 'recherchés')(n)}`,
     newNumbers: count('nouveau chiffre', 'nouveaux chiffres'),
-    unresolved: (n) => `${int(n)} non résolus`,
+    unresolved: (n) => `${int(n)} ${word('non résolu', 'non résolus')(n)}`,
     paused: (source) =>
-      `${source} ne répond plus après trois essais\u00A0; elle est ignorée pour le reste de cette recherche.`,
+      `${source} ne répond plus après trois essais\u00A0; cette source est ignorée pour le reste de cette recherche.`,
     pending: {
       library: 'Bibliothèque',
       history: 'Historique d’écoute',
@@ -108,7 +108,8 @@ export const settings: Messages['settings'] = {
       mixes: 'Mix',
     },
     pendingLine: (value) => `Modifications en attente d’envoi\u00A0: ${value}`,
-    deviceUsers: (n) => `${int(n)} personnes utilisent cet appareil`,
+    deviceUsers: (n) =>
+      `${count('personne')(n)} ${word('utilise', 'utilisent')(n)} cet appareil`,
     dangerServer:
       'Retire votre connexion Spotify et supprime de ce navigateur vos playlists et nombres d’écoutes en cache. Vos données sur le serveur et celles des autres personnes sur cet appareil sont conservées.',
     dangerLocal:
@@ -133,22 +134,22 @@ export const settings: Messages['settings'] = {
     notAllowed: (writes) => `Pas encore autorisé\u00A0: ${writes}`,
     connectAgain: 'Se reconnecter',
     signedInSpotify: 'Connecté à Spotify',
-    files: (done, total) => `${done} / ${total} fichiers`,
+    files: (done, total) => `${int(done)} / ${file(total)}`,
     stopped: (n, sources) =>
       `${sources} ${n < 2 ? 'ne répond plus' : 'ne répondent plus'}`,
     skipped: (n) =>
       n < 2
-        ? 'ignorée pour le reste de la recherche'
-        : 'ignorées pour le reste de la recherche',
+        ? 'source ignorée pour le reste de la recherche'
+        : 'sources ignorées pour le reste de la recherche',
     notSetUp: 'Non configuré',
     notSignedIn: 'Non connecté',
     lastSync: (at) => `dernière synchro ${at}`,
-    lastSyncNever: 'dernière synchro jamais',
+    lastSyncNever: 'jamais synchronisé',
     lastSyncCap: (at) => `Dernière synchro ${at}`,
     pausedByServer: 'En pause côté serveur',
     sending: (dataset) => `Envoi\u00A0: ${dataset}`,
     fetching: (dataset) => `Récupération\u00A0: ${dataset}`,
-    rows: (done, total) => `${done} / ${total} lignes`,
+    rows: (done, total) => `${int(done)} / ${row(total)}`,
     rejected: (n) =>
       `${row(n)} ${n < 2 ? 'rejetée' : 'rejetées'} par le contrôle de sécurité`,
     danger:
@@ -156,14 +157,14 @@ export const settings: Messages['settings'] = {
   },
   updates: {
     labelHistory: 'Historique',
-    playlists: (done, total) => `${done} / ${total} playlists`,
-    tracks: (done, total) => `${done} / ${total} titres`,
-    artists: (done, total) => `${done} / ${total} artistes`,
+    playlists: (done, total) => `${int(done)} / ${playlist(total)}`,
+    tracks: (done, total) => `${int(done)} / ${track(total)}`,
+    artists: (done, total) => `${int(done)} / ${artist(total)}`,
     syncedAt: (at) => `Synchronisé le ${at}`,
-    nextAfter: (at) => `prochaine après le ${at}`,
-    pausedSpotify: (at) => `En pause par Spotify jusqu’au ${at}`,
+    nextAfter: (at) => `prochaine synchro après le ${at}`,
+    pausedSpotify: (at) => `En pause (Spotify) jusqu’au ${at}`,
     withBpm: (covered, total) =>
-      `${int(covered)} / ${int(total)} titres avec BPM ou tonalité`,
+      `${int(covered)} / ${track(total)} avec BPM ou tonalité`,
     checked: (at) => `Vérifié le ${at}`,
     needsFile: 'il faut un fichier',
     importedAt: (at) => `Importé le ${at}`,
@@ -188,14 +189,15 @@ export const settings: Messages['settings'] = {
     classic: 'Classique',
     syncFirst: 'Synchronisez ou importez d’abord un historique.',
     lookingUpPass: (pass) => `Recherche · ${pass}`,
-    passById: 'par id de titre',
+    passById: 'par identifiant de titre',
     passByIsrc: 'nouvel essai par ISRC',
     passYears: 'années de sortie',
-    passRids: 'ids ReccoBeats',
+    passRids: 'identifiants ReccoBeats',
     passShared: 'base partagée',
     tracks: 'titres',
     files: 'fichiers',
-    xmlLabel: 'XML de la collection rekordbox (File > Export Collection)',
+    xmlLabel:
+      'XML de la collection rekordbox («\u00A0File > Export Collection in xml format\u00A0»)',
     xmlHint: 'Déposez le XML ici ou choisissez-le',
     importedOn: (date) => `importé le ${date}`,
     keyNotation: 'Notation des tonalités',
@@ -206,7 +208,7 @@ export const settings: Messages['settings'] = {
       'Nombres d’écoutes depuis votre export de l’historique de streaming étendu de Spotify.',
     zoneWarning: (zone) =>
       `Ce navigateur est maintenant sur ${zone}. Réimportez pour regrouper les mois à nouveau.`,
-    update: 'Mettre à jour l’import',
+    update: 'Mettre à jour',
     import: 'Importer l’historique',
     none: 'Aucun historique importé pour l’instant.',
   },
@@ -245,12 +247,12 @@ export const settings: Messages['settings'] = {
     rows: 'Lignes',
     rejected: (n) =>
       n < 2
-        ? `${row(n)} rejetée par le contrôle de sécurité et laissée de côté.`
-        : `${row(n)} rejetées par le contrôle de sécurité et laissées de côté.`,
+        ? `${row(n)} rejetée par le contrôle de sécurité et écartée.`
+        : `${row(n)} rejetées par le contrôle de sécurité et écartées.`,
     rowsUnit: 'lignes',
-    signOut: 'Se déconnecter du serveur',
+    signOut: 'Déconnexion serveur',
     remove: 'Supprimer les données du serveur',
-    note: 'Se déconnecter du serveur garde vos données ici et sur le serveur. Supprimer les données du serveur efface toutes vos données sur le serveur et garde la copie de ce navigateur.',
+    note: 'Déconnexion serveur garde vos données ici et sur le serveur. Supprimer les données du serveur efface toutes vos données sur le serveur et garde la copie de ce navigateur.',
   },
   sync: {
     description:

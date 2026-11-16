@@ -1,7 +1,7 @@
 # 000 — Contributing
 
 > **Status**: Living
-> **Last updated**: 2026-11-07
+> **Last updated**: 2026-11-16
 
 How to work on this repository: the commands, the files that change together, the documentation conventions (borrowed from the Armtek
 repos, adapted to one small app), what a feature round looks like, and how a release happens. The product itself is described in
@@ -101,6 +101,12 @@ their exit code.
 - A **new job**: the jobs table in How the app works §14, and a decision on `jobsBusy()` and `disconnect`.
 - A **screen change**: the visual loop above, with its pages in `tools/shots/pages.ts` and the demo data in `src/dev/demo.ts`
   when the screen needs a new state.
+- A **new on-screen text** (a label, a caption, a message, an `aria-label`, a `confirm()` question): two catalogue entries, the
+  English one in `src/i18n/en/<area>.ts` and the French one in `src/i18n/fr/<area>.ts`, read with `msg()` when drawing, never kept
+  in a module constant; a number or a date goes through `fmt`. `yarn lint` refuses a text typed straight into a `.tsx` screen,
+  `yarn typecheck` a French entry missing or of the wrong kind, `src/i18n/catalogue.test.ts` one empty or left in English
+  ([ADR-18](../architecture/700-adr/ADR-18-two-languages-typed-catalogue.md), `src/i18n/CLAUDE.md`). French typography and longer
+  French labels: the [design guide](100-design-guide.md) "French".
 - A **known limit found or lifted**: [Limits and roadmap](../architecture/800-limits-roadmap.md).
 - Any page added under `docs/`: listed in the [documentation map](../README.md).
 
@@ -121,7 +127,7 @@ generated index ([ADR-06](../architecture/700-adr/ADR-06-lean-tooling.md)).
 | `docs/plans/` | the executed implementation plan of a spec; history, never edited after | `YYYY-MM-DD-slug.md` |
 | `docs/research/` | verified external facts behind a spec, dated | `YYYY-MM-DD-slug.md` |
 | repo root | `README.md` (owner's manual), `CHANGELOG.md`, `CLAUDE.md` (+ `AGENTS.md` symlink) | — |
-| `src/db/`, `src/features/`, `src/features/mix/` | a local `CLAUDE.md` each: required inputs, expected outputs | — |
+| `src/db/`, `src/features/`, `src/features/mix/`, `src/i18n/` | a local `CLAUDE.md` each: required inputs, expected outputs | — |
 
 **Numbers.** Three digits with gaps: `000–099` introduction and policies, `100–199` inventories and guides, `700–799` decisions,
 `800–899` limits and roadmap, `900–999` annexes. A number is never reused.
@@ -190,5 +196,6 @@ Every push to `main` runs CI (`.github/workflows/ci.yml`): install, typecheck, l
 - [Limits and roadmap](../architecture/800-limits-roadmap.md)
 - [ADR index](../architecture/700-adr/README.md)
 - [ADR-06 — Lean tooling](../architecture/700-adr/ADR-06-lean-tooling.md)
+- [ADR-18 — Two languages, one typed catalogue](../architecture/700-adr/ADR-18-two-languages-typed-catalogue.md)
 - [100 — Design guide](100-design-guide.md)
 - [ADR-11 — Web-first, Material Design 3, the visual loop](../architecture/700-adr/ADR-11-web-first-material-3.md)

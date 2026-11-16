@@ -10,11 +10,11 @@ Node 24, `yarn`. The demo only, never the owner's data: `yarn dev`, then `http:/
 
 | Command | Expected |
 |---|---|
-| `yarn typecheck` | exit 0; removing one entry from `src/i18n/fr.ts` makes it fail |
+| `yarn typecheck` | exit 0; removing one entry from a file under `src/i18n/fr/` makes it fail |
 | `yarn lint` | exit 0; a literal text typed into a `.tsx` screen makes it fail |
 | `yarn test` | exit 0; the existing test files pass with their English assertions untouched |
 | `yarn test src/i18n` | first-visit rule, saved choice, both catalogues complete, counts right for 0, 1 and 2 |
-| `yarn regression` | exit 0; the existing rows unchanged, rows G01 to G05 pass |
+| `yarn regression` | exit 0; the existing rows unchanged, rows G01 to G08 pass |
 | `yarn invariants` | exit 0 against `main` |
 
 Read every result by its exit code, not by a filtered output.

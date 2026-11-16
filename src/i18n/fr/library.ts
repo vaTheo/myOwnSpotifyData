@@ -86,7 +86,7 @@ export const library: Messages['library'] = {
   },
   radar: {
     noReach: 'Aucune donnée d’audience',
-    unresolved: 'Pas encore trouvés ·',
+    unresolved: 'Pas encore résolus ·',
     lookUpLink: 'Rechercher les artistes ›',
     wellKnown: 'Connus',
     noRunTitle: 'Pas encore de données d’audience',

@@ -1,6 +1,8 @@
 <!--
 Sync Impact Report
-- Version change: 2.5.0 → 2.6.0 (MINOR: Principle I's server also lets a named worker role take any user's identification request through functions, per ADR-16)
+- Version change: 2.6.0 → 2.7.0 (MINOR: the tooling constraints gain the two-language catalogue and its three nets, per ADR-18)
+- Modified sections: Technology and tooling constraints
+- Previous: 2.5.0 → 2.6.0 (MINOR: Principle I's server also lets a named worker role take any user's identification request through functions, per ADR-16)
 - Modified principles: I
 - Previous: 2.4.0 → 2.5.0 (MINOR: Principle I's server also holds one shared store of public facts, per ADR-15)
 - Modified principles: I
@@ -124,6 +126,10 @@ cannot report.
 - Every `confirm()` is listed in How the app works §14; the destructive ones live in
   `model/state.ts`, Disconnect's in its Settings button; a new question joins the list.
   A new job decides `jobsBusy()` and `disconnect` behaviour (How the app works §14).
+- Two languages (ADR-18): every text the web app shows comes from the typed catalogue in
+  `src/i18n/`, in English and in French, read with `msg()` when drawn; no i18n library.
+  Three nets MUST stay green: the type check, `src/i18n/catalogue.test.ts` and the lint
+  rule on literal text in `src/**/*.tsx`. A translation task MUST NOT reword the English.
 
 ## Development workflow
 
@@ -157,4 +163,4 @@ When the two disagree, the ADR index is corrected first and this file follows.
 - Runtime guidance for agents stays in `CLAUDE.md` and the local `CLAUDE.md` files;
   this file does not duplicate their routing.
 
-**Version**: 2.6.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-08
+**Version**: 2.7.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-11-16

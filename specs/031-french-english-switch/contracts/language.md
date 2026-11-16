@@ -36,12 +36,13 @@ In `src/i18n/`:
 | `setLang(l)` | shows `l`, saves it on the device, sets `<html lang>`; touches nothing else |
 | `initialLang(saved, preferred)` | pure: the saved choice if valid, else French when the first preferred language starts with `fr`, else English |
 | `msg()` | the catalogue of the language shown; reading it while drawing subscribes to the switch |
-| `fmt.int(n)`, `fmt.date(ms)`, `fmt.time(ms)`, `fmt.dateTime(ms)` | numbers and dates in the language shown |
-| `Messages` | the catalogue's shape, taken from `en.ts`; `fr.ts` must satisfy it |
+| `fmt.int(n)`, `fmt.date(ms)`, `fmt.time(ms)`, `fmt.dateTime(ms)`, `fmt.shortDateTime(ms)` | numbers and dates in the language shown |
+| `isSingular(n)` | whether a count takes the singular in the language shown: English only 1, French 0 and 1 |
+| `Messages` | the catalogue's shape, taken from `en.ts`; `fr.ts` must satisfy it; both assemble one file per area under `en/` and `fr/` |
 
 Rules for callers:
 
-- A text shown to the user comes from `msg()`; never a literal in JSX or in `aria-label`, `title`, `placeholder`, `alt` (lint).
+- A text shown to the user comes from `msg()`; never a literal in JSX or in `aria-label`, `title`, `placeholder`, `alt`, `label` (lint).
 - A text is read when drawn, never kept in a module constant.
 - Logic never compares a sentence; it compares a code.
 - `setLang` makes no Spotify request and writes nothing to IndexedDB or to the server (FR-011).

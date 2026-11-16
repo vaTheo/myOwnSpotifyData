@@ -112,4 +112,20 @@ describe('the English and French catalogues (spec 031)', () => {
     expect(fr.n.play(1234)).toBe('1 234 écoutes');
     expect(fr.n.month(3)).toBe('3 mois');
   });
+
+  it('keep the English wording word for word (FR-003)', () => {
+    expect(en.settings.danger.confirm).toBe(
+      'Disconnect and delete all local data? Server data is kept.'
+    );
+    expect(en.format.top.ranking).toBe(
+      "Spotify's own ranking for this period."
+    );
+    expect(en.format.noReach).toBe('no reach data');
+    expect(en.format.wikipedia(19)).toBe('Wikipedia · 19 languages');
+    expect(en.format.notCounted.line('22 under 30 s')).toBe(
+      'Not counted: 22 under 30 s'
+    );
+    expect(en.language.kept).toBe('Kept on this device.');
+    expect(en.settings.items.sync).toBe('Spotify sync');
+  });
 });

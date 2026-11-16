@@ -1,5 +1,5 @@
 import type { Messages } from '../index';
-import { count, int } from './count';
+import { count, int, word } from './count';
 
 const months = count('mois', 'mois');
 const years = count('an');
@@ -21,10 +21,10 @@ export const crate: Messages['crate'] = {
     autumn: 'Automne',
   },
   seasonYear: {
-    winter: (year) => `hiver ${year}`,
-    spring: (year) => `printemps ${year}`,
-    summer: (year) => `été ${year}`,
-    autumn: (year) => `automne ${year}`,
+    winter: (year) => `Hiver ${year}`,
+    spring: (year) => `Printemps ${year}`,
+    summer: (year) => `Été ${year}`,
+    autumn: (year) => `Automne ${year}`,
   },
   decade: (year) => `années ${year}`,
 
@@ -65,7 +65,7 @@ export const crate: Messages['crate'] = {
     first: (artist, title) => `Premier\u00a0: ${artist} — ${title}`,
     nothingYet: 'Rien pour l’instant',
     nothingInLast: (m) =>
-      m === 1 ? 'Rien ce dernier mois' : `Rien ces ${m} derniers mois`,
+      m === 1 ? 'Rien sur le dernier mois' : `Rien sur les ${m} derniers mois`,
     nothingIn: (label) => `Rien en ${label}`,
     lastMonths: (m) => (m === 1 ? 'dernier mois' : `${m} derniers mois`),
     unplayedMonths: (m) => `${months(m)}+ sans écoute`,
@@ -73,11 +73,11 @@ export const crate: Messages['crate'] = {
     yearsPlus: (y) => `${y}+ ans`,
     outcomesPlus: (n) => `${n}+ issues`,
     neverPlayed: 'jamais écoutés',
-    playsList: (list) => `${list} écoutes`,
+    playsList: (last, list) => `${list} ${word('écoute', 'écoutes')(last)}`,
     playsPerYear: 'Écoutes par an',
     reached: (parts) => `Titres écoutés\u00a0: ${parts}`,
     reachedPart: (y, tracks) => `${y}+ ans ${tracks}`,
-    topFinished: 'Premier titre écouté en entier',
+    topFinished: 'Titre en tête\u00a0: part terminée',
     imported: (date) => `Importé le ${date}`,
     updateImport: 'Mettre à jour l’import',
     historyEnds: (month) => `Historique jusqu’à ${month}`,
@@ -161,6 +161,7 @@ export const crate: Messages['crate'] = {
   },
 
   finish: {
+    // Masculine on purpose: these columns qualify titres; table.details uses the feminine (écoutes).
     finished: 'Terminés',
     skipped: 'Passés',
     captionFinished: 'Les titres que vous écoutez jusqu’au bout',

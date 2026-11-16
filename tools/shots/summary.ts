@@ -34,7 +34,8 @@ let pages = 0;
 for (const width of readdirSync(DIR).sort()) {
   for (const file of readdirSync(`${DIR}/${width}`).sort()) {
     pages += 1;
-    const id = file.replace(/\.json$/, '');
+    // The French pass is reported apart: its pages carry the prefix `fr `.
+    const id = `${width.startsWith('fr-') ? 'fr ' : ''}${file.replace(/\.json$/, '')}`;
     const { findings } = JSON.parse(
       readFileSync(`${DIR}/${width}/${file}`, 'utf8')
     ) as { findings: Finding[] };

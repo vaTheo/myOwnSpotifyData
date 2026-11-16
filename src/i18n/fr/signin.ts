@@ -12,7 +12,7 @@ export const signin: Messages['signin'] = {
     offline: (message: string): string =>
       `Serveur hors ligne\u00a0: ${message} Renvoyez le lien une fois en ligne.`,
     spotifyBeforeSignIn:
-      'Connectez-vous d’abord au serveur, puis connectez de nouveau Spotify.',
+      'Connectez-vous d’abord au serveur, puis connectez Spotify à nouveau.',
   },
   linkForm: {
     email: 'E-mail',
@@ -27,9 +27,9 @@ export const signin: Messages['signin'] = {
     readsHistory: 'Votre historique d’écoute, quand vous l’importez',
     privacySummary: 'Ce qui sort de ce navigateur',
     privacy:
-      'Vos titres les plus écoutés, vos playlists classées par écoutes et les artistes dont vous avez enregistré le plus de titres. Lit vos tops et vos propres playlists. Rien ne sort de ce navigateur, sauf les id de titres envoyés à ReccoBeats quand vous cherchez le BPM et la tonalité, et les id d’artistes, ISRC et titres d’articles envoyés à MusicBrainz, ListenBrainz, Deezer, Wikidata et Wikimedia quand vous cherchez des artistes.',
+      'Vos titres les plus écoutés, vos playlists classées par écoutes et les artistes dont vous avez enregistré le plus de titres. Lit vos tops et vos propres playlists. Rien ne sort de ce navigateur, sauf les identifiants de titres envoyés à ReccoBeats quand vous cherchez le BPM et la tonalité, et les identifiants d’artistes, ISRC et titres d’articles envoyés à MusicBrainz, ListenBrainz, Deezer, Wikidata et Wikimedia quand vous cherchez des artistes.',
     connectSpotify: 'Connecter Spotify',
-    signOut: 'Se déconnecter',
+    signOut: 'Se déconnecter du serveur',
   },
   import: {
     starts: count('lancement'),
@@ -77,12 +77,12 @@ export const signin: Messages['signin'] = {
       `Aucun fichier n’a pu être lu\u00a0: ${detail}`,
     workerStart: (error: string): string =>
       `Impossible de lancer le worker d’import\u00a0: ${error}`,
-    workerCrashed: 'Le worker d’import a planté',
+    workerCrashed: 'Le worker d’import s’est arrêté de façon inattendue',
     whileReading: (reason: string, file: string): string =>
       `${reason} (pendant la lecture de ${file})`,
     readingFiles: 'Lecture des fichiers',
     accountData:
-      'Ces fichiers sont le paquet «\u00a0Données du compte\u00a0», sans id de titre. Demandez plutôt «\u00a0Historique de streaming étendu\u00a0»\u00a0: compte Spotify, Confidentialité, Télécharger vos données.',
+      'Ces fichiers sont le paquet «\u00a0Données du compte\u00a0», sans identifiant de titre. Demandez plutôt «\u00a0Historique de streaming étendu\u00a0»\u00a0: compte Spotify, Confidentialité, Télécharger vos données.',
     noFiles:
       'Aucun fichier Streaming_History_Audio_*.json trouvé. Choisissez my_spotify_data.zip ou les fichiers JSON qu’il contient.',
     skipNotArray: 'pas un tableau JSON',

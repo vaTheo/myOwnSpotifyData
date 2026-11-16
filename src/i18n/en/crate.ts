@@ -78,7 +78,8 @@ export const crate = {
     yearsPlus: (y: number): string => `${y}+ years`,
     outcomesPlus: (n: number): string => `${n}+ outcomes`,
     neverPlayed: 'never played',
-    playsList: (list: string): string => `${list} plays`,
+    /** `last`, the largest count in the list, agrees the French noun. */
+    playsList: (last: number, list: string): string => `${list} plays`,
     playsPerYear: 'Plays per year',
     reached: (parts: string): string => `Tracks played in: ${parts}`,
     reachedPart: (y: string, tracks: number): string => `${y}+ years ${tracks}`,

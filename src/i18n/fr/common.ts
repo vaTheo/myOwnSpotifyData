@@ -43,10 +43,10 @@ export const format: Messages['format'] = {
   millions: (m) => `${m.toLocaleString('fr-FR')}\u00A0M`,
   notCounted: {
     short: (c) => `${int(c)} de moins de 30 s`,
-    podcast: (c) => `${int(c)} podcast`,
-    audiobook: (c) => `${int(c)} livre audio`,
+    podcast: (c) => count('podcast')(c),
+    audiobook: (c) => count('livre audio', 'livres audio')(c),
     unattributed: (c) => `${int(c)} sans identifiant de titre`,
-    malformed: (c) => `${int(c)} illisible`,
+    malformed: (c) => count('illisible')(c),
     line: (parts) => `Non comptées\u00A0: ${parts}`,
   },
   listeners: count('auditeur ListenBrainz', 'auditeurs ListenBrainz'),
@@ -70,6 +70,6 @@ export const format: Messages['format'] = {
 export const language: Messages['language'] = {
   names: { fr: 'Français', en: 'English' },
   choose: 'Langue',
-  description: 'La langue dans laquelle l’application est écrite.',
+  description: 'La langue dans laquelle l’app est écrite.',
   kept: 'Conservé sur cet appareil.',
 };

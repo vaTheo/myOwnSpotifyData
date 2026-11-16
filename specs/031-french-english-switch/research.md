@@ -22,7 +22,7 @@ Findings from the code at main fc086a3 (2026-11-16), then one decision per quest
 
 ### R1. No library: a typed catalogue in the repo
 
-- **Decision**: a new folder `src/i18n/` holds one catalogue per language. `en.ts` is the source and gives the shape; `fr.ts` must have the same shape. `msg()` returns the catalogue of the language shown.
+- **Decision**: a new folder `src/i18n/` holds one catalogue per language. `en.ts` is the source and gives the shape; `fr.ts` must have the same shape. `msg()` returns the catalogue of the language shown. As built, `en.ts` and `fr.ts` only assemble one file per area under `en/` and `fr/`, each French file typed `Messages['<area>']`.
 - **Rationale**: no new dependency (ADR-06); two languages only; a missing French text fails `yarn typecheck`, which CI already runs (FR-017).
 - **Alternatives considered**: i18next or Lingui (a dependency, an extraction step, features for many languages that two do not need); the English sentence as the key (`t('Sync now')`: a reworded English text silently loses its French one).
 
@@ -66,7 +66,7 @@ Findings from the code at main fc086a3 (2026-11-16), then one decision per quest
 
 ### R8. Catching a text with no French version
 
-- **Decision**: three nets. (1) Type: `fr` must satisfy the shape of `en`. (2) Test: `src/i18n/catalogue.test.ts` walks both catalogues, calls every function with 0, 1 and 2, and fails on an empty result or on an English sentence left as is in French outside an allow-list of words that are the same ("Mix", "Top", "BPM", "Spotify", "rekordbox", "Playlists"). (3) Lint: a small local rule in the ESLint config, with no new package, refuses literal text in JSX and in `aria-label`, `title`, `placeholder` and `alt` under `src/`, so a new English text cannot be typed straight into a screen.
+- **Decision**: three nets. (1) Type: `fr` must satisfy the shape of `en`. (2) Test: `src/i18n/catalogue.test.ts` walks both catalogues, calls every function with 0, 1 and 2, and fails on an empty result or on an English sentence left as is in French outside an allow-list of words that are the same ("Mix", "Top", "BPM", "Spotify", "rekordbox", "Playlists"). (3) Lint: a small local rule in the ESLint config, with no new package, refuses literal text in JSX and in `aria-label`, `title`, `placeholder`, `alt` and `label` in `src/**/*.tsx` (`no-restricted-syntax`), so a new English text cannot be typed straight into a screen.
 - **Rationale**: FR-017. The lint rule does not see a sentence built in a `.ts` file; the review and the French visual pass cover those.
 - **Alternatives considered**: `eslint-plugin-react`'s `jsx-no-literals` (a new dependency).
 

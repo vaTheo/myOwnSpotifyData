@@ -25,25 +25,6 @@ const SEASON_MONTHS: Record<Season, number[]> = {
 
 const MONTHS_OF_YEAR = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-/**
- * January first, English. Kept for the callers still reading it; a text
- * reads `msg().months` (spec 031).
- */
-export const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
 /** `YYYY-MM`, month 1–12. */
 export function yearMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`;

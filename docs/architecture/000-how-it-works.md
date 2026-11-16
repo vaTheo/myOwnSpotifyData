@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-13
+> **Last updated**: 2026-11-16
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -646,8 +646,9 @@ the open mix's header, `ui/mix/RunLine.tsx`; the scan keeps its tracks); Disconn
 `:1363`, `:1385`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
 old behaviour.
 
-Their texts, word for word (`<…>` is filled in when asked); `yarn regression` holds every `confirm()` it meets to this list, and
-`yarn invariants` fails if any text differs from `main`:
+Their texts, word for word, in English (`<…>` is filled in when asked); `yarn regression` holds every `confirm()` it meets to this list, and
+`yarn invariants` fails if any text differs from `main`. Since spec 031 each question is read from the catalogue when asked (§18);
+its French text sits beside the English one in `src/i18n/fr/` and is not repeated here:
 
 - Account switch: "This is a different Spotify account. Delete all local data for the previous account?"
 - Narrower import: "This import covers <span>; your current history covers <span>. Replace it?", or, when the files hold no
@@ -878,27 +879,41 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
 
 ## 18. `i18n/`: French and English
 
-Spec 031, [ADR-18](700-adr/ADR-18-two-languages-typed-catalogue.md) (written at the end of the round). The app is written in two
-languages with no library.
+Spec 031, [ADR-18](700-adr/ADR-18-two-languages-typed-catalogue.md). The web app is written in two languages with no library;
+local rules in `src/i18n/CLAUDE.md`.
 
-- **The catalogue.** `en.ts` holds every text the app writes, in today's words; it gives the shape (`Messages` in `index.ts`).
-  `fr.ts` must satisfy that shape, so a text with no French version fails `yarn typecheck`. A text is a string; a text with a value
-  is a function of it; a counted noun (`n.track(count)`) agrees inside its own entry, French taking 0 and 1 as singular.
-  `catalogue.test.ts` walks both: same entries, none empty, no English sentence left in French outside a short list of words that
-  are the same ("Mix", "Top", "Crate", "Spotify").
+- **The catalogue.** One file per area and language under `en/` and `fr/` (`common`, `count`, `frame`, `table`, `settings`,
+  `crate`, `overview`, `library`, `mix`, `signin`, `core`, `sources`, `demo`); `en.ts` and `fr.ts` only assemble them. English is
+  the source, in the app's words as they were before the round, and gives the shape (`Messages` in `index.ts`); each French file
+  is typed `Messages['<area>']`. A text is a string; a text with a value is a function of it; a counted noun (`n.track(count)`,
+  built with `count()` of `count.ts`) agrees inside its own entry. `isSingular(n)` (`lang.ts`) gives the agreement rule of the
+  language shown, for a sentence that agrees more than its noun: English only 1, French 0 and 1.
 - **The language shown.** `lang.ts`: the signal `lang` (`'en' | 'fr'`). `msg()` returns the catalogue of `lang.value`; a component
-  or a pure function called while drawing subscribes by reading it, so a pick redraws the app with no reload. A text is therefore
-  read when drawn and never kept in a module constant (the Settings labels of `ui/settings/sections.ts` are getters).
+  or a pure function called while drawing subscribes by reading it, so a pick redraws the app with no reload. A text is read when
+  drawn and never kept in a module constant: the Settings labels of `ui/settings/sections.ts` are getters, the confirm questions
+  of `model/state.ts` and `sync/runner.ts` are functions. Logic compares codes, never sentences.
+- **Dates and numbers.** `fmt.ts`: `fmt.int`, `fmt.date`, `fmt.time`, `fmt.dateTime`, `fmt.shortDateTime` use `en-GB` in English
+  and `fr-FR` in French, whatever the browser prefers; `intIn(lang, n)` gives one language's form, for the `count()` helpers.
 - **The choice.** `setLang` shows the language, sets `<html lang>` and saves `lang` in `localStorage` (per device, never synced,
-  kept by Disconnect). With nothing saved, `initialLang` gives French when the browser's first preferred language starts with
-  `fr`, English otherwise, and saves nothing. `main.tsx` sets `<html lang>` before the first draw. Vitest has no browser, so tests
-  run in English.
-- **Where it is picked.** Settings · This device · Language (`#/settings/language`), and the same two choices on the Connect and
-  sign-in cards (`LanguageSwitch`), each language under its own name whatever is shown.
-- **Dates and numbers.** `fmt.ts`: `fmt.int`, `fmt.date`, `fmt.time`, `fmt.dateTime` use `en-GB` in English and `fr-FR` in French,
-  not the browser's own setting.
-- **State of the round.** The mechanism, the switch and the Settings names are built; the other screens move to the catalogue
-  folder by folder (spec 031 tasks T012 to T026) and are English until then.
+  kept by Disconnect and Remove server data). With nothing saved, `initialLang` gives French when the browser's first preferred
+  language starts with `fr`, English otherwise, and saves nothing. `main.tsx` sets `<html lang>` before the first draw
+  (`applyDocumentLang`). Vitest has no browser, so tests run in English.
+- **Where it is picked.** Settings · This device · Language (`#/settings/language`, `ui/settings/LanguageSection.tsx`), and the
+  same two choices on the Connect and sign-in cards (`LanguageSwitch`, same file), each language under its own name whatever is shown.
+- **Three nets for a missing French text.** `yarn typecheck` (a French file without an entry or with the wrong kind);
+  `catalogue.test.ts` (same keys, same kinds, no empty text with functions called on 0, 1 and 2, no English sentence left in French
+  outside the allow-list `SAME`); `yarn lint`, whose `no-restricted-syntax` rule in `eslint.config.js` refuses JSX text and a
+  literal in `aria-label`, `title`, `placeholder`, `alt` or `label` in `src/**/*.tsx`. French texts write the no-break space as
+  `\u00A0`: a raw one fails `no-irregular-whitespace` inside a template.
+- **What stays out.** The name and description of a playlist created on Spotify (§10), text sent to the server or the worker, a
+  Spotify error body and a reason written by the worker (shown as received, inside a catalogue sentence), log lines, the user's
+  music, the demo's music data.
+- **Workers.** The history import's Web Worker (`history/process.ts`) does not follow the switch: it writes its two errors and its
+  two skip reasons with the English catalogue's texts, and the import summary stores the reasons so; `history/importer.ts`
+  (`skipReasonText`, `workerErrorMessage`) swaps the ones it knows for the language shown each time they are drawn, anything else is
+  shown as received. The worker on the owner's computer (§17) stays English.
+- **A kept message keeps its language** (research R4): a failure message built below the UI is a string in its job's state (the
+  sync state's `message` is stored in IndexedDB); it stays in the language it was written in until its job runs again.
 
 ## Links
 

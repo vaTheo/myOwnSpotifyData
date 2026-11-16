@@ -226,7 +226,7 @@ function rarelyCard(): HubCard {
     setting:
       counts.includes(0) && counts.length === 1
         ? text.neverPlayed
-        : text.playsList(counts.join(', ')),
+        : text.playsList(counts[counts.length - 1] ?? 0, counts.join(', ')),
     chart: null,
   };
 }

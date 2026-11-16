@@ -45,10 +45,10 @@ export const sources: Messages['sources'] = {
     notAList: 'Réponse inattendue\u00a0: pas une liste',
   },
   lookupPass: {
-    byId: 'par id de titre',
+    byId: 'par identifiant de titre',
     byIsrc: 'nouvel essai par ISRC',
     years: 'années de sortie',
-    rids: 'ids ReccoBeats',
+    rids: 'identifiants ReccoBeats',
     shared: 'base partagée',
   },
   musicbrainz: {
@@ -73,7 +73,7 @@ export const sources: Messages['sources'] = {
     wait: (minutes) =>
       `ReccoBeats demande d’attendre ${minutes} min. Réessayez plus tard.`,
     rateLimited:
-      'ReccoBeats a freiné la recherche trop de fois. Réessayez plus tard.',
+      'ReccoBeats\u00a0: limite de débit atteinte trop de fois de suite. Réessayez plus tard.',
     serverError: (status) => `Erreur du serveur ReccoBeats ${status}`,
     error: (status) => `Erreur ReccoBeats ${status}`,
     malformed: 'ReccoBeats a renvoyé une réponse mal formée',
@@ -85,12 +85,12 @@ export const sources: Messages['sources'] = {
   },
   rekordbox: {
     notRekordbox:
-      'Ce n’est pas une collection Rekordbox. Dans Rekordbox, utilisez File > Export Collection in xml format, puis choisissez ce .xml ici.',
+      'Ce n’est pas une collection rekordbox. Dans rekordbox, utilisez «\u00a0File > Export Collection in xml format\u00a0», puis choisissez ce .xml ici.',
     noTracks:
-      'Cette collection Rekordbox n’a aucun titre. Mettez les titres dans au moins une playlist, exportez à nouveau et réessayez.',
+      'Cette collection rekordbox n’a aucun titre. Mettez les titres dans au moins une playlist, exportez à nouveau et réessayez.',
     workerStart: (reason) =>
-      `Impossible de démarrer le worker Rekordbox\u00a0: ${reason}`,
-    workerCrashed: 'Le worker Rekordbox a planté',
+      `Impossible de démarrer le worker rekordbox\u00a0: ${reason}`,
+    workerCrashed: 'Le worker rekordbox s’est arrêté de façon inattendue',
   },
   like: {
     checkFailed: (reason) =>
@@ -101,7 +101,7 @@ export const sources: Messages['sources'] = {
         ? `${int(toLike)} sur ${titre(total)} de votre dernière synchronisation n’est pas encore dans vos Titres likés. Le liker\u00a0?`
         : `${int(toLike)} sur ${titre(total)} de votre dernière synchronisation ne sont pas encore dans vos Titres likés. Les liker\u00a0?`,
     liked: (n) => count('titre liké', 'titres likés')(n),
-    alreadyLiked: (n) => `${int(n)} ${n < 2 ? 'l’était' : 'l’étaient'} déjà`,
+    alreadyLiked: (n) => `${int(n)} ${n < 2 ? 'déjà liké' : 'déjà likés'}`,
     oneAlready: 'Votre seul titre est déjà dans vos Titres likés',
     allAlready: (n) => `Les ${titre(n)} sont déjà dans vos Titres likés`,
     nothing: 'Aucun titre Spotify à liker',
