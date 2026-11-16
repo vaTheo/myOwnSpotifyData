@@ -70,11 +70,12 @@ A person opens the app for the first time on a device and has chosen nothing. Th
 ### Edge Cases
 
 - A message the app does not write itself (the raw text of a Spotify error, a failed scan's reason sent by the worker): it is shown as received, inside a French sentence.
-- A job that was running or a message already on screen when the language changes: it is shown in the new language from then on.
+- A job running when the language changes: its progress line is shown in the new language at once.
+- A failure message already on screen when the language changes: it keeps the language it was written in until its job runs again; everything else on the screen changes at once (owner 2026-11-16, plan research R4).
 - A French text longer than its English one in a tight place (navigation, table heading, button, pill): it fits or shortens cleanly at every width.
 - A text that is the same word in both languages ("Mix", "Top", "BPM", "Spotify", "rekordbox"): it stays as it is.
 - The saved choice cannot be read (private window, storage cleared): the first-visit rule applies and the app still works.
-- Search: words of the app itself (screen and setting names) are found in the language shown.
+- Search: it finds the user's tracks, artists, playlists and mixes, as today; its own labels and context lines follow the language shown.
 - Sorting by a name column: unchanged, the order does not depend on the language.
 - A text added to the app later with no French version: the gap is caught before it ships, never shown as a blank or a code name.
 
@@ -89,7 +90,7 @@ A person opens the app for the first time on a device and has chosen nothing. Th
 - **FR-005**: A language change MUST apply at once to the whole app, without a reload.
 - **FR-006**: The app MUST remember the choice on the device and apply it on every later opening.
 - **FR-007**: With no saved choice, the app MUST follow the browser's preferred language: French when it is French, English otherwise.
-- **FR-008**: Dates, month and day names, durations, numbers and percentages MUST follow the language shown.
+- **FR-008**: Dates, month and day names, durations, numbers and percentages MUST follow the language shown, not the browser: the British form in English ("16 Nov 2026"), the French form in French ("16 nov. 2026") (owner 2026-11-16, plan research R5).
 - **FR-009**: Sentences with a count MUST agree in number in both languages.
 - **FR-010**: The app MUST NOT translate or alter the user's content: track, artist, album, playlist and mix names, imported history, mix tracklists.
 - **FR-011**: A language change MUST NOT read Spotify, write to Spotify, touch the stored data, restart a job or sign anyone out.
