@@ -4,8 +4,8 @@
  * counted here that the model does not already count (FR-049).
  */
 import type { PlayRow } from '../../db/schema';
+import { fmt, msg } from '../../i18n';
 import {
-  MONTH_NAMES,
   monthKey,
   periodMonths,
   rateBand,
@@ -14,6 +14,11 @@ import {
   type RateBand,
   type YearPeriod,
 } from '../../model/crate';
+
+/** The twelve month keys of `year`, January first. */
+function yearKeys(year: number): string[] {
+  return Array.from({ length: 12 }, (_, i) => yearMonth(year, i + 1));
+}
 
 /** The imported history's span: ISO instants, or `YYYY-MM` month keys. */
 export interface MonthRange {
@@ -176,7 +181,7 @@ export function yearTotals(
   range: MonthRange | null
 ): YearTotals[] {
   return years.map((year) => {
-    const keys = MONTH_NAMES.map((_, i) => yearMonth(year, i + 1));
+    const keys = yearKeys(year);
     const months = monthSeries(all, keys, range).map((p) => p.value);
     const values = months.map((v) => v ?? 0);
     return {
@@ -245,7 +250,7 @@ export function historyKeys(
  * opened by the previous December under Winter, which the selection counts.
  */
 export function yearChartKeys(year: number, period: YearPeriod): string[] {
-  const keys = MONTH_NAMES.map((_, i) => yearMonth(year, i + 1));
+  const keys = yearKeys(year);
   return period === 'winter' ? [yearMonth(year - 1, 12), ...keys] : keys;
 }
 
@@ -271,7 +276,7 @@ export function yearsReached(
  */
 export function pointLabel(key: string, withYear: boolean): string {
   if (key.length === 4) return key;
-  const name = MONTH_NAMES[Number(key.slice(5, 7)) - 1] ?? key;
+  const name = msg().months[Number(key.slice(5, 7)) - 1] ?? key;
   return withYear ? `${name} ${key.slice(0, 4)}` : name;
 }
 
@@ -282,14 +287,15 @@ export function crossesYears(series: MonthPoint[]): boolean {
 
 /** One month's value as the label and the tooltip read it. */
 export function pointValue(value: number | null): string {
-  return value === null ? 'not in the history' : value.toLocaleString();
+  return value === null ? msg().table.charts.notInHistory : fmt.int(value);
 }
 
 /** The text alternative: `Plays per month: Jun 4, Jul 0, …`. */
 export function seriesLabel(title: string, series: MonthPoint[]): string {
   const withYear = crossesYears(series);
-  const parts = series.map(
-    (p) => `${pointLabel(p.key, withYear)} ${pointValue(p.value)}`
+  const text = msg().table.charts;
+  const parts = series.map((p) =>
+    text.point(pointLabel(p.key, withYear), pointValue(p.value))
   );
-  return `${title}: ${parts.join(', ')}`;
+  return text.series(title, parts.join(', '));
 }

@@ -8,8 +8,14 @@ import type { ServerPending } from '../../db/schema';
 import type { UpdateLine, UpdateTone } from '../../model/updateLines';
 import type { ServerStatus } from '../../server/types';
 import type { StatusKind } from '../components/StatusLine';
-import { formatDateTime, plural } from '../format';
-import { pendingLine } from './lines';
+import { msg } from '../../i18n';
+import { formatDateTime } from '../format';
+import { datasetName, pendingLine } from './lines';
+
+const said = () => msg().settings.words;
+const closed = () => msg().settings.closed;
+/** Parts of a line, joined as every line here: `Failed · boom`. */
+const parts = (...p: string[]) => p.join(' · ');
 
 /** Worst first: error > warning > running > waiting > ok > off. */
 export type ItemTone =
@@ -67,19 +73,29 @@ export function stateOnly(
   progress: { done: number; total: number } | null = null
 ): ItemLine {
   const first = line.text.split(' · ')[0];
-  const scoped = (word: string) =>
-    line.scope ? `${line.scope} ${word.toLowerCase()}` : word;
+  const c = closed();
   switch (line.tone) {
     case 'error':
-      return { tone: 'error', text: scoped('Failed'), act: true };
+      return {
+        tone: 'error',
+        text: line.scope ? c.scopeFailed(line.scope) : said().failed,
+        act: true,
+      };
     case 'warning':
       return { tone: 'warning', text: first, act: true };
     case 'running': {
       const pct =
         progress && progress.total > 0
-          ? ` ${Math.round((progress.done / progress.total) * 100)} %`
-          : '';
-      return { tone: 'running', text: scoped(`Running${pct}`) };
+          ? Math.round((progress.done / progress.total) * 100)
+          : null;
+      const text = line.scope
+        ? pct === null
+          ? c.scopeRunning(line.scope)
+          : c.scopeRunningPct(line.scope, pct)
+        : pct === null
+          ? said().running
+          : c.runningPct(pct);
+      return { tone: 'running', text };
     }
     case 'waiting':
       return { tone: 'waiting', text: first };
@@ -131,23 +147,24 @@ const warn = (text: string | null): ItemLine | null =>
 
 /** The shared store's error: a failure of that part, not of the lookup. */
 const sharedStore = (text: string | null): ItemLine | null =>
-  text === null ? null : { tone: 'error', text, scope: 'Shared store' };
+  text === null ? null : { tone: 'error', text, scope: closed().sharedStore };
 
 /** Spotify account: signed in, or the writes its scopes still lack. */
 export function accountItemLine(
   signedIn: boolean,
   missing: readonly string[]
 ): ItemLine {
+  const c = closed();
   if (!signedIn) {
-    return { tone: 'off', text: 'Not signed in to Spotify', act: true };
+    return { tone: 'off', text: c.notSignedInSpotify, act: true };
   }
   if (missing.length > 0) {
     return {
       tone: 'warning',
-      text: `Not allowed yet: ${missing.join(', ')} · Connect again`,
+      text: parts(c.notAllowed(missing.join(', ')), c.connectAgain),
     };
   }
-  return { tone: 'ok', text: 'Signed in to Spotify' };
+  return { tone: 'ok', text: c.signedInSpotify };
 }
 
 /**
@@ -196,14 +213,18 @@ export function audioItemLine(p: {
     r.status === 'running'
       ? {
           tone: 'running',
-          text: `Rekordbox · Running · ${r.index} / ${r.total} files`,
+          text: parts(
+            'Rekordbox',
+            said().running,
+            closed().files(r.index, r.total)
+          ),
           scope: 'Rekordbox',
         }
       : null,
     r.status === 'error'
       ? {
           tone: 'error',
-          text: `Rekordbox · Failed · ${r.message}`,
+          text: parts('Rekordbox', said().failed, r.message),
           scope: 'Rekordbox',
         }
       : null,
@@ -217,12 +238,16 @@ export function reachItemLine(
   stopped: readonly string[],
   sharedError: string | null
 ): ItemLine {
+  const c = closed();
   return worst(
     fromUpdate(reach),
     warn(
       stopped.length === 0
         ? null
-        : `${stopped.join(', ')} stopped answering · the run skipped ${stopped.length === 1 ? 'it' : 'them'}`
+        : parts(
+            c.stopped(stopped.length, stopped.join(', ')),
+            c.skipped(stopped.length)
+          )
     ),
     sharedStore(sharedError)
   );
@@ -245,65 +270,75 @@ function waiting(pending: ServerPending | null): boolean {
 /**
  * This device ↔ server (US3, FR-007a): "Up to date" only when connected
  * with nothing waiting to send; changes waiting name their data sets.
+ * Its first words "Up to date" and "Offline" are the catalogue's
+ * `words.upToDate` and `words.offline`, which `statusLines` compares
+ * against in the same language (spec 031, research R4).
  */
 export function serverStatusLine(i: ServerLineInputs): ItemLine {
   const s = i.server;
-  if (s.status === 'unset') return { tone: 'off', text: 'Not set up' };
+  const c = closed();
+  const w = said();
+  if (s.status === 'unset') return { tone: 'off', text: c.notSetUp };
   if (s.status === 'error')
-    return { tone: 'error', text: `Failed · ${s.message}` };
+    return { tone: 'error', text: parts(w.failed, s.message) };
   if (s.status === 'signedOut' || !i.signedIn) {
-    return { tone: 'off', text: 'Not signed in' };
+    return { tone: 'off', text: c.notSignedIn };
   }
   if (i.pendingError !== null) return { tone: 'error', text: i.pendingError };
   // The changes waiting are named in every state past this point, so an
   // offline or paused server still says what has not reached it.
   const held =
     i.pending !== null && waiting(i.pending) ? pendingLine(i.pending) : null;
-  const and = (text: string) => (held === null ? text : `${text} · ${held}`);
+  const and = (text: string) => (held === null ? text : parts(text, held));
   switch (s.status) {
     case 'offline':
       return {
         tone: 'warning',
         text: and(
-          `Offline · last sync ${i.lastSyncAt === null ? 'never' : formatDateTime(i.lastSyncAt)}`
+          parts(
+            w.offline,
+            i.lastSyncAt === null
+              ? c.lastSyncNever
+              : c.lastSync(formatDateTime(i.lastSyncAt))
+          )
         ),
       };
     case 'paused':
-      return { tone: 'warning', text: and('Paused by the server') };
+      return { tone: 'warning', text: and(c.pausedByServer) };
     case 'pushing':
-    case 'pulling':
+    case 'pulling': {
+      const name = datasetName(s.dataset);
       return {
         tone: 'running',
         text: and(
-          `${s.status === 'pushing' ? 'Sending' : 'Fetching'} ${s.dataset} · ${s.done} / ${s.total} rows`
+          parts(
+            s.status === 'pushing' ? c.sending(name) : c.fetching(name),
+            c.rows(s.done, s.total)
+          )
         ),
       };
+    }
     case 'connected': {
       if (held !== null) return { tone: 'waiting', text: held };
-      if (s.lastSyncAt === null) return { tone: 'off', text: 'Never synced' };
+      if (s.lastSyncAt === null) return { tone: 'off', text: w.neverSynced };
       const at = formatDateTime(s.lastSyncAt);
       // Flags not read yet: the last sync, never "Up to date".
       return i.pending === null
-        ? { tone: 'ok', text: `Last sync ${at}` }
-        : { tone: 'ok', text: `Up to date · last sync ${at}` };
+        ? { tone: 'ok', text: c.lastSyncCap(at) }
+        : { tone: 'ok', text: parts(w.upToDate, c.lastSync(at)) };
     }
   }
 }
 
 /** Server: the status line, or rows the safety check left out. */
 export function serverItemLine(status: ItemLine, rejected: number): ItemLine {
-  return worst(
-    status,
-    warn(
-      rejected > 0
-        ? `${plural(rejected, 'row')} rejected by the safety check`
-        : null
-    )
-  );
+  return worst(status, warn(rejected > 0 ? closed().rejected(rejected) : null));
 }
 
-/** Danger zone: Disconnect's consequence in a few words. */
+/** Danger zone: Disconnect's consequence in a few words, read when drawn. */
 export const DANGER_LINE: ItemLine = {
   tone: 'off',
-  text: "Disconnect deletes this browser's data · server data is kept",
+  get text() {
+    return closed().danger;
+  },
 };

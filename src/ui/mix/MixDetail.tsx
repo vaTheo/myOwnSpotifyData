@@ -12,7 +12,8 @@ import {
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import { StatusLine } from '../components/StatusLine';
-import { formatDate, plural } from '../format';
+import { msg } from '../../i18n';
+import { formatDate } from '../format';
 import { SetWideClues } from './Clues';
 import { CreatePlaylistCard } from './CreatePlaylistCard';
 import { ReviewHead } from './ReviewHead';
@@ -54,78 +55,62 @@ function Provenance(p: { view: MixView }) {
   const identifiedAt = savedMixes.value.find(
     (m) => m.url === view.url
   )?.identifiedAt;
+  const t = msg().mix.detail;
+  const computerTracks = rows.filter((r) => r.source === 'tracklistify').length;
   return (
     <div class="mix-provenance">
-      {view.shortLink && (
-        <p class="mix-caption">
-          This is a mobile share link, so the TrackId.net lookup could not be
-          confirmed for it. The player and any tracklist in the description are
-          shown below — or paste a tracklist. Identify on my computer works
-          with this link. On a computer, open the mix and copy its full
-          soundcloud.com/… link for a TrackId lookup.
-        </p>
-      )}
+      {view.shortLink && <p class="mix-caption">{t.shortLink}</p>}
       {tid && tid.count > 0 && (
         <p class="mix-caption">
-          From TrackId.net · {plural(tid.count, 'track')}
+          {t.fromTrackid(tid.count)}
           {tid.timeHitRate !== null &&
-            ` · ${Math.round(tid.timeHitRate * 100)}% of the mix identified`}{' '}
+            ` · ${t.identifiedShare(Math.round(tid.timeHitRate * 100))}`}{' '}
           ·{' '}
           <OutLink href={`https://trackid.net/audiostream/${tid.slug}`}>
-            Open on TrackId.net ›
+            {t.openTrackid}
           </OutLink>
         </p>
       )}
       {tid && tid.empty && (
         <p class="mix-caption">
-          TrackId.net has this mix but identified no tracks yet ·{' '}
+          {t.trackidEmpty}{' '}
           <OutLink href={`https://trackid.net/audiostream/${tid.slug}`}>
-            Open on TrackId.net ›
+            {t.openTrackid}
           </OutLink>
         </p>
       )}
       {view.sources.tracklistify === true && (
         <p class="mix-caption">
-          From Tracklistify ·{' '}
-          {plural(rows.filter((r) => !r.gap).length, 'track')}
+          {t.fromTracklistify(rows.filter((r) => !r.gap).length)}
         </p>
       )}
       {view.sources.worker === true && (
         <p class="mix-caption">
-          From your computer ·{' '}
-          {plural(
-            rows.filter((r) => r.source === 'tracklistify').length,
-            'track'
-          )}
-          {identifiedAt ? ` · ${formatDate(identifiedAt)}` : ''}
+          {identifiedAt
+            ? t.fromComputerOn(computerTracks, formatDate(identifiedAt))
+            : t.fromComputer(computerTracks)}
         </p>
       )}
       {view.sources.description && (
-        <p class="mix-caption">From the mix description</p>
+        <p class="mix-caption">{t.fromDescription}</p>
       )}
       {view.sources.linkOut !== null && (
         <p class="mix-caption">
-          The description links a full tracklist ·{' '}
-          <OutLink
-            href={view.sources.linkOut}
-          >{`${view.sources.linkOut} ›`}</OutLink>
+          {t.linkOut}{' '}
+          <OutLink href={view.sources.linkOut}>
+            {/* eslint-disable-next-line no-restricted-syntax -- the link itself and an arrow, no words */}
+            {`${view.sources.linkOut} ›`}
+          </OutLink>
         </p>
       )}
-      {nothingFound && (
-        <p class="mix-caption">
-          Nothing found automatically — paste a tracklist below, or read the
-          player's comments.
-        </p>
-      )}
+      {nothingFound && <p class="mix-caption">{t.nothingFound}</p>}
       {view.trackidError !== null && (
         <StatusLine kind="error">
-          TrackId.net could not be reached: {view.trackidError}
+          {t.trackidError(view.trackidError)}
         </StatusLine>
       )}
       {view.oembedError !== null && (
-        <StatusLine kind="error">
-          The mix page could not be read: {view.oembedError}
-        </StatusLine>
+        <StatusLine kind="error">{t.oembedError(view.oembedError)}</StatusLine>
       )}
     </div>
   );
@@ -154,7 +139,7 @@ function Player(p: { src: string }) {
     <div class="mix-player-box">
       <iframe
         class="mix-player"
-        title="SoundCloud player"
+        title={msg().mix.detail.player}
         src={`${p.src}&show_comments=true`}
         width="100%"
         height={large ? 400 : 166}
@@ -166,7 +151,7 @@ function Player(p: { src: string }) {
         aria-pressed={large}
         onClick={() => setLarge(!large)}
       >
-        Larger player
+        {msg().mix.detail.largerPlayer}
       </Button>
     </div>
   );
@@ -176,31 +161,30 @@ function Player(p: { src: string }) {
 function PasteBox() {
   const [text, setText] = useState('');
   const [note, setNote] = useState<string | null>(null);
+  const t = msg().mix.detail;
   const onAdd = (): void => {
     const result = applyPastedTracklist(text);
     if (result === 'added') {
       setText('');
       setNote(null);
     } else if (result === 'linkOnly') {
-      setNote(
-        'That looks like a link to a tracklist, not a tracklist. Open it, copy the tracks, and paste them here.'
-      );
+      setNote(t.pasteLinkOnly);
     } else {
-      setNote('No tracks found in that text.');
+      setNote(t.pasteNone);
     }
   };
   return (
-    <Disclosure class="card" summary="Paste a tracklist">
+    <Disclosure class="card" summary={t.paste}>
       <textarea
         class="text-field mix-paste"
         rows={4}
-        aria-label="Paste a tracklist"
-        placeholder="e.g. from MixesDB or a player comment"
+        aria-label={t.paste}
+        placeholder={t.pastePlaceholder}
         value={text}
         onInput={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)}
       />
       <Button onClick={onAdd} disabled={text.trim() === ''}>
-        Add these tracks
+        {t.addTracks}
       </Button>
       {note !== null && <StatusLine kind="warning">{note}</StatusLine>}
     </Disclosure>
@@ -240,7 +224,11 @@ export function MixDetail(p: {
           {view.author && <p class="mix-caption">{view.author}</p>}
         </div>
         {p.paneButton}
-        <IconButton icon="close" label="Close this mix" onClick={p.onClose} />
+        <IconButton
+          icon="close"
+          label={msg().mix.detail.close}
+          onClick={p.onClose}
+        />
       </header>
       {p.error}
       <Provenance view={view} />
@@ -248,12 +236,12 @@ export function MixDetail(p: {
         <div class="mix-head-actions">
           {real && (
             <Button icon="sync" onClick={() => void startMixLookup(view.url)}>
-              Look up again
+              {msg().mix.common.lookUpAgain}
             </Button>
           )}
           {showReplace && (
             <Button onClick={() => applyDescriptionTracklist()}>
-              Replace with the description tracklist
+              {msg().mix.detail.replace}
             </Button>
           )}
         </div>

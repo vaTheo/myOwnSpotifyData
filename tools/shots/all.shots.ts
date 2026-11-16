@@ -57,6 +57,12 @@ for (const shot of PAGES) {
     const findings: Finding[] = [];
     const hash = await openDemo(page, findings, shot.hash, shot.variant);
     if (shot.setup) await shot.setup(page);
+    // The French pass (spec 031): the page is set up by its English names,
+    // then switched in place, as a user does from Settings.
+    const french = testInfo.project.name.startsWith('fr-');
+    if (french) {
+      await page.evaluate(() => window.__demo?.set('lang', 'fr'));
+    }
     await page.waitForTimeout(150);
 
     // A page judged while blank or still loading passes every check for
@@ -72,7 +78,8 @@ for (const shot of PAGES) {
       findings.push({ check: 'page', selector: shot.id, detail: unready });
     }
     findings.push(...(await page.evaluate(layoutChecks)));
-    if (shot.expect) {
+    // A page's own expectations read English texts.
+    if (shot.expect && !french) {
       for (const detail of await shot.expect(page)) {
         findings.push({ check: 'page', selector: shot.id, detail });
       }

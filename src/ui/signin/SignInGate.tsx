@@ -1,6 +1,8 @@
+import { msg } from '../../i18n';
 import { serverState, spotifyReturnDropped } from '../../model/state';
 import { StatusLine } from '../components/StatusLine';
 import { Icon } from '../icons';
+import { LanguageSwitch } from '../settings/LanguageSection';
 import { gateNotices } from './gate';
 import { ServerLinkForm } from './ServerLinkForm';
 
@@ -13,27 +15,27 @@ import { ServerLinkForm } from './ServerLinkForm';
  */
 export function SignInGate(p: { linking?: boolean }) {
   const notices = gateNotices(serverState.value, spotifyReturnDropped.value);
+  const t = msg().signin;
   return (
     <main class="connect">
       <section class="connect-card">
+        <LanguageSwitch class="connect-lang" />
         <Icon name="headphones" size={40} class="connect-mark" />
+        {/* eslint-disable-next-line no-restricted-syntax -- the app's name */}
         <h1>DJ Data</h1>
-        <p class="connect-purpose">
-          Sign in with a link sent to your email. Open the link in this browser,
-          within 10 minutes.
-        </p>
+        <p class="connect-purpose">{t.gate.purpose}</p>
         {p.linking ? (
-          <StatusLine>Signing you in…</StatusLine>
+          <StatusLine>{t.signingIn}</StatusLine>
         ) : (
           <>
             {notices.map((n) =>
               n.kind === 'paused' ? (
                 <StatusLine kind="warning" key="paused">
-                  Server paused. Resume it from the{' '}
+                  {t.gate.pausedBefore}
                   <a href={n.dashboardUrl} target="_blank" rel="noopener">
-                    Supabase dashboard
+                    {t.gate.pausedLink}
                   </a>
-                  , then send the link again.
+                  {t.gate.pausedAfter}
                 </StatusLine>
               ) : (
                 <StatusLine kind={n.kind} key={n.text}>

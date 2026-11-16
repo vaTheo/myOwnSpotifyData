@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAllRows, getMeta, replacePlays, wipeDb } from '../db/repo';
 import {
-  IMPORT_CANCELLED,
+  importCancelledMessage,
   replaceQuestion,
   runImport,
   type ImportState,
@@ -240,7 +240,7 @@ describe('runImport', () => {
     expect(confirmReplace).toHaveBeenCalledWith(NARROW_QUESTION);
     expect(states.at(-1)).toEqual({
       status: 'cancelled',
-      message: IMPORT_CANCELLED,
+      message: importCancelledMessage(),
     });
     expect((await getAllRows()).plays.map((p) => p.trackId)).toEqual(['kept']);
     await expect(getMeta('historySummary')).resolves.toBeUndefined();

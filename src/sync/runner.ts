@@ -35,6 +35,7 @@ import {
   type MappedItem,
 } from './items';
 import { planSync, selectOwned, type ListedPlaylist } from './planner';
+import { msg } from '../i18n';
 
 export type SyncState =
   | { status: 'idle' }
@@ -65,25 +66,35 @@ export const SYNC_STATE_META = 'syncState';
 export const LAST_SYNC_META = 'lastSyncAt';
 export const ACCOUNT_META = 'accountId';
 
+/*
+ * The account texts are read from the catalogue when used (spec 031), so each
+ * is said in the language shown at that moment.
+ */
+
 /** Worded like the Disconnect confirm, because it deletes the same rows. */
-export const ACCOUNT_SWITCH_CONFIRM =
-  'This is a different Spotify account. Delete all local data for the previous account?';
+export const ACCOUNT_SWITCH_CONFIRM = (): string =>
+  msg().core.account.switchConfirm;
 
 /** Said after the wipe, so the emptied cards explain themselves. */
-export const ACCOUNT_SWITCH_NOTICE =
-  'Signed in as a different Spotify account — local data for the previous account was cleared.';
+export const ACCOUNT_SWITCH_NOTICE = (): string =>
+  msg().core.account.switchNotice;
 
 /** The sync stops here when the wipe is refused; nothing was deleted. */
-export const ACCOUNT_SWITCH_STOPPED =
-  'Sync stopped — a different Spotify account is signed in and the local data was kept.';
+export const ACCOUNT_SWITCH_STOPPED = (): string =>
+  msg().core.account.switchStopped;
 
 /**
  * Said by the Connect flow (one `/me` call on the tap, research D11) when the
  * account differs from the stored one; the stored id is kept and the sync
- * job's own question decides the switch.
+ * job's own question decides the switch. A pull that meets another account
+ * says it too, with the code `ACCOUNT_MISMATCH` beside it: logic compares
+ * the code, never this sentence (research R4).
  */
-export const ACCOUNT_MISMATCH_NOTICE =
-  'Signed in as a different Spotify account. Sync now to switch; local data is kept until you confirm.';
+export const ACCOUNT_MISMATCH_NOTICE = (): string =>
+  msg().core.account.mismatchNotice;
+
+/** The code a failed pull carries when the server holds another account. */
+export const ACCOUNT_MISMATCH = 'accountMismatch' as const;
 
 export type ConnectedAccount = 'set' | 'same' | 'mismatch';
 
@@ -129,12 +140,12 @@ function describeError(err: unknown): string {
     return err.message;
   }
   if (err instanceof ApiError && err.status === 0) {
-    return 'Offline, showing cached data.';
+    return msg().core.sync.offline;
   }
   if (err instanceof ApiError)
-    return `Spotify error ${err.status}: ${err.message}`;
+    return msg().core.sync.spotifyError(err.status, err.message);
   if (err instanceof DOMException && err.name === 'QuotaExceededError') {
-    return 'Local storage is full. Free space on the phone and try again.';
+    return msg().core.sync.storageFull;
   }
   return err instanceof Error ? err.message : String(err);
 }
@@ -222,7 +233,7 @@ export async function runSync(
       // Never let the state write throw: the catch block below calls this too.
       onState({
         status: 'error',
-        message: `Could not save sync state: ${describeError(err)}`,
+        message: msg().core.sync.saveStateFailed(describeError(err)),
         pending:
           state.status === 'idle' || state.status === 'cancelled'
             ? []
@@ -248,7 +259,7 @@ export async function runSync(
           { limit: PAGE_LIMIT, offset, fields: candidate ?? undefined }
         );
         if (!Array.isArray(page.items)) {
-          lastError = new Error('Playlist items response had no items');
+          lastError = new Error(msg().core.sync.noItems);
           continue;
         }
         const stripped =
@@ -258,9 +269,7 @@ export async function runSync(
             (entry) => entry && ('item' in entry || 'track' in entry)
           );
         if (stripped) {
-          lastError = new Error(
-            'Could not read playlist items: the fields filter returned no playable objects'
-          );
+          lastError = new Error(msg().core.sync.fieldsStripped);
           continue;
         }
         if (page.items.length > 0) fields = candidate;
@@ -275,7 +284,7 @@ export async function runSync(
     }
     throw lastError instanceof Error
       ? lastError
-      : new ApiError(400, 'Could not read playlist items');
+      : new ApiError(400, msg().core.sync.readItemsFailed);
   }
 
   async function fetchAllItems(playlistId: string): Promise<ApiPlaylistItem[]> {
@@ -296,7 +305,7 @@ export async function runSync(
     : null;
 
   try {
-    running('Profile');
+    running(msg().core.sync.stepProfile);
     const me = await fetchProfileId(client);
     const cachedAccount = await getMeta<string>(ACCOUNT_META);
     if (cachedAccount !== undefined && cachedAccount !== me) {
@@ -305,7 +314,7 @@ export async function runSync(
       if (deps.confirmAccountSwitch && !deps.confirmAccountSwitch()) {
         await setFinalState({
           status: 'cancelled',
-          message: ACCOUNT_SWITCH_STOPPED,
+          message: ACCOUNT_SWITCH_STOPPED(),
         });
         return;
       }
@@ -313,10 +322,10 @@ export async function runSync(
     }
     await putMeta(ACCOUNT_META, me);
 
-    running('Top tracks and artists');
+    running(msg().core.sync.stepTop);
     await fetchTopItems(client, now);
 
-    running('Playlists');
+    running(msg().core.sync.stepPlaylists);
     const listing: ListedPlaylist[] = [];
     for await (const page of client.pages<ApiPlaylistSummary | null>(
       '/me/playlists'

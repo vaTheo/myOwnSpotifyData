@@ -1,3 +1,4 @@
+import { msg, type Messages } from '../../i18n';
 import type { ResolvedFeature } from '../../model/features';
 import { camelotNumber } from '../../model/keys';
 import type { MatchResult } from '../../model/match';
@@ -23,11 +24,12 @@ function wheelNumber(f: ResolvedFeature): number | null {
 function relationLabel(
   seed: ResolvedFeature,
   feature: ResolvedFeature,
-  relation: MatchResult['relation']
+  relation: MatchResult['relation'],
+  t: Messages['library']['match']
 ): string | null {
-  if (relation === 'same') return 'same key';
-  if (relation === 'relative') return 'relative';
-  if (relation === 'boost') return 'boost';
+  if (relation === 'same') return t.sameKey;
+  if (relation === 'relative') return t.relative;
+  if (relation === 'boost') return t.boost;
   if (relation !== 'adjacent') return null;
   const from = wheelNumber(seed);
   const to = wheelNumber(feature);
@@ -47,19 +49,23 @@ export interface MatchCells {
  * §8). A row out of tolerance keeps its ΔBPM and loses the relation; a row
  * with no ΔBPM at all keeps its relation and shows no percentage. The
  * tolerance is the one handed to `rankMatches`, so the list and the cells
- * never disagree about what "in tolerance" means.
+ * never disagree about what "in tolerance" means. `text` is the catalogue
+ * of the language shown, passed by a caller that keeps the cells (spec 031).
  */
 export function matchCells(
   seed: ResolvedFeature | null,
   match: MatchResult | null,
-  tolerancePct: number
+  tolerancePct: number,
+  text: Messages['library'] = msg().library
 ): MatchCells {
   if (!seed || !match) return { relation: null, delta: null, noData: false };
   if (!match.feature) return { relation: null, delta: null, noData: true };
   const far =
     match.deltaPct !== null && Math.abs(match.deltaPct) > tolerancePct;
   return {
-    relation: far ? null : relationLabel(seed, match.feature, match.relation),
+    relation: far
+      ? null
+      : relationLabel(seed, match.feature, match.relation, text.match),
     delta: match.deltaPct === null ? null : deltaLabel(match.deltaPct),
     noData: false,
   };

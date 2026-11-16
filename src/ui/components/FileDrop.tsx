@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { msg } from '../../i18n';
 import { Icon } from '../icons';
 import { acceptLabel, acceptsFile } from './fileAccept';
 import { StatusLine } from './StatusLine';
@@ -50,7 +51,7 @@ export function FileDrop(p: {
           const wrong = files.find((f) => !acceptsFile(f, p.accept));
           if (wrong) {
             setRefused(
-              `${wrong.name} cannot be used here: drop a ${acceptLabel(p.accept)} file.`
+              msg().frame.fileDrop.refused(wrong.name, acceptLabel(p.accept))
             );
             return;
           }

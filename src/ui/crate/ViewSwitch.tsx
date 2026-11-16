@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import type { CrateView } from '../../router';
 import { windowClass } from '../layout/windowClass';
 import { viewSwitchItems } from './labels';
@@ -14,10 +15,11 @@ import { viewSwitchItems } from './labels';
 export function ViewSwitch(p: { current: CrateView }) {
   const items = viewSwitchItems(p.current);
   const wc = windowClass.value;
+  const text = msg().crate.switch;
   if (wc === 'compact' || wc === 'medium') {
     return (
       <label class="crate-switch">
-        <span class="visually-hidden">Crate view</span>
+        <span class="visually-hidden">{text.picker}</span>
         <select
           value={p.current}
           onChange={(e) => {
@@ -35,7 +37,7 @@ export function ViewSwitch(p: { current: CrateView }) {
     );
   }
   return (
-    <nav class="crate-switch" aria-label="Crate views">
+    <nav class="crate-switch" aria-label={text.nav}>
       {items.map((i) => (
         <a
           key={i.view}

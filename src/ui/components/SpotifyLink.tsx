@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import { Icon } from '../icons';
 import { IconButton } from './IconButton';
 
@@ -22,7 +23,7 @@ export function SpotifyLink(p: {
         href={p.href}
         {...(external ? { target: '_blank', rel: 'noopener' } : {})}
       >
-        <span>Open in Spotify</span>
+        <span>{msg().frame.openInSpotify}</span>
         <Icon name="open_in_new" size={18} />
       </a>
     );
@@ -30,7 +31,7 @@ export function SpotifyLink(p: {
   return (
     <IconButton
       icon="open_in_new"
-      label="Open in Spotify"
+      label={msg().frame.openInSpotify}
       href={p.href}
       external={external}
       class="spotify-link"

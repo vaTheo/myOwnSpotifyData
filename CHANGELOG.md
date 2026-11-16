@@ -3,6 +3,25 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-16 — The app in French, with a French / English switch
+
+Every screen of the web app can now be read in French: the navigation, titles, buttons, table headings, captions, empty
+messages, errors, warnings, confirm questions, the sign-in and Connect cards, Settings, Import, Search, the Crate, Playlists,
+Artists, Under the radar and Mix. Pick the language in **Settings · This device · Language** (**Français** or **English**), or
+at the top of the Connect and sign-in cards: the screen changes at once, with no reload, and nothing else moves (no data, no
+running job, no Spotify read). The choice is kept on this device only; with none, the app follows the browser's first
+language. Dates and numbers follow the language shown: « 16 nov. 2026 » and « 1 234 » in French, and in English always the
+British form ("16 Nov 2026", "1,234"), so a browser set to US English now reads "16 Nov 2026", and the progress bar's count
+gains a thousands separator. English texts are otherwise word for word as before. The French names come from the round's
+glossary (« Crate » stays « Crate »). Not translated: track, artist, playlist and mix names, the playlist the app creates on
+Spotify, a message received from Spotify or the worker, the worker on your computer and the sign-in email. A failure message
+already on screen keeps its language until its job runs again. No new dependency: one typed catalogue in `src/i18n/`, checked
+by the type check, a catalogue test and a lint rule ([ADR-18](docs/architecture/700-adr/ADR-18-two-languages-typed-catalogue.md)).
+Spec `specs/031-french-english-switch/`.
+
+**What to do**: hard-reload the app, then pick a language in Settings if the one shown is not the one you want. No Spotify read
+or write, no server change, no stored data change.
+
 ## 2026-11-13 — Two fixes to the levels and the TrackId.net check (worker 0.7.6)
 
 Found by comparing the first 0.7.5 scan of a set with its 0.7.2 scan. **A wrong "Out of step".** A track heard just before the

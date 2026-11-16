@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import { putFeatures, putMeta } from '../db/repo';
 import type { FeatureRow } from '../db/schema';
 import { describeError, storageMessage } from '../util/errors';
@@ -43,7 +44,7 @@ export function runRekordboxImport(
     } catch (err) {
       deps.onState({
         status: 'error',
-        message: `Could not start the Rekordbox worker: ${describeError(err)}`,
+        message: msg().sources.rekordbox.workerStart(describeError(err)),
       });
       resolve();
       return;
@@ -59,13 +60,18 @@ export function runRekordboxImport(
     worker.onerror = (event) => {
       finish({
         status: 'error',
-        message: event.message || 'Rekordbox worker crashed',
+        message: event.message || msg().sources.rekordbox.workerCrashed,
       });
     };
     worker.onmessage = (event: MessageEvent<RekordboxMessage>) => {
       const message = event.data;
       if (message.type === 'error') {
-        finish({ status: 'error', message: message.message });
+        finish({
+          status: 'error',
+          message: message.code
+            ? msg().sources.rekordbox[message.code]
+            : message.message,
+        });
         return;
       }
       const tracks = message.tracks;

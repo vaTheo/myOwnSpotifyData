@@ -9,6 +9,7 @@ import {
   startSpotifyCheck,
   stopSpotifyCheck,
 } from '../../model/state';
+import { msg } from '../../i18n';
 import { Button } from '../components/Button';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
@@ -31,10 +32,9 @@ export function ReviewHead(p: { url: string }) {
   const locked = spotifyLockedUntil();
   // One Spotify reader at a time (S13): a check of another mix, a sync,
   // Create playlist or Like all songs running rests the button.
+  const t = msg().mix.review;
   const busy =
-    s.status === 'running' && !mine
-      ? 'Check on Spotify is reading another mix: check this one once it ends.'
-      : spotifyBusyMessage('check');
+    s.status === 'running' && !mine ? t.busyOther : spotifyBusyMessage('check');
   return (
     <div class="mix-review-head">
       <div class="mix-review-line">
@@ -45,7 +45,7 @@ export function ReviewHead(p: { url: string }) {
             disabled={s.stopping}
             onClick={() => stopSpotifyCheck()}
           >
-            {s.stopping ? 'Stopping…' : 'Stop'}
+            {s.stopping ? msg().mix.common.stopping : msg().mix.common.stop}
           </Button>
         ) : (
           <Button
@@ -53,14 +53,14 @@ export function ReviewHead(p: { url: string }) {
             disabled={left === 0 || locked !== null || busy !== null}
             onClick={() => void startSpotifyCheck()}
           >
-            Check on Spotify
+            {t.check}
           </Button>
         )}
       </div>
       {running && (
         <div class="mix-item-progress">
           <ProgressBar
-            label="Check on Spotify"
+            label={t.check}
             done={s.done}
             total={Math.max(1, s.total)}
             showCount={false}
@@ -73,7 +73,7 @@ export function ReviewHead(p: { url: string }) {
       {mine && s.status === 'finished' && (
         <p class="mix-caption">
           {s.stopped
-            ? `Stopped · ${checkLine(s.done, s.total)}`
+            ? t.stopped(checkLine(s.done, s.total))
             : checkLine(s.done, s.total)}
         </p>
       )}

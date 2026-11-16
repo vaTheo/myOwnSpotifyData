@@ -1,5 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
+import { lang, msg } from '../../i18n';
 import {
   RARE_COUNTS,
   rarelyPlayed,
@@ -8,7 +9,7 @@ import {
 } from '../../model/rarelyPlayed';
 import { historySummary, model } from '../../model/state';
 import { EMPTY_FILTER } from '../filters/trackFilter';
-import { formatDate, plural } from '../format';
+import { formatDate } from '../format';
 import { countColumn } from '../table/columns';
 import { rareCounts, rarePlaylist } from './selections';
 import { CrateSheet, CrateTable, DEFAULT_SORT, crateColumns } from './shared';
@@ -16,12 +17,9 @@ import { CrateSheet, CrateTable, DEFAULT_SORT, crateColumns } from './shared';
 const sort = signal(DEFAULT_SORT);
 const filter = signal(EMPTY_FILTER);
 
-const CHIP: Record<RareCount, string> = {
-  0: 'Never',
-  1: '1 play',
-  2: '2 plays',
-  3: '3 plays',
-};
+function chip(count: RareCount): string {
+  return count === 0 ? msg().crate.rarely.never : msg().n.play(count);
+}
 
 /** Turning the last chip off keeps it on: the view always has a count. */
 function toggle(count: RareCount) {
@@ -34,9 +32,13 @@ function toggle(count: RareCount) {
   rareCounts.value = next;
 }
 
-function countsLabel(counts: ReadonlySet<RareCount>): string {
-  if (counts.size === 1 && counts.has(0)) return 'never played';
-  return `${[...counts].sort().join(', ')} plays`;
+/** Only never played: the empty line and the table name say it apart. */
+function onlyNever(counts: ReadonlySet<RareCount>): boolean {
+  return counts.size === 1 && counts.has(0);
+}
+
+function countsList(counts: ReadonlySet<RareCount>): string {
+  return [...counts].sort().join(', ');
 }
 
 function playlistsCell(item: RareItem): string {
@@ -60,16 +62,17 @@ export function Rarely({ detail }: { detail?: string }) {
     () => (m ? rarelyPlayed(m, counts, chosen) : []),
     [m, counts, chosen]
   );
+  const text = msg().crate;
   const columns = useMemo(
     () =>
       crateColumns<RareItem>({
         metrics: [
-          countColumn('plays', 'Plays', (item) => item.plays, {
-            unit: ['play', 'plays'],
+          countColumn('plays', text.common.plays, (item) => item.plays, {
+            unit: [text.common.unitPlay, text.common.unitPlays],
           }),
           {
             id: 'playlists',
-            header: 'Playlists',
+            header: text.rarely.playlists,
             align: 'start',
             priority: 3,
             width: 'minmax(80px, 1.2fr)',
@@ -80,13 +83,13 @@ export function Rarely({ detail }: { detail?: string }) {
         ],
         flag: () => null,
       }),
-    [m]
+    [m, lang.value]
   );
   const imported = historySummary.value?.importedAt;
   return (
     <>
       <div class="toolbar">
-        <div class="segmented" role="group" aria-label="Play counts">
+        <div class="segmented" role="group" aria-label={text.rarely.playCounts}>
           {RARE_COUNTS.map((c) => {
             const on = counts.has(c);
             return (
@@ -97,21 +100,21 @@ export function Rarely({ detail }: { detail?: string }) {
                 aria-pressed={on}
                 onClick={() => toggle(c)}
               >
-                <span>{CHIP[c]}</span>
+                <span>{chip(c)}</span>
               </button>
             );
           })}
         </div>
         <label class="rare-playlist">
-          <span class="visually-hidden">Playlist</span>
+          <span class="visually-hidden">{text.rarely.playlist}</span>
           <select
-            aria-label="Playlist"
+            aria-label={text.rarely.playlist}
             value={chosen ?? ''}
             onChange={(e) => {
               rarePlaylist.value = e.currentTarget.value || null;
             }}
           >
-            <option value="">All playlists</option>
+            <option value="">{text.rarely.allPlaylists}</option>
             {(m?.playlists ?? []).map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -121,15 +124,17 @@ export function Rarely({ detail }: { detail?: string }) {
         </label>
       </div>
       <p class="caption" role="status">
-        {plural(items.length, 'track')}
-        {imported ? ` · plays counted to ${formatDate(imported)}` : ''}
+        {msg().n.track(items.length)}
+        {imported ? ' · ' + text.rarely.countedTo(formatDate(imported)) : ''}
       </p>
       {items.length === 0 ? (
         <div class="empty">
           <p>
             {chosen
-              ? 'Nothing to listen to in this playlist.'
-              : `Nothing ${countsLabel(counts)} in your playlists.`}
+              ? text.rarely.emptyPlaylist
+              : onlyNever(counts)
+                ? text.rarely.emptyNever
+                : text.rarely.emptyPlays(countsList(counts))}
           </p>
           {counts.size < RARE_COUNTS.length && (
             <button
@@ -138,13 +143,17 @@ export function Rarely({ detail }: { detail?: string }) {
                 rareCounts.value = new Set(RARE_COUNTS);
               }}
             >
-              Try 0 to 3 plays
+              {text.rarely.tryAll}
             </button>
           )}
         </div>
       ) : (
         <CrateTable
-          label={`Playlist songs played ${countsLabel(counts)}`}
+          label={
+            onlyNever(counts)
+              ? text.rarely.tableNever
+              : text.rarely.tablePlays(countsList(counts))
+          }
           items={items}
           columns={columns}
           sort={sort}

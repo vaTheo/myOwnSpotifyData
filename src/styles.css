@@ -1106,6 +1106,22 @@ a {
   white-space: nowrap;
 }
 
+/* A name too long to sit under its icon has a short form there (spec 031);
+   the expanded rail, with the label beside the icon, shows the full one. */
+.nav-label-full {
+  display: none;
+}
+
+@media (min-width: 1200px) {
+  .nav-label-full {
+    display: inline;
+  }
+
+  .nav-label-short {
+    display: none;
+  }
+}
+
 .nav-item:hover .nav-indicator {
   background: color-mix(
     in srgb,
@@ -1308,6 +1324,20 @@ a {
   padding: 32px 24px;
   border-radius: var(--md-sys-shape-corner-extra-large);
   background: var(--md-sys-color-surface-container);
+}
+
+/* The language choice on the two entry screens (spec 031): small, top right. */
+.connect-lang {
+  align-self: flex-end;
+  margin: -16px -8px 0 0;
+}
+
+.connect-lang .segmented {
+  margin: 0;
+}
+
+.settings-language .segmented {
+  max-width: 320px;
 }
 
 .connect-card h1 {

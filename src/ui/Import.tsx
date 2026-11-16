@@ -1,10 +1,11 @@
-import type { ImportSummary } from '../history/importer';
+import { skipReasonText, type ImportSummary } from '../history/importer';
+import { msg } from '../i18n';
 import { historySummary, importState, startImport } from '../model/state';
 import { Card } from './components/Card';
 import { FileDrop } from './components/FileDrop';
 import { ProgressBar } from './components/ProgressBar';
 import { StatusLine } from './components/StatusLine';
-import { formatDate, formatDateTime, notCountedLine, plural } from './format';
+import { formatDate, formatDateTime, notCountedLine } from './format';
 import { windowClass } from './layout/windowClass';
 
 /** "214,908 starts, 61% played through"; the clause is dropped at zero. */
@@ -13,42 +14,42 @@ function startsLine(o: {
   finished: number;
   skipped: number;
 }): string {
-  const starts = plural(o.attempts, 'start');
+  const t = msg().signin.import;
   const outcomes = o.finished + o.skipped;
-  if (outcomes === 0) return starts;
+  if (outcomes === 0) return t.starts(o.attempts);
   const pct = Math.round((o.finished / outcomes) * 100);
-  return `${starts}, ${pct}% played through`;
+  return t.startsPlayedThrough(o.attempts, pct);
 }
 
 function Summary({ summary }: { summary: ImportSummary }) {
   const notCounted = notCountedLine(summary.counts);
+  const t = msg().signin.import;
   return (
     <ul class="facts">
-      <li>
-        {plural(summary.plays, 'play')} credited across{' '}
-        {plural(summary.tracks, 'track')}
-      </li>
-      <li>{plural(summary.matchedTracks, 'track')} matched your playlists</li>
+      <li>{t.creditedAcross(summary.plays, summary.tracks)}</li>
+      <li>{t.matched(summary.matchedTracks)}</li>
       {summary.range && (
         <li>
-          From {formatDate(summary.range.first)} to{' '}
-          {formatDate(summary.range.last)}
+          {t.range(
+            formatDate(summary.range.first),
+            formatDate(summary.range.last)
+          )}
         </li>
       )}
-      {summary.version === 2 && summary.zone && (
-        <li>Months use {summary.zone}, this browser's zone at import</li>
-      )}
+      {summary.version === 2 && summary.zone && <li>{t.zone(summary.zone)}</li>}
       {summary.version === 2 && summary.outcomes && (
         <li>{startsLine(summary.outcomes)}</li>
       )}
       <li>
-        Imported {formatDateTime(summary.importedAt)} from{' '}
-        {plural(summary.processed.length, 'file')}
+        {t.imported(
+          formatDateTime(summary.importedAt),
+          summary.processed.length
+        )}
       </li>
       {notCounted && <li class="muted">{notCounted}</li>}
       {summary.skipped.map((s) => (
         <li class="error" key={s.name}>
-          Skipped {s.name}: {s.reason}
+          {t.skipped(s.name, skipReasonText(s.reason))}
         </li>
       ))}
     </ul>
@@ -56,22 +57,18 @@ function Summary({ summary }: { summary: ImportSummary }) {
 }
 
 function Steps() {
+  const t = msg().signin.import;
   return (
     <ol>
-      <li>Open spotify.com/account/privacy and sign in.</li>
+      <li>{t.step1}</li>
       <li>
-        Under "Download your data", tick{' '}
-        <strong>Extended streaming history</strong> only, then request it.
+        {t.step2Before}
+        <strong>{t.step2Strong}</strong>
+        {t.step2After}
       </li>
-      <li>Confirm the email Spotify sends within 14 days.</li>
-      <li>
-        When the "your data is ready" email arrives (hours to a few weeks),
-        download my_spotify_data.zip to this device.
-      </li>
-      <li>
-        Pick that zip on this screen. Nothing is uploaded; the file is read here
-        and only per-track play counts are kept.
-      </li>
+      <li>{t.step3}</li>
+      <li>{t.step4}</li>
+      <li>{t.step5}</li>
     </ol>
   );
 }
@@ -85,29 +82,26 @@ export function Import() {
   const state = importState.value;
   const summary = historySummary.value;
   const compact = windowClass.value === 'compact';
+  const t = msg().signin.import;
   return (
     <div class="import">
       <Card>
         {summary && (
           <>
-            <h2>Last import</h2>
+            <h2>{t.lastImport}</h2>
             <Summary summary={summary} />
           </>
         )}
         {/* Open until a first import exists; after that the steps fold
             away: they are read once and scrolled past every time after. */}
         <details class="import-steps" open={!summary}>
-          <summary>How to get the file</summary>
+          <summary>{t.howTo}</summary>
           <Steps />
         </details>
-        <h2>The file</h2>
+        <h2>{t.theFile}</h2>
         <FileDrop
-          label={
-            compact
-              ? 'Choose my_spotify_data.zip or the JSON files inside it'
-              : 'Drop my_spotify_data.zip here or choose a file'
-          }
-          hint="The JSON files inside it work too."
+          label={compact ? t.dropCompact : t.drop}
+          hint={t.hint}
           accept=".zip,.json,application/zip,application/json"
           multiple
           disabled={state.status === 'running'}
@@ -118,14 +112,14 @@ export function Import() {
             label={state.file}
             done={state.index}
             total={state.total}
-            unit="files"
+            unit={t.unitFiles}
           />
         )}
         {state.status === 'cancelled' && (
           <StatusLine>{state.message}</StatusLine>
         )}
         {state.status === 'error' && (
-          <StatusLine kind="error">Last error: {state.message}</StatusLine>
+          <StatusLine kind="error">{t.lastError(state.message)}</StatusLine>
         )}
       </Card>
     </div>

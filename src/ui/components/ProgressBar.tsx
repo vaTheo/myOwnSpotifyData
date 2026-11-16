@@ -1,3 +1,5 @@
+import { fmt, msg } from '../../i18n';
+
 /**
  * Material 3 linear progress (spec 003): what `Progress` was, with the same
  * props. Without a total it is indeterminate.
@@ -10,7 +12,7 @@ export function ProgressBar(p: {
   /** false hides "done / total unit" when a line beside it already says it. */
   showCount?: boolean;
 }) {
-  const unit = p.unit ?? 'playlists';
+  const unit = p.unit ?? msg().frame.progressUnit;
   const known = p.total > 0;
   const pct = known ? Math.round((p.done / p.total) * 100) : 0;
   return (
@@ -28,7 +30,7 @@ export function ProgressBar(p: {
       </div>
       {known && p.showCount !== false && (
         <div class="progress-count">
-          {p.done} / {p.total} {unit}
+          {fmt.int(p.done)} / {fmt.int(p.total)} {unit}
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
+import { lang, msg } from '../../i18n';
 import type { PlayRow } from '../../db/schema';
 import {
   GEM_WINDOWS,
@@ -15,7 +16,8 @@ import { monthSeries } from '../charts/series';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
 import { DetailsSection } from '../details/TrackDetails';
-import { formatDate, plural } from '../format';
+import { formatDate } from '../format';
+import { CRATE_TITLE } from '../layout/titles';
 import { countColumn } from '../table/columns';
 import { gemMonths } from './selections';
 import {
@@ -39,15 +41,12 @@ const filter = signal(EMPTY_FILTER);
 /** The chart's reach: two years, so a gem's last busy months show. */
 const CHART_MONTHS = 24;
 
-function gemLabel(months: number): string {
-  if (months === 6) return '6 months';
-  return months === 12 ? '1 year' : '2 years';
+function options() {
+  return GEM_WINDOWS.map((n) => ({
+    value: String(n),
+    label: msg().crate.gems.option(n),
+  }));
 }
-
-const OPTIONS = GEM_WINDOWS.map((n) => ({
-  value: String(n),
-  label: gemLabel(n),
-}));
 
 /** Day 1 of the cutoff month: the caption names a month, not a day. */
 function cutoffMonth(now: Date, months: number): string {
@@ -74,13 +73,16 @@ function yearsActive(row: PlayRow): number {
 function GemExtra(p: { item: GemItem; span: number; keys: string[] }) {
   const row = p.item.row;
   return (
-    <DetailsSection title="Forgotten gems">
+    <DetailsSection title={CRATE_TITLE.gems}>
       <p class="details-note">
-        {plural(row.plays, 'play')} · {spanLabel(row, p.item.lastPlayed)}
+        {msg().n.play(row.plays)} · {spanLabel(row, p.item.lastPlayed)}
       </p>
       <p class="details-note">
-        {yearsActive(row).toLocaleString()} of {plural(p.span, 'year')} · last{' '}
-        {formatDate(row.lastTs)}
+        {msg().crate.gems.yearsOfLast(
+          yearsActive(row),
+          p.span,
+          formatDate(row.lastTs)
+        )}
       </p>
       <MonthBars series={monthSeries(row.months, p.keys, historyRange())} />
       <OpenMonthLink month={monthKey(p.item.lastPlayed)} />
@@ -102,18 +104,19 @@ export function Gems({ detail }: { detail?: string }) {
   const keys = lastMonths(now, CHART_MONTHS);
   const opened = items.find((item) => item.row.trackId === detail);
   const since = monthLabel(cutoffMonth(now, months));
+  const text = msg().crate;
   // Kept while its inputs stay, so the table's memos hold (S13 A5);
   // the model comes in by its rows.
   const columns = useMemo(
     () =>
       crateColumns<GemItem>({
         metrics: [
-          countColumn('plays', 'Plays', (item) => item.row.plays, {
-            unit: ['play', 'plays'],
+          countColumn('plays', text.common.plays, (item) => item.row.plays, {
+            unit: [text.common.unitPlay, text.common.unitPlays],
           }),
           {
             id: 'last',
-            header: 'Last played',
+            header: text.gems.lastPlayed,
             align: 'end',
             priority: 3,
             width: '120px',
@@ -126,23 +129,23 @@ export function Gems({ detail }: { detail?: string }) {
           },
         ],
         chart: chartColumn(
-          'Last 2 years',
-          'Plays per month',
+          text.gems.lastTwoYears,
+          text.common.playsPerMonth,
           (item) => monthSeries(item.row.months, keys, historyRange()),
           keys.length
         ),
         flag: (item) =>
           inNoPlaylist(item.row) ? (
-            <Flag kind="todo">not in a playlist</Flag>
+            <Flag kind="todo">{msg().crate.common.notInPlaylist}</Flag>
           ) : null,
       }),
-    [rows, today, historyRange()]
+    [rows, today, historyRange(), lang.value]
   );
   return (
     <>
       <div class="toolbar">
         <SegmentedButtons
-          options={OPTIONS}
+          options={options()}
           value={String(months)}
           onChange={(v) => {
             gemMonths.value = Number(v);
@@ -150,16 +153,12 @@ export function Gems({ detail }: { detail?: string }) {
         />
       </div>
       <p class="caption">
-        Played {MIN_GEM_PLAYS}+ times, nothing since {since} ·{' '}
-        {plural(items.length, 'track')}
+        {text.gems.caption(MIN_GEM_PLAYS, since)} ·{' '}
+        {msg().n.track(items.length)}
       </p>
       {items.length === 0 ? (
         <div class="empty">
-          <p>
-            Nothing forgotten. Everything you have played {MIN_GEM_PLAYS}+ times
-            has come round in the last{' '}
-            {months === 12 ? 'year' : gemLabel(months)}.
-          </p>
+          <p>{text.gems.empty(MIN_GEM_PLAYS, months)}</p>
           {months !== 6 && (
             <button
               type="button"
@@ -167,13 +166,13 @@ export function Gems({ detail }: { detail?: string }) {
                 gemMonths.value = 6;
               }}
             >
-              Try 6 months
+              {text.common.tryMonths(6)}
             </button>
           )}
         </div>
       ) : (
         <CrateTable
-          label={`Forgotten gems, unplayed for ${gemLabel(months)}`}
+          label={text.gems.table(months)}
           items={items}
           columns={columns}
           sort={sort}

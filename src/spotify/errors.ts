@@ -1,3 +1,5 @@
+import { msg } from '../i18n';
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -24,16 +26,14 @@ export class AuthError extends Error {
 
 export class NotAllowlistedError extends Error {
   constructor() {
-    super(
-      "This Spotify account is not in the app's user list. Add it in the Spotify developer dashboard under User Management."
-    );
+    super(msg().core.spotify.notAllowlisted);
     this.name = 'NotAllowlistedError';
   }
 }
 
 export class QuotaError extends Error {
   constructor(public readonly retryAt: number) {
-    super('Spotify quota reached');
+    super(msg().core.spotify.quotaReached);
     this.name = 'QuotaError';
   }
 }

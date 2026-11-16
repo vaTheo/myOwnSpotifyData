@@ -1,10 +1,13 @@
+import { msg } from '../../i18n';
 import { historySummary } from '../../model/state';
 import { routeHref } from '../../router';
 import { StatusLine } from '../components/StatusLine';
 import { historyLine } from '../format';
 
-export const HISTORY_DESCRIPTION =
-  'Play counts from your Spotify extended streaming history export.';
+/** The item's description, read when drawn (spec 031). */
+export function historyDescription(): string {
+  return msg().settings.history.description;
+}
 
 /**
  * The time-zone warning: only a version 2 summary knows which zone bucketed
@@ -15,7 +18,7 @@ export function historyZoneWarning(): string | null {
   const zoneAtImport = summary?.version === 2 ? summary.zone : undefined;
   const deviceZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return zoneAtImport && zoneAtImport !== deviceZone
-    ? `This browser is now on ${deviceZone}. Re-import to re-bucket months.`
+    ? msg().settings.history.zoneWarning(deviceZone)
     : null;
 }
 
@@ -26,7 +29,11 @@ export function HistoryMain(p: { act: boolean }) {
       class={p.act ? 'btn btn-filled' : 'btn btn-tonal'}
       href={routeHref({ name: 'import' })}
     >
-      <span>{historySummary.value ? 'Update import' : 'Import history'}</span>
+      <span>
+        {historySummary.value
+          ? msg().settings.history.update
+          : msg().settings.history.import}
+      </span>
     </a>
   );
 }
@@ -41,7 +48,7 @@ export function HistorySection() {
       {summary ? (
         <StatusLine>{historyLine(summary, zoneAtImport)}</StatusLine>
       ) : (
-        <StatusLine>No history imported yet.</StatusLine>
+        <StatusLine>{msg().settings.history.none}</StatusLine>
       )}
       {warning && <StatusLine kind="warning">{warning}</StatusLine>}
     </>

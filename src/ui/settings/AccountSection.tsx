@@ -1,20 +1,24 @@
 import { auth } from '../../auth/browser';
 import { canLikeTracks } from '../../features/like/likePlaylist';
 import { canCreatePlaylists } from '../../features/mix/spotifySearch';
+import { msg } from '../../i18n';
 import { jobsBusy } from '../../model/state';
 import { Button } from '../components/Button';
 import { StatusLine } from '../components/StatusLine';
 import { accountItemLine, type ItemLine } from './itemLines';
 
-export const ACCOUNT_DESCRIPTION =
-  'The Spotify login this browser reads your library with. It also allows the two writes you start with a tap: Create playlist and Like all songs.';
+/** The item's description, read when drawn (spec 031). */
+export function accountDescription(): string {
+  return msg().settings.account.description;
+}
 
 /** Which of the two writes the granted scopes still lack. */
 function missingWrites(): string[] {
   const session = auth.session.value;
+  const text = msg().settings.account;
   return [
-    canLikeTracks(session) ? null : 'Like all songs',
-    canCreatePlaylists(session) ? null : 'Create playlist',
+    canLikeTracks(session) ? null : text.likeAll,
+    canCreatePlaylists(session) ? null : text.createPlaylist,
   ].filter((s): s is string => s !== null);
 }
 
@@ -35,7 +39,7 @@ export function AccountMain() {
       disabled={jobsBusy()}
       onClick={() => auth.logout()}
     >
-      Connect again
+      {msg().settings.closed.connectAgain}
     </Button>
   );
 }
@@ -44,23 +48,20 @@ export function AccountMain() {
 export function AccountSection() {
   const session = auth.session.value;
   const missing = missingWrites();
+  const text = msg().settings.account;
   return (
     <>
       {session ? (
-        <StatusLine kind="success">Signed in to Spotify.</StatusLine>
+        <StatusLine kind="success">{text.signedIn}</StatusLine>
       ) : (
-        <StatusLine>Not signed in to Spotify.</StatusLine>
+        <StatusLine>{text.notSignedIn}</StatusLine>
       )}
       {session && missing.length > 0 && (
         <StatusLine kind="warning">
-          Not allowed yet: {missing.join(', ')}. Connect again to allow{' '}
-          {missing.length === 1 ? 'it' : 'them'}.
+          {text.notAllowed(missing.join(', '), missing.length)}
         </StatusLine>
       )}
-      <p class="muted">
-        Connect again signs you out and back in. Nothing in this browser is
-        deleted.
-      </p>
+      <p class="muted">{text.note}</p>
     </>
   );
 }

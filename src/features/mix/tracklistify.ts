@@ -1,4 +1,5 @@
 import type { MixRowSource, TracklistRow } from '../../db/schema';
+import { msg } from '../../i18n';
 import { parseClock } from './parse';
 
 export type TracklistifyImport =
@@ -91,12 +92,12 @@ export function parseTracklistifyJson(text: string): TracklistifyImport {
   try {
     json = JSON.parse(text) as TracklistifyJson;
   } catch {
-    return { status: 'error', message: 'That is not a JSON file.' };
+    return { status: 'error', message: msg().mix.read.notJson };
   }
   if (typeof json !== 'object' || json === null) {
     return {
       status: 'error',
-      message: "That doesn't look like a Tracklistify tracklist.json.",
+      message: msg().mix.read.notTracklistify,
     };
   }
   const rawTitle = json.mix_info?.title;
@@ -110,14 +111,14 @@ export function parseTracklistifyJson(text: string): TracklistifyImport {
   ) {
     return {
       status: 'error',
-      message: "That doesn't look like a Tracklistify tracklist.json.",
+      message: msg().mix.read.notTracklistify,
     };
   }
   const rows = (json.tracks as TracklistifyTrackJson[])
     .map(toRow)
     .filter((r): r is TracklistRow => r !== null);
   if (rows.length === 0) {
-    return { status: 'error', message: 'No tracks found in that file.' };
+    return { status: 'error', message: msg().mix.read.noTracks };
   }
   return {
     status: 'ok',

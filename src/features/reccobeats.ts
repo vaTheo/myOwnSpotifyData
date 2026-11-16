@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import type { FeatureValue } from '../db/schema';
 import { parseYear } from '../model/year';
 import { MAX_5XX_RETRIES, backoffMs, parseRetryAfter } from '../util/retry';
@@ -119,36 +120,36 @@ async function getJson(url: string, deps: FetchDeps): Promise<unknown> {
       if (await retryTransport()) continue;
       const reason = err instanceof Error ? err.message : String(err);
       // `cause` is required by ESLint 10's preserve-caught-error rule.
-      throw new Error(`ReccoBeats is unreachable: ${reason}`, { cause: err });
+      throw new Error(msg().sources.reccobeats.unreachable(reason), {
+        cause: err,
+      });
     }
     if (res.status === 429) {
       const parsedSeconds = parseRetryAfter(res.headers.get('Retry-After'));
       if (parsedSeconds !== null && parsedSeconds > MAX_RETRY_AFTER_S) {
         throw new Error(
-          `ReccoBeats asked us to wait ${Math.ceil(parsedSeconds / 60)} min. Try again later.`
+          msg().sources.reccobeats.wait(Math.ceil(parsedSeconds / 60))
         );
       }
       attempts429 += 1;
       if (attempts429 > MAX_429_RETRIES) {
-        throw new Error(
-          'ReccoBeats rate limited the lookup too many times. Try again later.'
-        );
+        throw new Error(msg().sources.reccobeats.rateLimited);
       }
       await deps.sleep((parsedSeconds ?? DEFAULT_RETRY_AFTER_S) * 1000);
       continue;
     }
     if (res.status >= 500) {
       if (await retryTransport()) continue;
-      throw new Error(`ReccoBeats server error ${res.status}`);
+      throw new Error(msg().sources.reccobeats.serverError(res.status));
     }
-    if (!res.ok) throw new Error(`ReccoBeats error ${res.status}`);
+    if (!res.ok) throw new Error(msg().sources.reccobeats.error(res.status));
     try {
       return await res.json();
     } catch {
       // A truncated 200 is a transport failure, not "no results": marking
       // forty tracks notFound for ninety days over it would be wrong.
       if (await retryTransport()) continue;
-      throw new Error('ReccoBeats returned a malformed response');
+      throw new Error(msg().sources.reccobeats.malformed);
     }
   }
 }

@@ -1,7 +1,9 @@
 import type { MixRow } from '../../db/schema';
 import { playsFor, type Model } from '../../model/aggregate';
 import { normalize } from '../../model/normalize';
-import { artistNames, plural } from '../format';
+import { lang, LOCALE, type Lang } from '../../i18n/lang';
+import { msg } from '../../i18n';
+import { artistNames } from '../format';
 
 /**
  * The global search (spec 003, FR-051, data-model §9, research D11): an
@@ -34,16 +36,25 @@ export const SEARCH_KINDS: readonly SearchKind[] = [
   'mix',
 ];
 
-const SAVED_DATE = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-});
-
-function withPlays(artist: string, plays: number | null): string {
-  return plays ? `${artist} · ${plural(plays, 'play')}` : artist;
+/**
+ * A mix's saved day, `3 Nov` or `3 nov.`, in the language shown. No `fmt`
+ * helper gives a day and month without the year, so the locale is read here.
+ */
+function savedDate(ms: number): string {
+  return new Date(ms).toLocaleDateString(LOCALE[lang.value], {
+    day: 'numeric',
+    month: 'short',
+  });
 }
 
+/**
+ * The context lines are app texts, in the language shown; what is matched
+ * (`normalized`: names and a track's artists) does not depend on it.
+ */
 function build(model: Model, mixes: readonly MixRow[]): SearchEntry[] {
+  const text = msg().overview.search;
+  const withPlays = (artist: string, plays: number | null): string =>
+    plays ? text.withPlays(artist, plays) : artist;
   const out: SearchEntry[] = [];
   const seen = new Set<string>();
   const add = (entry: Omit<SearchEntry, 'normalized'>, extra = '') => {
@@ -76,7 +87,7 @@ function build(model: Model, mixes: readonly MixRow[]): SearchEntry[] {
         kind: 'track',
         id: row.trackId,
         name: row.trackName,
-        context: withPlays(artist || 'Unknown artist', row.plays),
+        context: withPlays(artist || text.unknownArtist, row.plays),
         weight: row.plays,
       },
       artist
@@ -88,7 +99,7 @@ function build(model: Model, mixes: readonly MixRow[]): SearchEntry[] {
       kind: 'artist',
       id: artist.key,
       name: artist.name,
-      context: plural(artist.trackKeys.size, 'saved track'),
+      context: text.savedTracks(artist.trackKeys.size),
       weight: artist.trackKeys.size,
     });
   }
@@ -99,7 +110,7 @@ function build(model: Model, mixes: readonly MixRow[]): SearchEntry[] {
         kind: 'artist',
         id: item.id,
         name: item.name,
-        context: 'In your top artists',
+        context: text.inTopArtists,
         weight: 0,
       });
     }
@@ -110,7 +121,7 @@ function build(model: Model, mixes: readonly MixRow[]): SearchEntry[] {
       kind: 'playlist',
       id: p.id,
       name: p.name,
-      context: plural(p.itemCount, 'track'),
+      context: msg().n.track(p.itemCount),
       weight: p.itemCount,
     });
   }
@@ -120,7 +131,7 @@ function build(model: Model, mixes: readonly MixRow[]): SearchEntry[] {
       kind: 'mix',
       id: m.url,
       name: m.title ?? m.url,
-      context: `saved ${SAVED_DATE.format(m.savedAt)}`,
+      context: text.savedOn(savedDate(m.savedAt)),
       weight: m.savedAt,
     });
   }
@@ -130,21 +141,31 @@ function build(model: Model, mixes: readonly MixRow[]): SearchEntry[] {
 let memo: {
   model: Model;
   mixes: readonly MixRow[];
+  lang: Lang;
   index: SearchEntry[];
 } | null = null;
 
 /**
  * Library tracks, history-only tracks, saved and top-list artists,
  * playlists and saved mixes, de-duplicated by id. Memoised on the model's
- * identity and the mixes array: a keystroke never rebuilds it.
+ * identity, the mixes array and the language shown (the context lines): a
+ * keystroke never rebuilds it.
  */
 export function buildSearchIndex(
   model: Model,
   mixes: readonly MixRow[]
 ): SearchEntry[] {
-  if (memo && memo.model === model && memo.mixes === mixes) return memo.index;
+  const shown = lang.value;
+  if (
+    memo &&
+    memo.model === model &&
+    memo.mixes === mixes &&
+    memo.lang === shown
+  ) {
+    return memo.index;
+  }
   const index = build(model, mixes);
-  memo = { model, mixes, index };
+  memo = { model, mixes, lang: shown, index };
   return index;
 }
 

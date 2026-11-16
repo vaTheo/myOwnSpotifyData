@@ -1,4 +1,5 @@
 import { useEffect } from 'preact/hooks';
+import { msg } from '../../i18n';
 import {
   autoUpdates,
   loadServerPending,
@@ -12,9 +13,10 @@ import { StatusLine } from '../components/StatusLine';
 import { ITEM_KIND } from './itemLines';
 import type { StatusRow } from './statusLines';
 
-const SWITCH: { value: 'on' | 'off'; label: string }[] = [
-  { value: 'on', label: 'On' },
-  { value: 'off', label: 'Off' },
+/** The switch's two options, read when drawn (spec 031). */
+const switchOptions = (): { value: 'on' | 'off'; label: string }[] => [
+  { value: 'on', label: msg().settings.syncStatus.on },
+  { value: 'off', label: msg().settings.syncStatus.off },
 ];
 
 /**
@@ -30,16 +32,17 @@ export function SyncStatus(p: { rows: StatusRow[] }) {
     const timer = setTimeout(() => void loadServerPending(), 0);
     return () => clearTimeout(timer);
   }, []);
+  const text = msg().settings.syncStatus;
   return (
     <Card
       id="settings-status"
       class="settings-section settings-status"
-      title="Sync status"
+      title={text.title}
     >
       <div class="settings-auto">
-        <h3 class="settings-label">Automatic updates</h3>
+        <h3 class="settings-label">{text.auto}</h3>
         <SegmentedButtons
-          options={SWITCH}
+          options={switchOptions()}
           value={autoUpdates.value ? 'on' : 'off'}
           onChange={(v) => setAutoUpdates(v === 'on')}
         />
@@ -54,7 +57,7 @@ export function SyncStatus(p: { rows: StatusRow[] }) {
               variant="text"
               onClick={() => row.retry && requestJob(row.retry)}
             >
-              Retry
+              {text.retry}
             </Button>
           )}
         </div>

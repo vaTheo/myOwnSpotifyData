@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import { keyRelation, type KeySig } from '../../model/keys';
 import { normalize } from '../../model/normalize';
 import { decadeOf } from '../../model/year';
@@ -38,7 +39,7 @@ export interface FilterFeature {
 export function filterError(filter: TrackFilter): string | null {
   const { bpmMin, bpmMax } = filter;
   return bpmMin !== null && bpmMax !== null && bpmMin > bpmMax
-    ? 'Min is above max'
+    ? msg().table.filter.minAboveMax
     : null;
 }
 

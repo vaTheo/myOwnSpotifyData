@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import {
   MAX_5XX_RETRIES,
   REACH_REQUEST_TIMEOUT_MS,
@@ -90,7 +91,7 @@ export async function fetchMbid(
       const reason = err instanceof Error ? err.message : String(err);
       return {
         status: 'retryLater',
-        message: `MusicBrainz is unreachable: ${reason}`,
+        message: msg().sources.musicbrainz.unreachable(reason),
       };
     }
     if (res.status === 404) return { status: 'notFound' };
@@ -98,13 +99,13 @@ export async function fetchMbid(
       if (await retry()) continue;
       return {
         status: 'retryLater',
-        message: `MusicBrainz server error ${res.status}`,
+        message: msg().sources.musicbrainz.serverError(res.status),
       };
     }
     if (!res.ok) {
       return {
         status: 'retryLater',
-        message: `MusicBrainz error ${res.status}`,
+        message: msg().sources.musicbrainz.error(res.status),
       };
     }
     let body: unknown;
@@ -114,7 +115,7 @@ export async function fetchMbid(
       if (await retry()) continue;
       return {
         status: 'retryLater',
-        message: 'MusicBrainz returned a malformed response',
+        message: msg().sources.musicbrainz.malformed,
       };
     }
     const mbid = mbidFrom(body);

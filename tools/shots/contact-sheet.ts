@@ -3,7 +3,9 @@
  * Builds shots-output/contact-sheet.html from the last `yarn shots` run: for
  * each page, the 1440 and 390 px screenshots side by side with the findings
  * of each width. Run with `yarn shots:sheet`, or
- * `yarn shots:sheet --pages top-tracks,playlist-big` for a subset. Node runs
+ * `yarn shots:sheet --pages top-tracks,playlist-big` for a subset;
+ * `yarn shots:sheet --fr` builds contact-sheet-fr.html from the French pass
+ * (spec 031). Node runs
  * this file directly (type stripping), so it imports nothing but `node:`.
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -19,6 +21,9 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const OUT = `${ROOT}shots-output/`;
 const WIDTHS = ['1440', '1024', '768', '390'];
 const SHOWN = ['1440', '390'];
+/** The folders of the French pass are `fr-<width>`. */
+const PRE = process.argv.includes('--fr') ? 'fr-' : '';
+const SHEET = PRE ? 'contact-sheet-fr.html' : 'contact-sheet.html';
 
 function escape(text: string): string {
   return text
@@ -29,7 +34,7 @@ function escape(text: string): string {
 }
 
 function findingsOf(width: string, id: string): Finding[] | null {
-  const file = `${OUT}findings/${width}/${id}.json`;
+  const file = `${OUT}findings/${PRE}${width}/${id}.json`;
   if (!existsSync(file)) return null;
   return (JSON.parse(readFileSync(file, 'utf8')) as { findings: Finding[] })
     .findings;
@@ -40,8 +45,8 @@ const wanted =
   arg >= 0 && process.argv[arg + 1]
     ? new Set(process.argv[arg + 1].split(','))
     : null;
-const ids = existsSync(`${OUT}pages/1440`)
-  ? readdirSync(`${OUT}pages/1440`)
+const ids = existsSync(`${OUT}pages/${PRE}1440`)
+  ? readdirSync(`${OUT}pages/${PRE}1440`)
       .filter((f) => f.endsWith('.png') && !f.endsWith('-full.png'))
       .map((f) => f.slice(0, -4))
       .filter((id) => wanted === null || wanted.has(id))
@@ -70,7 +75,7 @@ const sections = ids.map((id) => {
       f.length === 0
         ? '<p class="clean">No finding</p>'
         : `<ul>${items.join('')}</ul>`;
-    return `<figure class="w${w}"><figcaption>${w} px</figcaption><a href="pages/${w}/${id}-full.png" title="Open the whole page"><img loading="lazy" src="pages/${w}/${id}.png" alt="${escape(id)} at ${w} px"></a>${list}</figure>`;
+    return `<figure class="w${w}"><figcaption>${w} px</figcaption><a href="pages/${PRE}${w}/${id}-full.png" title="Open the whole page"><img loading="lazy" src="pages/${PRE}${w}/${id}.png" alt="${escape(id)} at ${w} px"></a>${list}</figure>`;
   }).join('');
   return `<section id="${escape(id)}"><h2>${escape(id)}</h2><p class="counts">${counts}</p><div class="row">${shots}</div></section>`;
 });
@@ -95,5 +100,5 @@ const html = `<!doctype html>
 ${sections.join('\n')}
 </body></html>
 `;
-writeFileSync(`${OUT}contact-sheet.html`, html);
-console.log(`Wrote ${OUT}contact-sheet.html (${ids.length} pages)`);
+writeFileSync(`${OUT}${SHEET}`, html);
+console.log(`Wrote ${OUT}${SHEET} (${ids.length} pages)`);

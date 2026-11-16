@@ -8,7 +8,6 @@ import {
   formatDate,
   formatListening,
   notCountedLine,
-  plural,
   profileLine,
   reachLine,
   topCaption,
@@ -22,12 +21,6 @@ describe('format helpers', () => {
     expect(formatListening(60 * 60_000)).toBe('1 h');
     expect(formatListening((2 * 60 + 5) * 60_000 + 40_000)).toBe('2 h 6 min');
     expect(formatListening(1234 * 3_600_000)).toBe('1,234 h');
-  });
-
-  it('pluralises', () => {
-    expect(plural(1, 'playlist')).toBe('1 playlist');
-    expect(plural(0, 'track')).toBe('0 tracks');
-    expect(plural(2500, 'play')).toBe(`${(2500).toLocaleString()} plays`);
   });
 
   it('joins artist names', () => {

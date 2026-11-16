@@ -1,16 +1,18 @@
 import {
   AccountMain,
   AccountSection,
-  ACCOUNT_DESCRIPTION,
+  accountDescription,
 } from './AccountSection';
-import { AudioMain, AudioSection, AUDIO_DESCRIPTION } from './AudioSection';
+import { AudioMain, AudioSection, audioDescription } from './AudioSection';
+import { msg } from '../../i18n';
 import { DangerZone, dangerText } from './DangerZone';
 import {
   HistoryMain,
   HistorySection,
-  HISTORY_DESCRIPTION,
+  historyDescription,
 } from './HistorySection';
-import { ReachMain, ReachSection, REACH_DESCRIPTION } from './ReachSection';
+import { LanguageSection } from './LanguageSection';
+import { ReachMain, ReachSection, reachDescription } from './ReachSection';
 import {
   itemOfRoute,
   itemsOf,
@@ -18,9 +20,9 @@ import {
   SETTINGS_ITEMS,
   type SectionId,
 } from './sections';
-import { ServerMain, ServerSection, SERVER_DESCRIPTION } from './ServerSection';
+import { ServerMain, ServerSection, serverDescription } from './ServerSection';
 import { SettingsItem } from './SettingsItem';
-import { SyncMain, SyncSection, SYNC_DESCRIPTION } from './SyncSection';
+import { SyncMain, SyncSection, syncDescription } from './SyncSection';
 import { SyncStatus } from './SyncStatus';
 import { useSettingsLines } from './useSettingsLines';
 import type { ComponentChildren } from 'preact';
@@ -38,38 +40,43 @@ function parts(id: SectionId, act: boolean): Parts {
     case 'account':
       return {
         main: <AccountMain />,
-        description: ACCOUNT_DESCRIPTION,
+        description: accountDescription(),
         body: <AccountSection />,
       };
     case 'sync':
       return {
         main: <SyncMain act={act} />,
-        description: SYNC_DESCRIPTION,
+        description: syncDescription(),
         body: <SyncSection />,
       };
     case 'history':
       return {
         main: <HistoryMain act={act} />,
-        description: HISTORY_DESCRIPTION,
+        description: historyDescription(),
         body: <HistorySection />,
       };
     case 'audio':
       return {
         main: <AudioMain act={act} />,
-        description: AUDIO_DESCRIPTION,
+        description: audioDescription(),
         body: <AudioSection />,
       };
     case 'reach':
       return {
         main: <ReachMain act={act} />,
-        description: REACH_DESCRIPTION,
+        description: reachDescription(),
         body: <ReachSection />,
       };
     case 'server':
       return {
         main: <ServerMain act={act} />,
-        description: SERVER_DESCRIPTION,
+        description: serverDescription(),
         body: <ServerSection />,
+      };
+    case 'language':
+      return {
+        description: msg().language.description,
+        body: <LanguageSection />,
       };
     case 'danger':
       return {
@@ -127,7 +134,9 @@ export function SettingsPage(p: { item?: string }) {
         </section>
       ))}
       <div class="settings-apart">{itemsOf(null).map(item)}</div>
-      <p class="muted settings-version">DJ Data v{__APP_VERSION__}</p>
+      <p class="muted settings-version">
+        {msg().settings.page.version(__APP_VERSION__)}
+      </p>
     </div>
   );
 }

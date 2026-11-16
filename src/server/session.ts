@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import { signal, type Signal } from '@preact/signals';
 import { challengeFor, randomString } from '../auth/pkce';
 import type { StorageLike } from '../auth/session';
@@ -20,8 +21,8 @@ export const PKCE_KEY = 'server-pkce';
 /** The query marker `main.tsx` branches on; the Spotify callback has none. */
 export const LINK_MARKER = 'server';
 const REFRESH_MARGIN_MS = 60_000;
-export const PERSON_CHANGED_MESSAGE =
-  'The signed-in person changed in another tab. Reload.';
+export const PERSON_CHANGED_MESSAGE = (): string =>
+  msg().sources.session.personChanged;
 
 export interface ServerSession {
   accessToken: string;
@@ -131,7 +132,7 @@ export function createServerSessionStore(
     const record = readJson<PkceRecord>(deps.storage, PKCE_KEY);
     deps.storage.removeItem(PKCE_KEY);
     if (!code || !record) {
-      lastError.value = LINK_BROWSER_MESSAGE;
+      lastError.value = LINK_BROWSER_MESSAGE();
       return 'invalid';
     }
     const res = await deps.client.exchangeCode(code, record.verifier);
@@ -158,7 +159,7 @@ export function createServerSessionStore(
         return {
           ok: false,
           kind: 'unauthorized',
-          message: 'Signed out of the server.',
+          message: msg().sources.session.signedOut,
         };
       }
       if (current.userId !== pinnedUser) {
@@ -167,7 +168,7 @@ export function createServerSessionStore(
         return {
           ok: false,
           kind: 'unauthorized',
-          message: PERSON_CHANGED_MESSAGE,
+          message: PERSON_CHANGED_MESSAGE(),
         };
       }
       if (fresh(current)) {
@@ -193,7 +194,7 @@ export function createServerSessionStore(
     return {
       ok: false,
       kind: 'unauthorized',
-      message: 'The server session was used by another browser. Sign in again.',
+      message: msg().sources.session.usedElsewhere,
     };
   }
 
@@ -203,7 +204,7 @@ export function createServerSessionStore(
       return Promise.resolve({
         ok: false,
         kind: 'unauthorized',
-        message: 'Not signed in to the server.',
+        message: msg().sources.session.notSignedIn,
       });
     }
     if (fresh(current))

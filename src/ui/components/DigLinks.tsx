@@ -1,4 +1,5 @@
 import type { DigLink, DigSite } from '../../features/mix/digLinks';
+import { msg } from '../../i18n';
 
 /**
  * Monochrome brand marks from Simple Icons (CC0), 24×24, drawn in
@@ -53,11 +54,15 @@ export function DigLinks(p: { links: DigLink[]; shazamUrl: string | null }) {
           key={l.site}
           href={l.href}
           icon={l.site}
-          name={`Search ${l.label}`}
+          name={msg().frame.dig.search(l.label)}
         />
       ))}
       {p.shazamUrl !== null && (
-        <IconLink href={p.shazamUrl} icon="shazam" name="Open in Shazam" />
+        <IconLink
+          href={p.shazamUrl}
+          icon="shazam"
+          name={msg().frame.dig.openInShazam}
+        />
       )}
     </div>
   );

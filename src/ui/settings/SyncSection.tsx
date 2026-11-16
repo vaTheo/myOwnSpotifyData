@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import {
   isSyncBusy,
   lastSyncAt,
@@ -13,10 +14,12 @@ import { Button } from '../components/Button';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
 import { quotaRefusal } from '../../spotify/quotaLock';
-import { formatDateTime, plural } from '../format';
+import { formatDateTime } from '../format';
 
-export const SYNC_DESCRIPTION =
-  'Copies your playlists from Spotify into this browser, only when you tap Sync now.';
+/** The item's description, read when drawn (spec 031). */
+export function syncDescription(): string {
+  return msg().settings.sync.description;
+}
 
 /**
  * What the sync item reads, once for its button, its lines and its closed
@@ -47,6 +50,7 @@ export function syncView() {
  */
 export function SyncMain(p: { act: boolean }) {
   const { state, running, shared, busyLine } = syncView();
+  const text = msg().settings.sync;
   return (
     <Button
       variant={p.act ? 'filled' : 'tonal'}
@@ -60,10 +64,10 @@ export function SyncMain(p: { act: boolean }) {
       onClick={() => requestJob('spotify')}
     >
       {running
-        ? 'Syncing…'
+        ? text.syncing
         : isWaiting(chainView.value, 'spotify')
-          ? 'Waiting…'
-          : 'Sync now'}
+          ? msg().settings.words.waitingButton
+          : text.syncNow}
     </Button>
   );
 }
@@ -74,26 +78,30 @@ export function SyncMain(p: { act: boolean }) {
  */
 export function SyncSection() {
   const { state, locked, sharedLine, busyLine } = syncView();
+  const text = msg().settings.sync;
   return (
     <>
       <StatusLine>
-        Last sync:{' '}
-        {lastSyncAt.value ? formatDateTime(lastSyncAt.value) : 'never'}
+        {lastSyncAt.value
+          ? text.lastSync(formatDateTime(lastSyncAt.value))
+          : text.lastSyncNever}
       </StatusLine>
       {state.status === 'running' && (
         <ProgressBar
-          label={state.current ?? 'Working'}
+          label={state.current ?? text.working}
           done={state.done}
           total={state.total}
+          unit={text.playlists}
         />
       )}
       {state.status === 'locked' && (
         <StatusLine kind={locked ? 'warning' : 'info'}>
-          Spotify quota reached with {plural(state.pending.length, 'playlist')}{' '}
-          pending.{' '}
           {locked
-            ? `Retry after ${formatDateTime(state.retryAt)}.`
-            : 'You can retry now.'}
+            ? text.quotaAfter(
+                state.pending.length,
+                formatDateTime(state.retryAt)
+              )
+            : text.quotaNow(state.pending.length)}
         </StatusLine>
       )}
       {sharedLine !== null && (
@@ -103,14 +111,10 @@ export function SyncSection() {
       {state.status === 'cancelled' && <StatusLine>{state.message}</StatusLine>}
       {state.status === 'error' && (
         <StatusLine kind="error" quiet>
-          Last error: {state.message}
+          {msg().settings.words.lastError(state.message)}
         </StatusLine>
       )}
-      <p class="muted settings-credit">
-        With automatic updates on, opening the app syncs Spotify when the last
-        sync is older than 12 hours, then looks up BPM and key, then artist
-        reach, only what is missing.
-      </p>
+      <p class="muted settings-credit">{text.autoNote}</p>
     </>
   );
 }

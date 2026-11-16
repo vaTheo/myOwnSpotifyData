@@ -667,13 +667,13 @@ describe('a pasted Spotify link (round 012)', () => {
   const LINK = 'https://open.spotify.com/track/1qGibBSuprByJCYMC4zRUG?si=x';
 
   it('links a named row; refuses empty text and a non-track link', () => {
-    expect(state.linkMixRowSpotify(0, '  ')).toBe(state.LINK_EMPTY);
+    expect(state.linkMixRowSpotify(0, '  ')).toBe(state.LINK_EMPTY());
     expect(
       state.linkMixRowSpotify(
         0,
         'https://open.spotify.com/album/1qGibBSuprByJCYMC4zRUG'
       )
-    ).toBe(state.LINK_REFUSED);
+    ).toBe(state.LINK_REFUSED());
     expect(state.mixRows.value[0].spotify).toBeUndefined();
     expect(state.linkMixRowSpotify(0, LINK)).toBeNull();
     expect(state.mixRows.value[0]).toMatchObject({
@@ -687,7 +687,7 @@ describe('a pasted Spotify link (round 012)', () => {
 
   it('a row with no track name says so, not that the link is wrong', () => {
     state.mixRows.value = [{ ...row('One'), gap: true }];
-    expect(state.linkMixRowSpotify(0, LINK)).toBe(state.LINK_UNNAMED);
+    expect(state.linkMixRowSpotify(0, LINK)).toBe(state.LINK_UNNAMED());
     expect(state.mixRows.value[0].spotify).toBeUndefined();
   });
 });
@@ -936,7 +936,7 @@ describe('activateServerUser', () => {
     await vi.waitFor(() =>
       expect(state.serverState.value).toEqual({
         status: 'error',
-        message: state.SERVER_NO_USER_MESSAGE,
+        message: state.SERVER_NO_USER_MESSAGE(),
       })
     );
   });
@@ -994,7 +994,7 @@ describe('activateServerUser', () => {
     expect(serverAuth.signOut).toHaveBeenCalledTimes(1);
     expect(state.serverState.value).toEqual({
       status: 'error',
-      message: state.SERVER_NO_USER_MESSAGE,
+      message: state.SERVER_NO_USER_MESSAGE(),
     });
     expect(scope.readActive(storage)).toBeNull();
   });
@@ -1369,7 +1369,7 @@ describe('a row change of a saved mix saves itself (spec 024, US1)', () => {
     expect(store.get(URL)!.rows[0].label).toBe('Warp');
 
     vi.mocked(repo.putMix).mockClear();
-    expect(state.linkMixRowSpotify(1, 'not a link')).toBe(state.LINK_REFUSED);
+    expect(state.linkMixRowSpotify(1, 'not a link')).toBe(state.LINK_REFUSED());
     expect(vi.mocked(repo.putMix)).not.toHaveBeenCalled();
     expect(state.linkMixRowSpotify(1, LINK)).toBeNull();
     await saved(1);
@@ -1455,9 +1455,9 @@ describe('a row change of a saved mix saves itself (spec 024, US1)', () => {
     await first;
     await saved(2);
     expect(titles()).toEqual(['Two']);
-    expect(
-      vi.mocked(repo.putMix).mock.calls.map(([r]) => r.url)
-    ).not.toContain(OTHER);
+    expect(vi.mocked(repo.putMix).mock.calls.map(([r]) => r.url)).not.toContain(
+      OTHER
+    );
     // The other mix's open copy is its own: a newer pull still reaches it.
     state.savedMixes.value = [{ ...other, rows: [row('Y')], savedAt: 9e15 }];
     state.followNewerSavedMix();

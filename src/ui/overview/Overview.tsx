@@ -19,6 +19,7 @@ import {
   spotifyLockedUntil,
   syncState,
 } from '../../model/state';
+import { msg } from '../../i18n';
 import { MonthBars } from '../charts/MonthBars';
 import { seriesLabel } from '../charts/series';
 import { Card } from '../components/Card';
@@ -86,7 +87,7 @@ function Item(p: {
         <span class="ov-item-chart">
           <MonthBars compact series={item.series} />
           <span class="visually-hidden">
-            {seriesLabel('Plays per month', item.series)}
+            {seriesLabel(msg().overview.screen.playsPerMonth, item.series)}
           </span>
         </span>
       )}
@@ -128,7 +129,7 @@ function Item(p: {
       {row}
       <RowMenu
         icon="headphones"
-        label={`Listen to ${track.artist} – ${track.title}`}
+        label={msg().overview.screen.listenTo(track.artist, track.title)}
         items={() => trackListenItems(track)}
       />
     </li>
@@ -242,7 +243,7 @@ export function Overview() {
     now: new Date(),
   });
   return (
-    <section class="overview" aria-label="Overview">
+    <section class="overview" aria-label={msg().overview.screen.label}>
       {blocks
         .filter((b) => b.state !== 'hidden')
         .map((b) => (

@@ -1,6 +1,7 @@
+import { msg } from '../../i18n';
 import { model } from '../../model/state';
 import { routeHref } from '../../router';
-import { monthLabel, plural } from '../format';
+import { monthLabel } from '../format';
 
 // Kept here too: the Crate views import it with the details' pieces.
 export { monthLabel };
@@ -21,8 +22,8 @@ export function NoPlaylistNote() {
   return (
     <p>
       {m.playlists.length === 0
-        ? 'Sync your playlists in Settings to see where this sits'
-        : `Not in any of your ${plural(m.playlists.length, 'playlist')}`}
+        ? msg().table.details.syncPlaylists
+        : msg().table.details.notInAny(m.playlists.length)}
     </p>
   );
 }
@@ -31,7 +32,7 @@ export function OpenMonthLink(p: { month: string }) {
   return (
     <p>
       <a href={routeHref({ name: 'crateView', view: 'year', period: p.month })}>
-        Open {monthLabel(p.month)} ›
+        {msg().table.details.openMonth(monthLabel(p.month))}
       </a>
     </p>
   );

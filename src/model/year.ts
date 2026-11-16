@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import type { Model } from './aggregate';
 
 /** Lowest year accepted from any source (catalogues hold "0000" and typos). */
@@ -77,9 +78,9 @@ export function trackYear(model: Model, trackId: string): number | null {
 
 /** "90s", "2000s", "1940s": short from the 50s to the 90s, full otherwise. */
 export function decadeLabel(decade: number): string {
-  return decade >= 1950 && decade < 2000
-    ? `${String(decade).slice(2)}s`
-    : `${decade}s`;
+  return msg().crate.decade(
+    decade >= 1950 && decade < 2000 ? String(decade).slice(2) : String(decade)
+  );
 }
 
 export function decadeOf(year: number): number {

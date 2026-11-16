@@ -1,7 +1,7 @@
 # Documentation
 
 > **Status**: Living
-> **Last updated**: 2026-11-13
+> **Last updated**: 2026-11-16
 
 The map of the app's documentation, kept by hand: every page is listed here, in its section. How pages are named, headed and linked:
 [Contributing](dev-guide/000-contributing.md), section "Documentation".
@@ -36,6 +36,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
   - [ADR-15 — Shared track and artist facts](architecture/700-adr/ADR-15-shared-track-facts.md)
   - [ADR-16 — One worker for every user](architecture/700-adr/ADR-16-shared-worker.md)
   - [ADR-17 — TrackId.net with the Shazam probes](architecture/700-adr/ADR-17-trackid-worker.md)
+  - [ADR-18 — Two languages, one typed catalogue, no library](architecture/700-adr/ADR-18-two-languages-typed-catalogue.md)
 - [800 — Limits and roadmap](architecture/800-limits-roadmap.md)
 
 ## Dev guide
@@ -43,7 +44,7 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 - [000 — Contributing](dev-guide/000-contributing.md) — commands, code conventions, the files that change together, the documentation
   rules, a feature round, releasing.
 - [100 — Design guide](dev-guide/100-design-guide.md) — the rules every screen follows: tokens, size classes, tables, failures, Escape and
-  scroll owners, a missing number, the definition of done for a UI change.
+  scroll owners, a missing number, French typography and longer French labels, the definition of done for a UI change.
 
 ## Specs, newest first
 
@@ -53,6 +54,7 @@ One design document per feature round, dated. The first one is the base model; l
 - [2026-11-09 — One row per song in a scanned mix](specs/2026-11-09-mix-one-row-per-song-design.md) (the one-row round, full round under [`specs/018-mix-one-row-per-song/`](../specs/018-mix-one-row-per-song/spec.md))
 - [2026-11-10 — Artist and Title columns in the Mix tracklist](specs/2026-11-10-mix-artist-title-columns-design.md) (full round under [`specs/020-mix-artist-title-columns/`](../specs/020-mix-artist-title-columns/spec.md))
 - 2026-11-10 — Comments without their commenter's name (the quiet-comments round): [`specs/021-mix-hide-commenter-names/`](../specs/021-mix-hide-commenter-names/spec.md)
+- 2026-11-16 — The web app in French, with a French / English switch (round 031): [`specs/031-french-english-switch/`](../specs/031-french-english-switch/spec.md), decision [ADR-18](architecture/700-adr/ADR-18-two-languages-typed-catalogue.md)
 - 2026-11-13 — One Crate view screen with a view switch, and four small fixes (round 030): [`specs/030-crate-view-switch/`](../specs/030-crate-view-switch/spec.md)
 - 2026-11-13 — The worker takes phone share links and trims SoundCloud links (worker 0.7.4): [`specs/028-worker-short-links/`](../specs/028-worker-short-links/spec.md), decision [ADR-16](architecture/700-adr/ADR-16-shared-worker.md) (amended)
 - 2026-11-10 — The worker asks again by itself after a rate-limit stop (worker 0.7.3): [`specs/023-worker-auto-resume/`](../specs/023-worker-auto-resume/spec.md)

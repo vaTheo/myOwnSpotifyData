@@ -564,7 +564,7 @@ the computer and the phone, at a readable width (≤ 840 px); no section index (
    The ok state shows the success icon (a tick). A missing total while running is left out, never 0. The counts and dates stay in
    each opened item.
 2. Group headings (h2): **Spotify** (Spotify account, Spotify sync) · **Your data** (Listening history, Audio data, Artist reach) ·
-   **Between devices** (Server); then the **Danger zone** apart, its name an h2 so it heads its own part of the outline; then the
+   **Between devices** (Server) · **This device** (Language, spec 031); then the **Danger zone** apart, its name an h2 so it heads its own part of the outline; then the
    app version as the last line.
 3. Each item (`SettingsItem`, a card): closed, a header with its name (h3, a button with a chevron, ≥ 48 px), its one-line state
    (`StatusLine`, the worst condition of the item in its tone: `itemLines.ts`) and its main button beside it; a tap on the header
@@ -595,6 +595,7 @@ the computer and the phone, at a readable width (≤ 840 px); no section index (
 | Audio data        | `coverageLine`; lookup progress (pass, done/total); Rekordbox progress and summary; errors                    | **Look up BPM and key**; Rekordbox XML (`FileDrop`); **Key notation** (segmented: Camelot · Open Key · Classic) | long jobs start only here                                         |
 | Artist reach      | `reachCoverageLine`; step and progress; run summary; per-step warnings; as-of                                 | **Look up artists**                                                                                             | 45–50 min per 1,000 artists text kept                             |
 | Server            | unset, signed out, offline, paused (dashboard link), pushing or pulling progress, connected with stamps table (library, history, features, reach, then mixes: round 025) | Sign in by link; Sync now; Remove server data (`confirm()` kept)                                                | —                                                                 |
+| Language (spec 031) | what the choice is; "Kept on this device." | **Français** / **English** (segmented, each under its own name; a pick redraws the app at once and is saved on the device) |
 | Danger zone       | the consequence in one sentence                                                                               | **Disconnect** (outlined, error colour; `confirm()` word for word)                                              | disabled while a job runs                                         |
 
 - App version as the last line.
@@ -607,6 +608,7 @@ the computer and the phone, at a readable width (≤ 840 px); no section index (
 | Audio data | Look up BPM and key | Up to date · Not looked up · No tracks yet · Running N % · Failed; Rekordbox running or failed; Shared store failed |
 | Artist reach | Look up artists | Up to date · Not looked up · Running N % · Failed; a source that stopped (warning); Shared store failed |
 | Server | Sync now with server (signed in) | the first words of the server line (Up to date, Changes waiting to send: N, Offline, Paused by the server, Not set up, Not signed in, Failed); rows rejected by the safety check (warning) |
+| Language | none: the choice stays inside | the language shown, under its own name ("English", "Français") |
 | Danger zone | none: Disconnect stays inside | "Disconnect deletes this browser's data · server data is kept" |
 
 **Phone**: the same order; the main button goes under the closed line.

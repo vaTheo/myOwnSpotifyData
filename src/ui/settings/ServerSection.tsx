@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import {
   deviceUserCount,
   jobsBusy,
@@ -15,21 +16,26 @@ import { Button } from '../components/Button';
 import { NoData } from '../components/NoData';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
-import { formatDateTime, plural } from '../format';
+import { formatDateTime } from '../format';
 import { ServerLinkForm } from '../signin/ServerLinkForm';
-import { deviceUsersLine, pendingLine, signedInLine, usedShare } from './lines';
+import {
+  datasetName,
+  deviceUsersLine,
+  pendingLine,
+  signedInLine,
+  usedShare,
+} from './lines';
 
-export const SERVER_DESCRIPTION =
-  'Optional: your own server keeps your data in step across your devices.';
+/** The item's description, read when drawn (spec 031). */
+export function serverDescription(): string {
+  return msg().settings.server.description;
+}
 
 /** The sign-in form of the server section: an email, a magic link (research D3). */
 function ServerSignIn() {
   return (
     <>
-      <StatusLine>
-        Sign in to your server with a link sent to your email. Open the link in
-        this browser, within 10 minutes.
-      </StatusLine>
+      <StatusLine>{msg().settings.server.signInHelp}</StatusLine>
       <ServerLinkForm />
     </>
   );
@@ -47,7 +53,7 @@ export function ServerMain(p: { act: boolean }) {
       }
       onClick={() => void startServerSync()}
     >
-      Sync now with server
+      {msg().settings.server.syncNow}
     </Button>
   );
 }
@@ -66,13 +72,9 @@ export function ServerSection() {
   const pending = serverPending.value;
   const pendingError = serverPendingError.value;
   const people = deviceUsersLine(deviceUserCount());
+  const text = msg().settings.server;
   if (state.status === 'unset') {
-    return (
-      <StatusLine>
-        No server set up. This browser keeps its own data. To share it across
-        your devices, set the two server values described in the README.
-      </StatusLine>
-    );
+    return <StatusLine>{text.unset}</StatusLine>;
   }
   return (
     <>
@@ -83,17 +85,18 @@ export function ServerSection() {
       )}
       {state.status === 'offline' && (
         <StatusLine kind="warning">
-          Server offline: {state.message} Last sync{' '}
-          {lastSync ? formatDateTime(lastSync) : 'never'}. Local data is in use.
+          {lastSync
+            ? text.offline(state.message, formatDateTime(lastSync))
+            : text.offlineNever(state.message)}
         </StatusLine>
       )}
       {state.status === 'paused' && (
         <StatusLine kind="warning">
-          Server paused. Resume it from the{' '}
+          {text.pausedBefore}
           <a href={state.dashboardUrl} target="_blank" rel="noopener">
-            Supabase dashboard
+            {text.pausedLink}
           </a>
-          , then open the app again. Local data is in use.
+          {text.pausedAfter}
         </StatusLine>
       )}
       {session === null ? (
@@ -111,23 +114,24 @@ export function ServerSection() {
           {state.status === 'connected' && (
             <>
               <StatusLine>
-                Last sync with the server:{' '}
-                {state.lastSyncAt ? formatDateTime(state.lastSyncAt) : 'never'}
+                {state.lastSyncAt
+                  ? text.lastSync(formatDateTime(state.lastSyncAt))
+                  : text.lastSyncNever}
               </StatusLine>
               <div class="stamps-wrap">
                 <table class="stamps">
                   <thead>
                     <tr>
-                      <th>Data</th>
-                      <th>Here</th>
-                      <th>Server</th>
-                      <th>Rows</th>
+                      <th>{text.data}</th>
+                      <th>{text.here}</th>
+                      <th>{text.server}</th>
+                      <th>{text.rows}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {state.stamps.map((row) => (
                       <tr key={row.name}>
-                        <td>{row.name}</td>
+                        <td>{datasetName(row.name)}</td>
                         <td>
                           {row.localAt ? (
                             formatDateTime(row.localAt)
@@ -150,8 +154,7 @@ export function ServerSection() {
               </div>
               {state.rejected > 0 && (
                 <StatusLine kind="warning">
-                  {plural(state.rejected, 'row')} rejected by the safety check
-                  and left out.
+                  {text.rejected(state.rejected)}
                 </StatusLine>
               )}
               {state.usedBytes !== null && (
@@ -163,10 +166,14 @@ export function ServerSection() {
           )}
           {(state.status === 'pushing' || state.status === 'pulling') && (
             <ProgressBar
-              label={`${state.status === 'pushing' ? 'Sending' : 'Fetching'} ${state.dataset}`}
+              label={
+                state.status === 'pushing'
+                  ? msg().settings.closed.sending(datasetName(state.dataset))
+                  : msg().settings.closed.fetching(datasetName(state.dataset))
+              }
               done={state.done}
               total={state.total}
-              unit="rows"
+              unit={text.rowsUnit}
             />
           )}
           <div class="actions">
@@ -175,20 +182,17 @@ export function ServerSection() {
               disabled={working}
               onClick={() => void startServerSignOut()}
             >
-              Sign out
+              {text.signOut}
             </Button>
             <Button
               variant="danger"
               disabled={working}
               onClick={() => void removeServerData()}
             >
-              Remove server data
+              {text.remove}
             </Button>
           </div>
-          <p class="muted">
-            Sign out keeps your data here and on the server. Remove server data
-            deletes all your data on the server and keeps this browser's copy.
-          </p>
+          <p class="muted">{text.note}</p>
         </>
       )}
     </>

@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import type { PlayRow } from '../../db/schema';
 import type { ImportSummary } from '../../history/importer';
+import { msg } from '../../i18n';
 import {
   CLASSIC_MIN_YEARS,
   FINISH_MIN_OUTCOMES,
@@ -30,11 +31,11 @@ import {
 import { Card } from '../components/Card';
 import { Flag } from '../components/Flag';
 import { StatusLine } from '../components/StatusLine';
-import { formatDate, plural } from '../format';
+import { formatDate } from '../format';
 import { Icon, type IconName } from '../icons';
 import { CRATE_TITLE } from '../layout/titles';
 import { CrateEmpty } from './CrateEmpty';
-import { staleMonthKey, windowLabel, yearSpanLabel } from './labels';
+import { staleMonthKey, yearSpanLabel } from './labels';
 import {
   classicSort,
   finishTab,
@@ -63,16 +64,6 @@ interface HubCard {
   chart: ComponentChildren;
 }
 
-/** What each view finds, in one line. */
-const DESCRIPTION: Record<CrateView, string> = {
-  rotation: 'What you play most right now',
-  gems: 'Tracks you loved, then stopped playing',
-  classics: 'Tracks you come back to year after year',
-  year: 'Your tracks of a year, a season or a month',
-  finish: 'What you play to the end, and what you skip',
-  'rarely-played': 'Songs in your playlists you barely played',
-};
-
 const ICON: Record<CrateView, IconName> = {
   rotation: 'trending_up',
   gems: 'diamond',
@@ -82,23 +73,21 @@ const ICON: Record<CrateView, IconName> = {
   'rarely-played': 'headphones',
 };
 
+/** A card's top track, in the sentence `line` makes of its names. */
 function topLine(
   row: PlayRow | undefined,
-  prefix: string,
+  line: (artist: string, title: string) => string,
   empty: string
 ): string {
   if (!row) return empty;
   const label = trackLabel(row);
-  return `${prefix}: ${label.subtitle} — ${label.title}`;
-}
-
-function rotationSetting(months: number): string {
-  return `last ${plural(months, 'month')}`;
+  return line(label.subtitle, label.title);
 }
 
 function gemSetting(months: number): string {
-  if (months % 12 !== 0) return `unplayed ${plural(months, 'month')}+`;
-  return `unplayed ${plural(months / 12, 'year')}+`;
+  const text = msg().crate.hub;
+  if (months % 12 !== 0) return text.unplayedMonths(months);
+  return text.unplayedYears(months / 12);
 }
 
 /** A card's bars: 40 px a bar at most, so three months are not three slabs. */
@@ -134,18 +123,19 @@ function hubCards(rows: PlayRow[], now: Date): HubCard[] {
     CLASSIC_MIN_YEARS,
     span.length
   );
+  const text = msg().crate.hub;
   return [
     {
       view: 'rotation',
       icon: ICON.rotation,
-      description: DESCRIPTION.rotation,
+      description: text.description.rotation,
       top: topLine(
         rotation[0]?.row,
-        'Top',
-        `Nothing in the last ${windowLabel(rotationMonths.value)}`
+        text.top,
+        text.nothingInLast(rotationMonths.value)
       ),
       count: rotation.length,
-      setting: rotationSetting(rotationMonths.value),
+      setting: text.lastMonths(rotationMonths.value),
       chart: (
         <Bars
           series={monthSeries(
@@ -159,13 +149,13 @@ function hubCards(rows: PlayRow[], now: Date): HubCard[] {
     {
       view: 'gems',
       icon: ICON.gems,
-      description: DESCRIPTION.gems,
-      top: topLine(gems[0]?.row, 'Top', 'Nothing yet'),
+      description: text.description.gems,
+      top: topLine(gems[0]?.row, text.top, text.nothingYet),
       count: gems.length,
       setting: gemSetting(gemMonths.value),
       chart: gems[0] && (
         <Bars
-          title="Plays per year"
+          title={text.playsPerYear}
           series={yearPoints(gems[0].row.months, span)}
         />
       ),
@@ -173,27 +163,27 @@ function hubCards(rows: PlayRow[], now: Date): HubCard[] {
     {
       view: 'classics',
       icon: ICON.classics,
-      description: DESCRIPTION.classics,
-      top: topLine(classic[0]?.row, 'Top', 'Nothing yet'),
+      description: text.description.classics,
+      top: topLine(classic[0]?.row, text.top, text.nothingYet),
       count: classic.length,
-      setting: `${CLASSIC_MIN_YEARS}+ years`,
+      setting: text.yearsPlus(CLASSIC_MIN_YEARS),
       chart: classic.length > 0 && reached.length > 0 && (
         <Bars
           series={reached}
-          label={`Tracks played in: ${reached
-            .map((p) => `${p.key}+ years ${p.value}`)
-            .join(', ')}`}
+          label={text.reached(
+            reached.map((p) => text.reachedPart(p.key, p.value ?? 0)).join(', ')
+          )}
         />
       ),
     },
     {
       view: 'year',
       icon: ICON.year,
-      description: DESCRIPTION.year,
+      description: text.description.year,
       top: topLine(
         yearView.items[0]?.row,
-        `Top in ${year}`,
-        `Nothing in ${yearLabel}`
+        (artist, title) => text.topIn(year, artist, title),
+        text.nothingIn(yearLabel)
       ),
       count: yearView.tracks,
       setting: yearLabel,
@@ -206,14 +196,14 @@ function hubCards(rows: PlayRow[], now: Date): HubCard[] {
     {
       view: 'finish',
       icon: ICON.finish,
-      description: DESCRIPTION.finish,
-      top: topLine(topFinish?.row, 'Top', 'Nothing yet'),
+      description: text.description.finish,
+      top: topLine(topFinish?.row, text.top, text.nothingYet),
       count: finish.length,
-      setting: `${FINISH_MIN_OUTCOMES}+ outcomes`,
+      setting: text.outcomesPlus(FINISH_MIN_OUTCOMES),
       chart: topFinish && (
         <Meter
           pct={((topFinish.row.finished ?? 0) / topFinish.outcomes) * 100}
-          label="Top track finished"
+          label={text.topFinished}
         />
       ),
     },
@@ -226,18 +216,17 @@ function rarelyCard(): HubCard {
   const m = model.value;
   const items = m ? rarelyPlayed(m, rareCounts.value, rarePlaylist.value) : [];
   const counts = [...rareCounts.value].sort();
+  const text = msg().crate.hub;
   return {
     view: 'rarely-played',
     icon: ICON['rarely-played'],
-    description: DESCRIPTION['rarely-played'],
-    top: items[0]
-      ? `First: ${trackLabel(items[0].row).subtitle} — ${trackLabel(items[0].row).title}`
-      : 'Nothing yet',
+    description: text.description['rarely-played'],
+    top: topLine(items[0]?.row, text.first, text.nothingYet),
     count: items.length,
     setting:
       counts.includes(0) && counts.length === 1
-        ? 'never played'
-        : `${counts.join(', ')} plays`,
+        ? text.neverPlayed
+        : text.playsList(counts[counts.length - 1] ?? 0, counts.join(', ')),
     chart: null,
   };
 }
@@ -247,21 +236,24 @@ function ImportLine(p: { summary: ImportSummary }) {
   const range = p.summary.range;
   const stale = staleMonthKey(range, new Date());
   const span = yearSpanLabel(range);
+  const text = msg().crate.hub;
   const imported = (
     <>
-      Imported {formatDate(p.summary.importedAt)} ·{' '}
-      <a href={routeHref({ name: 'import' })}>Update import</a>
+      {text.imported(formatDate(p.summary.importedAt))}
+      {' · '}
+      <a href={routeHref({ name: 'import' })}>{text.updateImport}</a>
     </>
   );
   return stale ? (
     <StatusLine kind="warning" class="import-line">
-      History ends {monthLabel(stale)} ·{' '}
-      <a href={routeHref({ name: 'import' })}>re-import</a> · {imported}
+      {text.historyEnds(monthLabel(stale))}
+      {' · '}
+      <a href={routeHref({ name: 'import' })}>{text.reimport}</a> · {imported}
     </StatusLine>
   ) : (
     <StatusLine class="import-line">
-      {span ? `${span} · ` : ''}
-      {plural(p.summary.plays, 'play')} · {imported}
+      {span ? span + ' · ' : ''}
+      {msg().n.play(p.summary.plays)} · {imported}
     </StatusLine>
   );
 }
@@ -287,7 +279,7 @@ function HubCardView({ card }: { card: HubCard }) {
       description={card.description}
     >
       <p class="hub-figures">
-        <Flag kind="plays">{plural(card.count, 'track')}</Flag>
+        <Flag kind="plays">{msg().n.track(card.count)}</Flag>
         <Flag>{card.setting}</Flag>
       </p>
       <p class="hub-top">{card.top}</p>

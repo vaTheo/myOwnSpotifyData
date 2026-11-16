@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AllRows, MixRow, PlayRow, TrackRow } from '../db/schema';
-import { ACCOUNT_MISMATCH_NOTICE } from '../sync/runner';
+import { ACCOUNT_MISMATCH, ACCOUNT_MISMATCH_NOTICE } from '../sync/runner';
 import type { Query, ServerClient, ServerResult } from './client';
 import {
   cancelRequest,
@@ -1195,7 +1195,8 @@ describe('runPull', () => {
     expect(res).toEqual({
       ok: false,
       kind: 'error',
-      message: ACCOUNT_MISMATCH_NOTICE,
+      code: ACCOUNT_MISMATCH,
+      message: ACCOUNT_MISMATCH_NOTICE(),
     });
     expect(repo.replaceDataset).not.toHaveBeenCalled();
   });
@@ -1591,7 +1592,10 @@ describe('queue control and progress (round 004)', () => {
         queued(2, { status: 'done', payload: { url: link } }),
         queued(1, { status: 'queued', payload: { url: link } }),
         queued(3, { status: 'failed' }),
-      ].map((r, i) => ({ ...r, id: `00000000-0000-4000-8000-00000000009${i}` })),
+      ].map((r, i) => ({
+        ...r,
+        id: `00000000-0000-4000-8000-00000000009${i}`,
+      })),
     });
     fake.tables.jobs[0].payload = { url: link };
     expect(await deleteLinkRequests(fake.client, 'tok', link)).toEqual({

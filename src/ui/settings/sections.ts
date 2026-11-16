@@ -1,29 +1,62 @@
+import { msg } from '../../i18n';
+
 /**
  * The Settings items in page order and their groups (spec 026, US2,
- * contracts/screens.md §13): Spotify · Your data · Between devices, then the
- * Danger zone apart. Above them, never folded, the Sync status block.
+ * contracts/screens.md §13): Spotify · Your data · Between devices · This
+ * device, then the Danger zone apart. Above them, never folded, the Sync
+ * status block. A label is read from the catalogue each time it is drawn, so
+ * it follows the language shown (spec 031).
  */
 export const SETTINGS_GROUPS = [
-  { id: 'spotify', label: 'Spotify' },
-  { id: 'data', label: 'Your data' },
-  { id: 'devices', label: 'Between devices' },
+  {
+    id: 'spotify',
+    get label() {
+      return msg().settings.groups.spotify;
+    },
+  },
+  {
+    id: 'data',
+    get label() {
+      return msg().settings.groups.data;
+    },
+  },
+  {
+    id: 'devices',
+    get label() {
+      return msg().settings.groups.devices;
+    },
+  },
+  {
+    id: 'device',
+    get label() {
+      return msg().settings.groups.device;
+    },
+  },
 ] as const;
 
 export type GroupId = (typeof SETTINGS_GROUPS)[number]['id'];
 
+const item = <I extends keyof ReturnType<typeof msg>['settings']['items']>(
+  id: I,
+  group: GroupId | null
+) => ({
+  id,
+  group,
+  get label(): string {
+    return msg().settings.items[id];
+  },
+});
+
 export const SETTINGS_ITEMS = [
-  { id: 'account', label: 'Spotify account', group: 'spotify' },
-  { id: 'sync', label: 'Spotify sync', group: 'spotify' },
-  { id: 'history', label: 'Listening history', group: 'data' },
-  { id: 'audio', label: 'Audio data', group: 'data' },
-  { id: 'reach', label: 'Artist reach', group: 'data' },
-  { id: 'server', label: 'Server', group: 'devices' },
-  { id: 'danger', label: 'Danger zone', group: null },
-] as const satisfies readonly {
-  id: string;
-  label: string;
-  group: GroupId | null;
-}[];
+  item('account', 'spotify'),
+  item('sync', 'spotify'),
+  item('history', 'data'),
+  item('audio', 'data'),
+  item('reach', 'data'),
+  item('server', 'devices'),
+  item('language', 'device'),
+  item('danger', null),
+] as const;
 
 export type SectionId = (typeof SETTINGS_ITEMS)[number]['id'];
 

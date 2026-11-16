@@ -1,5 +1,6 @@
 import { unzipSync } from 'fflate';
 import type { PlayRow } from '../db/schema';
+import { signin as workerTexts } from '../i18n/en/signin';
 import {
   baseName,
   isAccountDataFile,
@@ -28,8 +29,12 @@ export type ImportMessage =
       message: string;
     };
 
-export const ACCOUNT_DATA_MESSAGE =
-  'These files are the "Account data" package, which has no track ids. Request "Extended streaming history" instead: Spotify account, Privacy settings, Download your data.';
+/**
+ * A worker does not follow the language switch (spec 031), so its sentences
+ * are the English catalogue's; `importer.ts` swaps them for the language
+ * shown. `failed` carries the error as received.
+ */
+export const ACCOUNT_DATA_MESSAGE = workerTexts.importer.accountData;
 
 interface Source {
   name: string;
@@ -90,8 +95,7 @@ export async function processFiles(
         : {
             type: 'error',
             code: 'no-files',
-            message:
-              'No Streaming_History_Audio_*.json files found. Pick my_spotify_data.zip or the JSON files inside it.',
+            message: workerTexts.importer.noFiles,
           }
     );
     return;
@@ -112,11 +116,17 @@ export async function processFiles(
       parsed = JSON.parse(decoder.decode(await source.read()));
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      skipped.push({ name: source.name, reason: `unreadable: ${reason}` });
+      skipped.push({
+        name: source.name,
+        reason: workerTexts.importer.skipUnreadable(reason),
+      });
       continue;
     }
     if (!Array.isArray(parsed)) {
-      skipped.push({ name: source.name, reason: 'not a JSON array' });
+      skipped.push({
+        name: source.name,
+        reason: workerTexts.importer.skipNotArray,
+      });
       continue;
     }
     if (parsed.length > 0 && isAccountDataRecord(parsed[0])) {

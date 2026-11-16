@@ -1,4 +1,5 @@
 import type { PlayRow } from '../db/schema';
+import { msg } from '../i18n';
 
 export const ROTATION_WINDOWS = [1, 3, 6] as const; // months
 export const GEM_WINDOWS = [6, 12, 24] as const; // months
@@ -23,22 +24,6 @@ const SEASON_MONTHS: Record<Season, number[]> = {
 };
 
 const MONTHS_OF_YEAR = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-
-/** January first. The one copy the strips, chips and labels all read. */
-export const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 /** `YYYY-MM`, month 1–12. */
 export function yearMonth(year: number, month: number): string {
@@ -71,8 +56,8 @@ export function periodMonths(year: number, period: YearPeriod): string[] {
 /** The hub's `By year` badge: `2022`, `Mar 2022`, `Winter 2022`. */
 export function yearSetting(year: number, period: YearPeriod): string {
   if (period === 'all') return String(year);
-  if (typeof period === 'number') return `${MONTH_NAMES[period - 1]} ${year}`;
-  return `${period[0].toUpperCase()}${period.slice(1)} ${year}`;
+  if (typeof period === 'number') return `${msg().months[period - 1]} ${year}`;
+  return msg().crate.seasonYear[period](year);
 }
 
 /** Rows from an import before month buckets are ignored by every view. */

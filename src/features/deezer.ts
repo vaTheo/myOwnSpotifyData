@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import type { TrackRow } from '../db/schema';
 import { normalize } from '../model/normalize';
 import { backoffMs } from '../util/retry';
@@ -100,7 +101,7 @@ async function ask(url: string, deps: DeezerDeps): Promise<Answer> {
       const reason = err instanceof Error ? err.message : String(err);
       return {
         kind: 'retryLater',
-        message: `Deezer is unreachable: ${reason}`,
+        message: msg().sources.deezer.unreachable(reason),
       };
     }
     if (num(field(field(body, 'error'), 'code')) !== DEEZER_QUOTA_CODE) {
@@ -110,9 +111,10 @@ async function ask(url: string, deps: DeezerDeps): Promise<Answer> {
     if (refusals > MAX_QUOTA_RETRIES) {
       return {
         kind: 'retryLater',
-        message:
-          `Deezer is over quota: it refused ${MAX_QUOTA_RETRIES + 1} ` +
-          `attempts (error ${DEEZER_QUOTA_CODE})`,
+        message: msg().sources.deezer.overQuota(
+          MAX_QUOTA_RETRIES + 1,
+          DEEZER_QUOTA_CODE
+        ),
       };
     }
     await deps.sleep(backoffMs(refusals));

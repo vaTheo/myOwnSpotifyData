@@ -4,6 +4,7 @@ import type {
   TopTrackItem,
   TrackRow,
 } from '../../db/schema';
+import { lang, msg } from '../../i18n';
 import { artistKey, playsFor, type Model } from '../../model/aggregate';
 import { peakMonth } from '../../model/crate';
 import { reccobeatsValue, resolveFeature } from '../../model/features';
@@ -190,13 +191,17 @@ export function trackFacts(model: Model, ref: TrackRef): TrackFacts | null {
   if (!track && !top && !row) return null;
   if ('playRowId' in ref && !row) return null;
 
-  const title = track?.name ?? top?.name ?? row?.trackName ?? 'Unknown title';
+  const title =
+    track?.name ??
+    top?.name ??
+    row?.trackName ??
+    msg().table.details.unknownTitle;
   const refs = track?.artists ?? top?.artists ?? null;
   const artists = refs
     ? refs.map((a) => ({ name: a.name, artistKey: savedArtist(model, a) }))
     : [
         {
-          name: row?.artistName ?? 'Unknown artist',
+          name: row?.artistName ?? msg().table.details.unknownArtist,
           artistKey: row?.artistName
             ? artistOfRow(model, row.artistName)
             : null,
@@ -305,10 +310,14 @@ export function yearFact(
   return datedYear(model, trackId);
 }
 
-/** The sheet's words for a year's source. */
+/** The sheet's words for a year's source, read when drawn (spec 031). */
 export const YEAR_SOURCE_LABEL: Record<YearSource, string> = {
-  reccobeats: 'ReccoBeats (earliest album)',
-  album: 'album',
+  get reccobeats() {
+    return msg().table.details.yearSource.reccobeats;
+  },
+  get album() {
+    return msg().table.details.yearSource.album;
+  },
 };
 
 /** One string per reference, equal for equal references. */
@@ -330,7 +339,9 @@ export function factsCache(): (
   let last: { model: Model; key: string; facts: TrackFacts | null } | null =
     null;
   return (model, ref) => {
-    const key = refKey(ref);
+    // The language is part of the key: the facts hold the "Unknown title"
+    // fallbacks, written in the language shown.
+    const key = `${lang.value} ${refKey(ref)}`;
     if (last !== null && last.model === model && last.key === key) {
       return last.facts;
     }

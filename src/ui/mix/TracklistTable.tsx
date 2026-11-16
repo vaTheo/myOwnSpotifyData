@@ -8,12 +8,12 @@ import {
 } from '../../features/mix/match';
 import { parseClock } from '../../features/mix/parse';
 import {
-  FILTER_CAPTION,
   reviewChips,
   spotifyStatus,
   type ReviewFilter,
 } from '../../features/mix/review';
 import { isIdentified } from '../../features/mix/spotifySearch';
+import { msg } from '../../i18n';
 import { decadeLabel } from '../../model/year';
 import {
   addMixRow,
@@ -38,7 +38,7 @@ import { PlayOnSpotify } from '../components/PlayOnSpotify';
 import { SegmentedButtons } from '../components/SegmentedButtons';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
-import { formatClock, plural } from '../format';
+import { formatClock } from '../format';
 import { Icon } from '../icons';
 import { windowClass } from '../layout/windowClass';
 import { yearColumn } from '../table/columns';
@@ -103,7 +103,7 @@ function referencesLine(l: Line): string | null {
   const parts = [
     referencesText(l.row),
     l.match && l.match.playlistCount > 0
-      ? `in ${plural(l.match.playlistCount, 'playlist')}`
+      ? msg().mix.table.inPlaylists(l.match.playlistCount)
       : null,
   ].filter((s): s is string => s !== null);
   return parts.length > 0 ? parts.join(' · ') : null;
@@ -149,7 +149,7 @@ function TitleCell(p: { line: Line }) {
       {row.artist && <span class="mix-artist">{row.artist}</span>}
       {second && (
         <span class="mix-second">
-          {notHeard && <Flag kind="todo">not heard</Flag>}
+          {notHeard && <Flag kind="todo">{msg().mix.table.notHeard}</Flag>}
           {origin !== null && <span class="mix-origin">{origin}</span>}
           {quote !== null && <span class="mix-quote">“{quote}”</span>}
           {refs !== null && <span class="mix-refs">{refs}</span>}
@@ -179,12 +179,6 @@ function ConfidenceCell(p: { row: TracklistRow }) {
   );
 }
 
-const STATUS_TEXT = {
-  unchecked: 'Not checked',
-  found: 'On Spotify',
-  notFound: 'Not found on Spotify',
-} as const;
-
 /**
  * Spotify (T117, T118, round 010): one 48 px icon — when the check found
  * the track, the app's own link (`spotify:track:<id>`), opened in place;
@@ -202,15 +196,17 @@ function SpotifyCell(p: {
   if (!isIdentified(row)) return null;
   const status = spotifyStatus(row);
   const found = foundSpotifyId(row);
+  const t = msg().mix.table;
+  const STATUS_TEXT = t.status;
   // Round 011: the red mark opens the form to paste a Spotify track link.
-  const link = `Link a Spotify track to ${nameOf(row)}`;
+  const link = t.linkTo(nameOf(row));
   if (status === 'notFound') {
     return p.compact ? (
       <button
         type="button"
         class="mix-spotify-text notFound mix-link-open"
         // The visible words start the name (WCAG 2.5.3, label in name).
-        aria-label={`${STATUS_TEXT.notFound}: link a Spotify track to ${nameOf(row)}`}
+        aria-label={t.notFoundLink(nameOf(row))}
         title={link}
         onClick={p.onLink}
       >
@@ -290,7 +286,7 @@ function ReviewCell(p: { line: Line; onRemove: () => void }) {
     <span class="mix-review">
       <IconButton
         icon="close"
-        label={`Remove ${nameOf(p.line.row)}`}
+        label={msg().mix.table.remove(nameOf(p.line.row))}
         onClick={p.onRemove}
       />
     </span>
@@ -305,11 +301,13 @@ function columns(on: {
   compact: boolean;
 }): Column<Line>[] {
   const { compact } = on;
+  const h = msg().mix.columns;
+  const t = msg().mix.table;
   return [
     {
       id: 'time',
       ...sorts('time'),
-      header: 'Time',
+      header: h.time,
       align: 'end',
       priority: 1,
       width: '72px',
@@ -326,7 +324,7 @@ function columns(on: {
     {
       id: 'artist',
       ...sorts('artist'),
-      header: 'Artist',
+      header: h.artist,
       priority: 1,
       width: 'minmax(112px, 1fr)',
       cell: (l) =>
@@ -337,7 +335,7 @@ function columns(on: {
     {
       id: 'title',
       ...sorts('title'),
-      header: 'Title',
+      header: h.title,
       priority: 1,
       width: 'minmax(176px, 1.5fr)',
       cell: (l) => <TitleCell line={l} />,
@@ -348,7 +346,7 @@ function columns(on: {
     {
       id: 'label',
       ...sorts('label'),
-      header: 'Label',
+      header: h.label,
       priority: 4,
       // Spec 020: a share of what Artist and Title leave, about 100 px at 1440.
       width: 'minmax(0, 0.6fr)',
@@ -360,7 +358,7 @@ function columns(on: {
     {
       id: 'confidence',
       ...sorts('confidence'),
-      header: 'Evidence',
+      header: h.evidence,
       align: 'end',
       priority: 3,
       width: '184px',
@@ -375,7 +373,7 @@ function columns(on: {
     {
       id: 'spotify',
       ...sorts('spotify'),
-      header: 'Spotify',
+      header: h.spotify,
       priority: 1,
       width: '64px',
       cell: (l) => (
@@ -389,7 +387,7 @@ function columns(on: {
     },
     {
       id: 'listen',
-      header: 'Listen',
+      header: h.listen,
       priority: 2,
       // The Shazam and SoundCloud icons, then the menu: three 48 px targets.
       width: '144px',
@@ -400,7 +398,7 @@ function columns(on: {
             <ListenIcons row={l.row} />
             <RowMenu
               icon="headphones"
-              label={`Listen to ${nameOf(l.row)}`}
+              label={t.listenTo(nameOf(l.row))}
               items={items}
             />
           </span>
@@ -413,7 +411,7 @@ function columns(on: {
     },
     {
       id: 'review',
-      header: 'Review',
+      header: h.review,
       priority: 1,
       // Wide enough for the word "Review" in the header (48 px cut it to "Reviev").
       width: '72px',
@@ -422,7 +420,7 @@ function columns(on: {
     },
     {
       id: 'more',
-      header: 'More',
+      header: h.more,
       headerHidden: true,
       align: 'end',
       priority: 1,
@@ -430,25 +428,34 @@ function columns(on: {
       cell: (l) => {
         const { row } = l;
         const items: RowMenuItem[] = [
-          { label: 'Edit', onSelect: () => on.edit(l.index) },
-          { label: 'Delete', onSelect: () => on.remove(l.index) },
+          { label: t.edit, onSelect: () => on.edit(l.index) },
+          { label: t.delete, onSelect: () => on.remove(l.index) },
         ];
         // A found track opens from the Listen menu's Play on Spotify.
         if (typeof row.spotify !== 'object' && isIdentified(row)) {
-          items.push({ label: 'Search on Spotify', href: searchUrl(row) });
+          items.push({ label: t.searchSpotify, href: searchUrl(row) });
         }
         // Round 011: a link the owner pasted can be replaced or removed.
         if (row.spotifyBy === 'owner') {
           items.push(
-            { label: 'Replace link', onSelect: () => on.link(l.index) },
-            { label: 'Remove link', onSelect: () => on.unlink(l.index) }
+            { label: t.replaceLink, onSelect: () => on.link(l.index) },
+            {
+              label: msg().mix.common.removeLink,
+              onSelect: () => on.unlink(l.index),
+            }
           );
         }
         // On a phone one "Listen…" item opens the Listen links in the same
         // list, so More stays short (fix round 1, R3).
         const listen = compact ? listenItems(l) : [];
-        if (listen.length > 0) items.push({ label: 'Listen…', items: listen });
-        return <RowMenu label={`More for ${nameOf(row)}`} items={items} />;
+        if (listen.length > 0)
+          items.push({ label: t.listenMenu, items: listen });
+        return (
+          <RowMenu
+            label={msg().mix.common.moreFor(nameOf(row))}
+            items={items}
+          />
+        );
       },
       compact: 'trail',
     },
@@ -462,7 +469,7 @@ function GapLine(p: { row: TracklistRow; onDelete: () => void }) {
   return (
     <div class="mix-gap">
       <div class="mix-gap-text">
-        <span class="mix-gap-title">ID · unidentified</span>
+        <span class="mix-gap-title">{msg().mix.table.gap}</span>
         {span !== null && <span class="mix-gap-span">{span}</span>}
         {row.clues && row.clues.length > 0 && (
           <Clues
@@ -471,7 +478,11 @@ function GapLine(p: { row: TracklistRow; onDelete: () => void }) {
           />
         )}
       </div>
-      <IconButton icon="delete" label="Delete this gap" onClick={p.onDelete} />
+      <IconButton
+        icon="delete"
+        label={msg().mix.table.deleteGap}
+        onClick={p.onDelete}
+      />
     </div>
   );
 }
@@ -498,6 +509,7 @@ function EditLine(p: {
     p.row.startSec !== null ? formatClock(p.row.startSec) : ''
   );
   const form = useRef<HTMLFormElement>(null);
+  const t = msg().mix.table;
   useEffect(() => {
     const first = form.current?.querySelector<HTMLInputElement>('input');
     first?.focus({ preventScroll: true });
@@ -517,24 +529,28 @@ function EditLine(p: {
         });
       }}
     >
-      <TextField placeholder="Artist" value={artist} onValue={setArtist} />
-      <TextField placeholder="Title" value={title} onValue={setTitle} />
       <TextField
-        placeholder="Label (optional)"
+        placeholder={msg().mix.columns.artist}
+        value={artist}
+        onValue={setArtist}
+      />
+      <TextField
+        placeholder={msg().mix.columns.title}
+        value={title}
+        onValue={setTitle}
+      />
+      <TextField
+        placeholder={t.labelOptional}
         value={label}
         onValue={setLabel}
       />
-      <TextField
-        placeholder="Time (m:ss, optional)"
-        value={time}
-        onValue={setTime}
-      />
+      <TextField placeholder={t.timeOptional} value={time} onValue={setTime} />
       <div class="mix-edit-actions">
         <Button variant="filled" type="submit">
-          Save
+          {t.save}
         </Button>
         <Button variant="text" onClick={p.onCancel}>
-          Cancel
+          {msg().mix.common.cancel}
         </Button>
       </div>
     </form>
@@ -561,6 +577,7 @@ function RowView(p: {
   onDecade: (decade: number | null) => void;
 }) {
   const dated = p.decades.length > 0;
+  const t = msg().mix.table;
   return (
     <div class="mix-rowview">
       <SegmentedButtons
@@ -575,7 +592,7 @@ function RowView(p: {
       {p.rows.length > 0 && (
         <span class="mix-sort">
           <label>
-            Sort{' '}
+            {t.sort}{' '}
             <select
               id="mix-sort"
               value={p.sort.columnId ?? ''}
@@ -588,7 +605,7 @@ function RowView(p: {
                 );
               }}
             >
-              <option value="">Set order</option>
+              <option value="">{t.setOrder}</option>
               {sortChoices(p.rows).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
@@ -600,11 +617,7 @@ function RowView(p: {
             icon={
               p.sort.direction === 'asc' ? 'arrow_upward' : 'arrow_downward'
             }
-            label={
-              p.sort.direction === 'asc'
-                ? 'Ascending, tap for descending'
-                : 'Descending, tap for ascending'
-            }
+            label={p.sort.direction === 'asc' ? t.ascending : t.descending}
             disabled={p.sort.columnId === null}
             onClick={() =>
               p.onSort(
@@ -618,7 +631,7 @@ function RowView(p: {
       )}
       {dated && (
         <label>
-          Decade{' '}
+          {t.decade}{' '}
           <select
             id="mix-decade"
             value={p.decade === null ? '' : String(p.decade)}
@@ -627,7 +640,7 @@ function RowView(p: {
               p.onDecade(v === '' ? null : Number(v));
             }}
           >
-            <option value="">All decades</option>
+            <option value="">{t.allDecades}</option>
             {p.decades.map((d) => (
               <option key={d} value={String(d)}>
                 {decadeLabel(d)}
@@ -637,7 +650,7 @@ function RowView(p: {
         </label>
       )}
       {(p.filter !== 'all' || p.decade !== null) && (
-        <span class="mix-caption">{FILTER_CAPTION}</span>
+        <span class="mix-caption">{msg().mix.review.filterCaption}</span>
       )}
     </div>
   );
@@ -789,7 +802,7 @@ export function TracklistTable() {
         onDecade={setDecade}
       />
       <DataTable
-        label="Tracklist"
+        label={msg().mix.table.tracklist}
         columns={columns({ edit, remove, link, unlink, compact })}
         rows={lines}
         rowKey={(l) => keyOf(l.index, editing, linking)}
@@ -855,10 +868,10 @@ export function TracklistTable() {
             edit(added);
           }}
         >
-          Add track
+          {msg().mix.table.addTrack}
         </Button>
         <Button variant="filled" onClick={onSaveMix}>
-          {saved ? 'Saved ✓' : 'Save mix'}
+          {saved ? msg().mix.table.saved : msg().mix.table.saveMix}
         </Button>
       </div>
       {showSaveError && <StatusLine kind="error">{saveError}</StatusLine>}

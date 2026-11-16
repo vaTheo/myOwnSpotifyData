@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { App, bootPhase, installRouter, route } from './app';
 import { auth } from './auth/browser';
 import { demoVariant } from './dev/flag';
+import { applyDocumentLang, msg } from './i18n';
 import {
   activateServerUser,
   completeServerLink,
@@ -31,6 +32,7 @@ import './styles.css';
  * blank page. Every await below therefore comes after `render`.
  */
 async function boot(): Promise<void> {
+  applyDocumentLang();
   const params = new URLSearchParams(location.search);
   // The server's magic link and Spotify's PKCE callback both come back with
   // `?code=`; the `link=server` marker is what tells them apart (S2).
@@ -109,7 +111,9 @@ async function boot(): Promise<void> {
       auth.lastAuthError.value =
         err instanceof AuthError
           ? err.message
-          : `Login failed: ${err instanceof Error ? err.message : String(err)}`;
+          : msg().frame.loginFailed(
+              err instanceof Error ? err.message : String(err)
+            );
     }
     // Keep the entry state: `installRouter` has already stamped this entry.
     history.replaceState(history.state, '', location.pathname + location.hash);

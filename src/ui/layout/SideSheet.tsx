@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
+import { msg } from '../../i18n';
 import { parseRoute, sameScreen } from '../../router';
 import { IconButton } from '../components/IconButton';
 import { ESCAPE_RANK, pushEscapeLayer } from './escape';
@@ -124,7 +125,11 @@ export function SideSheet(p: {
           <h2 id="side-sheet-title" class="side-sheet-title" title={p.title}>
             {p.title}
           </h2>
-          <IconButton icon="close" label="Close details" onClick={p.onClose} />
+          <IconButton
+            icon="close"
+            label={msg().frame.closeDetails}
+            onClick={p.onClose}
+          />
         </div>
         <div class="side-sheet-body">{p.children}</div>
       </aside>

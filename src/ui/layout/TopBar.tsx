@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import type { ComponentChildren } from 'preact';
 import { IconButton } from '../components/IconButton';
 import { Icon } from '../icons';
@@ -17,20 +18,30 @@ export function TopBar(p: {
 }) {
   return (
     <header class="top-bar">
-      {p.up && <IconButton icon="arrow_back" label="Back" href={p.up} />}
+      {p.up && (
+        <IconButton
+          icon="arrow_back"
+          label={msg().frame.topBar.back}
+          href={p.up}
+        />
+      )}
       <h1 class="top-bar-title">{p.title}</h1>
       {windowClass.value === 'compact' ? (
-        <IconButton icon="search" label="Search" onClick={p.onSearch} />
+        <IconButton
+          icon="search"
+          label={msg().frame.topBar.search}
+          onClick={p.onSearch}
+        />
       ) : (
         <button
           type="button"
           class="top-bar-search"
-          aria-label="Search"
+          aria-label={msg().frame.topBar.search}
           aria-keyshortcuts="/ Control+K Meta+K"
           onClick={p.onSearch}
         >
           <Icon name="search" size={20} />
-          <span class="top-bar-search-text">Search</span>
+          <span class="top-bar-search-text">{msg().frame.topBar.search}</span>
           <kbd aria-hidden="true">/</kbd>
         </button>
       )}

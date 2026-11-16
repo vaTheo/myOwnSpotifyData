@@ -1,4 +1,8 @@
-import { parseRekordbox, type RekordboxMessage } from './rekordbox';
+import {
+  parseRekordbox,
+  RekordboxFormatError,
+  type RekordboxMessage,
+} from './rekordbox';
 
 self.onmessage = (event: MessageEvent<{ file: File }>) => {
   const post = (message: RekordboxMessage) => self.postMessage(message);
@@ -11,6 +15,7 @@ self.onmessage = (event: MessageEvent<{ file: File }>) => {
       post({
         type: 'error',
         message: err instanceof Error ? err.message : String(err),
+        ...(err instanceof RekordboxFormatError ? { code: err.code } : {}),
       });
     });
 };

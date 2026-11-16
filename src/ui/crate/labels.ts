@@ -1,6 +1,7 @@
 import type { PlayRow } from '../../db/schema';
 import type { HistoryRange } from '../../history/importer';
 import type { Model } from '../../model/aggregate';
+import { msg } from '../../i18n';
 import { monthKey } from '../../model/crate';
 import { CRATE_VIEWS, routeHref, type CrateView } from '../../router';
 import { artistNames } from '../format';
@@ -18,8 +19,8 @@ export function playLabel(
   const track = m?.tracksByKey.get(row.trackId);
   if (track) return { title: track.name, subtitle: artistNames(track.artists) };
   return {
-    title: row.trackName ?? 'Unknown title',
-    subtitle: row.artistName ?? 'Unknown artist',
+    title: row.trackName ?? msg().crate.labels.unknownTitle,
+    subtitle: row.artistName ?? msg().crate.labels.unknownArtist,
   };
 }
 
@@ -61,7 +62,7 @@ export function yearSpanLabel(
 
 /** `month`, `3 months`: the phrase after "the last" and "in the last". */
 export function windowLabel(months: number): string {
-  return months === 1 ? 'month' : `${months} months`;
+  return msg().crate.labels.window(months);
 }
 
 export interface ViewSwitchItem {

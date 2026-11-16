@@ -1,3 +1,5 @@
+import { msg } from '../i18n';
+
 /** Classic names, one per pitch class, flats throughout (spec §2). */
 export const KEY_NAMES = [
   'C',
@@ -43,8 +45,9 @@ export function openKey(key: number, major: boolean): string {
   return `${n === 0 ? 12 : n}${major ? 'd' : 'm'}`;
 }
 
+/** `A`, `A minor`: the words follow the language shown (spec 031). */
 export function classicName(key: number, major: boolean): string {
-  return `${KEY_NAMES[key]}${major ? '' : ' minor'}`;
+  return major ? KEY_NAMES[key] : msg().library.keys.minor(KEY_NAMES[key]);
 }
 
 export function formatKey(

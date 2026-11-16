@@ -8,8 +8,10 @@
  */
 import type { AutoStep } from '../../model/autoChain';
 import type { UpdateLine } from '../../model/updateLines';
-import { plural } from '../format';
+import { msg } from '../../i18n';
 import { fromUpdate, type ItemLine, type ItemTone } from './itemLines';
+
+const said = () => msg().settings.words;
 
 export type StatusSource =
   'spotify' | 'features' | 'rekordbox' | 'reach' | 'history' | 'server';
@@ -52,11 +54,16 @@ export interface StatusInputs {
   server: ItemLine;
 }
 
-/** "Updating · 3 of 9 tracks", or the word alone with no total known. */
-const progress = (word: string, done: number, total: number, unit: string) =>
-  total > 0
-    ? `${word} · ${done.toLocaleString()} of ${plural(total, unit)}`
-    : word;
+/**
+ * "Updating · 3 of 9 tracks", or the word alone with no total known. The
+ * sentence with its count is one catalogue entry (spec 031).
+ */
+const progress = (
+  word: string,
+  done: number,
+  total: number,
+  line: (done: number, total: number) => string
+) => (total > 0 ? line(done, total) : word);
 
 /**
  * The state words of an automatic job (BPM and key, Artist reach): its
@@ -69,20 +76,21 @@ function jobState(
   never: string | null
 ): { tone: ItemTone; text: string } {
   const line = fromUpdate(job);
+  const w = said();
   switch (line.tone) {
     case 'running':
       return { tone: 'running', text: running };
     case 'waiting':
-      return { tone: 'waiting', text: 'Waiting' };
+      return { tone: 'waiting', text: w.waiting };
     case 'error':
-      return { tone: 'error', text: 'Failed' };
+      return { tone: 'error', text: w.failed };
     case 'warning':
       return { tone: 'warning', text: line.text.split(' · ')[0] };
     case 'off':
-      return { tone: 'off', text: 'Automatic updates off' };
+      return { tone: 'off', text: w.autoOff };
     case 'ok':
       return never === null
-        ? { tone: 'ok', text: 'Up to date' }
+        ? { tone: 'ok', text: w.upToDate }
         : { tone: 'off', text: never };
   }
 }
@@ -90,39 +98,51 @@ function jobState(
 function spotifyRow(i: StatusInputs): StatusRow {
   const line = i.spotify;
   const p = i.spotifyProgress;
+  const w = said();
   const words: Record<ItemTone, string> = {
-    running: progress('Syncing', p?.done ?? 0, p?.total ?? 0, 'playlist'),
-    waiting: 'Waiting',
-    error: 'Failed',
+    running: progress(
+      w.syncing,
+      p?.done ?? 0,
+      p?.total ?? 0,
+      msg().settings.status.syncing
+    ),
+    waiting: w.waiting,
+    error: w.failed,
     // The lock-out's end stays in the Spotify sync item.
-    warning: "Paused by Spotify's limit",
-    off: 'Automatic updates off',
-    ok: 'Up to date',
+    warning: w.spotifyLimit,
+    off: w.autoOff,
+    ok: w.upToDate,
   };
   const never = !i.synced && (line.tone === 'ok' || line.tone === 'off');
   return {
     source: 'spotify',
     label: 'Spotify',
     tone: never ? 'off' : line.tone,
-    text: never ? 'Never synced' : words[line.tone],
+    text: never ? w.neverSynced : words[line.tone],
     retry: line.tone === 'error' ? i.spotifyRetry : null,
   };
 }
 
 function featuresRow(i: StatusInputs): StatusRow {
   const c = i.coverage;
+  const w = said();
   const state = jobState(
     i.features,
-    progress('Updating', c?.covered ?? 0, c?.total ?? 0, 'track'),
+    progress(
+      w.updating,
+      c?.covered ?? 0,
+      c?.total ?? 0,
+      msg().settings.status.updatingTracks
+    ),
     c === null || c.total === 0
-      ? 'No tracks yet'
+      ? w.noTracks
       : c.covered === 0
-        ? 'Not looked up'
+        ? w.notLookedUp
         : null
   );
   return {
     source: 'features',
-    label: 'BPM and key',
+    label: w.bpmKey,
     ...state,
     retry: i.features.retry,
   };
@@ -130,18 +150,24 @@ function featuresRow(i: StatusInputs): StatusRow {
 
 function reachRow(i: StatusInputs): StatusRow {
   const c = i.reachCoverage;
+  const w = said();
   const state = jobState(
     i.reach,
-    progress('Updating', c?.covered ?? 0, c?.artists ?? 0, 'artist'),
+    progress(
+      w.updating,
+      c?.covered ?? 0,
+      c?.artists ?? 0,
+      msg().settings.status.updatingArtists
+    ),
     c === null || c.artists === 0
-      ? 'No artists yet'
+      ? w.noArtists
       : !i.reachChecked
-        ? 'Not looked up'
+        ? w.notLookedUp
         : null
   );
   return {
     source: 'reach',
-    label: 'Artist reach',
+    label: msg().settings.items.reach,
     ...state,
     retry: i.reach.retry,
   };
@@ -155,46 +181,56 @@ function importRow(
   imported: boolean
 ): StatusRow {
   const base = { source, label, retry: null };
+  const w = said();
   if (run.status === 'running') {
     return {
       ...base,
       tone: 'running',
-      text: progress('Importing', run.index, run.total, 'file'),
+      text: progress(
+        w.importing,
+        run.index,
+        run.total,
+        msg().settings.status.importing
+      ),
     };
   }
-  if (run.status === 'error') return { ...base, tone: 'error', text: 'Failed' };
+  if (run.status === 'error') return { ...base, tone: 'error', text: w.failed };
   return imported
-    ? { ...base, tone: 'ok', text: 'Imported' }
-    : { ...base, tone: 'off', text: 'Not imported' };
+    ? { ...base, tone: 'ok', text: w.imported }
+    : { ...base, tone: 'off', text: w.notImported };
 }
 
 /**
  * The server's state in a word: `serverStatusLine` without its date, its
  * data sets or its rows. "Up to date" only once the waiting flags are read
- * (spec 026, FR-007a); before that, "Synced".
+ * (spec 026, FR-007a); before that, "Synced". `serverStatusLine` writes its
+ * first words from the catalogue entries `words.upToDate` and
+ * `words.offline`, and both lines are built in the same draw, so comparing
+ * with those entries holds in every language (spec 031, research R4).
  */
 function serverRow(i: StatusInputs): StatusRow {
   const line = i.server;
   const first = line.text.split(' · ')[0];
+  const w = said();
   const text = ((): string => {
     switch (line.tone) {
       case 'off':
         return first;
       case 'error':
-        return 'Failed';
+        return w.failed;
       case 'warning':
-        return first.startsWith('Offline') ? 'Offline' : 'Paused';
+        return first === w.offline ? w.offline : w.paused;
       case 'running':
-        return 'Syncing';
+        return w.syncing;
       case 'waiting':
-        return 'Changes to send';
+        return w.changesToSend;
       case 'ok':
-        return first === 'Up to date' ? 'Up to date' : 'Synced';
+        return first === w.upToDate ? w.upToDate : w.synced;
     }
   })();
   return {
     source: 'server',
-    label: 'Server',
+    label: msg().settings.items.server,
     tone: line.tone,
     text,
     retry: null,
@@ -208,7 +244,12 @@ export function syncStatusRows(i: StatusInputs): StatusRow[] {
     featuresRow(i),
     importRow('rekordbox', 'Rekordbox', i.rekordboxRun, i.rekordboxImported),
     reachRow(i),
-    importRow('history', 'Listening history', i.historyRun, i.historyImported),
+    importRow(
+      'history',
+      msg().settings.items.history,
+      i.historyRun,
+      i.historyImported
+    ),
     serverRow(i),
   ];
 }

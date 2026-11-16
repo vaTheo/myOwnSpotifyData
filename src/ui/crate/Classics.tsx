@@ -1,5 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
+import { lang, msg } from '../../i18n';
 import {
   CLASSIC_MIN_PLAYS_PER_YEAR,
   CLASSIC_MIN_YEARS,
@@ -12,7 +13,8 @@ import { yearPoints } from '../charts/series';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
 import { DetailsSection } from '../details/TrackDetails';
-import { formatDate, plural } from '../format';
+import { formatDate } from '../format';
+import { CRATE_TITLE } from '../layout/titles';
 import { countColumn } from '../table/columns';
 import { classicSort } from './selections';
 import {
@@ -36,12 +38,12 @@ const filter = signal(EMPTY_FILTER);
 function ClassicExtra(p: { item: ClassicItem; span: number[] }) {
   const row = p.item.row;
   return (
-    <DetailsSection title="All-time classics">
+    <DetailsSection title={CRATE_TITLE.classics}>
       <p class="details-note">
-        {plural(row.plays, 'play')} · last {formatDate(row.lastTs)}
+        {msg().crate.classics.playsLast(row.plays, formatDate(row.lastTs))}
       </p>
       <MonthBars
-        title="Plays per year"
+        title={msg().crate.common.playsPerYear}
         series={yearPoints(row.months, p.span)}
       />
       <OpenMonthLink month={monthKey(new Date(row.lastTs))} />
@@ -57,10 +59,15 @@ export function Classics({ detail }: { detail?: string }) {
     [rows, classicSort.value]
   );
   const opened = items.find((item) => item.row.trackId === detail);
+  const text = msg().crate;
   const caption =
-    `Played ${CLASSIC_MIN_PLAYS_PER_YEAR}+ times in ` +
-    `${CLASSIC_MIN_YEARS}+ of your ${span.length} years · ` +
-    plural(items.length, 'track');
+    text.classics.caption(
+      CLASSIC_MIN_PLAYS_PER_YEAR,
+      CLASSIC_MIN_YEARS,
+      span.length
+    ) +
+    ' · ' +
+    msg().n.track(items.length);
   // Kept while its inputs stay, so the table's memos hold (S13 A5);
   // the model comes in by its rows.
   const columns = useMemo(
@@ -69,7 +76,7 @@ export function Classics({ detail }: { detail?: string }) {
         metrics: [
           {
             id: 'years',
-            header: 'Years played',
+            header: text.classics.yearsPlayed,
             align: 'end',
             priority: 1,
             width: '128px',
@@ -77,40 +84,40 @@ export function Classics({ detail }: { detail?: string }) {
             firstDirection: 'desc',
             cell: (item) => (
               <span>
-                {item.yearsActive} of {span.length}
-                <span class="dt-unit">years</span>
+                {text.classics.yearsOf(item.yearsActive, span.length)}
+                <span class="dt-unit">{text.classics.unitYears}</span>
               </span>
             ),
             compact: 'meta',
           },
           countColumn(
             'plays',
-            'Plays',
+            text.common.plays,
             (item) => item.row.plays,
             {},
             { priority: 3, width: '96px', compact: 'hidden' }
           ),
         ],
         chart: chartColumn(
-          'Per year',
-          'Plays per year',
+          text.classics.perYear,
+          text.common.playsPerYear,
           (item) => yearPoints(item.row.months, span),
           span.length
         ),
         flag: (item) =>
           inNoPlaylist(item.row) ? (
-            <Flag kind="todo">not in a playlist</Flag>
+            <Flag kind="todo">{msg().crate.common.notInPlaylist}</Flag>
           ) : null,
       }),
-    [rows, span]
+    [rows, span, lang.value]
   );
   return (
     <>
       <div class="toolbar">
         <SegmentedButtons
           options={[
-            { value: 'years', label: 'Most years' },
-            { value: 'plays', label: 'Most plays' },
+            { value: 'years', label: text.classics.mostYears },
+            { value: 'plays', label: text.classics.mostPlays },
           ]}
           value={classicSort.value}
           onChange={(v) => {
@@ -121,12 +128,15 @@ export function Classics({ detail }: { detail?: string }) {
       <p class="caption">{caption}</p>
       {items.length === 0 ? (
         <p class="empty">
-          No track reaches {CLASSIC_MIN_YEARS} years yet. Your history covers{' '}
-          {plural(span.length, 'year')}.
+          {text.classics.empty(CLASSIC_MIN_YEARS, span.length)}
         </p>
       ) : (
         <CrateTable
-          label={`All-time classics, ${classicSort.value === 'years' ? 'most years' : 'most plays'}`}
+          label={
+            classicSort.value === 'years'
+              ? text.classics.tableYears
+              : text.classics.tablePlays
+          }
           items={items}
           columns={columns}
           sort={sort}

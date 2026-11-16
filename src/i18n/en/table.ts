@@ -1,0 +1,138 @@
+import { count, int, word } from './count';
+
+/** The texts of tables, filters, details and charts. */
+export const table = {
+  /** `src/ui/table/columns.tsx`: the shared column headings and cells. */
+  columns: {
+    cover: 'Cover',
+    title: 'Title',
+    artists: 'Artists',
+    album: 'Album',
+    length: 'Length',
+    added: 'Added',
+    plays: 'Plays',
+    playlists: 'Playlists',
+    top: 'Top',
+    bpm: 'BPM',
+    key: 'Key',
+    released: 'Released',
+    openInSpotify: 'Open in Spotify',
+    play: 'Play',
+    listen: 'Listen',
+    byName: 'Counted by artist and title',
+    notInPlaylist: 'not in a playlist',
+    topFlag: (period: string): string => `Top ${period}`,
+    listenTo: (artist: string, title: string): string =>
+      `Listen to ${artist} – ${title}`,
+  },
+  /** The noun a phone's two-line item puts after a count, agreed with it. */
+  unit: {
+    play: word('play'),
+    track: word('track'),
+    playlist: word('playlist'),
+    savedTrack: word('saved track'),
+    listener: word('listener'),
+    fan: word('fan'),
+  },
+  /** `src/ui/table/DataTable.tsx`: sorting and paging. */
+  grid: {
+    sortedBy: (column: string): string => `Sorted by ${column}`,
+    sortedAsc: (column: string): string => `Sorted by ${column}, ascending`,
+    sortedDesc: (column: string): string => `Sorted by ${column}, descending`,
+    sortedDefault: 'Sorted by the default order',
+    reset: 'Reset',
+    /** `total` is a number already written, with its noun or not. */
+    showingTop: (shown: number, total: string): string =>
+      `Showing the top ${int(shown)} of ${total}`,
+    showMore: (n: number): string => `Show ${int(n)} more`,
+  },
+  /** `src/ui/filters`: the filter bar and the key picker. */
+  filter: {
+    placeholder: 'Filter by title or artist',
+    bpmRange: 'BPM range',
+    minBpm: 'Minimum BPM',
+    minBpmShort: 'Min BPM',
+    maxBpm: 'Maximum BPM',
+    maxBpmShort: 'Max BPM',
+    clear: 'Clear filters',
+    clearText: 'Clear the text',
+    decade: 'Decade',
+    yearSort: 'Sort by year, oldest first',
+    minAboveMax: 'Min is above max',
+    bpmError: 'Min is above max: no BPM filter applied',
+    showing: (shown: number, total: number): string =>
+      `Showing ${int(shown)} of ${int(total)}`,
+    noMatch: 'No tracks match these filters.',
+    anyKey: 'Any key',
+    withCompatible: (key: string): string => `${key} + compatible`,
+    keyPrefix: 'Key: ',
+    keyFilter: 'Key filter',
+    key: 'Key',
+    includeCompatible: 'Include compatible keys',
+  },
+  /** `src/ui/details`: the track details sheet. */
+  details: {
+    audio: 'Audio',
+    plays: 'Plays',
+    history: 'History',
+    playlists: 'Playlists',
+    album: 'Album',
+    length: 'Length',
+    released: 'Released',
+    bpm: 'BPM',
+    key: 'Key',
+    energy: 'Energy',
+    source: 'Source',
+    listeningTime: 'Listening time',
+    firstPlay: 'First play',
+    lastPlay: 'Last play',
+    starts: 'Starts',
+    finished: 'Finished',
+    skipped: 'Skipped',
+    unclear: 'Unclear',
+    localFile: 'Local file',
+    releasedValue: (year: number, source: string): string =>
+      `${year} · ${source}`,
+    yearSource: {
+      reccobeats: 'ReccoBeats (earliest album)',
+      album: 'album',
+    },
+    sourceValue: (source: string, date: string): string => `${source}, ${date}`,
+    noAudioBefore: 'No BPM or key yet — ',
+    noAudioLink: 'look them up in Settings',
+    matchFrom: 'Match from this track',
+    noPlaysBefore: 'No play counts yet — ',
+    noPlaysLink: 'import your history',
+    notInHistory: 'Not in your listening history',
+    byName: 'by artist and title',
+    inPlaylists: (n: number): string => `In ${count('playlist')(n)}`,
+    syncPlaylists: 'Sync your playlists in Settings to see where this sits',
+    notInAny: (n: number): string =>
+      `Not in any of your ${count('playlist')(n)}`,
+    openMonth: (month: string): string => `Open ${month} ›`,
+    unknownTitle: 'Unknown title',
+    unknownArtist: 'Unknown artist',
+  },
+  /** `src/ui/charts`: bars, the year x month grid and the meter. */
+  charts: {
+    perMonth: 'Plays per month',
+    gridCaption: 'Plays per month and per year',
+    seasons: {
+      winter: 'Winter',
+      spring: 'Spring',
+      summer: 'Summer',
+      autumn: 'Autumn',
+    },
+    total: 'Total',
+    cellLabel: (place: string, plays: number): string =>
+      `${place}, ${count('play')(plays)}`,
+    outLabel: (place: string): string => `${place}, not in the history`,
+    notInHistory: 'not in the history',
+    point: (place: string, value: string): string => `${place} ${value}`,
+    series: (title: string, points: string): string => `${title}: ${points}`,
+    tip: (place: string, value: string): string => `${place}: ${value}`,
+    finished: 'Finished',
+    meter: (label: string, pct: number): string => `${label}: ${pct}%`,
+    percent: (pct: number): string => `${pct}%`,
+  },
+};

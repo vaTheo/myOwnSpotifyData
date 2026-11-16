@@ -1,39 +1,41 @@
 /**
  * The status lines of the Settings sections, word for word what the cards
  * printed before spec 003 (FR-049: where things sit changes, never what they
- * say). Pure, so they are tested without a DOM.
+ * say). Pure, so they are tested without a DOM. Each fragment with its number
+ * is one catalogue entry; the ` · ` join stays here (spec 031).
  */
 import type { ReachRunCounts, ReachStep } from '../../features/reachRun';
 import type { RekordboxSummary } from '../../features/rekordboxImport';
 import type { ServerPending } from '../../db/schema';
+import { fmt, msg } from '../../i18n';
 // Type-only: this file never evaluates state.ts under Vitest.
 import type { Coverage, ReachCoverage } from '../../model/state';
-import { plural } from '../format';
+
+const text = () => msg().settings.lines;
 
 /** The Free plan's database allowance, mirrored from `SERVER_FREE_BYTES`. */
 export function usedShare(bytes: number, freeBytes: number): string {
-  const mb = (n: number) => (n / (1024 * 1024)).toFixed(1);
-  return `${mb(bytes)} MB of ${mb(freeBytes)} MB used on the server`;
+  const mb = (n: number) => n / (1024 * 1024);
+  return text().usedShare(mb(bytes), mb(freeBytes));
 }
 
 /** Whose server session this is: the Settings server card and Connect. */
 export function signedInLine(email: string): string {
-  return `Signed in as ${email || 'the owner'}.`;
+  return email ? text().signedInAs(email) : text().signedInOwner;
 }
 
 /** Spec §5: "BPM and key for 3,120 of 4,980 tracks · ReccoBeats 2,900 · …". */
 export function coverageLine(c: Coverage): string {
-  const total = plural(c.total, 'track');
   return [
-    `BPM and key for ${c.covered.toLocaleString()} of ${total}`,
-    `ReccoBeats ${c.reccobeats.toLocaleString()}`,
-    `Rekordbox ${c.rekordbox.toLocaleString()}`,
+    text().coverage(c.covered, c.total),
+    `ReccoBeats ${fmt.int(c.reccobeats)}`,
+    `Rekordbox ${fmt.int(c.rekordbox)}`,
   ].join(' · ');
 }
 
 /** Round 005: "Release years: 3,120 of 4,980 tracks". */
 export function yearsLine(dated: number, total: number): string {
-  return `Release years: ${dated.toLocaleString()} of ${plural(total, 'track')}`;
+  return text().years(dated, total);
 }
 
 /** The look-up's done line: "found 12 · not found 3 · years 40". */
@@ -42,19 +44,20 @@ export function lookupDoneLine(d: {
   notFound: number;
   years: number;
 }): string {
-  return [
-    `found ${d.found.toLocaleString()}`,
-    `not found ${d.notFound.toLocaleString()}`,
-    `years ${d.years.toLocaleString()}`,
-  ].join(' · ');
+  const t = text();
+  return [t.found(d.found), t.notFound(d.notFound), t.yearsFound(d.years)].join(
+    ' · '
+  );
 }
 
 /** Round 014 (FR-011): shown with the server set up and a session. */
-export const SHARED_NOTICE_BPM =
-  'BPM and key found by a lookup are shared with the other people on this server; your library, plays, rekordbox values and mixes never are.';
+export function sharedNoticeBpm(): string {
+  return text().sharedNoticeBpm;
+}
 
-export const SHARED_NOTICE_REACH =
-  'Listeners and fans found by a lookup are shared with the other people on this server; your library, plays, rekordbox values and mixes never are.';
+export function sharedNoticeReach(): string {
+  return text().sharedNoticeReach;
+}
 
 /**
  * Round 014: what a run took from and gave to the shared store, or null when
@@ -67,29 +70,31 @@ export function sharedRunLine(
 ): { kind: 'success' | 'error'; text: string } | null {
   if (!shared) return null;
   if (shared.error !== null) {
-    return {
-      kind: 'error',
-      text: `The shared store could not be used (${shared.error}); everything was looked up outside as before.`,
-    };
+    return { kind: 'error', text: text().sharedError(shared.error) };
   }
   if (shared.fromStore === 0 && shared.sent === 0) return null;
   return {
     kind: 'success',
-    text: `From the shared store: ${what === 'tracks' ? plural(shared.fromStore, 'track') : `${shared.fromStore.toLocaleString()} ${shared.fromStore === 1 ? "artist's" : "artists'"} numbers`}, no lookup needed. Shared: ${shared.sent.toLocaleString()} new.`,
+    text:
+      what === 'tracks'
+        ? text().sharedTracks(shared.fromStore, shared.sent)
+        : text().sharedArtists(shared.fromStore, shared.sent),
   };
 }
 
 /** "parsed 1,204 · with BPM 1,190 · with key 1,050 · matched 820 · …" */
 export function rekordboxLine(s: RekordboxSummary): string {
+  const t = text();
   return [
-    `parsed ${s.parsed.toLocaleString()}`,
-    `with BPM ${s.withBpm.toLocaleString()}`,
-    `with key ${s.withKey.toLocaleString()}`,
-    `matched ${s.matched.toLocaleString()}`,
-    `unmatched ${s.unmatched.toLocaleString()}`,
+    t.parsed(s.parsed),
+    t.withBpm(s.withBpm),
+    t.withKey(s.withKey),
+    t.matched(s.matched),
+    t.unmatched(s.unmatched),
   ].join(' · ');
 }
 
+/** The sources' own names, the same in every language. */
 export const SOURCE_LABEL: Record<ReachStep, string> = {
   musicbrainz: 'MusicBrainz',
   listenbrainz: 'ListenBrainz',
@@ -104,14 +109,14 @@ export const SOURCE_LABEL: Record<ReachStep, string> = {
  * so they can add up to more than `covered`.
  */
 export function reachCoverageLine(c: ReachCoverage): string {
-  const artists = plural(c.artists, 'artist');
+  const t = text();
   return [
-    `Reach data for ${c.covered.toLocaleString()} of ${artists}`,
-    `MusicBrainz ${c.resolved.toLocaleString()}`,
-    `ListenBrainz ${c.listenbrainz.toLocaleString()}`,
-    `Deezer ${c.deezer.toLocaleString()}`,
-    `Wikipedia ${c.wikipedia.toLocaleString()}`,
-    `well known ${c.wellKnown.toLocaleString()}`,
+    t.reachFor(c.covered, c.artists),
+    `MusicBrainz ${fmt.int(c.resolved)}`,
+    `ListenBrainz ${fmt.int(c.listenbrainz)}`,
+    `Deezer ${fmt.int(c.deezer)}`,
+    `Wikipedia ${fmt.int(c.wikipedia)}`,
+    t.wellKnown(c.wellKnown),
   ].join(' · ');
 }
 
@@ -121,49 +126,47 @@ export function reachCoverageLine(c: ReachCoverage): string {
  * for once a run has stopped (spec §5.5).
  */
 export function reachRunLine(run: ReachRunCounts): string {
+  const t = text();
   return [
-    `Looked up ${plural(run.lookedUp, 'artist')}`,
-    plural(run.written, 'new number'),
-    `${run.unresolved.toLocaleString()} unresolved`,
+    t.lookedUp(run.lookedUp),
+    t.newNumbers(run.written),
+    t.unresolved(run.unresolved),
   ].join(' · ');
 }
 
 export function pausedLine(step: ReachStep): string {
-  return (
-    `${SOURCE_LABEL[step]} stopped answering after three tries; ` +
-    'the rest of this run skipped it.'
-  );
+  return text().paused(SOURCE_LABEL[step]);
 }
-
-/** The server datasets in the words of the Settings sections. */
-const PENDING_NAMES: Record<keyof ServerPending, string> = {
-  library: 'Library',
-  history: 'Listening history',
-  features: 'Audio data',
-  reach: 'Artist reach',
-  mixes: 'Mixes',
-};
 
 /**
  * The changes waiting to send to the server (FR-050): `0` when nothing
- * waits (a real zero), else the count and the datasets in page order:
- * `2 · Listening history, Mixes`.
+ * waits (a real zero), else the count and the datasets in page order, named
+ * as the Settings sections: `2 · Listening history, Mixes`.
  */
 export function pendingValue(pending: ServerPending): string {
-  const names = (Object.keys(PENDING_NAMES) as (keyof ServerPending)[])
+  const named: Record<keyof ServerPending, string> = text().pending;
+  const names = (Object.keys(named) as (keyof ServerPending)[])
     .filter((name) => pending[name] === true)
-    .map((name) => PENDING_NAMES[name]);
-  return names.length === 0 ? '0' : `${names.length} · ${names.join(', ')}`;
+    .map((name) => named[name]);
+  return names.length === 0
+    ? fmt.int(0)
+    : `${fmt.int(names.length)} · ${names.join(', ')}`;
+}
+
+/** A server data set's name as shown (`library`), or the name as received. */
+export function datasetName(name: string): string {
+  const names: Record<string, string> = msg().settings.datasets;
+  return Object.hasOwn(names, name) ? names[name] : name;
 }
 
 /** The Settings server section's line for the same figure. */
 export function pendingLine(pending: ServerPending): string {
-  return `Changes waiting to send: ${pendingValue(pending)}`;
+  return text().pendingLine(pendingValue(pending));
 }
 
 /** round 011: "3 people use this device", or null for one person or none. */
 export function deviceUsersLine(n: number): string | null {
-  return n > 1 ? `${n.toLocaleString()} people use this device` : null;
+  return n > 1 ? text().deviceUsers(n) : null;
 }
 
 /**
@@ -171,7 +174,5 @@ export function deviceUsersLine(n: number): string | null {
  * device may hold several people's data and Disconnect touches only yours.
  */
 export function dangerDescription(serverSetUp: boolean): string {
-  return serverSetUp
-    ? "Removes your Spotify login and deletes your cached playlists and play counts from this browser. Your server data and other people's data on this device are kept."
-    : 'Removes the Spotify login and deletes every cached playlist and play count from this browser. Server data is kept.';
+  return serverSetUp ? text().dangerServer : text().dangerLocal;
 }

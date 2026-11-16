@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
 import type { BannerMessage } from '../../model/banner';
+import { msg } from '../../i18n';
 import { model } from '../../model/state';
 import type { Route } from '../../router';
 import { ActivityButton } from '../ActivityButton';
@@ -51,7 +52,7 @@ export function AppFrame(p: {
         <main class="screen">
           {p.loading ? (
             <div class="screen-loading">
-              <ProgressBar label="Loading your library…" done={0} total={0} />
+              <ProgressBar label={msg().frame.loading} done={0} total={0} />
             </div>
           ) : (
             p.children

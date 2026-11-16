@@ -1,5 +1,13 @@
 import { useMemo } from 'preact/hooks';
-import { candidateIds } from '../../features/lookup';
+import {
+  candidateIds,
+  PASS_BY_ID,
+  PASS_BY_ISRC,
+  PASS_RIDS,
+  PASS_SHARED,
+  PASS_YEARS,
+} from '../../features/lookup';
+import { msg } from '../../i18n';
 import type { Model } from '../../model/aggregate';
 import { yearOf } from '../../model/year';
 import {
@@ -27,17 +35,31 @@ import {
   coverageLine,
   lookupDoneLine,
   rekordboxLine,
-  SHARED_NOTICE_BPM,
+  sharedNoticeBpm,
   sharedRunLine,
   yearsLine,
 } from './lines';
 import { isWaiting, otherStepRuns } from './chain';
 
-const NOTATIONS: { value: KeyNotation; label: string }[] = [
+/** The key notations; Camelot and Open Key are names, Classic is a word. */
+const notations = (): { value: KeyNotation; label: string }[] => [
   { value: 'camelot', label: 'Camelot' },
   { value: 'open', label: 'Open Key' },
-  { value: 'classic', label: 'Classic' },
+  { value: 'classic', label: msg().settings.audio.classic },
 ];
+
+/** A look-up pass (a `PASS_*` constant of `lookup.ts`) in the words shown. */
+function passLabel(pass: string): string {
+  const text = msg().settings.audio;
+  const labels: Record<string, string> = {
+    [PASS_BY_ID]: text.passById,
+    [PASS_BY_ISRC]: text.passByIsrc,
+    [PASS_YEARS]: text.passYears,
+    [PASS_RIDS]: text.passRids,
+    [PASS_SHARED]: text.passShared,
+  };
+  return Object.hasOwn(labels, pass) ? labels[pass] : pass;
+}
 
 /** Round 005: the candidates of the BPM coverage that `yearOf` dates. */
 export function datedCount(m: Model): number {
@@ -48,8 +70,10 @@ export function datedCount(m: Model): number {
   return dated;
 }
 
-export const AUDIO_DESCRIPTION =
-  'BPM and key for your tracks, from ReccoBeats and your Rekordbox collection; release years from ReccoBeats.';
+/** The item's description, read when drawn (spec 031). */
+export function audioDescription(): string {
+  return msg().settings.audio.description;
+}
 
 /** The look-up's button state; a tap while the chain runs another step is queued (round 006). */
 function lookupBlocked(): boolean {
@@ -68,6 +92,7 @@ function lookupBlocked(): boolean {
 /** Look up BPM and key, the item's main button. */
 export function AudioMain(p: { act: boolean }) {
   const lookup = lookupState.value;
+  const w = msg().settings.words;
   return (
     <Button
       variant={p.act ? 'filled' : 'tonal'}
@@ -75,10 +100,10 @@ export function AudioMain(p: { act: boolean }) {
       onClick={() => requestJob('features')}
     >
       {lookup.status === 'running'
-        ? 'Looking up…'
+        ? w.lookingUp
         : isWaiting(chainView.value, 'features')
-          ? 'Waiting…'
-          : 'Look up BPM and key'}
+          ? w.waitingButton
+          : msg().settings.audio.lookUp}
     </Button>
   );
 }
@@ -99,6 +124,8 @@ export function AudioSection() {
   // The notice shows only with server settings and a session (never the demo).
   const sharing = sharedPort() !== undefined;
   const blocked = busy || !cov || cov.total === 0;
+  const text = msg().settings.audio;
+  const w = msg().settings.words;
   return (
     <>
       {cov && cov.total > 0 ? (
@@ -107,18 +134,18 @@ export function AudioSection() {
           <StatusLine>{yearsLine(dated, cov.total)}</StatusLine>
         </>
       ) : (
-        <StatusLine>Sync or import a history first.</StatusLine>
+        <StatusLine>{text.syncFirst}</StatusLine>
       )}
       {lookup.status === 'running' && (
         <ProgressBar
-          label={`Looking up · ${lookup.pass}`}
+          label={text.lookingUpPass(passLabel(lookup.pass))}
           done={lookup.done}
           total={lookup.total}
-          unit="tracks"
+          unit={text.tracks}
         />
       )}
       {lookup.status === 'done' && lookup.total === 0 && lookup.years === 0 && (
-        <StatusLine kind="success">Nothing new to look up.</StatusLine>
+        <StatusLine kind="success">{w.nothingNew}</StatusLine>
       )}
       {lookup.status === 'done' && (lookup.total > 0 || lookup.years > 0) && (
         <StatusLine kind="success">{lookupDoneLine(lookup)}</StatusLine>
@@ -128,13 +155,13 @@ export function AudioSection() {
       )}
       {lookup.status === 'error' && (
         <StatusLine kind="error" quiet>
-          Last error: {lookup.message}
+          {w.lastError(lookup.message)}
         </StatusLine>
       )}
-      {sharing && <p class="muted settings-credit">{SHARED_NOTICE_BPM}</p>}
+      {sharing && <p class="muted settings-credit">{sharedNoticeBpm()}</p>}
       <FileDrop
-        label="Rekordbox collection XML (File > Export Collection)"
-        hint="Drop the XML here or choose it"
+        label={text.xmlLabel}
+        hint={text.xmlHint}
         accept=".xml,text/xml,application/xml"
         disabled={blocked}
         onFiles={([file]) => void startRekordboxImport(file)}
@@ -144,28 +171,29 @@ export function AudioSection() {
           label={rekordbox.file}
           done={rekordbox.index}
           total={rekordbox.total}
-          unit="files"
+          unit={text.files}
         />
       )}
       {rekordbox.status === 'error' && (
         <StatusLine kind="error" quiet>
-          Last error: {rekordbox.message}
+          {w.lastError(rekordbox.message)}
         </StatusLine>
       )}
       {summary && (
         <StatusLine>
-          {rekordboxLine(summary)} · imported {formatDate(summary.importedAt)}
+          {[
+            rekordboxLine(summary),
+            text.importedOn(formatDate(summary.importedAt)),
+          ].join(' · ')}
         </StatusLine>
       )}
-      <h3 class="settings-label">Key notation</h3>
+      <h3 class="settings-label">{text.keyNotation}</h3>
       <SegmentedButtons
-        options={NOTATIONS}
+        options={notations()}
         value={keyNotation.value}
         onChange={setKeyNotation}
       />
-      <p class="muted settings-credit">
-        Audio data via ReccoBeats (Spotify audio features).
-      </p>
+      <p class="muted settings-credit">{text.credit}</p>
     </>
   );
 }

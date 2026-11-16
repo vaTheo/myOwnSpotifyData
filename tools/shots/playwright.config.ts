@@ -78,6 +78,13 @@ export default defineConfig({
   },
   projects: [
     ...WIDTHS.map((w) => ({ name: w.name, use: { viewport: w.viewport } })),
+    // The same pages in French (spec 031): each page is set up in English,
+    // then switched in place. Its own folders: `pages/fr-<width>`.
+    ...WIDTHS.map((w) => ({
+      name: `fr-${w.name}`,
+      testMatch: 'all.shots.ts',
+      use: { viewport: w.viewport },
+    })),
     ...extraBrowsers,
   ],
   webServer: {

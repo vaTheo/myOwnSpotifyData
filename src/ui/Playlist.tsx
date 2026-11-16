@@ -1,6 +1,7 @@
 import { signal } from '@preact/signals';
 import { useState } from 'preact/hooks';
 import { auth } from '../auth/browser';
+import { msg, type Messages } from '../i18n';
 import {
   isLiking,
   likeButtonLabel,
@@ -40,7 +41,7 @@ import { ProgressBar } from './components/ProgressBar';
 import { SegmentedButtons } from './components/SegmentedButtons';
 import { SpotifyLink } from './components/SpotifyLink';
 import { StatusLine } from './components/StatusLine';
-import { artistNames, formatBpm, plural } from './format';
+import { artistNames, formatBpm } from './format';
 import { DETAIL_COMPACT_BELOW } from './layout/ListDetail';
 import { windowClass } from './layout/windowClass';
 import { spotifyTrackId, type ListenTrack } from './listen';
@@ -126,8 +127,9 @@ function clearSeed(playlistId: string): void {
 
 /** `Matching: Nightdrive · 126 BPM · 8A`; each part only when it is known. */
 function seedCaption(name: string, f: ResolvedFeature | null): string {
-  const parts = [`Matching: ${name}`];
-  if (f && f.bpm !== null) parts.push(`${formatBpm(f.bpm)} BPM`);
+  const t = msg().library.match;
+  const parts = [t.matching(name)];
+  if (f && f.bpm !== null) parts.push(t.bpm(formatBpm(f.bpm)));
   if (f && f.key !== null && f.major !== null) {
     parts.push(formatKey(f.key, f.major, keyNotation.value));
   }
@@ -135,19 +137,19 @@ function seedCaption(name: string, f: ResolvedFeature | null): string {
 }
 
 /** Relation (same key, relative, boost, +1, −1), or "no data" alone. */
-const relationColumn: Column<ListedRow> = {
+const relationColumn = (t: Messages['library']): Column<ListedRow> => ({
   id: 'relation',
-  header: 'Relation',
+  header: t.match.relation,
   priority: 1,
   width: '112px',
   cell: ({ cells }) =>
     cells.noData ? (
-      <Flag>no data</Flag>
+      <Flag>{t.match.noData}</Flag>
     ) : cells.relation ? (
       <Flag kind="relation">{cells.relation}</Flag>
     ) : null,
   compact: 'meta',
-};
+});
 
 /** ΔBPM against the seed; out of tolerance it stays, the relation goes. */
 const deltaColumn: Column<ListedRow> = {
@@ -172,7 +174,11 @@ const deltaColumn: Column<ListedRow> = {
  * and Added, priority-4 columns, so the title stays readable at 1440 (review
  * of S02).
  */
-function playlistColumns(m: Model, matching: boolean): Column<ListedRow>[] {
+function playlistColumns(
+  m: Model,
+  matching: boolean,
+  t: Messages['library']
+): Column<ListedRow>[] {
   const featureOf = (r: ListedRow) => r.feature;
   const trackOf = (r: ListedRow): ListenTrack => ({
     id: spotifyTrackId(r.row.track.id),
@@ -202,7 +208,7 @@ function playlistColumns(m: Model, matching: boolean): Column<ListedRow>[] {
       : [addedColumn((r: ListedRow) => r.row.entry.addedAt, { priority: 4 })]),
     // Spec 003 §8: a phone's Match line is relation · ΔBPM · BPM · key.
     playsColumn((r) => r.row.plays, matching ? { compact: 'hidden' } : {}),
-    ...(matching ? [relationColumn, deltaColumn] : []),
+    ...(matching ? [relationColumn(t), deltaColumn] : []),
     topFlagsColumn((r) => r.row.inTop, { sortValue: undefined }),
     bpmColumn(featureOf),
     keyColumn(featureOf),
@@ -219,16 +225,14 @@ function playlistColumns(m: Model, matching: boolean): Column<ListedRow>[] {
 function LikeStatus({ playlistId }: { playlistId: string }) {
   const s = likeState.value;
   if (s.status === 'idle' || s.playlistId !== playlistId) return null;
+  const t = msg().library.like;
   switch (s.status) {
     case 'needScope':
       return (
         <div class="like-status">
-          <StatusLine kind="warning">
-            This app cannot like songs yet — connect again to allow it. Your
-            library stays in this browser.
-          </StatusLine>
+          <StatusLine kind="warning">{t.needScope}</StatusLine>
           <Button variant="tonal" onClick={() => auth.logout()}>
-            Connect again to allow likes
+            {t.connectAgain}
           </Button>
         </div>
       );
@@ -236,10 +240,10 @@ function LikeStatus({ playlistId }: { playlistId: string }) {
       return (
         <div class="like-status">
           <ProgressBar
-            label="Checking your Liked Songs…"
+            label={t.checking}
             done={s.done}
             total={s.total}
-            unit="songs"
+            unit={t.songs}
           />
         </div>
       );
@@ -247,10 +251,10 @@ function LikeStatus({ playlistId }: { playlistId: string }) {
       return (
         <div class="like-status">
           <ProgressBar
-            label="Liking…"
+            label={t.liking}
             done={s.done}
             total={s.total}
-            unit="songs"
+            unit={t.songs}
           />
         </div>
       );
@@ -292,9 +296,10 @@ export function PlaylistActions({ id }: { id: string }) {
   const like = likeState.value;
   const liking = isLiking(like);
   const likeBusy = liking ? null : spotifyBusyMessage('like');
+  const text = msg().library.playlist;
   const syncLabel = running
-    ? 'Syncing…'
-    : (locked ?? syncBusy ?? (busy ? 'Syncing…' : 'Sync this playlist'));
+    ? text.syncing
+    : (locked ?? syncBusy ?? (busy ? text.syncing : text.syncThis));
   const likeLabel = likeBusy ?? likeButtonLabel(like, id);
   if (windowClass.value === 'compact') {
     return (
@@ -347,7 +352,13 @@ const positionOf = (r: ListedRow): string => String(r.row.entry.position);
  * the seed stay, so the table's memos hold across other renders (S13 A5).
  */
 const playlistView = lastCall(
-  (m: Model, id: string, ord: Order, seedRef: SeedRef | undefined) => {
+  (
+    m: Model,
+    id: string,
+    ord: Order,
+    seedRef: SeedRef | undefined,
+    t: Messages['library']
+  ) => {
     const ranked = playlistRanking(m, id);
     // Match ranks the plays order, so only `order` re-sorts by position.
     const rows =
@@ -384,7 +395,7 @@ const playlistView = lastCall(
                 {
                   row,
                   feature: match.feature,
-                  cells: matchCells(seedFeature, match, TOLERANCE_PCT),
+                  cells: matchCells(seedFeature, match, TOLERANCE_PCT, t),
                 },
               ]
             : [];
@@ -392,7 +403,7 @@ const playlistView = lastCall(
       : rows.map((row) => ({
           row,
           feature: featureOfRow(row),
-          cells: matchCells(null, null, TOLERANCE_PCT),
+          cells: matchCells(null, null, TOLERANCE_PCT, t),
         }));
     return { ranked, seed, seedFeature, seedPosition, listed };
   }
@@ -405,11 +416,12 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
   const [layout, setLayout] = useState<TableLayout | null>(null);
   const m = model.value;
   const playlist = m?.playlistsById.get(id);
+  const t = msg().library;
   if (!m || !playlist) {
     return (
       <div class="empty">
-        <p>Playlist not synced yet.</p>
-        <a href="#/playlists">Back to playlists</a>
+        <p>{t.playlist.notSynced}</p>
+        <a href="#/playlists">{t.playlist.back}</a>
       </div>
     );
   }
@@ -418,7 +430,8 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
     m,
     id,
     order.value,
-    seeds.value[id]
+    seeds.value[id],
+    t
   );
   const headerSort = sortOf.value === id ? sort.value : DEFAULT_SORT;
   const filtered = trackFilterView({
@@ -443,8 +456,8 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
   const meta = (
     <p class="detail-meta">
       {seedFeature
-        ? plural(listed.length, 'other')
-        : plural(ranked.length, 'track')}
+        ? t.playlist.others(listed.length)
+        : msg().n.track(ranked.length)}
       {playlist.spotifyUrl && (
         <>
           <span aria-hidden="true"> · </span>
@@ -455,16 +468,16 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
   );
   const noHistory = !historySummary.value && (
     <p class="caption">
-      No play counts yet —{' '}
-      <a href={routeHref({ name: 'import' })}>import your history</a>
+      {t.playlist.noPlays}{' '}
+      <a href={routeHref({ name: 'import' })}>{t.playlist.importLink}</a>
     </p>
   );
   const orderControl = (
     <SegmentedButtons
       options={[
-        { value: 'plays', label: 'By plays' },
-        { value: 'order', label: 'Playlist order' },
-        { value: 'match', label: 'Match' },
+        { value: 'plays', label: t.playlist.byPlays },
+        { value: 'order', label: t.playlist.playlistOrder },
+        { value: 'match', label: t.playlist.match },
       ]}
       value={order.value}
       onChange={(v) => {
@@ -509,7 +522,7 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
             filtersShown.value = !filtersShown.value;
           }}
         >
-          Filters
+          {t.playlist.filters}
         </Button>
         {orderControl}
       </div>
@@ -520,7 +533,7 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
   const seedBar = (
     <>
       {matching && !seed && (
-        <p class="seed-bar caption">Select a track to match against</p>
+        <p class="seed-bar caption">{t.match.selectSeed}</p>
       )}
       {matching && seed && (
         <div class="seed-bar">
@@ -535,17 +548,13 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
             {seedCaption(seed.track.name, seedFeature)}
           </p>
           <Button variant="text" icon="close" onClick={() => clearSeed(id)}>
-            Clear
+            {t.match.clear}
           </Button>
           {!seedFeature && (
-            <StatusLine kind="warning">
-              No BPM or key for this track yet
-            </StatusLine>
+            <StatusLine kind="warning">{t.match.noFeature}</StatusLine>
           )}
           {seedFeature?.bpm === null && (
-            <StatusLine>
-              No BPM for this track — matching by key alone
-            </StatusLine>
+            <StatusLine>{t.match.noBpm}</StatusLine>
           )}
         </div>
       )}
@@ -560,15 +569,15 @@ export function Playlist({ id, detail }: { id: string; detail?: string }) {
       // folds the pane and keeps the columns (ruling R1).
       compact={beside ? true : undefined}
       compactBelow={beside ? DETAIL_COMPACT_BELOW : undefined}
-      label={`${playlist.name}, ${
+      label={
         matching
-          ? 'matches'
+          ? t.playlist.tableLabel.matches(playlist.name)
           : order.value === 'order'
-            ? 'playlist order'
-            : 'by plays'
-      }`}
+            ? t.playlist.tableLabel.order(playlist.name)
+            : t.playlist.tableLabel.plays(playlist.name)
+      }
       noun="track"
-      columns={playlistColumnsOf(m, matching && seedFeature !== null)}
+      columns={playlistColumnsOf(m, matching && seedFeature !== null, t)}
       rows={listed}
       only={filtered.only}
       rowKey={positionOf}

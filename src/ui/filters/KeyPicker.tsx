@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { msg } from '../../i18n';
 import { camelotNumber, formatKey, type KeySig } from '../../model/keys';
 import { keyNotation } from '../../model/state';
 import { Icon } from '../icons';
@@ -39,9 +40,16 @@ export function KeyPicker(p: {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const notation = keyNotation.value;
-  const label = p.value
-    ? `${formatKey(p.value.key, p.value.major, notation)}${p.compatible ? ' + compatible' : ''}`
-    : 'Any key';
+  const text = msg().table.filter;
+  const chosen = p.value
+    ? formatKey(p.value.key, p.value.major, notation)
+    : null;
+  const label =
+    chosen === null
+      ? text.anyKey
+      : p.compatible
+        ? text.withCompatible(chosen)
+        : chosen;
 
   useEffect(() => {
     if (!open) return;
@@ -141,13 +149,13 @@ export function KeyPicker(p: {
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <span class="visually-hidden">Key: </span>
+        <span class="visually-hidden">{text.keyPrefix}</span>
         <span>{label}</span>
         <Icon name="expand_more" size={18} />
       </button>
       {open && (
-        <div class="key-menu" role="dialog" aria-label="Key filter">
-          <div class="key-menu-grid" role="radiogroup" aria-label="Key">
+        <div class="key-menu" role="dialog" aria-label={text.keyFilter}>
+          <div class="key-menu-grid" role="radiogroup" aria-label={text.key}>
             {BANDS.flat().map((k) => {
               const n = camelotNumber(k.key, k.major);
               const checked = same(p.value, k);
@@ -180,7 +188,7 @@ export function KeyPicker(p: {
                 )
               }
             />
-            <span>Include compatible keys</span>
+            <span>{text.includeCompatible}</span>
           </label>
           <button
             type="button"
@@ -191,7 +199,7 @@ export function KeyPicker(p: {
               close();
             }}
           >
-            Any key
+            {text.anyKey}
           </button>
         </div>
       )}

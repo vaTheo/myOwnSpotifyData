@@ -1,8 +1,8 @@
 import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
+import { lang, msg } from '../../i18n';
 import {
   MIN_ROTATION_PLAYS,
-  MONTH_NAMES,
   ROTATION_WINDOWS,
   heavyRotation,
   lastMonths,
@@ -10,15 +10,15 @@ import {
   type RotationItem,
 } from '../../model/crate';
 import { routeHref } from '../../router';
+import { CRATE_TITLE } from '../layout/titles';
 import { MonthBars } from '../charts/MonthBars';
 import { monthSeries } from '../charts/series';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
 import { DetailsSection } from '../details/TrackDetails';
-import { plural } from '../format';
 import { countColumn } from '../table/columns';
 import { historySummary } from '../../model/state';
-import { staleMonthKey, windowLabel } from './labels';
+import { staleMonthKey } from './labels';
 import { rotationMonths } from './selections';
 import {
   CrateSheet,
@@ -37,13 +37,15 @@ import { EMPTY_FILTER } from '../filters/trackFilter';
 const sort = signal(DEFAULT_SORT);
 const filter = signal(EMPTY_FILTER);
 
-const OPTIONS = ROTATION_WINDOWS.map((n) => ({
-  value: String(n),
-  label: n === 1 ? '1 month' : `${n} months`,
-}));
+function options() {
+  return ROTATION_WINDOWS.map((n) => ({
+    value: String(n),
+    label: msg().crate.rotation.option(n),
+  }));
+}
 
 function shortMonth(key: string): string {
-  return MONTH_NAMES[Number(key.slice(5, 7)) - 1];
+  return msg().months[Number(key.slice(5, 7)) - 1];
 }
 
 function rangeLabel(keys: string[]): string {
@@ -62,8 +64,11 @@ function windowSeries(item: RotationItem, keys: string[]) {
 
 /** `New` first, then "not in a playlist" (today's precedence). */
 function rotationFlag(item: RotationItem) {
-  if (item.isNew) return <Flag kind="top">New</Flag>;
-  if (inNoPlaylist(item.row)) return <Flag kind="todo">not in a playlist</Flag>;
+  const text = msg().crate;
+  if (item.isNew) return <Flag kind="top">{text.rotation.new}</Flag>;
+  if (inNoPlaylist(item.row)) {
+    return <Flag kind="todo">{text.common.notInPlaylist}</Flag>;
+  }
   return null;
 }
 
@@ -72,10 +77,9 @@ function RotationExtra(p: { item: RotationItem; keys: string[] }) {
   const months = p.item.row.months;
   const month = months ? peakMonth(months, p.keys) : null;
   return (
-    <DetailsSection title="Heavy rotation">
+    <DetailsSection title={CRATE_TITLE.rotation}>
       <p class="details-note">
-        {p.item.windowPlays.toLocaleString()} of{' '}
-        {plural(p.item.row.plays, 'play')}
+        {msg().crate.rotation.ofPlays(p.item.windowPlays, p.item.row.plays)}
       </p>
       <MonthBars series={windowSeries(p.item, p.keys)} />
       {month && <OpenMonthLink month={month} />}
@@ -94,12 +98,16 @@ export function Rotation({ detail }: { detail?: string }) {
     () => heavyRotation(rows, now, months),
     [rows, today, months]
   );
+  const text = msg().crate;
   const caption = [rangeLabel(keys)];
   if (now.getDate() < 8) {
     const current = shortMonth(keys[keys.length - 1]);
-    caption.push(`${current} is ${plural(now.getDate(), 'day')} in`);
+    caption.push(text.rotation.dayIn(current, now.getDate()));
   }
-  caption.push(`${MIN_ROTATION_PLAYS}+ plays`, plural(items.length, 'track'));
+  caption.push(
+    text.common.playsPlus(MIN_ROTATION_PLAYS),
+    msg().n.track(items.length)
+  );
   const opened = items.find((item) => item.row.trackId === detail);
   const stale = staleMonthKey(historySummary.value?.range, now);
   // Kept while its inputs stay, so the table's memos hold (S13 A5);
@@ -108,32 +116,35 @@ export function Rotation({ detail }: { detail?: string }) {
     () =>
       crateColumns<RotationItem>({
         metrics: [
-          countColumn('window', 'Plays in window', (item) => item.windowPlays, {
-            unit: ['play', 'plays'],
-          }),
+          countColumn(
+            'window',
+            text.rotation.inWindow,
+            (item) => item.windowPlays,
+            { unit: [text.common.unitPlay, text.common.unitPlays] }
+          ),
           countColumn(
             'lifetime',
-            'Lifetime',
+            text.rotation.lifetime,
             (item) => item.row.plays,
             {},
             { priority: 3, width: '96px', compact: 'hidden' }
           ),
         ],
         chart: chartColumn(
-          `Last ${windowLabel(months)}`,
-          'Plays per month',
+          text.rotation.lastWindow(months),
+          text.common.playsPerMonth,
           (item) => windowSeries(item, keys),
           keys.length
         ),
         flag: rotationFlag,
       }),
-    [rows, today, months]
+    [rows, today, months, lang.value]
   );
   return (
     <>
       <div class="toolbar">
         <SegmentedButtons
-          options={OPTIONS}
+          options={options()}
           value={String(months)}
           onChange={(v) => {
             rotationMonths.value = Number(v);
@@ -145,17 +156,18 @@ export function Rotation({ detail }: { detail?: string }) {
         <div class="empty">
           {stale ? (
             <>
-              <p>
-                Your history ends {monthLabel(stale)}, so nothing falls in the
-                last {windowLabel(months)}.
-              </p>
-              <a href={routeHref({ name: 'import' })}>Import a fresh export</a>
+              <p>{text.rotation.staleEmpty(monthLabel(stale), months)}</p>
+              <a href={routeHref({ name: 'import' })}>
+                {text.rotation.importFresh}
+              </a>
             </>
           ) : (
             <>
               <p>
-                Nothing with {MIN_ROTATION_PLAYS}+ plays since{' '}
-                {monthLabel(keys[0])}.
+                {text.rotation.nothingSince(
+                  MIN_ROTATION_PLAYS,
+                  monthLabel(keys[0])
+                )}
               </p>
               {months !== 6 && (
                 <button
@@ -164,7 +176,7 @@ export function Rotation({ detail }: { detail?: string }) {
                     rotationMonths.value = 6;
                   }}
                 >
-                  Try 6 months
+                  {text.common.tryMonths(6)}
                 </button>
               )}
             </>
@@ -172,7 +184,7 @@ export function Rotation({ detail }: { detail?: string }) {
         </div>
       ) : (
         <CrateTable
-          label={`Heavy rotation, last ${windowLabel(months)}`}
+          label={text.rotation.table(months)}
           items={items}
           columns={columns}
           sort={sort}

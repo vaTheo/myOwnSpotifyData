@@ -269,9 +269,10 @@ line shows the progress ("Updating · 22,353 of 33,888 tracks", "Importing ·
 dates and the server's rows are in each item, opened; what Automatic updates
 does is explained in **Spotify sync**.
 
-Below it, seven items grouped under **Spotify** (Spotify account, Spotify
-sync), **Your data** (Listening history, Audio data, Artist reach) and
-**Between devices** (Server), then the **Danger zone** apart. Each item is
+Below it, eight items grouped under **Spotify** (Spotify account, Spotify
+sync), **Your data** (Listening history, Audio data, Artist reach),
+**Between devices** (Server) and **This device** (Language), then the
+**Danger zone** apart. Each item is
 closed to one line: its name, its state in a few words and in its colour
 ("Synced", "Running 40 %", "Failed"; an error or a warning shows even
 closed; the numbers are in the item, opened) and its main button, highlighted
@@ -318,6 +319,18 @@ start only here.
   data in this browser; server data is kept. With the server set up it removes
   only yours: other people's data on this device stays. So does syncing while a
   different Spotify account is signed in, which asks first.
+- **Language** (This device) switches the whole app between **Français**
+  and **English**, each written in its own language. The screen changes at
+  once, without a reload, and nothing else moves: no data, no running job,
+  no Spotify read. The same choice sits at the top of the Connect and
+  sign-in cards, so it can be made before signing in. The choice is kept on
+  this device only (a phone and a computer can differ). With no choice made,
+  the app follows your browser's first language: French if it is French,
+  English otherwise. Dates and numbers follow the language shown ("16 Nov
+  2026" and "1,234" in English, « 16 nov. 2026 » and « 1 234 » in French).
+  Track, artist, playlist and mix names are never translated, nor the name
+  of a playlist the app creates on Spotify; a message already on screen
+  keeps its language until its job runs again.
 
 ### Mix
 

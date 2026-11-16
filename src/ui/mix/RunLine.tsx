@@ -11,7 +11,7 @@ import {
 } from '../../model/state';
 import { Button } from '../components/Button';
 import { ProgressBar } from '../components/ProgressBar';
-import { plural } from '../format';
+import { msg } from '../../i18n';
 import { Disclosure } from './Disclosure';
 
 /**
@@ -47,7 +47,7 @@ export function OpenMixRequest(p: { url: string }) {
         disabled={!item.canStop}
         onClick={() => void startStopRequest(request.id)}
       >
-        Stop
+        {msg().mix.common.stop}
       </Button>
     </div>
   );
@@ -78,7 +78,7 @@ export function RunLine(p: { url: string; run: MixRun | undefined }) {
               variant="text"
               onClick={() => void startIdentifyRequest(key)}
             >
-              Ask again
+              {msg().mix.common.askAgain}
             </Button>
           )}
         </div>
@@ -86,7 +86,7 @@ export function RunLine(p: { url: string; run: MixRun | undefined }) {
       {text.warnings.length > 0 && (
         <Disclosure
           class="mix-run-warnings"
-          summary={plural(text.warnings.length, 'warning')}
+          summary={msg().mix.run.warnings(text.warnings.length)}
         >
           <ul class="mix-lines">
             {text.warnings.map((w) => (

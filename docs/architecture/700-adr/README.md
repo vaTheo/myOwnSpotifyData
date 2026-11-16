@@ -1,12 +1,13 @@
 # 700 — ADR, the decisions that still hold
 
 > **Status**: Living
-> **Last updated**: 2026-11-13
+> **Last updated**: 2026-11-16
 
 One decision per file, kept when it no longer holds (marked `Superseded by …`). A decision belongs here when it outlives the feature round
 that made it; the round's reasoning stays in its [spec](../../specs/). The first seven were taken during the rounds of 2026-09-04 to
 2026-09-25 and written down on 2026-11-05; ADR-08 was taken on 2026-11-05, ADR-09, ADR-10 and ADR-11 on 2026-11-06 (ADR-10
-amended the same day by the redesign's Mix review), ADR-12 on 2026-11-07, ADR-13, ADR-14, ADR-15, ADR-16 and ADR-17 on 2026-11-08.
+amended the same day by the redesign's Mix review), ADR-12 on 2026-11-07, ADR-13, ADR-14, ADR-15, ADR-16 and ADR-17 on 2026-11-08, ADR-18 on
+2026-11-16.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -27,6 +28,7 @@ amended the same day by the redesign's Mix review), ADR-12 on 2026-11-07, ADR-13
 | [ADR-15](ADR-15-shared-track-facts.md) | One shared store of public track and artist facts (BPM, key, reach) on the server: no user column, insert-only, checked by the database, read by id (200 at most) through two functions; rekordbox and everything personal stay private | Accepted |
 | [ADR-16](ADR-16-shared-worker.md) | One worker for every user: a named worker role (listed by the owner) takes any user's identification request through five definer functions, no table privilege, one request per user in turn; personal mode kept | Accepted; amended 2026-11-13 (spec 028: the phone's share host `on.soundcloud.com` joins the hosts a shared worker accepts, and a share link is followed only inside SoundCloud's hosts) |
 | [ADR-17](ADR-17-trackid-worker.md) | The worker asks TrackId.net by the exact mix link, makes one confirming Shazam probe per known span and skips the rest, adds a row per span (origin `trackid`) with a Shazam check; TrackId.net is the source of truth | Accepted; amended 2026-11-13 (spec 029: a confirming probe that does not name the span's track is asked again at the other second-pass speeds, second pass on; worker 0.7.6: "names the span's track" also accepts an artist written with other spacing or punctuation and a remaster tag on a title: in the check, the retry decision and what a span absorbs, never in `match.py`) |
+| [ADR-18](ADR-18-two-languages-typed-catalogue.md) | Two languages, French and English, from one typed catalogue in `src/i18n/` with no library; the choice kept per device; three nets for a missing French text (type check, catalogue test, lint rule); a kept failure message keeps its language until its job runs again | Accepted |
 
 ## Skeleton
 

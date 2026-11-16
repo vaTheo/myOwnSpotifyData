@@ -1,39 +1,49 @@
 import type { ArtistRef, Period } from '../db/schema';
 import type { ImportSummary } from '../history/importer';
 import type { ImportCounts } from '../history/records';
-import { MONTH_NAMES } from '../model/crate';
+import { fmt, msg } from '../i18n';
 import { WELL_KNOWN_MIN_SITELINKS } from '../model/reach';
 
+/**
+ * Spotify's three periods. Read when drawing: each label is the text of the
+ * language shown (spec 031).
+ */
 export const PERIOD_LABEL: Record<Period, string> = {
-  short_term: '4 weeks',
-  medium_term: '6 months',
-  long_term: '1 year',
+  get short_term() {
+    return msg().format.period.short_term;
+  },
+  get medium_term() {
+    return msg().format.period.medium_term;
+  },
+  get long_term() {
+    return msg().format.period.long_term;
+  },
 };
 
 /** The Top screen's wording: Spotify's long term has no fixed length. */
 export const TOP_PERIOD_LABEL: Record<Period, string> = {
-  short_term: '4 weeks',
-  medium_term: '6 months',
-  long_term: 'All time',
+  get short_term() {
+    return msg().format.period.short_term;
+  },
+  get medium_term() {
+    return msg().format.period.medium_term;
+  },
+  get long_term() {
+    return msg().format.topLongTerm;
+  },
 };
 
 export function formatTime(ms: number): string {
-  return new Date(ms).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return fmt.time(ms);
 }
 
 export function formatDateTime(ms: number): string {
-  return new Date(ms).toLocaleString([], {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return fmt.dateTime(ms);
 }
 
 /** Accepts an export timestamp (ISO) or a stored epoch (`importedAt`). */
 export function formatDate(value: string | number): string {
-  return new Date(value).toLocaleDateString([], { dateStyle: 'medium' });
+  return fmt.date(value);
 }
 
 /** Listening time: `45 min`, `2 h 6 min`, `1,234 h` (rounded to minutes). */
@@ -41,14 +51,9 @@ export function formatListening(ms: number): string {
   const minutes = Math.round(Math.max(0, ms) / 60_000);
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h === 0) return `${m} min`;
-  return m === 0
-    ? `${h.toLocaleString()} h`
-    : `${h.toLocaleString()} h ${m} min`;
-}
-
-export function plural(n: number, word: string): string {
-  return `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
+  const text = msg().format;
+  if (h === 0) return text.minutes(m);
+  return m === 0 ? text.hours(h) : text.hoursMinutes(h, m);
 }
 
 /**
@@ -57,16 +62,17 @@ export function plural(n: number, word: string): string {
  * the whole line disappears rather than reading "Not counted: ".
  */
 export function notCountedLine(counts: ImportCounts): string | null {
+  const text = msg().format.notCounted;
   const parts: string[] = [];
-  const add = (n: number, label: string): void => {
-    if (n > 0) parts.push(`${n.toLocaleString()} ${label}`);
+  const add = (n: number, label: (n: number) => string): void => {
+    if (n > 0) parts.push(label(n));
   };
-  add(counts.short, 'under 30 s');
-  add(counts.podcast, 'podcast');
-  add(counts.audiobook, 'audiobook');
-  add(counts.unattributed, 'without a track id');
-  add(counts.malformed, 'unreadable');
-  return parts.length > 0 ? `Not counted: ${parts.join(', ')}` : null;
+  add(counts.short, text.short);
+  add(counts.podcast, text.podcast);
+  add(counts.audiobook, text.audiobook);
+  add(counts.unattributed, text.unattributed);
+  add(counts.malformed, text.malformed);
+  return parts.length > 0 ? text.line(parts.join(', ')) : null;
 }
 
 /**
@@ -76,9 +82,9 @@ export function notCountedLine(counts: ImportCounts): string | null {
  * never print `1000k`. Listeners and fans are always printed in full.
  */
 export function compactCount(n: number): string {
-  if (n < 10_000) return n.toLocaleString();
-  if (n < 999_500) return `${Math.round(n / 1000)}k`;
-  return `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}m`;
+  if (n < 10_000) return fmt.int(n);
+  if (n < 999_500) return msg().format.thousands(Math.round(n / 1000));
+  return msg().format.millions(Number((n / 1e6).toFixed(1)));
 }
 
 /** One decimal, a trailing `.0` dropped: `124`, `127.5` (spec §5). */
@@ -110,11 +116,10 @@ export function reachLine(
   fans: number | null
 ): string {
   const parts: string[] = [];
-  if (listeners !== null) {
-    parts.push(plural(listeners, 'ListenBrainz listener'));
-  }
-  if (fans !== null) parts.push(plural(fans, 'Deezer fan'));
-  return parts.length > 0 ? parts.join(' · ') : 'no reach data';
+  const text = msg().format;
+  if (listeners !== null) parts.push(text.listeners(listeners));
+  if (fans !== null) parts.push(text.fans(fans));
+  return parts.length > 0 ? parts.join(' · ') : text.noReach;
 }
 
 /**
@@ -130,9 +135,9 @@ export function profileLine(
   views: number | null
 ): string | null {
   if (sitelinks === null || sitelinks < WELL_KNOWN_MIN_SITELINKS) return null;
-  const line = `Wikipedia · ${plural(sitelinks, 'language')}`;
+  const line = msg().format.wikipedia(sitelinks);
   return views !== null && views > 0
-    ? `${line} · ${compactCount(views)} views/yr`
+    ? `${line} · ${msg().format.viewsPerYear(compactCount(views))}`
     : line;
 }
 
@@ -157,7 +162,7 @@ export function formatClock(totalSeconds: number): string {
 /** '2026-08' -> 'Aug 2026'. */
 export function monthLabel(key: string): string {
   const [year, month] = key.split('-');
-  return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
+  return `${msg().months[Number(month) - 1]} ${year}`;
 }
 
 /**
@@ -168,16 +173,23 @@ export function historyLine(
   summary: ImportSummary,
   zoneAtImport?: string
 ): string {
+  const text = msg().format.history;
   const parts = [
-    `Imported ${formatDate(summary.importedAt)}:`,
-    `${plural(summary.plays, 'play')} across`,
-    `${plural(summary.tracks, 'track')}.`,
+    text.imported(
+      formatDate(summary.importedAt),
+      msg().n.play(summary.plays),
+      msg().n.track(summary.tracks)
+    ),
   ];
   if (summary.range) {
-    parts.push(`${formatDate(summary.range.first)} –`);
-    parts.push(`${formatDate(summary.range.last)}.`);
+    parts.push(
+      text.range(
+        formatDate(summary.range.first),
+        formatDate(summary.range.last)
+      )
+    );
   }
-  if (zoneAtImport) parts.push(`Months bucketed in ${zoneAtImport}.`);
+  if (zoneAtImport) parts.push(text.zone(zoneAtImport));
   return parts.join(' ');
 }
 
@@ -191,9 +203,9 @@ export function topCaption(
   comparing: boolean,
   hasPlays: boolean
 ): string {
-  if (comparing) return "Spotify's own ranking, period by period.";
-  const ranking = "Spotify's own ranking for this period.";
+  const text = msg().format.top;
+  if (comparing) return text.comparing;
   return kind === 'tracks' && hasPlays
-    ? `${ranking} Plays come from your history import.`
-    : ranking;
+    ? `${text.ranking} ${text.plays}`
+    : text.ranking;
 }

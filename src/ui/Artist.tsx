@@ -1,6 +1,7 @@
 import { signal } from '@preact/signals';
 import { useState } from 'preact/hooks';
 import type { ArtistIdentityRow } from '../db/schema';
+import { fmt, msg, type Messages } from '../i18n';
 import {
   artistTracks,
   topArtistById,
@@ -15,13 +16,7 @@ import { routeHref } from '../router';
 import { Card } from './components/Card';
 import { NoData } from './components/NoData';
 import { SpotifyLink } from './components/SpotifyLink';
-import {
-  artistNames,
-  artistUrl,
-  formatDate,
-  plural,
-  profileLine,
-} from './format';
+import { artistNames, artistUrl, formatDate, profileLine } from './format';
 import { Icon } from './icons';
 import { DETAIL_COMPACT_BELOW } from './layout/ListDetail';
 import { windowClass } from './layout/windowClass';
@@ -67,7 +62,7 @@ function Figure(p: { value: number | null; label: string }) {
   return (
     <div class="figure">
       <span class="figure-value">
-        {p.value === null ? <NoData /> : p.value.toLocaleString()}
+        {p.value === null ? <NoData /> : fmt.int(p.value)}
       </span>
       <span class="figure-label">{p.label}</span>
     </div>
@@ -97,11 +92,12 @@ function ArtistReach(p: { m: Model; id: string | null }) {
   const fetched = [reach.listenbrainz, reach.deezer, reach.wikipedia]
     .filter((row) => row !== undefined)
     .map((row) => row.fetchedAt);
+  const t = msg().library.artist;
   // The newest stamp among the rows that actually carry a number.
   const credit = [
-    fetched.length > 0 ? `as of ${formatDate(Math.max(...fetched))}` : null,
+    fetched.length > 0 ? t.asOf(formatDate(Math.max(...fetched))) : null,
     // Wherever a language count or a view count is on screen (spec §8).
-    profile === null ? null : 'Wikipedia figures CC BY-SA 4.0',
+    profile === null ? null : t.wikiCredit,
   ].filter((part) => part !== null);
   // A link only where the id behind it is known (spec §5.4).
   const links: { label: string; href: string }[] = [];
@@ -129,13 +125,11 @@ function ArtistReach(p: { m: Model; id: string | null }) {
     <Card class="reach-card">
       {!unresolved && (
         <div class="reach-figures">
-          <Figure value={listeners} label="ListenBrainz listeners" />
-          <Figure value={fans} label="Deezer fans" />
+          <Figure value={listeners} label={t.listeners} />
+          <Figure value={fans} label={t.fans} />
         </div>
       )}
-      {unresolved && profile === null && (
-        <p class="reach-none">No reach data</p>
-      )}
+      {unresolved && profile === null && <p class="reach-none">{t.noReach}</p>}
       {profile && <p class="reach-profile">{profile}</p>}
       {credit.length > 0 && <p class="reach-credit">{credit.join(' · ')}</p>}
       {(unresolved || links.length > 0) && (
@@ -145,7 +139,7 @@ function ArtistReach(p: { m: Model; id: string | null }) {
               class="btn btn-tonal"
               href={routeHref({ name: 'settings', item: 'reach' })}
             >
-              <span>Look up artists</span>
+              <span>{t.lookUp}</span>
             </a>
           )}
           {links.map((link) => (
@@ -170,7 +164,10 @@ function ArtistReach(p: { m: Model; id: string | null }) {
  * Play · title · album · plays · playlists · BPM · key · released · listen
  * (spec 003 §10, round 005; play, listen: round 017).
  */
-function trackColumns(m: Model): Column<ArtistTrack>[] {
+function trackColumns(
+  m: Model,
+  t: Messages['library']['columns']
+): Column<ArtistTrack>[] {
   const featureOf = (r: ArtistTrack) =>
     r.track.id ? featureFor(m, r.track.id) : null;
   const trackOf = (r: ArtistTrack): ListenTrack => ({
@@ -188,9 +185,9 @@ function trackColumns(m: Model): Column<ArtistTrack>[] {
     playsColumn((r) => r.plays),
     countColumn(
       'playlists',
-      'Playlists',
+      t.playlists,
       (r) => r.playlistIds.length,
-      { unit: ['playlist', 'playlists'] },
+      { unit: [t.playlistUnit(1), t.playlistUnit(2)] },
       { priority: 2, width: '104px' }
     ),
     bpmColumn(featureOf),
@@ -221,11 +218,12 @@ export function Artist({
   // no aggregate; the top list still knows the name of what you tapped.
   const top = m && !agg ? topArtistById(m, artistKey) : null;
   const name = agg?.name ?? top?.name ?? null;
+  const t = msg().library;
   if (!m || name === null) {
     return (
       <div class="empty">
-        <p>No saved tracks for this artist.</p>
-        <a href="#/artists">Back to artists</a>
+        <p>{t.artist.noSaved}</p>
+        <a href="#/artists">{t.artist.back}</a>
       </div>
     );
   }
@@ -250,8 +248,7 @@ export function Artist({
   return (
     <section>
       <p class="detail-meta artist-meta">
-        {plural(tracks.length, 'saved track')} in{' '}
-        {plural(agg?.playlistIds.size ?? 0, 'playlist')}
+        {t.artist.meta(tracks.length, agg?.playlistIds.size ?? 0)}
         {url && (
           <>
             <span aria-hidden="true"> · </span>
@@ -264,7 +261,7 @@ export function Artist({
           so no "Look up artists" is offered for one. */}
       <ArtistReach m={m} id={agg ? artistId : null} />
       {tracks.length === 0 ? (
-        <p class="empty">No saved tracks from {name} in your playlists.</p>
+        <p class="empty">{t.artist.noTracks(name)}</p>
       ) : (
         <>
           {filtered.bar}
@@ -278,9 +275,9 @@ export function Artist({
                   ? DETAIL_COMPACT_BELOW
                   : undefined
               }
-              label={`Saved tracks by ${name}`}
+              label={t.artist.tableLabel(name)}
               noun="track"
-              columns={trackColumnsOf(m)}
+              columns={trackColumnsOf(m, t.columns)}
               rows={tracks}
               only={filtered.only}
               rowKey={(t) => t.track.key}

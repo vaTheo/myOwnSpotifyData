@@ -9,6 +9,7 @@
 import type { Signal } from '@preact/signals';
 import { auth } from '../auth/browser';
 import { putMeta, putMix, replaceDataset, wipeDb } from '../db/repo';
+import { setLang } from '../i18n';
 import { MIX_JOBS_META, type AllRows } from '../db/schema';
 import {
   banner,
@@ -105,6 +106,12 @@ export async function installDemo(variant: DemoVariant): Promise<void> {
       mix: demo.mixes[0]?.url ?? null,
     },
     set(name, value) {
+      // The language shown, switched in place as the Settings item does it:
+      // the French pass of the visual loop (spec 031).
+      if (name === 'lang') {
+        setLang(value === 'fr' ? 'fr' : 'en');
+        return;
+      }
       const target = CONTROLLED[name];
       if (!target) throw new Error(`No demo control named ${name}`);
       target.value = value;

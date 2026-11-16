@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import type { ArtistIdentityRow } from '../db/schema';
 import { REACH_REQUEST_TIMEOUT_MS } from '../util/retry';
 
@@ -123,7 +124,7 @@ function articleTitle(url: string | null): string | null {
 function parse(body: unknown, key: string): WikidataBatch {
   const bindings = field(field(body, 'results'), 'bindings');
   if (!Array.isArray(bindings)) {
-    return { status: 'failed', message: 'Wikidata returned no results' };
+    return { status: 'failed', message: msg().sources.wikidata.noResults };
   }
   const hits = new Map<string, WikidataHit>();
   const ambiguous = new Set<string>();
@@ -187,10 +188,16 @@ async function ask(
     });
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    return { status: 'failed', message: `Wikidata is unreachable: ${reason}` };
+    return {
+      status: 'failed',
+      message: msg().sources.wikidata.unreachable(reason),
+    };
   }
   if (!res.ok) {
-    return { status: 'failed', message: `Wikidata error ${res.status}` };
+    return {
+      status: 'failed',
+      message: msg().sources.wikidata.error(res.status),
+    };
   }
   let body: unknown;
   try {
@@ -198,7 +205,7 @@ async function ask(
   } catch {
     return {
       status: 'failed',
-      message: 'Wikidata returned a malformed response',
+      message: msg().sources.wikidata.malformed,
     };
   }
   return parse(body, key);

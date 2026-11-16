@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  SPOTIFY_BEFORE_SIGNIN_MESSAGE,
   afterLink,
   connectSignOutShown,
   gateNotices,
   sharedPortAllowed,
   signInRequired,
+  spotifyBeforeSignInMessage,
   syncOnOpen,
 } from './gate';
 
@@ -84,13 +84,13 @@ describe('gateNotices', () => {
 
   it('says a Spotify return was not used, beside a server error', () => {
     expect(gateNotices({ status: 'signedOut' }, true)).toEqual([
-      { kind: 'error', text: SPOTIFY_BEFORE_SIGNIN_MESSAGE },
+      { kind: 'error', text: spotifyBeforeSignInMessage() },
     ]);
     expect(
       gateNotices({ status: 'error', message: 'Bad link.' }, true)
     ).toEqual([
       { kind: 'error', text: 'Bad link.' },
-      { kind: 'error', text: SPOTIFY_BEFORE_SIGNIN_MESSAGE },
+      { kind: 'error', text: spotifyBeforeSignInMessage() },
     ]);
   });
 });
