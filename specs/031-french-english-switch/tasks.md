@@ -82,7 +82,7 @@ Rules that hold for every task that moves texts (T010 to T026):
 - [x] T031 [P] Docs sweep: docs/dev-guide/000-contributing.md ("One change, several files": a new text is two catalogue entries), docs/dev-guide/100-design-guide.md (French typography, the longer-text rule), docs/architecture/100-features.md (a new row), docs/architecture/800-limits-roadmap.md (a failure message keeps its language until its job runs again; the worker and the sign-in email stay English), CLAUDE.md (one rule line and one routing row for `src/i18n/`, at most 150 lines), a new src/i18n/CLAUDE.md with its AGENTS.md link, README.md (owner's manual: choosing the language), CHANGELOG.md, docs/README.md (the new pages), the spec under docs/specs/ as the earlier rounds did
 - [x] T032 Final checks: `yarn typecheck && yarn lint && yarn test`, `yarn regression`, `yarn invariants`, each read by exit code; quickstart by hand on the demo in both languages; a file-to-doc map in the report
 - [x] T033 Reviews by separate reviewers: one reads the diff against spec.md and contracts/language.md (FR-001 to FR-018, no English text reworded); one reads src/i18n/fr.ts against src/i18n/en.ts and contracts/glossary.md (meaning, agreement, typography, one name per thing); findings fixed, then T032 again
-- [ ] T034 Public-safe check of Contributing, then show the owner the push and the PR text and wait for their OK
+- [x] T034 Public-safe check of Contributing, then show the owner the push and the PR text and wait for their OK
 
 ## Dependencies
 

@@ -6,7 +6,7 @@ Approved by the owner on 2026-11-16 ("Crate keep Crate as name", "all-time class
 
 | English | French | Note |
 |---|---|---|
-| Overview | Vue d’ensemble | |
+| Overview | Vue d’ensemble | « Accueil » under the icon of the bottom bar and of the 80 px rail, where the full name is cut (owner, 2026-11-16) |
 | Listening | Écoute | tab group: Top, Crate |
 | Top | Top | same word |
 | Crate | Crate | owner 2026-11-16: "Crate keep Crate as name"; the name stays in French |

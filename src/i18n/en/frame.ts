@@ -6,6 +6,8 @@ export const frame = {
   nav: {
     main: 'Main',
     overview: 'Overview',
+    /** Under the icon (bottom bar, 80 px rail), where a long name is cut. */
+    overviewShort: 'Overview',
     listening: 'Listening',
     library: 'Library',
     mix: 'Mix',

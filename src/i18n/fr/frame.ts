@@ -5,6 +5,7 @@ export const frame: Messages['frame'] = {
   nav: {
     main: 'Principale',
     overview: 'Vue d’ensemble',
+    overviewShort: 'Accueil',
     listening: 'Écoute',
     library: 'Bibliothèque',
     mix: 'Mix',

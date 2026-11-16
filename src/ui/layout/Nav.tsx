@@ -11,6 +11,8 @@ import { Icon, type IconName } from '../icons';
 interface NavItem {
   destination: Destination;
   label: string;
+  /** The label under the icon, when the full one does not fit there. */
+  short: string;
   icon: IconName;
   home: Route;
 }
@@ -31,6 +33,10 @@ const navItem = (
   // Read when drawn, so the label follows the language shown (spec 031).
   get label(): string {
     return msg().frame.nav[destination];
+  },
+  get short(): string {
+    const nav = msg().frame.nav;
+    return destination === 'overview' ? nav.overviewShort : nav[destination];
   },
 });
 
@@ -95,7 +101,14 @@ export function Nav(p: { current: Route }) {
             <span class="nav-indicator">
               <Icon name={item.icon} filled={on} />
             </span>
-            <span class="nav-label">{item.label}</span>
+            {item.short === item.label ? (
+              <span class="nav-label">{item.label}</span>
+            ) : (
+              <>
+                <span class="nav-label nav-label-full">{item.label}</span>
+                <span class="nav-label nav-label-short">{item.short}</span>
+              </>
+            )}
           </a>
         );
       })}

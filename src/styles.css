@@ -1106,6 +1106,22 @@ a {
   white-space: nowrap;
 }
 
+/* A name too long to sit under its icon has a short form there (spec 031);
+   the expanded rail, with the label beside the icon, shows the full one. */
+.nav-label-full {
+  display: none;
+}
+
+@media (min-width: 1200px) {
+  .nav-label-full {
+    display: inline;
+  }
+
+  .nav-label-short {
+    display: none;
+  }
+}
+
 .nav-item:hover .nav-indicator {
   background: color-mix(
     in srgb,
