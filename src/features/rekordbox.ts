@@ -11,10 +11,20 @@ export interface RbTrack {
 
 /** What `rekordbox.worker.ts` posts back; mirrors `ImportMessage`. */
 export type RekordboxMessage =
-  { type: 'parsed'; tracks: RbTrack[] } | { type: 'error'; message: string };
+  | { type: 'parsed'; tracks: RbTrack[] }
+  | { type: 'error'; message: string; code?: RekordboxErrorCode };
+
+/**
+ * The two format failures by code: the worker cannot read the page's
+ * language, so the page writes the sentence from the code (spec 031).
+ */
+export type RekordboxErrorCode = 'notRekordbox' | 'noTracks';
 
 export class RekordboxFormatError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly code: RekordboxErrorCode
+  ) {
     super(message);
     this.name = 'RekordboxFormatError';
   }
@@ -113,7 +123,7 @@ function parseSeconds(value: string): number | null {
 
 export function parseRekordbox(text: string): RbTrack[] {
   if (!text.includes('<DJ_PLAYLISTS')) {
-    throw new RekordboxFormatError(NOT_REKORDBOX_MESSAGE);
+    throw new RekordboxFormatError(NOT_REKORDBOX_MESSAGE, 'notRekordbox');
   }
   const tracks: RbTrack[] = [];
   for (const tag of trackTags(collectionText(text))) {
@@ -129,7 +139,7 @@ export function parseRekordbox(text: string): RbTrack[] {
     });
   }
   if (tracks.length === 0) {
-    throw new RekordboxFormatError(NO_TRACKS_MESSAGE);
+    throw new RekordboxFormatError(NO_TRACKS_MESSAGE, 'noTracks');
   }
   return tracks;
 }

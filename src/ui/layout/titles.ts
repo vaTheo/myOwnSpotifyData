@@ -1,14 +1,31 @@
+import { msg } from '../../i18n';
 import { topArtistById, type Model } from '../../model/aggregate';
 import { routeHref, type CrateView, type Route } from '../../router';
 
-/** The Crate views' names, in the top bar and on the hub cards. */
+/**
+ * The Crate views' names, in the top bar and on the hub cards. Each name is
+ * read from the catalogue (`frame.crateViews`, the one source) when it is
+ * drawn, so it follows the language shown (spec 031).
+ */
 export const CRATE_TITLE: Record<CrateView, string> = {
-  rotation: 'Heavy rotation',
-  gems: 'Forgotten gems',
-  classics: 'All-time classics',
-  year: 'By year',
-  finish: 'Finish rate',
-  'rarely-played': 'Rarely played',
+  get rotation() {
+    return msg().frame.crateViews.rotation;
+  },
+  get gems() {
+    return msg().frame.crateViews.gems;
+  },
+  get classics() {
+    return msg().frame.crateViews.classics;
+  },
+  get year() {
+    return msg().frame.crateViews.year;
+  },
+  get finish() {
+    return msg().frame.crateViews.finish;
+  },
+  get 'rarely-played'() {
+    return msg().frame.crateViews['rarely-played'];
+  },
 };
 
 /**
@@ -22,17 +39,17 @@ export function screenTitle(
 ): { title: string; up: string | null } {
   switch (route.name) {
     case 'overview':
-      return { title: 'Overview', up: null };
+      return { title: msg().frame.nav.overview, up: null };
     case 'top':
     case 'crate':
-      return { title: 'Listening', up: null };
+      return { title: msg().frame.nav.listening, up: null };
     case 'playlists':
     case 'artists':
-      return { title: 'Library', up: null };
+      return { title: msg().frame.nav.library, up: null };
     case 'mix':
-      return { title: 'Mix', up: null };
+      return { title: msg().frame.nav.mix, up: null };
     case 'settings':
-      return { title: 'Settings', up: null };
+      return { title: msg().frame.nav.settings, up: null };
     case 'crateView':
       return {
         title: CRATE_TITLE[route.view],
@@ -40,19 +57,21 @@ export function screenTitle(
       };
     case 'playlist':
       return {
-        title: model?.playlistsById.get(route.id)?.name ?? 'Playlist',
+        title:
+          model?.playlistsById.get(route.id)?.name ??
+          msg().frame.titles.playlist,
         up: routeHref({ name: 'playlists' }),
       };
     case 'artist': {
       const name =
         model?.artistsByKey.get(route.key)?.name ??
         (model ? topArtistById(model, route.key)?.name : null) ??
-        'Artist';
+        msg().frame.titles.artist;
       return { title: name, up: routeHref({ name: 'artists' }) };
     }
     case 'import':
       return {
-        title: 'Import listening history',
+        title: msg().frame.titles.import,
         up: routeHref({ name: 'settings' }),
       };
   }

@@ -7,6 +7,7 @@ import { BpmText, KeyPill } from '../components/KeyPill';
 import { NoData } from '../components/NoData';
 import { PlayOnSpotify } from '../components/PlayOnSpotify';
 import { SpotifyLink } from '../components/SpotifyLink';
+import { fmt, isSingular, type Messages, msg } from '../../i18n';
 import { artistNames, formatDate, PERIOD_LABEL } from '../format';
 import { Icon } from '../icons';
 import { trackListenItems, type ListenTrack } from '../listen';
@@ -25,9 +26,22 @@ import { formatDuration, keySortValue } from './columnValues';
  */
 type Over<Row> = Partial<Column<Row>>;
 
+/**
+ * The noun after a count in a phone's two-line item: a pair of words
+ * (singular, plural) agreed by the language's rule, or the name of a catalogue noun, which follows the
+ * language shown and its agreement (spec 031).
+ */
+export type CountUnit = [string, string] | keyof Messages['table']['unit'];
+
 /** The "N units" tail of a number, shown only in the two-line item of a phone. */
-function Unit(p: { n: number; unit: [string, string] }) {
-  return <span class="dt-unit">{p.n === 1 ? p.unit[0] : p.unit[1]}</span>;
+function Unit(p: { n: number; unit: CountUnit }) {
+  const text =
+    typeof p.unit === 'string'
+      ? msg().table.unit[p.unit](p.n)
+      : isSingular(p.n)
+        ? p.unit[0]
+        : p.unit[1];
+  return <span class="dt-unit">{text}</span>;
 }
 
 /** The text of a cell, cut with an ellipsis; the column's `title` shows it whole. */
@@ -58,7 +72,9 @@ export function coverColumn<Row>(
 ): Column<Row> {
   return {
     id: 'cover',
-    header: 'Cover',
+    get header() {
+      return msg().table.columns.cover;
+    },
     headerHidden: true,
     priority: 3,
     width: '56px',
@@ -88,7 +104,9 @@ export function titleColumn<Row>(
 ): Column<Row> {
   return {
     id: 'title',
-    header: opts.header ?? 'Title',
+    get header() {
+      return opts.header ?? msg().table.columns.title;
+    },
     priority: 1,
     // At least 160 px of text (SC-001): the other flexible columns give way
     // first, and a table too narrow even for that draws two-line items
@@ -119,7 +137,9 @@ export function artistsColumn<Row>(
 ): Column<Row> {
   return {
     id: 'artists',
-    header: 'Artists',
+    get header() {
+      return msg().table.columns.artists;
+    },
     priority: 2,
     width: 'minmax(0, 1.5fr)',
     sortValue: (row) => artistNames(artistsOf(row)),
@@ -138,7 +158,9 @@ export function albumColumn<Row>(
 ): Column<Row> {
   return {
     id: 'album',
-    header: 'Album',
+    get header() {
+      return msg().table.columns.album;
+    },
     priority: 3,
     width: 'minmax(0, 1.2fr)',
     sortValue: albumOf,
@@ -160,7 +182,9 @@ export function durationColumn<Row>(
 ): Column<Row> {
   return {
     id: 'duration',
-    header: 'Length',
+    get header() {
+      return msg().table.columns.length;
+    },
     align: 'end',
     priority: 3,
     width: '80px',
@@ -182,7 +206,9 @@ export function addedColumn<Row>(
 ): Column<Row> {
   return {
     id: 'added',
-    header: 'Added',
+    get header() {
+      return msg().table.columns.added;
+    },
     priority: 3,
     width: '120px',
     sortValue: (row) => {
@@ -214,7 +240,7 @@ export function countColumn<Row>(
   id: string,
   header: string,
   countOf: (row: Row) => number | null,
-  opts: { unit?: [string, string] } = {},
+  opts: { unit?: CountUnit } = {},
   over: Over<Row> = {}
 ): Column<Row> {
   return {
@@ -238,7 +264,7 @@ export function countColumn<Row>(
       }
       return (
         <span>
-          {n.toLocaleString()}
+          {fmt.int(n)}
           {opts.unit && <Unit n={n} unit={opts.unit} />}
         </span>
       );
@@ -259,7 +285,9 @@ export function playsColumn<Row>(
 ): Column<Row> {
   return {
     id: 'plays',
-    header: 'Plays',
+    get header() {
+      return msg().table.columns.plays;
+    },
     align: 'end',
     priority: 1,
     width: '88px',
@@ -275,14 +303,14 @@ export function playsColumn<Row>(
             <span
               class="dt-note"
               role="img"
-              aria-label="Counted by artist and title"
-              title="Counted by artist and title"
+              aria-label={msg().table.columns.byName}
+              title={msg().table.columns.byName}
             >
               <Icon name="info" size={14} />
             </span>
           )}
-          {plays.plays.toLocaleString()}
-          <Unit n={plays.plays} unit={['play', 'plays']} />
+          {fmt.int(plays.plays)}
+          <Unit n={plays.plays} unit="play" />
         </span>
       );
     },
@@ -304,7 +332,9 @@ export function playlistsColumn<Row>(
 ): Column<Row> {
   return {
     id: 'playlists',
-    header: 'Playlists',
+    get header() {
+      return msg().table.columns.playlists;
+    },
     align: 'end',
     priority: 2,
     width: '152px',
@@ -313,9 +343,9 @@ export function playlistsColumn<Row>(
     cell: (row) => {
       const n = countOf(row);
       return n === 0 && hasPlaylists ? (
-        <Flag kind="todo">not in a playlist</Flag>
+        <Flag kind="todo">{msg().table.columns.notInPlaylist}</Flag>
       ) : (
-        <span class="dt-wide">{n.toLocaleString()}</span>
+        <span class="dt-wide">{fmt.int(n)}</span>
       );
     },
     compact: 'meta',
@@ -330,7 +360,9 @@ export function topFlagsColumn<Row>(
 ): Column<Row> {
   return {
     id: 'top',
-    header: 'Top',
+    get header() {
+      return msg().table.columns.top;
+    },
     priority: 3,
     width: 'minmax(0, 1.2fr)',
     sortValue: (row) => periodsOf(row).length,
@@ -339,7 +371,7 @@ export function topFlagsColumn<Row>(
       <span class="dt-flags">
         {periodsOf(row).map((p) => (
           <Flag key={p} kind="top">
-            {`Top ${PERIOD_LABEL[p]}`}
+            {msg().table.columns.topFlag(PERIOD_LABEL[p])}
           </Flag>
         ))}
       </span>
@@ -347,7 +379,7 @@ export function topFlagsColumn<Row>(
     // A flag cut at the column's edge is named whole in the tooltip.
     title: (row) =>
       periodsOf(row)
-        .map((p) => `Top ${PERIOD_LABEL[p]}`)
+        .map((p) => msg().table.columns.topFlag(PERIOD_LABEL[p]))
         .join(', ') || undefined,
     compact: 'hidden',
     ...over,
@@ -361,7 +393,9 @@ export function bpmColumn<Row>(
 ): Column<Row> {
   return {
     id: 'bpm',
-    header: 'BPM',
+    get header() {
+      return msg().table.columns.bpm;
+    },
     align: 'end',
     priority: 1,
     width: '76px',
@@ -383,7 +417,9 @@ export function keyColumn<Row>(
 ): Column<Row> {
   return {
     id: 'key',
-    header: 'Key',
+    get header() {
+      return msg().table.columns.key;
+    },
     priority: 1,
     width: '76px',
     sortValue: (row) => {
@@ -419,7 +455,9 @@ export function yearColumn<Row>(
 ): Column<Row> {
   return {
     id: 'released',
-    header: 'Released',
+    get header() {
+      return msg().table.columns.released;
+    },
     align: 'end',
     priority: 2,
     width: '88px',
@@ -459,7 +497,9 @@ export function spotifyLinkColumn<Row>(
 ): Column<Row> {
   return {
     id: 'spotify',
-    header: 'Open in Spotify',
+    get header() {
+      return msg().table.columns.openInSpotify;
+    },
     headerHidden: true,
     priority: 1,
     width: '64px',
@@ -481,7 +521,9 @@ export function playColumn<Row>(
 ): Column<Row> {
   return {
     id: 'play',
-    header: 'Play',
+    get header() {
+      return msg().table.columns.play;
+    },
     headerHidden: true,
     priority: 1,
     width: '56px',
@@ -511,7 +553,9 @@ export function listenColumn<Row>(
 ): Column<Row> {
   return {
     id: 'listen',
-    header: 'Listen',
+    get header() {
+      return msg().table.columns.listen;
+    },
     headerHidden: true,
     priority: 1,
     width: '64px',
@@ -520,7 +564,7 @@ export function listenColumn<Row>(
       return track ? (
         <RowMenu
           icon="headphones"
-          label={`Listen to ${track.artist} – ${track.title}`}
+          label={msg().table.columns.listenTo(track.artist, track.title)}
           items={() => trackListenItems(track)}
         />
       ) : null;

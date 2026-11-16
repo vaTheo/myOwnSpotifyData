@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { msg } from '../../i18n';
 import { IconButton } from '../components/IconButton';
 import type { IconName } from '../icons';
 
@@ -208,7 +209,7 @@ export function RowMenu(p: {
                 if (r) setAtState(place(r, itemsOf().length));
               }}
             >
-              ‹ Back
+              {msg().mix.menu.back}
             </button>
           )}
           {(sub ?? itemsOf()).map((item) =>

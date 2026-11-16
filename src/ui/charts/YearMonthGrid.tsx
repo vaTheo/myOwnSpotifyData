@@ -1,12 +1,11 @@
+import { fmt, msg } from '../../i18n';
 import {
-  MONTH_NAMES,
   periodMonths,
   yearMonth,
   yearSetting,
   type Season,
   type YearPeriod,
 } from '../../model/crate';
-import { plural } from '../format';
 import { heatLevel, periodTotal, type YearTotals } from './series';
 
 /** Season headers over the months they cover; December opens next Winter. */
@@ -51,11 +50,12 @@ export function YearMonthGrid({
   );
   const pressed = (year: number, period: YearPeriod) =>
     selection?.year === year && selection.period === period;
+  const text = msg().table.charts;
 
   return (
     <div class="ym-scroll">
       <table class="ym-grid">
-        <caption class="visually-hidden">Plays per month and per year</caption>
+        <caption class="visually-hidden">{text.gridCaption}</caption>
         <thead>
           <tr>
             <td class="ym-corner" />
@@ -67,10 +67,13 @@ export function YearMonthGrid({
                     type="button"
                     class="ym-season"
                     aria-pressed={pressed(seasonYear, season)}
-                    aria-label={`${yearSetting(seasonYear, season)}, ${plural(plays, 'play')}`}
+                    aria-label={text.cellLabel(
+                      yearSetting(seasonYear, season),
+                      plays
+                    )}
                     onClick={() => onSelect(seasonYear, season)}
                   >
-                    {season[0].toUpperCase() + season.slice(1)}
+                    {text.seasons[season]}
                   </button>
                 </th>
               );
@@ -80,13 +83,13 @@ export function YearMonthGrid({
           </tr>
           <tr>
             <td class="ym-corner" />
-            {MONTH_NAMES.map((name) => (
-              <th key={name} scope="col" class="ym-month">
+            {msg().months.map((name, i) => (
+              <th key={i} scope="col" class="ym-month">
                 {name}
               </th>
             ))}
             <th scope="col" class="ym-month">
-              Total
+              {text.total}
             </th>
           </tr>
         </thead>
@@ -103,7 +106,7 @@ export function YearMonthGrid({
                   return (
                     <td key={key} class="ym-out">
                       <span class="visually-hidden">
-                        {yearSetting(row.year, month)}, not in the history
+                        {text.outLabel(yearSetting(row.year, month))}
                       </span>
                     </td>
                   );
@@ -114,10 +117,13 @@ export function YearMonthGrid({
                       type="button"
                       class={`ym-cell heat-${heatLevel(value, max)}${outlined.has(key) ? ' selected' : ''}`}
                       aria-pressed={pressed(row.year, month)}
-                      aria-label={`${yearSetting(row.year, month)}, ${plural(value, 'play')}`}
+                      aria-label={text.cellLabel(
+                        yearSetting(row.year, month),
+                        value
+                      )}
                       onClick={() => onSelect(row.year, month)}
                     >
-                      {value.toLocaleString()}
+                      {fmt.int(value)}
                     </button>
                   </td>
                 );
@@ -127,10 +133,10 @@ export function YearMonthGrid({
                   type="button"
                   class={`ym-total${pressed(row.year, 'all') ? ' selected' : ''}`}
                   aria-pressed={pressed(row.year, 'all')}
-                  aria-label={`${row.year}, ${plural(row.total, 'play')}`}
+                  aria-label={text.cellLabel(String(row.year), row.total)}
                   onClick={() => onSelect(row.year, 'all')}
                 >
-                  {row.total.toLocaleString()}
+                  {fmt.int(row.total)}
                 </button>
               </td>
             </tr>

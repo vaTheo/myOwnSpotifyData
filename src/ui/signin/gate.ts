@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import type { ServerStatus } from '../../server/types';
 
 /**
@@ -60,8 +61,9 @@ export type GateNotice =
   | { kind: 'paused'; dashboardUrl: string };
 
 /** Shown when Spotify hands back to the app while nobody is signed in. */
-export const SPOTIFY_BEFORE_SIGNIN_MESSAGE =
-  'Sign in to the app first, then connect Spotify again.';
+export function spotifyBeforeSignInMessage(): string {
+  return msg().signin.gate.spotifyBeforeSignIn;
+}
 
 /**
  * The lines the sign-in screen shows: the server's state, then a Spotify
@@ -80,7 +82,7 @@ export function gateNotices(
     case 'offline':
       out.push({
         kind: 'warning',
-        text: `Server offline: ${state.message} Send the link again once you are online.`,
+        text: msg().signin.gate.offline(state.message),
       });
       break;
     case 'paused':
@@ -90,7 +92,7 @@ export function gateNotices(
       break;
   }
   if (spotifyDropped) {
-    out.push({ kind: 'error', text: SPOTIFY_BEFORE_SIGNIN_MESSAGE });
+    out.push({ kind: 'error', text: spotifyBeforeSignInMessage() });
   }
   return out;
 }

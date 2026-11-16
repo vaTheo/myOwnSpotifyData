@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import { IconButton } from './IconButton';
 
 /**
@@ -15,7 +16,7 @@ export function PlayOnSpotify(p: {
     <IconButton
       icon="play_arrow"
       class={p.class}
-      label={`Play ${p.artist} – ${p.title} on Spotify`}
+      label={msg().frame.play(p.artist, p.title)}
       href={`spotify:track:${p.id}`}
     />
   );

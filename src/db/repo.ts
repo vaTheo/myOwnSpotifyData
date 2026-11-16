@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import { deleteDB, openDB, type IDBPDatabase } from 'idb';
 import { DEMO_DB_NAME, demoVariant } from '../dev/flag';
 import { scopedDbName } from '../server/scopeBrowser';
@@ -22,17 +23,14 @@ import {
 let dbPromise: Promise<IDBPDatabase<DjDb>> | null = null;
 
 /** Shown while an older tab keeps the database at its old version. */
-export const DB_BLOCKED_MESSAGE =
-  'Another tab of DJ Data is holding the old database open. Close the other tabs of this app (and its home-screen window), then reload.';
+export const DB_BLOCKED_MESSAGE = (): string => msg().sources.db.blocked;
 
 /** Shown when the database has not opened after DB_SLOW_MS, whatever the cause. */
-export const DB_SLOW_MESSAGE =
-  'The local database is taking long to open. If this lasts, close the other tabs of DJ Data (and its home-screen window), then reload.';
+export const DB_SLOW_MESSAGE = (): string => msg().sources.db.slow;
 export const DB_SLOW_MS = 8000;
 
 /** Shown in the tab that handed its database over to a newer version. */
-export const DB_SUPERSEDED_MESSAGE =
-  'DJ Data was updated in another tab. Reload this one to continue.';
+export const DB_SUPERSEDED_MESSAGE = (): string => msg().sources.db.superseded;
 
 export interface DbEvents {
   /** Another connection blocks this tab's upgrade; the open waits for it. */
@@ -125,11 +123,7 @@ export async function wipeDb(timeoutMs = 5000): Promise<void> {
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      reject(
-        new Error(
-          'Local data is still open in another tab. Close the other tabs and try again.'
-        )
-      );
+      reject(new Error(msg().sources.db.stillOpen));
     }, timeoutMs);
   });
   try {

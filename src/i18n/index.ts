@@ -26,4 +26,11 @@ export function msg(): Messages {
 }
 
 export { fmt } from './fmt';
-export { applyDocumentLang, lang, LANGS, setLang, type Lang } from './lang';
+export {
+  applyDocumentLang,
+  isSingular,
+  lang,
+  LANGS,
+  setLang,
+  type Lang,
+} from './lang';

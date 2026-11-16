@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import {
   artistReachSummary,
   jobsBusy,
@@ -17,19 +18,22 @@ import {
   pausedLine,
   reachCoverageLine,
   reachRunLine,
-  SHARED_NOTICE_REACH,
+  sharedNoticeReach,
   sharedRunLine,
 } from './lines';
 import { isWaiting, otherStepRuns } from './chain';
 
-export const REACH_DESCRIPTION =
-  'Listeners and fans of your artists, for Under the radar: roughly 45 to 50 minutes for 1,000 artists, and you can stop it and come back.';
+/** The item's description, read when drawn (spec 031). */
+export function reachDescription(): string {
+  return msg().settings.reach.description;
+}
 
 /** Look up artists, the item's main button (ADR-04). */
 export function ReachMain(p: { act: boolean }) {
   const m = model.value;
   const state = reachState.value;
   const cov = m ? reachCoverage(m) : null;
+  const w = msg().settings.words;
   return (
     <Button
       variant={p.act ? 'filled' : 'tonal'}
@@ -42,10 +46,10 @@ export function ReachMain(p: { act: boolean }) {
       onClick={() => requestJob('reach')}
     >
       {state.status === 'running'
-        ? 'Looking up…'
+        ? w.lookingUp
         : isWaiting(chainView.value, 'reach')
-          ? 'Waiting…'
-          : 'Look up artists'}
+          ? w.waitingButton
+          : msg().settings.reach.lookUp}
     </Button>
   );
 }
@@ -59,24 +63,28 @@ export function ReachSection() {
   const sharedLine =
     state.status === 'done' ? sharedRunLine(state.shared, 'artists') : null;
   const sharing = sharedPort() !== undefined;
+  const text = msg().settings.reach;
+  const w = msg().settings.words;
   return (
     <>
       {cov && cov.artists > 0 ? (
         <StatusLine>{reachCoverageLine(cov)}</StatusLine>
       ) : (
-        <StatusLine>Sync your playlists first.</StatusLine>
+        <StatusLine>{text.syncFirst}</StatusLine>
       )}
-      {summary && <StatusLine>as of {formatDate(summary.ranAt)}</StatusLine>}
+      {summary && (
+        <StatusLine>{text.asOf(formatDate(summary.ranAt))}</StatusLine>
+      )}
       {state.status === 'running' && (
         <ProgressBar
-          label={`Resolving artists · ${SOURCE_LABEL[state.step]}`}
+          label={text.resolving(SOURCE_LABEL[state.step])}
           done={state.done}
           total={state.total}
-          unit={state.step === 'wikidata' ? 'batches' : 'artists'}
+          unit={state.step === 'wikidata' ? text.batches : text.artists}
         />
       )}
       {state.status === 'done' && state.run.lookedUp === 0 && (
-        <StatusLine kind="success">Nothing new to look up.</StatusLine>
+        <StatusLine kind="success">{w.nothingNew}</StatusLine>
       )}
       {state.status === 'done' && state.run.lookedUp > 0 && (
         <StatusLine kind="success">{reachRunLine(state.run)}</StatusLine>
@@ -92,14 +100,11 @@ export function ReachSection() {
         ))}
       {state.status === 'error' && (
         <StatusLine kind="error" quiet>
-          Last error: {state.message}
+          {w.lastError(state.message)}
         </StatusLine>
       )}
-      {sharing && <p class="muted settings-credit">{SHARED_NOTICE_REACH}</p>}
-      <p class="muted settings-credit">
-        Artist data via MusicBrainz and ListenBrainz · Deezer · Wikidata (CC0) ·
-        Wikipedia (CC BY-SA)
-      </p>
+      {sharing && <p class="muted settings-credit">{sharedNoticeReach()}</p>}
+      <p class="muted settings-credit">{text.credit}</p>
     </>
   );
 }

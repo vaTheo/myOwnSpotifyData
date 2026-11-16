@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Button } from '../components/Button';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
+import { msg } from '../../i18n';
 
 /**
  * Round 011: paste a Spotify track link on a row (opened from the red
@@ -37,11 +38,12 @@ export function LinkForm(p: {
     >
       <span class="mix-link-name">{p.name}</span>
       <TextField
-        label="Spotify track link"
+        label={msg().mix.rowLink.label}
         type="text"
         inputMode="url"
         autoComplete="off"
         spellcheck={false}
+        // eslint-disable-next-line no-restricted-syntax -- an address's shape, not a text
         placeholder="https://open.spotify.com/track/…"
         value={text}
         onValue={(v) => {
@@ -51,14 +53,14 @@ export function LinkForm(p: {
       />
       <div class="mix-link-actions">
         <Button variant="filled" type="submit">
-          Link
+          {msg().mix.rowLink.link}
         </Button>
         <Button variant="text" onClick={p.onCancel}>
-          Cancel
+          {msg().mix.common.cancel}
         </Button>
         {p.onRemove && (
           <Button variant="text" onClick={p.onRemove}>
-            Remove link
+            {msg().mix.common.removeLink}
           </Button>
         )}
       </div>

@@ -6,12 +6,21 @@
  * No retry loop here: the runners decide what a failure means.
  */
 
+import { msg } from '../i18n';
+
 export type ServerFailureKind =
   'offline' | 'paused' | 'unauthorized' | 'tooLarge' | 'error';
 
 export type ServerResult<T> =
   | { ok: true; value: T }
-  | { ok: false; kind: ServerFailureKind; message: string; status?: number };
+  | {
+      ok: false;
+      kind: ServerFailureKind;
+      message: string;
+      status?: number;
+      /** A stable code beside the shown sentence, for logic (spec 031, R4). */
+      code?: string;
+    };
 
 export interface ServerTokens {
   accessToken: string;
@@ -96,10 +105,9 @@ export interface ServerClient {
   ): Promise<ServerResult<void>>;
 }
 
-export const MISSING_TABLE_MESSAGE =
-  'The server has no tables yet. Apply supabase/migrations/0001_init.sql (see the README).';
-export const LINK_BROWSER_MESSAGE =
-  'Open the link in the browser that asked for it, within 10 minutes.';
+/** Read when used, so it follows the language shown (spec 031). */
+export const LINK_BROWSER_MESSAGE = (): string =>
+  msg().sources.server.linkBrowser;
 
 function field(body: unknown, name: string): unknown {
   if (typeof body !== 'object' || body === null) return undefined;
@@ -146,7 +154,7 @@ export function createServerClient(deps: ServerDeps): ServerClient {
       return {
         ok: false,
         kind: 'offline',
-        message: `Network error: ${reason}`,
+        message: msg().sources.server.networkError(reason),
       };
     }
     const text = await res.text().catch(() => '');
@@ -165,7 +173,9 @@ export function createServerClient(deps: ServerDeps): ServerClient {
         return {
           ok: false,
           kind: 'error',
-          message: `Unexpected answer: ${err instanceof Error ? err.message : String(err)}`,
+          message: msg().sources.server.unexpectedAnswer(
+            err instanceof Error ? err.message : String(err)
+          ),
           status: res.status,
         };
       }
@@ -176,15 +186,14 @@ export function createServerClient(deps: ServerDeps): ServerClient {
         return {
           ok: false,
           kind: 'paused',
-          message:
-            'The server project is paused. Resume it from the Supabase dashboard.',
+          message: msg().sources.server.paused,
           status,
         };
       }
       return {
         ok: false,
         kind: 'offline',
-        message: `Server unavailable (HTTP ${status})`,
+        message: msg().sources.server.unavailable(status),
         status,
       };
     }
@@ -200,7 +209,7 @@ export function createServerClient(deps: ServerDeps): ServerClient {
       return {
         ok: false,
         kind: 'tooLarge',
-        message: 'Batch too large for the server.',
+        message: msg().sources.server.tooLarge,
         status,
       };
     }
@@ -210,8 +219,8 @@ export function createServerClient(deps: ServerDeps): ServerClient {
         ok: false,
         kind: 'error',
         message: wait
-          ? `Too many requests. Try again in ${wait} seconds.`
-          : 'Too many requests. Try again in a minute.',
+          ? msg().sources.server.tooManyIn(wait)
+          : msg().sources.server.tooManyMinute,
         status,
       };
     }
@@ -219,7 +228,7 @@ export function createServerClient(deps: ServerDeps): ServerClient {
       return {
         ok: false,
         kind: 'error',
-        message: MISSING_TABLE_MESSAGE,
+        message: msg().sources.server.missingTable,
         status,
       };
     }
@@ -236,7 +245,7 @@ export function createServerClient(deps: ServerDeps): ServerClient {
     const refresh = field(body, 'refresh_token');
     const expiresIn = field(body, 'expires_in');
     if (typeof access !== 'string' || typeof refresh !== 'string') {
-      throw new Error('no tokens in the answer');
+      throw new Error(msg().sources.server.noTokens);
     }
     const email = field(field(body, 'user'), 'email');
     return {
@@ -288,7 +297,7 @@ export function createServerClient(deps: ServerDeps): ServerClient {
       );
       // A used, expired or foreign code: the one message the owner can act on.
       if (!res.ok && res.kind === 'error' && res.status === 400) {
-        return { ...res, message: LINK_BROWSER_MESSAGE };
+        return { ...res, message: LINK_BROWSER_MESSAGE() };
       }
       return res;
     },
@@ -329,7 +338,8 @@ export function createServerClient(deps: ServerDeps): ServerClient {
           headers: { Prefer: 'count=exact' },
         },
         (res, body) => {
-          if (!Array.isArray(body)) throw new Error('not a list');
+          if (!Array.isArray(body))
+            throw new Error(msg().sources.server.notAList);
           return { rows: body as T[], total: contentTotal(res) };
         }
       );
@@ -351,7 +361,7 @@ export function createServerClient(deps: ServerDeps): ServerClient {
         return {
           ok: false,
           kind: 'error',
-          message: 'The server answered without the created row.',
+          message: msg().sources.server.noCreatedRow,
         };
       }
       return { ok: true, value: res.value[0] as T };

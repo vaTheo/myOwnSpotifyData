@@ -5,6 +5,7 @@ import {
   type Destination,
   type Route,
 } from '../../router';
+import { msg } from '../../i18n';
 import { Icon, type IconName } from '../icons';
 
 interface NavItem {
@@ -19,37 +20,26 @@ interface NavItem {
  * home (US8); Settings last, at the foot of the rail. Five fit a phone's
  * bottom bar, the most Material allows there.
  */
+const navItem = (
+  destination: Destination,
+  icon: IconName,
+  home: Route
+): NavItem => ({
+  destination,
+  icon,
+  home,
+  // Read when drawn, so the label follows the language shown (spec 031).
+  get label(): string {
+    return msg().frame.nav[destination];
+  },
+});
+
 export const NAV_ITEMS: NavItem[] = [
-  {
-    destination: 'overview',
-    label: 'Overview',
-    icon: 'home',
-    home: { name: 'overview' },
-  },
-  {
-    destination: 'listening',
-    label: 'Listening',
-    icon: 'headphones',
-    home: { name: 'top' },
-  },
-  {
-    destination: 'library',
-    label: 'Library',
-    icon: 'library_music',
-    home: { name: 'playlists' },
-  },
-  {
-    destination: 'mix',
-    label: 'Mix',
-    icon: 'queue_music',
-    home: { name: 'mix' },
-  },
-  {
-    destination: 'settings',
-    label: 'Settings',
-    icon: 'settings',
-    home: { name: 'settings' },
-  },
+  navItem('overview', 'home', { name: 'overview' }),
+  navItem('listening', 'headphones', { name: 'top' }),
+  navItem('library', 'library_music', { name: 'playlists' }),
+  navItem('mix', 'queue_music', { name: 'mix' }),
+  navItem('settings', 'settings', { name: 'settings' }),
 ];
 
 /**
@@ -85,7 +75,7 @@ export function rememberRoute(route: Route): void {
 export function Nav(p: { current: Route }) {
   const active = destinationOf(p.current).destination;
   return (
-    <nav class="nav" aria-label="Main">
+    <nav class="nav" aria-label={msg().frame.nav.main}>
       {NAV_ITEMS.map((item) => {
         const on = item.destination === active;
         const target = lastRouteIn.value[item.destination] ?? item.home;

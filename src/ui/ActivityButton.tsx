@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { msg } from '../i18n';
 import {
   createPlaylistState,
   importState,
@@ -89,8 +90,8 @@ export function ActivityButton() {
   if (none) return null;
   const label =
     jobs.length === 1
-      ? `Running: ${jobs[0].label}`
-      : `${jobs.length} jobs running`;
+      ? msg().frame.activity.running(jobs[0].label)
+      : msg().frame.activity.jobsRunning(jobs.length);
   return (
     <div class="activity" ref={box}>
       <button
@@ -104,7 +105,11 @@ export function ActivityButton() {
         <Ring job={jobs[0]} />
       </button>
       {open && (
-        <div class="activity-panel" role="dialog" aria-label="Running jobs">
+        <div
+          class="activity-panel"
+          role="dialog"
+          aria-label={msg().frame.activity.panel}
+        >
           {jobs.map((job) => (
             <a key={job.id} class="activity-job" href={job.href}>
               <ProgressBar

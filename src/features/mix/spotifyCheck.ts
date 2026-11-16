@@ -1,4 +1,5 @@
 import type { SpotifyCheck, TracklistRow } from '../../db/schema';
+import { msg } from '../../i18n';
 import type { SpotifyClient } from '../../spotify/client';
 import { isIdentified, searchTrack } from './spotifySearch';
 
@@ -195,7 +196,7 @@ export function keepStoredAnswers(
 
 /** "Checked 12 of 40". */
 export function checkLine(done: number, total: number): string {
-  return `Checked ${done} of ${total}`;
+  return msg().mix.review.checked(done, total);
 }
 
 export interface SpotifyCheckDeps {

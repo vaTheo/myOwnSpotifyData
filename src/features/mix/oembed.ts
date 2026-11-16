@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import { normalizeMixUrl } from './url';
 /** SoundCloud oEmbed, a keyless public GET (spec §3.2). */
 export const OEMBED_URL = 'https://soundcloud.com/oembed';
@@ -95,7 +96,7 @@ export async function fetchOembed(
   try {
     body = await res.json();
   } catch {
-    return { status: 'error', message: 'the mix page was not readable JSON' };
+    return { status: 'error', message: msg().mix.read.pageNotJson };
   }
   return {
     status: 'ok',

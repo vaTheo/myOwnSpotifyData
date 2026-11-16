@@ -22,7 +22,7 @@ export default defineConfig([
     ignores: ['src/**/*.test.tsx'],
     rules: {
       'no-restricted-syntax': [
-        'warn',
+        'error',
         ...[
           'JSXText[value=/[A-Za-zÀ-ÿ]/]',
           'JSXElement > JSXExpressionContainer > Literal[value=/[A-Za-zÀ-ÿ]/]',

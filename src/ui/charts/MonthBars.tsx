@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { plural } from '../format';
+import { msg } from '../../i18n';
 import {
   barHeights,
   crossesYears,
@@ -21,8 +21,8 @@ function tipAt(index: number, count: number): number {
 
 function tipText(point: MonthPoint): string {
   const value =
-    point.value === null ? pointValue(null) : plural(point.value, 'play');
-  return `${pointLabel(point.key, true)}: ${value}`;
+    point.value === null ? pointValue(null) : msg().n.play(point.value);
+  return msg().table.charts.tip(pointLabel(point.key, true), value);
 }
 
 /**
@@ -42,7 +42,7 @@ function tipText(point: MonthPoint): string {
  */
 export function MonthBars({
   series,
-  title = 'Plays per month',
+  title,
   compact = false,
   label: labelOverride,
 }: {
@@ -59,7 +59,8 @@ export function MonthBars({
   const withYear = crossesYears(series);
   const width = series.length * STEP;
   const last = series.length - 1;
-  const label = labelOverride ?? seriesLabel(title, series);
+  const label =
+    labelOverride ?? seriesLabel(title ?? msg().table.charts.perMonth, series);
   const point = active === null ? null : series[active];
 
   const bars = heights.map((h, i) => {

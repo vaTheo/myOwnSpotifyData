@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact';
+import { fmt, msg } from '../../i18n';
 import { formatKey, type KeyNotation } from '../../model/keys';
 import { historySummary, keyNotation, model } from '../../model/state';
 import { routeHref } from '../../router';
@@ -10,7 +11,7 @@ import { BpmText, KeyPill } from '../components/KeyPill';
 import { NoData } from '../components/NoData';
 import { SpotifyLink } from '../components/SpotifyLink';
 import { NoPlaylistNote, OpenMonthLink } from './parts';
-import { formatDate, formatListening, plural } from '../format';
+import { formatDate, formatListening } from '../format';
 import { Icon } from '../icons';
 import { SideSheet } from '../layout/SideSheet';
 import { windowClass } from '../layout/windowClass';
@@ -51,6 +52,7 @@ function Fact(p: { label: string; children: ComponentChildren | null }) {
 }
 
 function Identity({ facts }: { facts: TrackFacts }) {
+  const text = msg().table.details;
   return (
     <section class="details-section">
       <p class="details-artists">
@@ -68,13 +70,13 @@ function Identity({ facts }: { facts: TrackFacts }) {
         ))}
       </p>
       <dl class="details-facts">
-        <Fact label="Album">{facts.album}</Fact>
-        <Fact label="Length">
+        <Fact label={text.album}>{facts.album}</Fact>
+        <Fact label={text.length}>
           {facts.durationMs === null ? null : formatDuration(facts.durationMs)}
         </Fact>
       </dl>
       {facts.isLocal ? (
-        <p class="details-note">Local file</p>
+        <p class="details-note">{text.localFile}</p>
       ) : (
         <SpotifyLink href={facts.spotifyUrl} label />
       )}
@@ -85,9 +87,10 @@ function Identity({ facts }: { facts: TrackFacts }) {
 /** "1993 · ReccoBeats (earliest album)", or `NoData` when undated (round 005). */
 function Released({ facts }: { facts: TrackFacts }) {
   const r = facts.released;
+  const text = msg().table.details;
   return (
-    <Fact label="Released">
-      {r ? `${r.year} · ${YEAR_SOURCE_LABEL[r.from]}` : null}
+    <Fact label={text.released}>
+      {r ? text.releasedValue(r.year, YEAR_SOURCE_LABEL[r.from]) : null}
     </Fact>
   );
 }
@@ -96,14 +99,15 @@ function Audio(p: { facts: TrackFacts; onMatch?: () => void }) {
   const audio = p.facts.audio;
   const notation = keyNotation.value;
   const keyed = audio && audio.key !== null && audio.major !== null;
+  const text = msg().table.details;
   return (
-    <DetailsSection title="Audio">
+    <DetailsSection title={text.audio}>
       {audio ? (
         <dl class="details-facts">
-          <Fact label="BPM">
+          <Fact label={text.bpm}>
             {audio.bpm === null ? null : <BpmText bpm={audio.bpm} />}
           </Fact>
-          <Fact label="Key">
+          <Fact label={text.key}>
             {keyed ? (
               <span class="details-key">
                 <KeyPill musicalKey={audio.key!} major={audio.major!} />
@@ -117,18 +121,23 @@ function Audio(p: { facts: TrackFacts; onMatch?: () => void }) {
           </Fact>
           <Released facts={p.facts} />
           {audio.energy !== null && (
-            <Fact label="Energy">{Math.round(audio.energy * 100)}%</Fact>
+            <Fact label={text.energy}>
+              {msg().table.charts.percent(Math.round(audio.energy * 100))}
+            </Fact>
           )}
-          <Fact label="Source">
-            {SOURCE_LABEL[audio.source]}, {formatDate(audio.fetchedAt)}
+          <Fact label={text.source}>
+            {text.sourceValue(
+              SOURCE_LABEL[audio.source],
+              formatDate(audio.fetchedAt)
+            )}
           </Fact>
         </dl>
       ) : (
         <>
           <p class="details-note">
-            No BPM or key yet —{' '}
+            {text.noAudioBefore}
             <a href={routeHref({ name: 'settings', item: 'audio' })}>
-              look them up in Settings
+              {text.noAudioLink}
             </a>
           </p>
           <dl class="details-facts">
@@ -138,7 +147,7 @@ function Audio(p: { facts: TrackFacts; onMatch?: () => void }) {
       )}
       {p.onMatch && (
         <Button variant="tonal" icon="tune" onClick={p.onMatch}>
-          Match from this track
+          {text.matchFrom}
         </Button>
       )}
     </DetailsSection>
@@ -147,44 +156,47 @@ function Audio(p: { facts: TrackFacts; onMatch?: () => void }) {
 
 function Plays({ facts }: { facts: TrackFacts }) {
   const plays = facts.plays;
+  const text = msg().table.details;
   if (!historySummary.value) {
     return (
-      <DetailsSection title="Plays">
+      <DetailsSection title={text.plays}>
         <p class="details-note">
-          No play counts yet —{' '}
-          <a href={routeHref({ name: 'import' })}>import your history</a>
+          {text.noPlaysBefore}
+          <a href={routeHref({ name: 'import' })}>{text.noPlaysLink}</a>
         </p>
       </DetailsSection>
     );
   }
   if (!plays) {
     return (
-      <DetailsSection title="Plays">
-        <p class="details-note">Not in your listening history</p>
+      <DetailsSection title={text.plays}>
+        <p class="details-note">{text.notInHistory}</p>
       </DetailsSection>
     );
   }
-  const count = (n: number | null) => (n === null ? null : n.toLocaleString());
+  const count = (n: number | null) => (n === null ? null : fmt.int(n));
   return (
-    <DetailsSection title="Plays">
+    <DetailsSection title={text.plays}>
       <dl class="details-facts">
-        <Fact label="Plays">
+        <Fact label={text.plays}>
           <span class="details-plays">
-            {plays.plays.toLocaleString()}
+            {fmt.int(plays.plays)}
             {plays.byName && (
               <span class="details-small">
-                <Icon name="info" size={14} /> by artist and title
+                <Icon name="info" size={14} /> {text.byName}
               </span>
             )}
           </span>
         </Fact>
-        <Fact label="Listening time">{formatListening(plays.msPlayed)}</Fact>
-        <Fact label="First play">{formatDate(plays.firstTs)}</Fact>
-        <Fact label="Last play">{formatDate(plays.lastTs)}</Fact>
-        <Fact label="Starts">{count(plays.attempts)}</Fact>
-        <Fact label="Finished">{count(plays.finished)}</Fact>
-        <Fact label="Skipped">{count(plays.skipped)}</Fact>
-        <Fact label="Unclear">{count(plays.unclear)}</Fact>
+        <Fact label={text.listeningTime}>
+          {formatListening(plays.msPlayed)}
+        </Fact>
+        <Fact label={text.firstPlay}>{formatDate(plays.firstTs)}</Fact>
+        <Fact label={text.lastPlay}>{formatDate(plays.lastTs)}</Fact>
+        <Fact label={text.starts}>{count(plays.attempts)}</Fact>
+        <Fact label={text.finished}>{count(plays.finished)}</Fact>
+        <Fact label={text.skipped}>{count(plays.skipped)}</Fact>
+        <Fact label={text.unclear}>{count(plays.unclear)}</Fact>
       </dl>
     </DetailsSection>
   );
@@ -201,7 +213,7 @@ function History({ facts }: { facts: TrackFacts }) {
   if (keys.length === 0) return null;
   const years = [...new Set(keys.map((k) => Number(k.slice(0, 4))))];
   return (
-    <DetailsSection title="History">
+    <DetailsSection title={msg().table.details.history}>
       <MonthBars series={monthSeries(facts.months, keys, range)} />
       {windowClass.value === 'large' && (
         <MiniYearGrid totals={yearTotals(facts.months, years, range)} />
@@ -213,7 +225,7 @@ function History({ facts }: { facts: TrackFacts }) {
 
 function Playlists({ facts }: { facts: TrackFacts }) {
   return (
-    <DetailsSection title="Playlists">
+    <DetailsSection title={msg().table.details.playlists}>
       {facts.playlists.length === 0 ? (
         <div class="details-note">
           <NoPlaylistNote />
@@ -221,7 +233,7 @@ function Playlists({ facts }: { facts: TrackFacts }) {
       ) : (
         <>
           <p class="details-note">
-            In {plural(facts.playlists.length, 'playlist')}
+            {msg().table.details.inPlaylists(facts.playlists.length)}
           </p>
           <ul class="details-links">
             {facts.playlists.map((pl) => (

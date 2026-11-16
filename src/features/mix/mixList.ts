@@ -1,4 +1,5 @@
 import type { MixJobView } from '../../db/schema';
+import { msg } from '../../i18n';
 import type { ServerStatus } from '../../server/types';
 import {
   progressLine,
@@ -65,29 +66,30 @@ export interface MixListItem {
 }
 
 function savedChip(mix: MixListMix): MixListItem['chip'] {
-  if (mix.playlistUrl) return { kind: 'playlist', text: 'Playlist made' };
+  const t = msg().mix.chip;
+  if (mix.playlistUrl) return { kind: 'playlist', text: t.playlistMade };
   const tracks = mix.rows.filter((r) => !r.gap);
-  const text = `Saved · ${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}`;
-  return { kind: 'saved', text };
+  return { kind: 'saved', text: t.savedTracks(tracks.length) };
 }
 
 function requestChip(v: MixJobView): MixListItem['chip'] {
+  const t = msg().mix.chip;
   switch (v.status) {
     case 'queued':
-      return { kind: 'queued', text: 'Queued' };
+      return { kind: 'queued', text: t.queued };
     case 'claimed':
       if (v.stopRequestedAt != null)
-        return { kind: 'stopping', text: 'Stopping…' };
+        return { kind: 'stopping', text: t.stopping };
       if (v.progress?.step === 'paused')
-        return { kind: 'paused', text: 'Paused' };
-      return { kind: 'identifying', text: 'Identifying' };
+        return { kind: 'paused', text: t.paused };
+      return { kind: 'identifying', text: t.identifying };
     case 'failed':
-      return { kind: 'failed', text: 'Failed' };
+      return { kind: 'failed', text: t.failed };
     case 'done':
       // The tracks are counted once the result is applied to a saved mix.
       return v.rejected
-        ? { kind: 'rejected', text: 'Rejected' }
-        : { kind: 'found', text: 'Found tracks' };
+        ? { kind: 'rejected', text: t.rejected }
+        : { kind: 'found', text: t.found };
   }
 }
 
@@ -102,7 +104,8 @@ function chipOf(
 ): MixListItem['chip'] {
   if (v && (v.status === 'queued' || v.status === 'claimed'))
     return requestChip(v);
-  if (!mix) return v ? requestChip(v) : { kind: 'saved', text: 'Saved' };
+  if (!mix)
+    return v ? requestChip(v) : { kind: 'saved', text: msg().mix.chip.saved };
   if (v === null) return savedChip(mix);
   const unapplied = v.status === 'done' && !v.rejected && v.appliedAt === null;
   const failedLater =

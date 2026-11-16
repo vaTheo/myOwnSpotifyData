@@ -1,6 +1,7 @@
 import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useMemo } from 'preact/hooks';
+import { msg, type Messages } from '../i18n';
 import type { ArtistAgg, Model } from '../model/aggregate';
 import { normalize } from '../model/normalize';
 import {
@@ -18,7 +19,7 @@ import { Empty } from './components/Empty';
 import { Filter } from './components/Filter';
 import { NoMatch } from './components/NoMatch';
 import { SegmentedButtons } from './components/SegmentedButtons';
-import { artistUrl, plural } from './format';
+import { artistUrl } from './format';
 import { ListDetail, ListPane } from './layout/ListDetail';
 import {
   countColumn,
@@ -76,29 +77,30 @@ function savedRows(m: Model, reach: boolean): SavedArtistRow[] {
  */
 function savedColumns(
   history: boolean,
-  reach: boolean
+  reach: boolean,
+  t: Messages['library']['columns']
 ): Column<SavedArtistRow>[] {
   return [
     rankColumn(),
     titleColumn((r) => r.agg.name, {
-      header: 'Name',
+      header: t.name,
       hrefOf: (r) => routeHref({ name: 'artist', key: r.agg.key }),
     }),
-    countColumn('tracks', 'Tracks', (r) => r.agg.trackKeys.size, {
-      unit: ['track', 'tracks'],
+    countColumn('tracks', t.tracks, (r) => r.agg.trackKeys.size, {
+      unit: [t.trackUnit(1), t.trackUnit(2)],
     }),
     countColumn(
       'playlists',
-      'Playlists',
+      t.playlists,
       (r) => r.agg.playlistIds.size,
-      { unit: ['playlist', 'playlists'] },
+      { unit: [t.playlistUnit(1), t.playlistUnit(2)] },
       { priority: 2 }
     ),
     ...(history
       ? [
           countColumn(
             'plays',
-            'Plays',
+            t.plays,
             (r: SavedArtistRow) => r.plays,
             {},
             {
@@ -111,7 +113,7 @@ function savedColumns(
       ? [
           countColumn(
             'listeners',
-            'Listeners',
+            t.listeners,
             (r: SavedArtistRow) => r.listeners,
             {},
             {
@@ -121,7 +123,7 @@ function savedColumns(
           ),
           countColumn(
             'fans',
-            'Fans',
+            t.fans,
             (r: SavedArtistRow) => r.fans,
             {},
             {
@@ -160,6 +162,7 @@ function SavedTracks(p: { switcher: ComponentChildren }) {
   const query = normalize(artistFilter.value);
   // Rank comes from the full list, so filtering never renumbers the rows.
   const list = filterRows(rows, query);
+  const t = msg().library;
   return (
     <>
       <div class="toolbar">
@@ -169,7 +172,7 @@ function SavedTracks(p: { switcher: ComponentChildren }) {
           onInput={(v) => {
             artistFilter.value = v;
           }}
-          placeholder="Filter artists"
+          placeholder={t.artists.filter}
         />
       </div>
       {list.length === 0 ? (
@@ -181,9 +184,9 @@ function SavedTracks(p: { switcher: ComponentChildren }) {
         />
       ) : (
         <DataTable
-          label="Artists by saved tracks"
+          label={t.artists.bySavedTracks}
           noun="artist"
-          columns={savedColumnsOf(hasHistory(m), reach)}
+          columns={savedColumnsOf(hasHistory(m), reach, t.columns)}
           rows={list}
           rowKey={keyOfRow}
           rankOf={rankOfRow}
@@ -224,22 +227,23 @@ function ArtistPane(p: { m: Model; selected: string }) {
     return shown.map((a) => ({
       id: a.key,
       title: a.name,
-      subtitle: plural(a.trackKeys.size, 'track'),
+      subtitle: msg().n.track(a.trackKeys.size),
       // No artist picture in the model: the slot keeps its place.
       imageUrl: null,
       href: routeHref({ name: 'artist', key: a.key }),
     }));
-  }, [p.m, radar, order, query]);
+  }, [p.m, radar, order, query, msg()]);
+  const t = msg().library.artists;
   return (
     <ListPane
-      label={radar ? 'Under the radar' : 'Artists by saved tracks'}
+      label={radar ? t.underRadar : t.bySavedTracks}
       head={
         <Filter
           value={artistFilter.value}
           onInput={(v) => {
             artistFilter.value = v;
           }}
-          placeholder="Filter artists"
+          placeholder={t.filter}
         />
       }
       empty={
@@ -295,8 +299,8 @@ function ArtistList() {
   const switcher = (
     <SegmentedButtons
       options={[
-        { value: 'saved', label: 'Saved tracks' },
-        { value: 'radar', label: 'Under the radar' },
+        { value: 'saved', label: msg().library.artists.savedTracks },
+        { value: 'radar', label: msg().library.artists.underRadar },
       ]}
       value={artistView.value}
       onChange={(v) => {

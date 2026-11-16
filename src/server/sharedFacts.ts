@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import type {
   PortResult,
   SharedFactsPort,
@@ -31,8 +32,6 @@ export { SHARED_BPM_MAX, SHARED_BPM_MIN, SHARED_MAX_IDS };
 export { SHARED_ID_PATTERN };
 export const SHARED_TIMEOUT_MS = 10_000;
 
-export const NOT_SIGNED_IN = 'Not signed in to the server';
-
 const DAY_MS = 86_400_000;
 
 export interface SharedFactsDeps {
@@ -62,10 +61,11 @@ export function createSharedFactsPort(deps: SharedFactsDeps): SharedFactsPort {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const token = await deps.getToken();
-      if (!token.ok) return { ok: false, message: NOT_SIGNED_IN };
+      if (!token.ok)
+        return { ok: false, message: msg().sources.shared.notSignedIn };
       const timeout = new Promise<PortResult<T>>((resolve) => {
         timer = setTimeout(
-          () => resolve({ ok: false, message: 'The server did not answer' }),
+          () => resolve({ ok: false, message: msg().sources.shared.noAnswer }),
           SHARED_TIMEOUT_MS
         );
       });
@@ -100,7 +100,7 @@ export function createSharedFactsPort(deps: SharedFactsDeps): SharedFactsPort {
       );
       if (!res.ok) return res;
       if (!Array.isArray(res.value)) {
-        return { ok: false, message: 'Unexpected answer: not a list' };
+        return { ok: false, message: msg().sources.shared.notAList };
       }
       for (const raw of res.value) {
         const row = keep(raw, asked);

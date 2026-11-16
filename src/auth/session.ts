@@ -1,4 +1,5 @@
 import { signal, type Signal } from '@preact/signals';
+import { msg } from '../i18n';
 import { AuthError } from '../spotify/errors';
 import {
   TokenError,
@@ -96,8 +97,7 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
 
   async function beginLogin(): Promise<void> {
     if (!deps.clientId) {
-      lastAuthError.value =
-        'VITE_SPOTIFY_CLIENT_ID is not set. Add it to .env locally, or to the repository secret for the deployed site.';
+      lastAuthError.value = msg().core.auth.noClientId;
       return;
     }
     const record: PkceRecord = {
@@ -123,20 +123,17 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
     const error = params.get('error');
     if (error) {
       deps.storage.removeItem(PKCE_KEY);
-      throw new AuthError('denied', `Spotify refused the login: ${error}`);
+      throw new AuthError('denied', msg().core.auth.refused(error));
     }
     const code = params.get('code');
     if (!code) return 'none';
     const record = readJson<PkceRecord>(deps.storage, PKCE_KEY);
     deps.storage.removeItem(PKCE_KEY);
     if (!record) {
-      throw new AuthError(
-        'verifier',
-        'This login was started in another browser. Start again from here.'
-      );
+      throw new AuthError('verifier', msg().core.auth.otherBrowser);
     }
     if (params.get('state') !== record.state) {
-      throw new AuthError('state', 'Login state mismatch. Start again.');
+      throw new AuthError('state', msg().core.auth.stateMismatch);
     }
     const res = await exchangeCode(
       {
@@ -148,7 +145,7 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
       deps.fetchFn
     );
     if (!res.refresh_token) {
-      throw new AuthError('missing', 'Spotify did not return a refresh token.');
+      throw new AuthError('missing', msg().core.auth.noRefreshToken);
     }
     save({
       accessToken: res.access_token,
@@ -169,7 +166,7 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
       );
       if (generation !== started) {
         // Logged out while this refresh was in flight: do not resurrect it.
-        throw new AuthError('missing', 'Not connected to Spotify.');
+        throw new AuthError('missing', msg().core.auth.notConnected);
       }
       save({
         accessToken: res.access_token,
@@ -181,8 +178,7 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
     } catch (err) {
       if (err instanceof TokenError && err.code === 'invalid_grant') {
         save(null);
-        const message =
-          'Spotify login expired (refresh tokens last six months). Connect again.';
+        const message = msg().core.auth.expired;
         lastAuthError.value = message;
         throw new AuthError('expired', message);
       }
@@ -194,7 +190,7 @@ export function createSessionStore(deps: SessionDeps): SessionStore {
     const current = session.value;
     if (!current) {
       return Promise.reject(
-        new AuthError('missing', 'Not connected to Spotify.')
+        new AuthError('missing', msg().core.auth.notConnected)
       );
     }
     if (!forceRefresh && current.expiresAt - deps.now() > REFRESH_MARGIN_MS) {

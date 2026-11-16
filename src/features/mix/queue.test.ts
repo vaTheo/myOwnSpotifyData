@@ -26,7 +26,7 @@ describe('queueFailure (ruling D5)', () => {
         'Could not move the request',
         'column jobs.priority does not exist'
       )
-    ).toBe(MIGRATION_0003_MESSAGE);
+    ).toBe(MIGRATION_0003_MESSAGE());
     expect(queueFailure('Could not stop the scan', 'Error 42703')).toBe(
       'Apply migration 0003 on the server to use Cancel, Move to top and Stop'
     );
@@ -55,11 +55,11 @@ describe('queueNote (T122, review F2)', () => {
   });
 
   it('never guesses from a stale status when the pull failed', () => {
-    expect(queueNote('gone', false, 'queued')).toBe(UNCONFIRMED_NOTE);
-    expect(queueNote('gone', false, 'claimed')).toBe(UNCONFIRMED_NOTE);
+    expect(queueNote('gone', false, 'queued')).toBe(UNCONFIRMED_NOTE());
+    expect(queueNote('gone', false, 'claimed')).toBe(UNCONFIRMED_NOTE());
   });
 
   it('does not call a request still waiting finished', () => {
-    expect(queueNote('gone', true, 'queued')).toBe(UNCONFIRMED_NOTE);
+    expect(queueNote('gone', true, 'queued')).toBe(UNCONFIRMED_NOTE());
   });
 });

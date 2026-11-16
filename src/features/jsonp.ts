@@ -3,6 +3,8 @@
  * header at all, so it can only be read this way (spec §3.4, research §2).
  */
 
+import { msg } from '../i18n';
+
 /**
  * JSONP has no status codes, so a silent timeout is a retry, never a miss.
  * This is a separate budget from `REACH_REQUEST_TIMEOUT_MS`.
@@ -48,7 +50,7 @@ export function jsonp(url: string, timeoutMs: number): Promise<unknown> {
     script.onerror = (): void => {
       detach();
       delete globals[name];
-      reject(new Error(`JSONP request failed: ${url}`));
+      reject(new Error(msg().sources.jsonp.failed(url)));
     };
     const timer = setTimeout(() => {
       detach();
@@ -58,9 +60,7 @@ export function jsonp(url: string, timeoutMs: number): Promise<unknown> {
       // call it — one more timeout's worth of margin.
       globals[name] = (): void => {};
       setTimeout(() => delete globals[name], timeoutMs);
-      reject(
-        new Error(`JSONP request timed out after ${timeoutMs} ms: ${url}`)
-      );
+      reject(new Error(msg().sources.jsonp.timedOut(timeoutMs, url)));
     }, timeoutMs);
 
     // Nothing between the two handlers above and `timer` can invoke either

@@ -13,6 +13,14 @@ export const LOCALE: Record<Lang, string> = { en: 'en-GB', fr: 'fr-FR' };
 
 const LANG_KEY = 'lang';
 
+/**
+ * Whether a count takes the singular in the language shown: only 1 in
+ * English, 0 and 1 in French.
+ */
+export function isSingular(n: number): boolean {
+  return lang.value === 'fr' ? n < 2 : n === 1;
+}
+
 function isLang(value: unknown): value is Lang {
   return value === 'en' || value === 'fr';
 }

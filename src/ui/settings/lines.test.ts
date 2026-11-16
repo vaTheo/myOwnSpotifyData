@@ -12,8 +12,8 @@ import {
   reachCoverageLine,
   reachRunLine,
   rekordboxLine,
-  SHARED_NOTICE_BPM,
-  SHARED_NOTICE_REACH,
+  sharedNoticeBpm,
+  sharedNoticeReach,
   sharedRunLine,
   signedInLine,
   usedShare,
@@ -183,13 +183,13 @@ describe('sharedRunLine (round 014)', () => {
       kind: 'success',
       text: "From the shared store: 40 artists' numbers, no lookup needed. Shared: 2 new.",
     });
-    expect(SHARED_NOTICE_REACH).toContain('Listeners and fans');
-    expect(SHARED_NOTICE_REACH).toContain(
+    expect(sharedNoticeReach()).toContain('Listeners and fans');
+    expect(sharedNoticeReach()).toContain(
       'rekordbox values and mixes never are'
     );
   });
   it('the notice names what is never shared', () => {
-    expect(SHARED_NOTICE_BPM).toContain('other people on this server');
-    expect(SHARED_NOTICE_BPM).toContain('rekordbox values and mixes never are');
+    expect(sharedNoticeBpm()).toContain('other people on this server');
+    expect(sharedNoticeBpm()).toContain('rekordbox values and mixes never are');
   });
 });

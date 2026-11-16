@@ -7,11 +7,10 @@ import type { LikeState } from '../../model/state';
 import type { SpotifyClient } from '../../spotify/client';
 import { QuotaError } from '../../spotify/errors';
 import { describeError } from '../../util/errors';
+import { msg } from '../../i18n';
 
 /** Spotify's cap on both `/me/library` endpoints. */
 export const LIBRARY_BATCH = 40;
-
-const UNEXPECTED = 'Spotify returned an unexpected answer';
 
 /** Checking needs the read scope, saving the modify scope. */
 export function canLikeTracks(session: Session | null): boolean {
@@ -116,7 +115,7 @@ export async function runLikePlaylist(
       onState({
         status: 'error',
         playlistId,
-        message: `Could not check your Liked Songs: ${describeError(err)}`,
+        message: msg().sources.like.checkFailed(describeError(err)),
       });
       return quotaOf(err);
     }
@@ -124,7 +123,7 @@ export async function runLikePlaylist(
       onState({
         status: 'error',
         playlistId,
-        message: `Could not check your Liked Songs: ${UNEXPECTED}`,
+        message: msg().sources.like.checkFailed(msg().sources.like.unexpected),
       });
       return {};
     }
@@ -174,14 +173,9 @@ export async function runLikePlaylist(
   return {};
 }
 
-function count(n: number, word: string): string {
-  return `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
-}
-
 /** The confirm text; `total` is the distinct Spotify songs checked. */
 export function likeQuestion(toLike: number, total: number): string {
-  const one = toLike === 1;
-  return `${toLike.toLocaleString()} of ${count(total, 'song')} from your last sync ${one ? "isn't" : "aren't"} in your Liked Songs yet. Like ${one ? 'it' : 'them'}?`;
+  return msg().sources.like.question(toLike, total);
 }
 
 /** The done line, each part only when it is not zero. */
@@ -190,23 +184,19 @@ export function likeSummary(s: {
   already: number;
   skipped: number;
 }): string {
+  const t = msg().sources.like;
   const parts: string[] = [];
   if (s.liked > 0) {
-    parts.push(`Liked ${count(s.liked, 'song')}`);
-    if (s.already > 0)
-      parts.push(
-        `${s.already.toLocaleString()} ${s.already === 1 ? 'was' : 'were'} already liked`
-      );
+    parts.push(t.liked(s.liked));
+    if (s.already > 0) parts.push(t.alreadyLiked(s.already));
   } else if (s.already === 1) {
-    parts.push('Your 1 song is already in your Liked Songs');
+    parts.push(t.oneAlready);
   } else if (s.already > 0) {
-    parts.push(
-      `All ${count(s.already, 'song')} are already in your Liked Songs`
-    );
+    parts.push(t.allAlready(s.already));
   } else {
-    parts.push('No Spotify songs to like');
+    parts.push(t.nothing);
   }
-  if (s.skipped > 0) parts.push(`${count(s.skipped, 'local file')} skipped`);
+  if (s.skipped > 0) parts.push(t.skipped(s.skipped));
   return parts.join(' · ');
 }
 
@@ -217,7 +207,7 @@ export function likeErrorText(s: {
   toLike?: number;
 }): string {
   if (s.liked === undefined || s.toLike === undefined) return s.message;
-  return `Liked ${s.liked.toLocaleString()} of ${s.toLike.toLocaleString()}, then: ${s.message}`;
+  return msg().sources.like.stopped(s.liked, s.toLike, s.message);
 }
 
 /** True while a like job holds the one run slot, on any playlist. */
@@ -230,8 +220,9 @@ export function isLiking(s: LikeState): boolean {
  * disabled too — and says why, instead of claiming this playlist is liked.
  */
 export function likeButtonLabel(s: LikeState, playlistId: string): string {
-  if (!isLiking(s)) return 'Like all songs';
+  const t = msg().sources.like;
+  if (!isLiking(s)) return t.button;
   return s.status !== 'idle' && s.playlistId === playlistId
-    ? 'Liking…'
-    : 'Liking another playlist…';
+    ? t.liking
+    : t.likingOther;
 }

@@ -19,6 +19,17 @@ const SAME = new Set([
   'Import',
   'Français',
   'English',
+  'Playlist',
+  'playlist',
+  'playlists',
+  'Fans',
+  'Label',
+  'Tracklist',
+  'Album',
+  'album',
+  'Audio',
+  'Source',
+  'Total',
 ]);
 
 interface Leaf {

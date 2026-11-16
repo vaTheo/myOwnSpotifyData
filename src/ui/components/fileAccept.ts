@@ -1,3 +1,5 @@
+import { msg } from '../../i18n';
+
 /**
  * The `accept` rule of a file input, applied to a dropped file: the system
  * picker filters by `accept`, a drop does not (spec 003, FR-039). An entry
@@ -27,6 +29,7 @@ export function acceptLabel(accept: string): string {
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter((s) => s.startsWith('.'));
-  if (exts.length <= 1) return exts[0] ?? 'matching';
-  return `${exts.slice(0, -1).join(', ')} or ${exts[exts.length - 1]}`;
+  const t = msg().frame.fileDrop;
+  if (exts.length <= 1) return exts[0] ?? t.matching;
+  return t.or(exts.slice(0, -1).join(', '), exts[exts.length - 1]);
 }

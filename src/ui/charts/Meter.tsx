@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import { meterBand } from './series';
 
 /**
@@ -8,23 +9,24 @@ import { meterBand } from './series';
  */
 export function Meter({
   pct,
-  label = 'Finished',
+  label,
 }: {
   /** 0–100; rounded and clamped for the drawing. */
   pct: number;
   label?: string;
 }) {
   const value = Math.min(100, Math.max(0, Math.round(pct)));
+  const text = msg().table.charts;
   return (
     <div
       class={`meter meter-${meterBand(value)}`}
       role="img"
-      aria-label={`${label}: ${value}%`}
+      aria-label={text.meter(label ?? text.finished, value)}
     >
       <div class="meter-track">
         <div class="meter-fill" style={{ width: `${value}%` }} />
       </div>
-      <span class="meter-value">{value}%</span>
+      <span class="meter-value">{text.percent(value)}</span>
     </div>
   );
 }

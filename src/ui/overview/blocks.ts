@@ -27,6 +27,7 @@ import type { SyncState } from '../../sync/runner';
 import { monthSeries, type MonthPoint } from '../charts/series';
 import { playLabel, staleMonthKey, yearSpanLabel } from '../crate/labels';
 import { pendingValue } from '../settings/lines';
+import { fmt, msg } from '../../i18n';
 import {
   artistNames,
   formatDate,
@@ -34,7 +35,6 @@ import {
   formatListening,
   historyLine,
   monthLabel,
-  plural,
 } from '../format';
 
 export type OverviewBlockId =
@@ -122,17 +122,18 @@ export interface OverviewInput {
 
 const TOP_COUNT = 5;
 
-const IMPORT: OverviewAction = {
-  label: 'Import history',
+/** Built when called: the label is the text of the language shown. */
+const importAction = (): OverviewAction => ({
+  label: msg().overview.actions.importHistory,
   href: routeHref({ name: 'import' }),
-};
+});
 
-const SYNC: OverviewAction = {
-  label: 'Sync in Settings',
+const syncAction = (): OverviewAction => ({
+  label: msg().overview.actions.syncInSettings,
   href: routeHref({ name: 'settings' }),
-};
+});
 
-const count = (n: number): string => n.toLocaleString();
+const count = (n: number): string => fmt.int(n);
 
 let rotationMemo: {
   plays: PlayRow[];
@@ -170,9 +171,10 @@ export function listeningMs(plays: PlayRow[]): number {
 }
 
 function listening(p: OverviewInput): OverviewBlock {
+  const text = msg().overview.listening;
   const base = {
     id: 'listening' as const,
-    title: 'Listening',
+    title: text.title,
     link: routeHref({ name: 'crate' }),
   };
   const summary = p.historySummary;
@@ -181,8 +183,8 @@ function listening(p: OverviewInput): OverviewBlock {
       ...base,
       state: 'empty',
       figures: [],
-      reason: 'No listening history yet.',
-      action: IMPORT,
+      reason: text.noHistory,
+      action: importAction(),
     };
   }
   const ms = p.model ? listeningMs(p.model.plays) : undefined;
@@ -191,13 +193,13 @@ function listening(p: OverviewInput): OverviewBlock {
     ...base,
     state: 'ready',
     figures: [
-      { label: 'Plays', value: count(summary.plays) },
+      { label: text.plays, value: count(summary.plays) },
       {
-        label: 'Listening time',
+        label: text.time,
         value: ms === undefined ? null : formatListening(ms),
       },
-      { label: 'Years', value: yearSpanLabel(summary.range) },
-      { label: 'Imported', value: formatDate(summary.importedAt) },
+      { label: text.years, value: yearSpanLabel(summary.range) },
+      { label: text.imported, value: formatDate(summary.importedAt) },
     ],
     // Only a version 2 summary knows its zone, as in HistorySection.
     caption: historyLine(
@@ -206,17 +208,21 @@ function listening(p: OverviewInput): OverviewBlock {
     ),
     ...(stale
       ? {
-          warning: `History ends ${monthLabel(stale)}. Import a newer export for recent plays.`,
-          action: { label: 'Import again', href: IMPORT.href },
+          warning: text.stale(monthLabel(stale)),
+          action: {
+            label: msg().overview.actions.importAgain,
+            href: importAction().href,
+          },
         }
       : {}),
   };
 }
 
 function rotation(p: OverviewInput): OverviewBlock {
+  const text = msg().overview.rotation;
   const base = {
     id: 'rotation' as const,
-    title: 'Heavy rotation',
+    title: text.title,
     link: routeHref({ name: 'crateView', view: 'rotation' }),
   };
   if (p.crateStatus === 'empty' || !p.model) {
@@ -224,8 +230,8 @@ function rotation(p: OverviewInput): OverviewBlock {
       ...base,
       state: 'empty',
       figures: [],
-      reason: 'Heavy rotation is built from your listening history.',
-      action: IMPORT,
+      reason: text.empty,
+      action: importAction(),
     };
   }
   if (p.crateStatus === 'reimport') {
@@ -233,8 +239,8 @@ function rotation(p: OverviewInput): OverviewBlock {
       ...base,
       state: 'gated',
       figures: [],
-      reason: 'Your history needs importing again for the month views.',
-      action: IMPORT,
+      reason: text.reimport,
+      action: importAction(),
     };
   }
   const m = p.model;
@@ -245,8 +251,8 @@ function rotation(p: OverviewInput): OverviewBlock {
     ...base,
     state: 'ready',
     figures: [
-      { label: 'Tracks', value: count(items.length) },
-      { label: 'Window', value: `last ${plural(p.rotationMonths, 'month')}` },
+      { label: text.tracks, value: count(items.length) },
+      { label: text.window, value: text.windowValue(p.rotationMonths) },
     ],
     items: items.slice(0, TOP_COUNT).map((item) => {
       const label = playLabel(m, item.row);
@@ -259,20 +265,18 @@ function rotation(p: OverviewInput): OverviewBlock {
           view: 'rotation',
           detail: item.row.trackId,
         }),
-        value: plural(item.windowPlays, 'play'),
+        value: msg().n.play(item.windowPlays),
         series: monthSeries(item.row.months, keys, range),
       };
     }),
-    ...(items.length === 0
-      ? { note: `Nothing in the last ${plural(p.rotationMonths, 'month')}.` }
-      : {}),
+    ...(items.length === 0 ? { note: text.nothing(p.rotationMonths) } : {}),
   };
 }
 
 function top(p: OverviewInput): OverviewBlock {
   const base = {
     id: 'top' as const,
-    title: 'Top this month',
+    title: msg().overview.top.title,
     link: routeHref({ name: 'top' }),
   };
   const tracks = p.model ? topTracks(p.model, 'short_term') : [];
@@ -281,8 +285,8 @@ function top(p: OverviewInput): OverviewBlock {
       ...base,
       state: 'empty',
       figures: [],
-      reason: 'No top lists yet.',
-      action: SYNC,
+      reason: msg().overview.top.empty,
+      action: syncAction(),
     };
   }
   return {
@@ -294,7 +298,7 @@ function top(p: OverviewInput): OverviewBlock {
       subtitle: artistNames(r.item.artists),
       trackId: r.item.id,
       href: routeHref({ name: 'top', detail: r.item.id }),
-      value: r.plays ? plural(r.plays.plays, 'play') : null,
+      value: r.plays ? msg().n.play(r.plays.plays) : null,
     })),
   };
 }
@@ -304,14 +308,15 @@ function syncWarning(p: OverviewInput): string | undefined {
   const at = p.now.getTime();
   const s = p.syncState;
   const shared = activeLock(p.quotaLockUntil, at);
+  const text = msg().overview.library;
   // As the Sync card: its own line when the lock it met is the one holding
   // (it names the pending playlists), else the shared lock's line.
   if (s.status === 'locked' && (shared === null || s.retryAt >= shared)) {
     const retry =
       activeLock(s.retryAt, at) !== null
-        ? `Retry after ${formatDateTime(s.retryAt)}.`
-        : 'You can retry now.';
-    return `Spotify quota reached with ${plural(s.pending.length, 'playlist')} pending. ${retry}`;
+        ? text.retryAfter(formatDateTime(s.retryAt))
+        : text.retryNow;
+    return `${text.quota(s.pending.length)} ${retry}`;
   }
   if (shared !== null) {
     return quotaRefusal('sync', shared, at, formatDateTime) ?? undefined;
@@ -319,17 +324,18 @@ function syncWarning(p: OverviewInput): string | undefined {
   if (s.status === 'error') {
     // As the Sync card: the error always shows, the pending count with it.
     return s.pending.length > 0
-      ? `${plural(s.pending.length, 'playlist')} pending. Last error: ${s.message}`
-      : `Last error: ${s.message}`;
+      ? text.pendingError(s.pending.length, s.message)
+      : text.lastError(s.message);
   }
   return undefined;
 }
 
 function library(p: OverviewInput): OverviewBlock {
   const warning = syncWarning(p);
+  const text = msg().overview.library;
   const base = {
     id: 'library' as const,
-    title: 'Library',
+    title: text.title,
     link: routeHref({ name: 'playlists' }),
     ...(warning ? { warning } : {}),
   };
@@ -339,28 +345,29 @@ function library(p: OverviewInput): OverviewBlock {
       ...base,
       state: 'empty',
       figures: [],
-      reason: 'No playlists yet.',
-      action: SYNC,
+      reason: text.empty,
+      action: syncAction(),
     };
   }
   return {
     ...base,
     state: 'ready',
     figures: [
-      { label: 'Playlists', value: count(m.playlists.length) },
-      { label: 'Tracks', value: count(m.tracksByKey.size) },
+      { label: text.playlists, value: count(m.playlists.length) },
+      { label: text.tracks, value: count(m.tracksByKey.size) },
       {
-        label: 'Last sync',
-        value: p.lastSyncAt ? formatDateTime(p.lastSyncAt) : 'never',
+        label: text.lastSync,
+        value: p.lastSyncAt ? formatDateTime(p.lastSyncAt) : text.never,
       },
     ],
   };
 }
 
 function coverageBlock(p: OverviewInput): OverviewBlock {
+  const text = msg().overview.coverage;
   const base = {
     id: 'coverage' as const,
-    title: 'Coverage',
+    title: text.title,
     link: routeHref({ name: 'settings' }),
   };
   const m = p.model;
@@ -371,28 +378,28 @@ function coverageBlock(p: OverviewInput): OverviewBlock {
       ...base,
       state: 'empty',
       figures: [],
-      reason: 'No tracks or artists to look up yet.',
-      action: SYNC,
+      reason: text.empty,
+      action: syncAction(),
     };
   }
   const summary = p.artistReachSummary;
   const figures: OverviewFigure[] = [
     {
-      label: 'Audio data',
-      value: `${count(audio.covered)} of ${plural(audio.total, 'track')}`,
+      label: text.audio,
+      value: text.audioValue(audio.covered, audio.total),
     },
     {
-      label: 'Artist reach',
-      value: `${count(reach.covered)} of ${plural(reach.artists, 'artist')}`,
+      label: text.reach,
+      value: text.reachValue(reach.covered, reach.artists),
     },
     {
-      label: 'Rekordbox imported',
+      label: text.rekordbox,
       value: p.rekordboxSummary
         ? formatDate(p.rekordboxSummary.importedAt)
         : null,
     },
     {
-      label: 'Reach as of',
+      label: text.reachAsOf,
       value: summary?.version === 1 ? formatDate(summary.ranAt) : null,
     },
   ];
@@ -401,9 +408,9 @@ function coverageBlock(p: OverviewInput): OverviewBlock {
       ...base,
       state: 'gated',
       figures,
-      reason: 'Under the radar needs your artists looked up.',
+      reason: text.gated,
       action: {
-        label: 'Look up in Settings',
+        label: msg().overview.actions.lookUp,
         href: routeHref({ name: 'settings', item: 'reach' }),
       },
     };
@@ -412,9 +419,10 @@ function coverageBlock(p: OverviewInput): OverviewBlock {
 }
 
 function mix(p: OverviewInput): OverviewBlock {
+  const text = msg().overview.mix;
   const base = {
     id: 'mix' as const,
-    title: 'Last saved mix',
+    title: text.title,
     link: routeHref({ name: 'mix' }),
     ...(p.mixError ? { error: p.mixError } : {}),
   };
@@ -423,7 +431,7 @@ function mix(p: OverviewInput): OverviewBlock {
       ...base,
       state: 'empty',
       figures: [],
-      reason: 'Reading your saved mixes…',
+      reason: text.reading,
     };
   }
   const newest = p.mixes[0];
@@ -434,8 +442,8 @@ function mix(p: OverviewInput): OverviewBlock {
       ...base,
       state: 'empty',
       figures: [],
-      reason: 'No saved mixes yet.',
-      action: { label: 'Open Mix', href: base.link },
+      reason: text.empty,
+      action: { label: msg().overview.actions.openMix, href: base.link },
     };
   }
   const item = mixListItems(
@@ -448,7 +456,7 @@ function mix(p: OverviewInput): OverviewBlock {
     ...base,
     state: 'ready',
     link: routeHref({ name: 'mix', key: newest.url }),
-    figures: [{ label: 'Saved', value: formatDate(newest.savedAt) }],
+    figures: [{ label: text.saved, value: formatDate(newest.savedAt) }],
     items: [
       {
         title: item?.title ?? newest.url,
@@ -470,9 +478,10 @@ function server(p: OverviewInput): OverviewBlock {
         ? `${s.message} ${readError}`
         : s.message
       : readError;
+  const text = msg().overview.server;
   const base = {
     id: 'server' as const,
-    title: 'Server',
+    title: text.title,
     link: routeHref({ name: 'settings' }),
     ...(error ? { error } : {}),
   };
@@ -482,15 +491,15 @@ function server(p: OverviewInput): OverviewBlock {
       ...base,
       state: 'empty',
       figures: [],
-      reason: 'Signed out of your server.',
-      action: { label: 'Sign in in Settings', href: base.link },
+      reason: text.signedOut,
+      action: { label: msg().overview.actions.signIn, href: base.link },
     };
   }
   const last = s.status === 'connected' ? s.lastSyncAt : p.serverLastSyncAt;
   const figures: OverviewFigure[] = [
-    { label: 'Last sync', value: last ? formatDateTime(last) : 'never' },
+    { label: text.lastSync, value: last ? formatDateTime(last) : text.never },
     {
-      label: 'Waiting to send',
+      label: text.waiting,
       value: p.serverPending ? pendingValue(p.serverPending) : null,
     },
   ];
@@ -498,9 +507,8 @@ function server(p: OverviewInput): OverviewBlock {
     case 'pushing':
     case 'pulling':
       figures.push({
-        label: 'Now',
-        value:
-          s.status === 'pushing' ? 'Saving to server' : 'Loading from server',
+        label: text.now,
+        value: s.status === 'pushing' ? text.saving : text.loading,
       });
       return { ...base, state: 'ready', figures };
     case 'offline':
@@ -508,15 +516,14 @@ function server(p: OverviewInput): OverviewBlock {
         ...base,
         state: 'ready',
         figures,
-        warning: `Server offline: ${s.message} Local data is in use.`,
+        warning: text.offline(s.message),
       };
     case 'paused':
       return {
         ...base,
         state: 'ready',
         figures,
-        warning:
-          'Server paused. Resume it from the Supabase dashboard, then open the app again.',
+        warning: text.paused,
       };
     case 'error':
       return { ...base, state: 'ready', figures };
@@ -527,7 +534,7 @@ function server(p: OverviewInput): OverviewBlock {
         figures,
         ...(s.rejected > 0
           ? {
-              warning: `${plural(s.rejected, 'row')} rejected by the safety check and left out.`,
+              warning: text.rejected(s.rejected),
             }
           : {}),
       };

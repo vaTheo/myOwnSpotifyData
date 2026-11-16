@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import { ApiError } from '../spotify/errors';
 
 export const AUTHORIZE_URL = 'https://accounts.spotify.com/authorize';
@@ -91,7 +92,7 @@ async function postToken(
     // refresh that cannot reach Spotify says "Offline, showing cached data."
     // like every other request does, instead of "Failed to fetch".
     const reason = err instanceof Error ? err.message : String(err);
-    throw new ApiError(0, `Network error: ${reason}`);
+    throw new ApiError(0, msg().core.spotify.networkError(reason));
   }
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
@@ -100,7 +101,7 @@ async function postToken(
       typeof json.error === 'string' ? json.error : 'unknown',
       typeof json.error_description === 'string'
         ? json.error_description
-        : `Token request failed with status ${res.status}`
+        : msg().core.auth.tokenFailed(res.status)
     );
   }
   return json as unknown as TokenResponse;

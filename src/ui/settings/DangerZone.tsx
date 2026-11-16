@@ -1,3 +1,4 @@
+import { msg } from '../../i18n';
 import { disconnect, jobsBusy, serverState } from '../../model/state';
 import { Button } from '../components/Button';
 import { dangerDescription } from './lines';
@@ -21,16 +22,12 @@ export function DangerZone() {
         icon="logout"
         disabled={jobsBusy()}
         onClick={() => {
-          if (
-            confirm(
-              'Disconnect and delete all local data? Server data is kept.'
-            )
-          ) {
+          if (confirm(msg().settings.danger.confirm)) {
             void disconnect();
           }
         }}
       >
-        Disconnect
+        {msg().settings.danger.disconnect}
       </Button>
     </div>
   );

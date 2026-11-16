@@ -1,5 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { signal } from '@preact/signals';
+import { lang, msg } from '../../i18n';
 import {
   FINISH_MIN_OUTCOMES,
   finishRate,
@@ -9,7 +10,7 @@ import { Meter } from '../charts/Meter';
 import { Flag } from '../components/Flag';
 import { SegmentedButtons } from '../components/SegmentedButtons';
 import { DetailsSection } from '../details/TrackDetails';
-import { plural } from '../format';
+import { CRATE_TITLE } from '../layout/titles';
 import { countColumn } from '../table/columns';
 import { finishTab } from './selections';
 import {
@@ -27,15 +28,13 @@ type Tab = 'finished' | 'skipped';
 const sort = signal(DEFAULT_SORT);
 const filter = signal(EMPTY_FILTER);
 
-const TAB_OPTIONS: { value: Tab; label: string }[] = [
-  { value: 'finished', label: 'Finished' },
-  { value: 'skipped', label: 'Skipped' },
-];
-
-const CAPTION: Record<Tab, string> = {
-  finished: 'Tracks you play to the end',
-  skipped: 'You bail out of these',
-};
+function tabOptions(): { value: Tab; label: string }[] {
+  const text = msg().crate.finish;
+  return [
+    { value: 'finished', label: text.finished },
+    { value: 'skipped', label: text.skipped },
+  ];
+}
 
 /**
  * Both tabs show "<n>% finished", so the meter's band is read off the
@@ -49,12 +48,14 @@ function percentFinished(item: FinishItem): number {
 /** The view's figures for the opened track: the rate and its outcomes. */
 function FinishExtra({ item }: { item: FinishItem }) {
   return (
-    <DetailsSection title="Finish rate">
+    <DetailsSection title={CRATE_TITLE.finish}>
       <Meter pct={percentFinished(item)} />
       <p class="details-note">
-        {percentFinished(item)}% finished ·{' '}
-        {(item.row.finished ?? 0).toLocaleString()} of{' '}
-        {plural(item.outcomes, 'clear outcome')}
+        {msg().crate.finish.note(
+          percentFinished(item),
+          item.row.finished ?? 0,
+          item.outcomes
+        )}
       </p>
     </DetailsSection>
   );
@@ -62,16 +63,17 @@ function FinishExtra({ item }: { item: FinishItem }) {
 
 /** The two band swatches and their words (spec 003, screens.md §6). */
 function Legend() {
+  const text = msg().crate.finish;
   return (
     <p class="legend">
       <span class="legend-item">
         <span class="swatch swatch-high" aria-hidden="true" />
-        65%+ green
+        {text.legendHigh}
       </span>{' '}
       ·{' '}
       <span class="legend-item">
         <span class="swatch swatch-low" aria-hidden="true" />
-        under 35% red
+        {text.legendLow}
       </span>
     </p>
   );
@@ -82,6 +84,7 @@ export function Finish({ detail }: { detail?: string }) {
   const tab = finishTab.value;
   const items = useMemo(() => finishRate(rows, tab), [rows, tab]);
   const opened = items.find((item) => item.row.trackId === detail);
+  const text = msg().crate;
   // Kept while its inputs stay, so the table's memos hold (S13 A5);
   // the model comes in by its rows.
   const columns = useMemo(
@@ -90,7 +93,7 @@ export function Finish({ detail }: { detail?: string }) {
         metrics: [
           {
             id: 'rate',
-            header: '% finished',
+            header: text.finish.pctFinished,
             priority: 1,
             // Narrower figures leave the Artist column readable at 1440
             // (re-review N2).
@@ -102,7 +105,7 @@ export function Finish({ detail }: { detail?: string }) {
           },
           {
             id: 'finished',
-            header: 'Finished',
+            header: text.finish.finished,
             align: 'end',
             priority: 2,
             width: '96px',
@@ -110,22 +113,21 @@ export function Finish({ detail }: { detail?: string }) {
             firstDirection: 'desc',
             cell: (item) => (
               <span>
-                {(item.row.finished ?? 0).toLocaleString()} of{' '}
-                {item.outcomes.toLocaleString()}
+                {text.finish.ofCount(item.row.finished ?? 0, item.outcomes)}
               </span>
             ),
             compact: 'hidden',
           },
           countColumn(
             'skipped',
-            'Skipped',
+            text.finish.skipped,
             (item) => item.row.skipped ?? null,
             {},
             { priority: 3, width: '88px', compact: 'hidden' }
           ),
           countColumn(
             'unclear',
-            'Unclear',
+            text.finish.unclear,
             (item) => item.unclear,
             {},
             {
@@ -137,10 +139,10 @@ export function Finish({ detail }: { detail?: string }) {
         ],
         flag: (item) =>
           inNoPlaylist(item.row) ? (
-            <Flag kind="todo">not in a playlist</Flag>
+            <Flag kind="todo">{msg().crate.common.notInPlaylist}</Flag>
           ) : null,
       }),
-    [rows]
+    [rows, lang.value]
   );
   // Control, caption and legend render before the data check, so an empty
   // result still leaves the control reachable (spec section 3).
@@ -148,7 +150,7 @@ export function Finish({ detail }: { detail?: string }) {
     <>
       <div class="toolbar">
         <SegmentedButtons
-          options={TAB_OPTIONS}
+          options={tabOptions()}
           value={tab}
           onChange={(v) => {
             finishTab.value = v;
@@ -156,17 +158,24 @@ export function Finish({ detail }: { detail?: string }) {
         />
       </div>
       <p class="caption">
-        {CAPTION[tab]} · {FINISH_MIN_OUTCOMES}+ clear outcomes ·{' '}
-        {plural(items.length, 'track')}
+        {[
+          tab === 'finished'
+            ? text.finish.captionFinished
+            : text.finish.captionSkipped,
+          text.finish.clearPlus(FINISH_MIN_OUTCOMES),
+          msg().n.track(items.length),
+        ].join(' · ')}
       </p>
       <Legend />
       {items.length === 0 ? (
-        <p class="empty">
-          No track has {FINISH_MIN_OUTCOMES} clear outcomes yet.
-        </p>
+        <p class="empty">{text.finish.empty(FINISH_MIN_OUTCOMES)}</p>
       ) : (
         <CrateTable
-          label={`Finish rate, ${tab}`}
+          label={
+            tab === 'finished'
+              ? text.finish.tableFinished
+              : text.finish.tableSkipped
+          }
           items={items}
           columns={columns}
           sort={sort}

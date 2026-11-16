@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'preact/hooks';
+import { fmt, msg, type Messages } from '../../i18n';
 import { PAGE_SIZE } from '../../model/crate';
 import { Icon } from '../icons';
 import { windowClass } from '../layout/windowClass';
@@ -120,6 +121,12 @@ function useWidthLevel(
 /** How long the focus rests on a row before an open sheet follows it. */
 const FOLLOW_DELAY_MS = 150;
 
+/** "Sorted by Plays, descending", in the language shown. */
+function sortedText(header: string, direction: SortDirection): string {
+  const text = msg().table.grid;
+  return direction === 'asc' ? text.sortedAsc(header) : text.sortedDesc(header);
+}
+
 function ariaSort(
   column: Column<unknown>,
   sort: SortState
@@ -166,8 +173,11 @@ export function DataTable<Row>(p: {
   groupHeading?: (group: string) => ComponentChildren;
   /** A change resets the paging, as a sort change does. */
   resetKey?: string;
-  /** What a row is called in the paging footer ("track", "artist"). */
-  noun?: string;
+  /**
+   * What a row is called in the paging footer ("track", "artist"): a counted
+   * noun of the catalogue, so it follows the language shown.
+   */
+  noun?: keyof Messages['n'];
   /**
    * A details sheet is open: moving the focus with the arrow keys opens the
    * focused row too, so the sheet follows (US3). Debounced, so a held key
@@ -340,18 +350,18 @@ export function DataTable<Row>(p: {
   }
 
   function sortBy(c: Column<Row>): void {
+    const text = msg().table.grid;
     if (p.presorted) {
       p.onSort({ columnId: c.id, direction: c.firstDirection ?? 'asc' });
-      setAnnounce(`Sorted by ${c.header}`);
+      setAnnounce(text.sortedBy(c.header));
       return;
     }
     const next = nextSort(p.sort, c.id, c);
     p.onSort(next);
-    const by = next.columnId === null ? 'the default order' : c.header;
     setAnnounce(
       next.columnId === null
-        ? `Sorted by ${by}`
-        : `Sorted by ${by}, ${next.direction === 'asc' ? 'ascending' : 'descending'}`
+        ? text.sortedDefault
+        : sortedText(c.header, next.direction)
     );
   }
 
@@ -468,18 +478,15 @@ export function DataTable<Row>(p: {
             }
             size={18}
           />
-          <span>
-            Sorted by {sortedBy.header},{' '}
-            {p.sort.direction === 'asc' ? 'ascending' : 'descending'}
-          </span>
+          <span>{sortedText(sortedBy.header, p.sort.direction)}</span>
           <button
             type="button"
             onClick={() => {
               p.onSort({ columnId: null, direction: 'asc' });
-              setAnnounce('Sorted by the default order');
+              setAnnounce(msg().table.grid.sortedDefault);
             }}
           >
-            Reset
+            {msg().table.grid.reset}
           </button>
         </div>
       )}
@@ -550,12 +557,13 @@ export function DataTable<Row>(p: {
       {more && (
         <div class="dt-footer">
           <p>
-            Showing the top {shown.toLocaleString()} of{' '}
-            {ordered.length.toLocaleString()}
-            {p.noun ? ` ${p.noun}s` : ''}
+            {msg().table.grid.showingTop(
+              shown,
+              p.noun ? msg().n[p.noun](ordered.length) : fmt.int(ordered.length)
+            )}
           </p>
           <button type="button" onClick={() => setShown(shown + PAGE_SIZE)}>
-            Show {PAGE_SIZE.toLocaleString()} more
+            {msg().table.grid.showMore(PAGE_SIZE)}
           </button>
         </div>
       )}

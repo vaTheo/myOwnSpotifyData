@@ -5,8 +5,11 @@
  * the end it named. The end is kept in localStorage, so it survives a
  * reload and Disconnect (the quota belongs to the app's client id, not to
  * the session). Pure: `state.ts` holds the signal, the storage and the
- * timer that clears it when it lapses.
+ * timer that clears it when it lapses. The refusals are read from the
+ * catalogue when asked (spec 031).
  */
+
+import { msg } from '../i18n';
 
 /** The localStorage key holding the lock's end (epoch ms). */
 export const QUOTA_LOCK_KEY = 'spotifyQuotaLock';
@@ -43,14 +46,6 @@ export function lapseDelay(until: number, now: number): number {
  *  whose check the next sync makes again. */
 export type SpotifyReader = 'sync' | 'check' | 'create' | 'like' | 'account';
 
-const AGAIN: Record<SpotifyReader, string> = {
-  sync: 'Sync again',
-  check: 'Check again',
-  create: 'Try again',
-  like: 'Try again',
-  account: 'Sync again',
-};
-
 /** The reader's refusal while the lock holds, else null (it may read). */
 export function quotaRefusal(
   reader: SpotifyReader,
@@ -59,9 +54,7 @@ export function quotaRefusal(
   format: (ms: number) => string
 ): string | null {
   const held = activeLock(until, now);
-  return held === null
-    ? null
-    : `Spotify quota reached. ${AGAIN[reader]} after ${format(held)}.`;
+  return held === null ? null : msg().core.quota.held[reader](format(held));
 }
 
 /* ---------- one Spotify reader at a time (S13) ---------- */
@@ -74,21 +67,6 @@ export type LongReader = Exclude<SpotifyReader, 'account'>;
 export type RunningReaders = Record<LongReader, boolean>;
 
 const READER_ORDER: readonly LongReader[] = ['sync', 'check', 'create', 'like'];
-
-const READER_NAME: Record<LongReader, string> = {
-  sync: 'A sync',
-  check: 'Check on Spotify',
-  create: 'Create playlist',
-  like: 'Like all songs',
-};
-
-const READER_VERB: Record<SpotifyReader, string> = {
-  sync: 'sync',
-  check: 'check',
-  create: 'create the playlist',
-  like: 'like the songs',
-  account: 'connect',
-};
 
 /** Another reader running beside `asking`, or null: two at once double the
  *  request rate toward the quota lock-out (ADR-02). */
@@ -107,5 +85,5 @@ export function busyRefusal(
   const busy = busyReader(running, asking);
   return busy === null
     ? null
-    : `${READER_NAME[busy]} is reading Spotify: ${READER_VERB[asking]} once it ends.`;
+    : msg().core.quota.busy[asking](msg().core.quota.readerName[busy]);
 }

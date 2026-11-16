@@ -2,6 +2,7 @@ import type { Signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { decadesPresent } from '../../model/yearView';
+import { msg } from '../../i18n';
 import { decadeLabel } from '../../model/year';
 import { EmptyState } from '../components/EmptyState';
 import { yearSortFor, yearSortOn } from '../table/layout';
@@ -93,6 +94,7 @@ export function FilterBar(p: {
     p.filter.value = { ...p.filter.value, ...patch };
   };
   const error = filterError(f);
+  const text = msg().table.filter;
   return (
     <div class="filter-bar">
       <div class="filter-bar-fields">
@@ -100,26 +102,26 @@ export function FilterBar(p: {
           <Icon name="search" size={20} />
           <input
             type="search"
-            placeholder={p.placeholder ?? 'Filter by title or artist'}
-            aria-label={p.placeholder ?? 'Filter by title or artist'}
+            placeholder={p.placeholder ?? text.placeholder}
+            aria-label={p.placeholder ?? text.placeholder}
             value={f.text}
             onInput={(e) =>
               set({ text: (e.currentTarget as HTMLInputElement).value })
             }
           />
         </label>
-        <div class="filter-bpm-range" role="group" aria-label="BPM range">
+        <div class="filter-bpm-range" role="group" aria-label={text.bpmRange}>
           <BpmField
-            label="Minimum BPM"
-            placeholder="Min BPM"
+            label={text.minBpm}
+            placeholder={text.minBpmShort}
             value={f.bpmMin}
             invalid={error !== null}
             onValue={(bpmMin) => set({ bpmMin })}
           />
           <span aria-hidden="true">–</span>
           <BpmField
-            label="Maximum BPM"
-            placeholder="Max BPM"
+            label={text.maxBpm}
+            placeholder={text.maxBpmShort}
             value={f.bpmMax}
             invalid={error !== null}
             onValue={(bpmMax) => set({ bpmMax })}
@@ -139,16 +141,16 @@ export function FilterBar(p: {
             }}
           >
             <Icon name="close" size={18} />
-            <span>Clear filters</span>
+            <span>{text.clear}</span>
           </button>
         )}
       </div>
       {(decades.length > 0 || p.yearSort) && (
         <div class="filter-bar-year">
           {decades.length > 0 && (
-            <div class="filter-decades" role="group" aria-label="Decade">
+            <div class="filter-decades" role="group" aria-label={text.decade}>
               <span class="filter-decades-label" aria-hidden="true">
-                Decade
+                {text.decade}
               </span>
               <div class="segmented scroll">
                 {decades.map((d) => {
@@ -177,7 +179,7 @@ export function FilterBar(p: {
               onClick={() => p.yearSort?.onChange(!p.yearSort.on)}
             >
               {p.yearSort.on && <Icon name="check" size={18} />}
-              <span>Sort by year, oldest first</span>
+              <span>{text.yearSort}</span>
             </button>
           )}
         </div>
@@ -185,12 +187,12 @@ export function FilterBar(p: {
       {error && (
         <p id="filter-bpm-error" class="filter-error" role="alert">
           <Icon name="error" size={18} />
-          {error}: no BPM filter applied
+          {text.bpmError}
         </p>
       )}
       {isFiltering(f) && (
         <p class="filter-count caption" aria-live="polite">
-          Showing {p.shown.toLocaleString()} of {p.total.toLocaleString()}
+          {text.showing(p.shown, p.total)}
         </p>
       )}
     </div>
@@ -258,20 +260,20 @@ export function trackFilterView<Row>(p: {
         action={
           hasCriteria(f)
             ? {
-                label: 'Clear filters',
+                label: msg().table.filter.clear,
                 onClick: () => {
                   p.filter.value = clearCriteria(p.filter.value);
                 },
               }
             : {
-                label: 'Clear the text',
+                label: msg().table.filter.clearText,
                 onClick: () => {
                   p.filter.value = { ...p.filter.value, text: '' };
                 },
               }
         }
       >
-        <p>No tracks match these filters.</p>
+        <p>{msg().table.filter.noMatch}</p>
       </EmptyState>
     ) : null;
   return { bar, only: active ? new Set(kept) : null, empty, filtering: active };

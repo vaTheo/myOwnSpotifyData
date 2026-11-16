@@ -121,7 +121,8 @@ export function useSettingsLines(): {
     rekordbox: rek,
     sharedError: lookupShared?.kind === 'error' ? lookupShared.text : null,
   });
-  const IDLE = { ok: 'Up to date', off: 'Automatic updates off' };
+  const w = msg().settings.words;
+  const IDLE = { ok: w.upToDate, off: w.autoOff };
   return {
     rows,
     // Closed item lines say the state only: counts and dates are in the
@@ -131,9 +132,9 @@ export function useSettingsLines(): {
       sync: stateOnly(
         syncItemLine(spotify, sync.busyLine),
         {
-          ok: 'Synced',
-          off: 'Automatic updates off',
-          never: lastSyncAt.value === null ? 'Never synced' : null,
+          ok: w.synced,
+          off: w.autoOff,
+          never: lastSyncAt.value === null ? w.neverSynced : null,
         },
         of(syncState.value)
       ),
@@ -144,8 +145,8 @@ export function useSettingsLines(): {
           historyZoneWarning()
         ),
         {
-          ok: 'Imported',
-          never: historySummary.value === null ? 'Not imported' : null,
+          ok: w.imported,
+          never: historySummary.value === null ? w.notImported : null,
         }
       ),
       audio: stateOnly(
@@ -154,9 +155,9 @@ export function useSettingsLines(): {
           ...IDLE,
           never:
             cov === null || cov.total === 0
-              ? 'No tracks yet'
+              ? w.noTracks
               : cov.covered === 0
-                ? 'Not looked up'
+                ? w.notLookedUp
                 : null,
         },
         audio.scope === 'Rekordbox' && rek.status === 'running'
@@ -173,7 +174,7 @@ export function useSettingsLines(): {
         ),
         {
           ...IDLE,
-          never: artistReachSummary.value === null ? 'Not looked up' : null,
+          never: artistReachSummary.value === null ? w.notLookedUp : null,
         },
         of(reach)
       ),

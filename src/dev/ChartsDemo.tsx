@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import { yearSetting, type YearPeriod } from '../model/crate';
+import { msg } from '../i18n';
 import { historySummary, model } from '../model/state';
 import { MonthBars } from '../ui/charts/MonthBars';
 import { Meter } from '../ui/charts/Meter';
@@ -18,6 +19,7 @@ import {
  * blocks on demo data, for the visual loop, until S06 puts them on screens.
  */
 function ChartsDemo() {
+  const t = msg().demo.charts;
   const plays = model.value?.plays ?? [];
   const range = historySummary.value?.range ?? null;
   const totals = yearMonthTotals(plays, range, new Date().getFullYear());
@@ -38,12 +40,12 @@ function ChartsDemo() {
   const keys = monthKeys(first, `${last}-12`);
   return (
     <main class="screen">
-      <h1>Charts</h1>
-      <h2>Plays per month, whole span</h2>
+      <h1>{t.title}</h1>
+      <h2>{t.wholeSpan}</h2>
       {busiest && (
         <MonthBars series={monthSeries(busiest.months, keys, range)} />
       )}
-      <h2>Plays per month, {last}</h2>
+      <h2>{t.perMonthIn(last)}</h2>
       {busiest && (
         <MonthBars
           series={monthSeries(
@@ -53,31 +55,31 @@ function ChartsDemo() {
           )}
         />
       )}
-      <h2>Plays per year (Classics)</h2>
+      <h2>{t.perYearHeading}</h2>
       {busiest && (
         <MonthBars
-          title="Plays per year"
+          title={t.perYear}
           series={yearPoints(
             busiest.months,
             totals.map((t) => t.year)
           )}
         />
       )}
-      <h2>In a table row (compact)</h2>
+      <h2>{t.compact}</h2>
       {busiest && (
         <CompactRow months={busiest.months} range={range} last={last} />
       )}
-      <h2>Finish rate</h2>
+      <h2>{t.finishRate}</h2>
       <Meter pct={82} />
       <Meter pct={50} />
       <Meter pct={20} />
-      <h2>By year</h2>
+      <h2>{t.byYear}</h2>
       <YearMonthGrid
         totals={totals}
         selection={sel}
         onSelect={(year, period) => setSel({ year, period })}
       />
-      <p>Selected: {yearSetting(sel.year, sel.period)}</p>
+      <p>{t.selected(yearSetting(sel.year, sel.period))}</p>
     </main>
   );
 }
@@ -88,6 +90,7 @@ function CompactRow(p: {
   range: { first: string; last: string } | null;
   last: number;
 }) {
+  const t = msg().demo.charts;
   const series = monthSeries(
     p.months,
     monthKeys(`${p.last}-01`, `${p.last}-12`),
@@ -96,7 +99,7 @@ function CompactRow(p: {
   return (
     <button
       type="button"
-      aria-label={`Busiest track, ${seriesLabel('plays per month', series)}`}
+      aria-label={t.busiestLabel(seriesLabel(t.perMonthSeries, series))}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -112,7 +115,7 @@ function CompactRow(p: {
         font: 'var(--md-sys-typescale-body-medium)',
       }}
     >
-      <span style={{ flex: 1, textAlign: 'left' }}>Busiest track</span>
+      <span style={{ flex: 1, textAlign: 'left' }}>{t.busiest}</span>
       <span style={{ width: '120px' }}>
         <MonthBars compact series={series} />
       </span>

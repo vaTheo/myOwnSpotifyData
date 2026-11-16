@@ -1,6 +1,7 @@
 import type { Clue, MixJobView, MixRun, TracklistRow } from '../../db/schema';
 import type { ServerStatus } from '../../server/types';
 import { validateJobRow, type MixJobRow } from '../../server/validate';
+import { fmt, msg } from '../../i18n';
 import { decadeOf, parseYear } from '../../model/year';
 import { evidenceExtras } from './evidence';
 import { oneRowPerSong } from './oneRowPerSong';
@@ -335,10 +336,10 @@ export function toRun(info: unknown): MixRun | undefined {
 /** A worker clock, "01:12:00" (hours may have one digit). */
 export const CLOCK = /^\d{1,2}:\d{2}:\d{2}$/;
 
-/** The worker's warning codes as the owner reads them. */
-const WARNING_TEXT: Record<string, string> = {
-  'refuses often': 'Shazam refuses often: a VPN or a shared network?',
-};
+/** The worker's warning codes as the owner reads them; any other as received. */
+function warningText(code: string): string {
+  return code === 'refuses often' ? msg().mix.worker.refusesOften : code;
+}
 
 export interface RunLineText {
   /** "Second pass: 41 places · 3 found · Resumed (120 clips kept)", or null. */
@@ -352,21 +353,24 @@ export interface RunLineText {
 /** T124: the open mix's run line, or null for a mix without a run. */
 export function runLine(run: MixRun | undefined): RunLineText | null {
   if (!run) return null;
+  const t = msg().mix.worker;
   const parts: string[] = [];
   const sp = run.secondPass;
   if (sp) {
+    // The worker's own reason is shown as received (FR-014).
     parts.push(
-      `Second pass: ${sp.places} ${sp.places === 1 ? 'place' : 'places'} · ${sp.found} found` +
-        (sp.stopped !== null ? ` · stopped (${sp.stopped})` : '')
+      sp.stopped !== null
+        ? t.secondPassStopped(sp.places, sp.found, sp.stopped)
+        : t.secondPass(sp.places, sp.found)
     );
   }
   if (run.resumed) {
-    parts.push(`Resumed (${run.resumed.probesKept} clips kept)`);
+    parts.push(t.resumed(run.resumed.probesKept));
   }
   const stoppedEarly = run.stoppedEarly
-    ? `Stopped early at ${run.stoppedEarly.at} (${run.stoppedEarly.reason})`
+    ? t.stoppedEarly(run.stoppedEarly.at, run.stoppedEarly.reason)
     : null;
-  const warnings = (run.warnings ?? []).map((w) => WARNING_TEXT[w] ?? w);
+  const warnings = (run.warnings ?? []).map(warningText);
   if (parts.length === 0 && stoppedEarly === null && warnings.length === 0)
     return null;
   return {
@@ -453,38 +457,30 @@ export interface RequestStatusText {
   line: string | null;
 }
 
-const ASK = 'Identify on my computer';
-const ASK_AGAIN = 'Ask again';
-
 function when(ms: number | null): string {
   if (ms === null) return '…';
-  return new Date(ms).toLocaleString(undefined, {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  });
+  return fmt.shortDateTime(ms);
 }
 
 /** Progress older than this is stale: the computer stopped sending news. */
 export const PROGRESS_STALE_MS = 10 * 60 * 1000;
 
-const STEP_NAMES: Record<string, string> = {
-  download: 'Downloading',
-  first: 'First pass',
-  clues: 'Reading the comments',
-  trackid: 'TrackId.net',
-  send: 'Sending',
-  paused: 'Paused by Shazam',
-};
-
 /** A progress step as the owner reads it: "First pass", "Second pass ×1.04". */
 export function stepName(step: string): string {
-  return step.startsWith('second')
-    ? `Second pass ${step.slice('second'.length).trim()}`.trim()
-    : (STEP_NAMES[step] ?? step);
+  const t = msg().mix.worker;
+  if (step.startsWith('second')) {
+    const rest = step.slice('second'.length).trim();
+    return rest === '' ? t.second : t.secondAt(rest);
+  }
+  // A brand name, the same in every language.
+  if (step === 'trackid') return 'TrackId.net';
+  return Object.hasOwn(t.steps, step)
+    ? t.steps[step as keyof typeof t.steps]
+    : step;
 }
 
 function clock(ms: number): string {
-  return new Date(ms).toLocaleTimeString(undefined, { timeStyle: 'short' });
+  return fmt.time(ms);
 }
 
 /**
@@ -495,44 +491,54 @@ function clock(ms: number): string {
 export function progressLine(view: MixJobView, now: number): string | null {
   const p = view.progress;
   if (!p) return null;
+  const t = msg().mix.worker;
   const parts: string[] = [];
   const name = stepName(p.step);
   if (p.step === 'paused' && p.pausedUntil !== null) {
-    parts.push(`Paused by Shazam until ${clock(p.pausedUntil)}`);
+    parts.push(t.pausedUntil(clock(p.pausedUntil)));
   } else {
     parts.push(name);
     if (p.percent !== null) parts.push(`${Math.round(p.percent)} %`);
     if (p.minutesLeft !== null)
-      parts.push(`about ${Math.max(1, Math.round(p.minutesLeft))} min left`);
+      parts.push(t.minutesLeft(Math.max(1, Math.round(p.minutesLeft))));
   }
   if (p.warning === 'refuses often') {
-    parts.push('Shazam refuses often: a VPN or a shared network?');
+    parts.push(t.refusesOften);
   }
   if (p.at !== null && now - p.at > PROGRESS_STALE_MS) {
-    parts.push(`last news ${clock(p.at)}: the computer stopped sending news`);
+    parts.push(t.stale(clock(p.at)));
   }
   if (view.stopRequestedAt !== null && view.stopRequestedAt !== undefined) {
-    parts.push('stopping…');
+    parts.push(t.stoppingNote);
   }
   return parts.join(' · ');
 }
 
 function stateLine(view: MixJobView): string {
+  const t = msg().mix.worker;
   switch (view.status) {
     case 'queued':
-      return `Waiting for your computer since ${when(view.createdAt)}`;
-    case 'claimed':
+      return t.waiting(when(view.createdAt));
+    case 'claimed': {
+      const since = when(view.claimedAt ?? view.createdAt);
       return (
         progressLine(view, Date.now()) ??
-        `Running on ${view.claimedBy ?? 'your computer'} since ${when(view.claimedAt ?? view.createdAt)}`
+        (view.claimedBy != null
+          ? t.runningOn(view.claimedBy, since)
+          : t.runningHere(since))
       );
+    }
     case 'done':
-      return view.rejected
-        ? 'Result rejected — ask again'
-        : // A worker that stopped early still sends what it found, with a note.
-          `Done ${when(view.finishedAt)}${view.error ? ` · ${view.error}` : ''}`;
+      // A worker that stopped early still sends what it found, with a note
+      // in its own words (FR-014).
+      if (view.rejected) return t.rejected;
+      return view.error
+        ? t.doneNote(when(view.finishedAt), view.error)
+        : t.done(when(view.finishedAt));
     case 'failed':
-      return `Failed ${when(view.finishedAt)}: ${view.error ?? 'no reason given'}`;
+      return view.error
+        ? t.failed(when(view.finishedAt), view.error)
+        : t.failedNoReason(when(view.finishedAt));
   }
 }
 
@@ -547,34 +553,27 @@ export function requestStatusText(
   server: ServerStatus
 ): RequestStatusText {
   const line = view ? stateLine(view) : null;
+  const t = msg().mix.worker;
   switch (server.status) {
     case 'unset':
-      return { button: 'Server not set up (Settings)', canAsk: false, line };
+      return { button: t.server.unset, canAsk: false, line };
     case 'signedOut':
-      return {
-        button: 'Sign in to the server (Settings)',
-        canAsk: false,
-        line,
-      };
+      return { button: t.server.signedOut, canAsk: false, line };
     case 'offline':
-      return { button: 'Server unreachable', canAsk: false, line };
+      return { button: t.server.offline, canAsk: false, line };
     case 'paused':
-      return {
-        button: 'Server paused — resume it from the dashboard',
-        canAsk: false,
-        line,
-      };
+      return { button: t.server.paused, canAsk: false, line };
     case 'pushing':
     case 'pulling':
-      return { button: 'Syncing with the server…', canAsk: false, line };
+      return { button: t.server.syncing, canAsk: false, line };
     default:
       break;
   }
   if (view && (view.status === 'queued' || view.status === 'claimed')) {
-    return { button: ASK, canAsk: false, line };
+    return { button: t.ask, canAsk: false, line };
   }
-  if (view) return { button: ASK_AGAIN, canAsk: true, line };
-  return { button: ASK, canAsk: true, line: null };
+  if (view) return { button: msg().mix.common.askAgain, canAsk: true, line };
+  return { button: t.ask, canAsk: true, line: null };
 }
 
 /** One row of the Mix screen's "Requests to your computer" card. */

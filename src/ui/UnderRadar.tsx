@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
+import { msg, type Messages } from '../i18n';
 import { normalize } from '../model/normalize';
 import {
   hasHistory,
@@ -17,7 +18,7 @@ import { Empty } from './components/Empty';
 import { Filter } from './components/Filter';
 import { NoMatch } from './components/NoMatch';
 import { SegmentedButtons } from './components/SegmentedButtons';
-import { artistUrl, formatDate, plural, profileLine } from './format';
+import { artistUrl, formatDate, profileLine } from './format';
 import { windowClass } from './layout/windowClass';
 import {
   countColumn,
@@ -37,14 +38,15 @@ import type { SortState } from './table/sort';
  * never filters, in the `radar`, `unknown`, `known` order the ranking gives.
  */
 function groupHeading(group: string): ComponentChildren {
+  const t = msg().library.radar;
   if (group === 'unknown') {
     return (
       <>
-        <span class="dt-group-title">No reach data</span>
+        <span class="dt-group-title">{t.noReach}</span>
         <span class="dt-group-note">
-          Not resolved yet ·{' '}
+          {t.unresolved}{' '}
           <a href={routeHref({ name: 'settings', item: 'reach' })}>
-            Look up artists ›
+            {t.lookUpLink}
           </a>
         </span>
       </>
@@ -55,8 +57,8 @@ function groupHeading(group: string): ComponentChildren {
   if (group === 'known') {
     return (
       <>
-        <span class="dt-group-title">Well known</span>
-        <span class="dt-group-note">Wikipedia figures CC BY-SA 4.0</span>
+        <span class="dt-group-title">{t.wellKnown}</span>
+        <span class="dt-group-note">{msg().library.artist.wikiCredit}</span>
       </>
     );
   }
@@ -76,7 +78,10 @@ function sortColumn(sort: ReachSort, history: boolean): string {
  * other columns do not sort. Listeners and fans are two columns, never
  * summed, and a missing number is `NoData`, never 0.
  */
-function radarColumns(history: boolean): Column<UnderRadarRow>[] {
+function radarColumns(
+  history: boolean,
+  t: Messages['library']['columns']
+): Column<UnderRadarRow>[] {
   // The table is presorted: these headers report a click, the ranking sorts.
   const sortable = { sortable: true, sortValue: undefined };
   const fixed = { sortValue: undefined };
@@ -85,31 +90,31 @@ function radarColumns(history: boolean): Column<UnderRadarRow>[] {
     titleColumn(
       (r) => r.agg.name,
       {
-        header: 'Name',
+        header: t.name,
         hrefOf: (r) => routeHref({ name: 'artist', key: r.agg.key }),
       },
       fixed
     ),
     countColumn(
       'tracks',
-      'Tracks',
+      t.tracks,
       (r) => r.tracks,
-      { unit: ['track', 'tracks'] },
+      { unit: [t.trackUnit(1), t.trackUnit(2)] },
       // Without a history, "Most played" ranks by tracks: this header sets it.
       { priority: 2, compact: 'hidden', ...(history ? fixed : sortable) }
     ),
     countColumn(
       'playlists',
-      'Playlists',
+      t.playlists,
       (r) => r.playlists,
-      { unit: ['playlist', 'playlists'] },
+      { unit: [t.playlistUnit(1), t.playlistUnit(2)] },
       { priority: 3, compact: 'hidden', ...fixed }
     ),
     ...(history
       ? [
           countColumn(
             'plays',
-            'Plays',
+            t.plays,
             (r: UnderRadarRow) => r.plays,
             {},
             { compact: 'hidden', ...sortable }
@@ -118,16 +123,16 @@ function radarColumns(history: boolean): Column<UnderRadarRow>[] {
       : []),
     countColumn(
       'listeners',
-      'Listeners',
+      t.listeners,
       (r) => r.listeners,
-      { unit: ['listener', 'listeners'] },
+      { unit: [t.listenerUnit(1), t.listenerUnit(2)] },
       { firstDirection: 'asc', ...sortable }
     ),
     countColumn(
       'fans',
-      'Fans',
+      t.fans,
       (r) => r.fans,
-      { unit: ['fan', 'fans'] },
+      { unit: [t.fanUnit(1), t.fanUnit(2)] },
       { firstDirection: 'asc', ...sortable }
     ),
     {
@@ -172,21 +177,17 @@ const SORT_OF_COLUMN: Record<string, ReachSort> = {
  * heading and a button — the same shape as `CrateEmpty`.
  */
 function NoRun() {
+  const t = msg().library;
   return (
-    <Card title="No reach data yet">
-      <p>
-        Under the radar shows the artists in your playlists with the smallest
-        audiences on ListenBrainz and Deezer, and moves the ones with a
-        Wikipedia article to the bottom. It needs one lookup first: roughly 45
-        to 50 minutes for 1,000 artists, and you can stop it and come back.
-      </p>
+    <Card title={t.radar.noRunTitle}>
+      <p>{t.radar.noRunText}</p>
       <Button
         variant="filled"
         onClick={() => {
           location.hash = routeHref({ name: 'settings', item: 'reach' });
         }}
       >
-        Look up artists
+        {t.artist.lookUp}
       </Button>
     </Card>
   );
@@ -226,6 +227,7 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
   const history = hasHistory(m);
   const count = (group: ReachGroup) =>
     shown.filter((r) => r.group === group).length;
+  const t = msg().library;
   const sort: SortState = {
     columnId: sortColumn(radarSort.value, history),
     direction: radarSort.value === 'plays' ? 'desc' : 'asc',
@@ -240,9 +242,9 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
           <SegmentedButtons
             scroll
             options={[
-              { value: 'plays', label: 'Most played' },
-              { value: 'listeners', label: 'Fewest listeners' },
-              { value: 'fans', label: 'Fewest fans' },
+              { value: 'plays', label: t.radar.mostPlayed },
+              { value: 'listeners', label: t.radar.fewestListeners },
+              { value: 'fans', label: t.radar.fewestFans },
             ]}
             value={radarSort.value}
             onChange={(v) => {
@@ -255,12 +257,11 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
           onInput={(v) => {
             artistFilter.value = v;
           }}
-          placeholder="Filter artists"
+          placeholder={t.artists.filter}
         />
       </div>
       <p class="caption">
-        {cov.covered.toLocaleString()} of {plural(cov.artists, 'artist')} have
-        reach data · as of {formatDate(summary.ranAt)}
+        {t.radar.coverage(cov.covered, cov.artists, formatDate(summary.ranAt))}
       </p>
       {shown.length === 0 ? (
         query ? (
@@ -278,12 +279,12 @@ export function UnderRadar(p: { switcher: ComponentChildren }) {
       ) : (
         <>
           {count('radar') === 0 && !query && (
-            <p class="muted">No under-the-radar artists yet.</p>
+            <p class="muted">{t.radar.noneYet}</p>
           )}
           <DataTable
-            label="Under the radar"
+            label={t.artists.underRadar}
             noun="artist"
-            columns={radarColumnsOf(history)}
+            columns={radarColumnsOf(history, t.columns)}
             rows={shown}
             rowKey={keyOfRow}
             rankOf={rankOfRow}

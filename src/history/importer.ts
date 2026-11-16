@@ -1,5 +1,6 @@
 import { putMeta, replacePlays } from '../db/repo';
-import { plural } from '../ui/format';
+import { msg } from '../i18n';
+import { signin as workerTexts } from '../i18n/en/signin';
 import { describeError, storageMessage } from '../util/errors';
 import type { ImportMessage } from './process';
 import type { ImportCounts, Outcomes } from './records';
@@ -7,8 +8,25 @@ import type { ImportCounts, Outcomes } from './records';
 export const HISTORY_SUMMARY_META = 'historySummary';
 
 /** Said when a narrower import is refused; nothing was written. */
-export const IMPORT_CANCELLED =
-  'Import cancelled. Your existing history was kept.';
+export function importCancelledMessage(): string {
+  return msg().signin.importer.cancelled;
+}
+
+/**
+ * A skip reason in the language shown: the worker writes it in English
+ * (`process.ts`) and the summary stores it so; the page translates the two
+ * it knows each time it shows one.
+ */
+export function skipReasonText(reason: string): string {
+  const t = msg().signin.importer;
+  const en = workerTexts.importer;
+  if (reason === en.skipNotArray) return t.skipNotArray;
+  const unreadable = en.skipUnreadable('');
+  if (reason.startsWith(unreadable)) {
+    return t.skipUnreadable(reason.slice(unreadable.length));
+  }
+  return reason;
+}
 
 /** The first and last play an import covers, as export ISO strings. */
 export interface HistoryRange {
@@ -24,10 +42,11 @@ function describeSpan(range: HistoryRange): string {
     1,
     Math.round((Date.parse(range.last) - Date.parse(range.first)) / DAY_MS)
   );
-  if (days < 60) return plural(days, 'day');
+  const n = msg().n;
+  if (days < 60) return n.day(days);
   const months = Math.round(days / 30.44);
-  if (months < 24) return plural(months, 'month');
-  return plural(Math.round(days / 365.25), 'year');
+  if (months < 24) return n.month(months);
+  return n.year(Math.round(days / 365.25));
 }
 
 /**
@@ -46,17 +65,14 @@ export function replaceQuestion(
   const currentMs = Date.parse(current.last) - Date.parse(current.first);
   if (!Number.isFinite(currentMs)) return null;
   if (!incoming) {
-    return (
-      `This import covers no plays at all; your current history covers ` +
-      `${describeSpan(current)}. Replace it?`
-    );
+    return msg().signin.importer.replaceEmpty(describeSpan(current));
   }
   const incomingMs = Date.parse(incoming.last) - Date.parse(incoming.first);
   if (!Number.isFinite(incomingMs)) return null;
   if (incomingMs >= currentMs) return null;
-  return (
-    `This import covers ${describeSpan(incoming)}; your current history ` +
-    `covers ${describeSpan(current)}. Replace it?`
+  return msg().signin.importer.replaceNarrower(
+    describeSpan(incoming),
+    describeSpan(current)
   );
 }
 
@@ -101,8 +117,34 @@ export interface ImporterDeps {
 function noFileReadMessage(
   skipped: { name: string; reason: string }[]
 ): string {
-  const detail = skipped.map((s) => `${s.name} (${s.reason})`).join(', ');
-  return detail ? `No file could be read: ${detail}` : 'No file could be read.';
+  const t = msg().signin.importer;
+  const detail = skipped
+    .map((s) => `${s.name} (${skipReasonText(s.reason)})`)
+    .join(', ');
+  return detail ? t.noFileReadDetail(detail) : t.noFileRead;
+}
+
+/**
+ * A worker error in the language shown. The worker does not follow the
+ * language switch, so it writes its own sentences in English (`process.ts`);
+ * the page swaps those for the sentence of the language shown. Any other
+ * text (a failure as received) is shown as it came.
+ */
+function workerErrorMessage(
+  message: Extract<ImportMessage, { type: 'error' }>
+): string {
+  const t = msg().signin.importer;
+  const en = workerTexts.importer;
+  if (
+    message.code === 'account-data-package' &&
+    message.message === en.accountData
+  ) {
+    return t.accountData;
+  }
+  if (message.code === 'no-files' && message.message === en.noFiles) {
+    return t.noFiles;
+  }
+  return message.message;
 }
 
 export function runImport(files: File[], deps: ImporterDeps): Promise<void> {
@@ -113,7 +155,7 @@ export function runImport(files: File[], deps: ImporterDeps): Promise<void> {
     } catch (err) {
       deps.onState({
         status: 'error',
-        message: `Could not start the import worker: ${describeError(err)}`,
+        message: msg().signin.importer.workerStart(describeError(err)),
       });
       resolve();
       return;
@@ -128,12 +170,11 @@ export function runImport(files: File[], deps: ImporterDeps): Promise<void> {
       resolve();
     };
     worker.onerror = (event) => {
-      const reason = event.message || 'Import worker crashed';
+      const t = msg().signin.importer;
+      const reason = event.message || t.workerCrashed;
       finish({
         status: 'error',
-        message: currentFile
-          ? `${reason} (while reading ${currentFile})`
-          : reason,
+        message: currentFile ? t.whileReading(reason, currentFile) : reason,
       });
     };
     worker.onmessage = (event: MessageEvent<ImportMessage>) => {
@@ -149,7 +190,7 @@ export function runImport(files: File[], deps: ImporterDeps): Promise<void> {
         return;
       }
       if (message.type === 'error') {
-        finish({ status: 'error', message: message.message });
+        finish({ status: 'error', message: workerErrorMessage(message) });
         return;
       }
       if (message.processed.length === 0) {
@@ -165,7 +206,7 @@ export function runImport(files: File[], deps: ImporterDeps): Promise<void> {
         deps.currentRange ?? null
       );
       if (question && deps.confirmReplace && !deps.confirmReplace(question)) {
-        finish({ status: 'cancelled', message: IMPORT_CANCELLED });
+        finish({ status: 'cancelled', message: importCancelledMessage() });
         return;
       }
       void (async () => {
@@ -198,7 +239,7 @@ export function runImport(files: File[], deps: ImporterDeps): Promise<void> {
     };
     deps.onState({
       status: 'running',
-      file: 'Reading files',
+      file: msg().signin.importer.readingFiles,
       index: 0,
       total: 0,
     });

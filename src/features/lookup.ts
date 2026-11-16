@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import { putFeatures } from '../db/repo';
 import type { FeatureRow, FeatureValue } from '../db/schema';
 import type { Model } from '../model/aggregate';
@@ -34,6 +35,23 @@ export const PASS_RIDS = 'ReccoBeats ids';
 
 /** Round 014: the shared store is asked before pass 1; 200 ids a call. */
 export const PASS_SHARED = 'shared store';
+
+const PASS_KEY = {
+  [PASS_BY_ID]: 'byId',
+  [PASS_BY_ISRC]: 'byIsrc',
+  [PASS_YEARS]: 'years',
+  [PASS_RIDS]: 'rids',
+  [PASS_SHARED]: 'shared',
+} as const;
+
+/**
+ * A pass names itself on screen in the language shown (spec 031); the
+ * `PASS_*` values stay codes that logic compares.
+ */
+export function passLabel(pass: string): string {
+  const key = PASS_KEY[pass as keyof typeof PASS_KEY];
+  return key ? msg().sources.lookupPass[key] : pass;
+}
 const SHARED_BATCH = 200;
 
 /** Year rows are written every this many tracks, so an error keeps them. */

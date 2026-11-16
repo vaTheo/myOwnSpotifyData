@@ -1,4 +1,5 @@
 import { digLinks } from '../features/mix/digLinks';
+import { msg } from '../i18n';
 import type { RowMenuItem } from './mix/RowMenu';
 
 /**
@@ -33,12 +34,12 @@ export function trackListenItems(track: ListenTrack): RowMenuItem[] {
   if (track.id !== null) {
     items.push(
       {
-        label: 'Play on Spotify',
+        label: msg().library.listen.play,
         href: `spotify:track:${track.id}`,
         app: true,
       },
       {
-        label: 'Open Spotify web page',
+        label: msg().library.listen.webPage,
         href: `https://open.spotify.com/track/${track.id}`,
       }
     );

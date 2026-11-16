@@ -1,24 +1,23 @@
+import { msg } from '../../i18n';
 import { destinationOf, routeHref, type Route } from '../../router';
 import { lastRouteInTab } from './Nav';
 
 interface Tab {
   tab: 'top' | 'crate' | 'playlists' | 'artists';
-  label: string;
   home: Route;
 }
 
+/** The labels are read from the catalogue when drawn (spec 031). */
 const TABS: Record<'listening' | 'library', Tab[]> = {
   listening: [
-    { tab: 'top', label: 'Top', home: { name: 'top' } },
-    { tab: 'crate', label: 'Crate', home: { name: 'crate' } },
+    { tab: 'top', home: { name: 'top' } },
+    { tab: 'crate', home: { name: 'crate' } },
   ],
   library: [
-    { tab: 'playlists', label: 'Playlists', home: { name: 'playlists' } },
-    { tab: 'artists', label: 'Artists', home: { name: 'artists' } },
+    { tab: 'playlists', home: { name: 'playlists' } },
+    { tab: 'artists', home: { name: 'artists' } },
   ],
 };
-
-const NAMES = { listening: 'Listening', library: 'Library' } as const;
 
 const ROOTS: Route['name'][] = ['top', 'crate', 'playlists', 'artists'];
 
@@ -34,7 +33,7 @@ export function ScreenTabs(p: { current: Route }) {
   if (destination !== 'listening' && destination !== 'library') return null;
   if (!ROOTS.includes(p.current.name)) return null;
   return (
-    <nav class="screen-tabs" aria-label={NAMES[destination]}>
+    <nav class="screen-tabs" aria-label={msg().frame.nav[destination]}>
       {TABS[destination].map((t) => {
         const on = t.tab === tab;
         const target = on ? t.home : (lastRouteInTab.value[t.tab] ?? t.home);
@@ -45,7 +44,7 @@ export function ScreenTabs(p: { current: Route }) {
             class={on ? 'screen-tab active' : 'screen-tab'}
             href={routeHref(target)}
           >
-            {t.label}
+            {msg().frame.tabs[t.tab]}
           </a>
         );
       })}

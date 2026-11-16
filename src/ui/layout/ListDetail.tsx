@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { fmt, msg } from '../../i18n';
 import { PAGE_SIZE } from '../../model/crate';
 import { TrackRow } from '../components/TrackRow';
 import { shownToReveal } from '../table/paging';
@@ -197,11 +198,13 @@ export function ListPane(p: {
       {p.items.length > shown && (
         <div class="dt-footer">
           <p>
-            Showing {shown.toLocaleString()} of{' '}
-            {p.items.length.toLocaleString()}
+            {msg().frame.listDetail.showing(
+              fmt.int(shown),
+              fmt.int(p.items.length)
+            )}
           </p>
           <button type="button" onClick={() => setMore(shown + PAGE_SIZE)}>
-            Show {PAGE_SIZE.toLocaleString()} more
+            {msg().frame.listDetail.showMore(fmt.int(PAGE_SIZE))}
           </button>
         </div>
       )}

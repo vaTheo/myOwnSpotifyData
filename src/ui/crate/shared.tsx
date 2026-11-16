@@ -2,6 +2,7 @@ import type { Signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useMemo, useState } from 'preact/hooks';
 import type { PlayRow } from '../../db/schema';
+import { msg } from '../../i18n';
 import type { Model } from '../../model/aggregate';
 import { hasMonthData } from '../../model/crate';
 import { featureFor } from '../../model/features';
@@ -141,6 +142,7 @@ export function crateColumns<Item extends CrateItem>(spec: {
   flag: (item: Item) => ComponentChildren | null;
 }): Column<Item>[] {
   const m = model.value;
+  const text = msg().crate.common;
   const featureOf = (item: Item) =>
     m ? featureFor(m, item.row.trackId) : null;
   const trackOf = (item: Item): ListenTrack => {
@@ -157,7 +159,7 @@ export function crateColumns<Item extends CrateItem>(spec: {
     titleColumn((item) => trackLabel(item.row).title),
     titleColumn(
       (item) => trackLabel(item.row).subtitle,
-      { header: 'Artist' },
+      { header: text.artist },
       {
         id: 'artist',
         priority: 2,
@@ -170,7 +172,7 @@ export function crateColumns<Item extends CrateItem>(spec: {
     ...(spec.chart ? [spec.chart] : []),
     {
       id: 'flag',
-      header: 'Flag',
+      header: text.flag,
       headerHidden: true,
       priority: 2,
       // Sized to the widest chip, "not in a playlist" (re-review N2).

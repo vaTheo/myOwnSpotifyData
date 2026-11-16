@@ -57,14 +57,6 @@ export function formatListening(ms: number): string {
 }
 
 /**
- * English only, kept for the callers not yet moved to the catalogue's
- * counted nouns (`msg().n.track(count)`); it goes with the last of them.
- */
-export function plural(n: number, word: string): string {
-  return `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
-}
-
-/**
  * The import summary's "Not counted" line with the zero categories dropped:
  * "Not counted: 22 under 30 s, 13 podcast". Null when everything counted, so
  * the whole line disappears rather than reading "Not counted: ".

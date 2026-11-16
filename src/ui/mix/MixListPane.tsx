@@ -32,7 +32,8 @@ import { Flag, type FlagKind } from '../components/Flag';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusLine } from '../components/StatusLine';
 import { TextField } from '../components/TextField';
-import { formatDate, plural } from '../format';
+import { msg } from '../../i18n';
+import { formatDate } from '../format';
 import { Disclosure } from './Disclosure';
 import { RowMenu } from './RowMenu';
 
@@ -77,7 +78,7 @@ export function LinkForm() {
         <TextField
           type="text"
           inputMode="url"
-          placeholder="Paste a mix link (SoundCloud, or any set for your computer)"
+          placeholder={msg().mix.pane.linkPlaceholder}
           value={url}
           onValue={(v) => {
             linkText.value = v;
@@ -89,10 +90,10 @@ export function LinkForm() {
           disabled={state.status === 'looking' || url.trim() === ''}
         >
           {state.status === 'looking'
-            ? 'Looking up…'
+            ? msg().mix.pane.lookingUp
             : state.status === 'ready' && !isTracklistifyView
-              ? 'Look up again'
-              : 'Look up'}
+              ? msg().mix.common.lookUpAgain
+              : msg().mix.pane.lookUp}
         </Button>
       </form>
     </div>
@@ -110,14 +111,10 @@ export function LookupLines() {
   return (
     <>
       {state.status === 'looking' && (
-        <StatusLine>Looking up the mix…</StatusLine>
+        <StatusLine>{msg().mix.pane.lookingUpMix}</StatusLine>
       )}
       {state.status === 'error' && (
-        <StatusLine kind="error">
-          That is not a SoundCloud track link, so there is nothing to look up
-          here. Any set link can still be sent to your computer with the button
-          above.
-        </StatusLine>
+        <StatusLine kind="error">{msg().mix.pane.notSoundcloud}</StatusLine>
       )}
     </>
   );
@@ -145,7 +142,7 @@ export function IdentifyRequest() {
       </Button>
       {status.line !== null && <p class="mix-caption">{status.line}</p>}
       {history.length > 1 && (
-        <Disclosure summary={<>Earlier requests ({history.length - 1})</>}>
+        <Disclosure summary={msg().mix.pane.earlier(history.length - 1)}>
           <ul class="mix-lines">
             {history.slice(1).map((v) => (
               <li key={v.id}>{requestStatusText(v, serverState.value).line}</li>
@@ -161,8 +158,8 @@ export function IdentifyRequest() {
 export function JsonImport() {
   return (
     <FileDrop
-      label="Or import a Tracklistify tracklist.json"
-      hint="or drop it here"
+      label={msg().mix.pane.importLabel}
+      hint={msg().mix.pane.importHint}
       accept=".json,application/json"
       onFiles={(files) => void startTracklistifyImport(files[0])}
     />
@@ -171,7 +168,7 @@ export function JsonImport() {
 
 /** Removes a saved mix; the open one closes and the address goes to `#/mix`. */
 function remove(url: string): void {
-  if (!confirm('Remove this saved mix?')) return;
+  if (!confirm(msg().mix.pane.confirmRemove)) return;
   void (async () => {
     const wasOpen = openUrl() === url;
     await removeMix(url);
@@ -210,10 +207,11 @@ function MixActions(p: { item: MixListItem }) {
   const { item } = p;
   const id = item.request?.id;
   if (id === undefined) return null;
+  const c = msg().mix.common;
   const buttons = [
     item.canMoveToTop && (
       <Button key="top" variant="text" onClick={() => void startMoveToTop(id)}>
-        Move to top
+        {msg().mix.pane.moveToTop}
       </Button>
     ),
     item.canCancel && (
@@ -222,7 +220,7 @@ function MixActions(p: { item: MixListItem }) {
         variant="text"
         onClick={() => void startCancelRequest(id)}
       >
-        Cancel
+        {c.cancel}
       </Button>
     ),
     item.request?.status === 'claimed' && (
@@ -232,7 +230,7 @@ function MixActions(p: { item: MixListItem }) {
         disabled={!item.canStop}
         onClick={() => void startStopRequest(id)}
       >
-        Stop
+        {c.stop}
       </Button>
     ),
     item.canAskAgain && (
@@ -241,7 +239,7 @@ function MixActions(p: { item: MixListItem }) {
         variant="text"
         onClick={() => void startIdentifyRequest(item.key)}
       >
-        Ask again
+        {c.askAgain}
       </Button>
     ),
   ].filter(Boolean);
@@ -263,7 +261,9 @@ function MixItem(p: { item: MixListItem; open: string | null }) {
     <>
       <span class="title">{item.title}</span>
       {item.savedAt !== null && (
-        <span class="sub">saved {formatDate(item.savedAt)}</span>
+        <span class="sub">
+          {msg().mix.pane.saved(formatDate(item.savedAt))}
+        </span>
       )}
       <div class="badges">
         <Flag kind={CHIP_FLAG[item.chip.kind]}>{item.chip.text}</Flag>
@@ -303,16 +303,21 @@ function MixItem(p: { item: MixListItem; open: string | null }) {
         </div>
         {(item.saved || !busy) && (
           <RowMenu
-            label={`More for ${item.title}`}
+            label={msg().mix.common.moreFor(item.title)}
             items={[
               ...(item.saved
-                ? [{ label: 'Remove', onSelect: () => remove(item.key) }]
+                ? [
+                    {
+                      label: msg().mix.pane.remove,
+                      onSelect: () => remove(item.key),
+                    },
+                  ]
                 : []),
               ...(busy
                 ? []
                 : [
                     {
-                      label: 'Delete forever',
+                      label: msg().mix.pane.deleteForever,
                       onSelect: () => void removeForever(item.key),
                     },
                   ]),
@@ -335,7 +340,7 @@ function MixItem(p: { item: MixListItem; open: string | null }) {
       {item.earlier.length > 0 && (
         <Disclosure
           class="mix-earlier"
-          summary={<>Earlier requests ({item.earlier.length})</>}
+          summary={msg().mix.pane.earlier(item.earlier.length)}
         >
           <ul class="mix-lines">
             {item.earlier.map((v) => (
@@ -370,14 +375,14 @@ export function MixesList(p: { showError?: boolean } = {}) {
   return (
     <section class="mix-list" aria-labelledby="mix-list-title">
       <h2 id="mix-list-title" class="mix-pane-title">
-        Mixes
+        {msg().mix.common.mixes}
       </h2>
       {requests.length > 0 && (
         <div class="mix-requests-head">
           <p class="mix-caption">
             {active > 0
-              ? `${plural(active, 'request')} waiting or running · checked every minute.`
-              : 'Nothing waiting.'}
+              ? msg().mix.pane.waiting(active)
+              : msg().mix.pane.nothingWaiting}
           </p>
           <Button
             variant="text"
@@ -388,7 +393,7 @@ export function MixesList(p: { showError?: boolean } = {}) {
               void startServerSync();
             }}
           >
-            {syncing ? 'Checking…' : 'Check now'}
+            {syncing ? msg().mix.pane.checking : msg().mix.pane.checkNow}
           </Button>
         </div>
       )}
@@ -399,7 +404,7 @@ export function MixesList(p: { showError?: boolean } = {}) {
         <StatusLine kind="error">{mixError.value}</StatusLine>
       )}
       {items.length === 0 ? (
-        <p class="mix-caption">No saved mixes yet.</p>
+        <p class="mix-caption">{msg().mix.pane.noSaved}</p>
       ) : (
         <ul class="list">
           {items.map((item) => (
@@ -414,69 +419,81 @@ const RELEASES = 'https://github.com/vaTheo/myOwnSpotifyData/releases/latest';
 const WORKER_MANUAL =
   'https://github.com/vaTheo/myOwnSpotifyData/blob/main/worker/README.md';
 
+/** File names and commands in the worker help: typed as they are, never translated. */
+const CODE = {
+  env: 'mix-worker.env',
+  url: 'SUPABASE_URL',
+  key: 'SUPABASE_KEY',
+  windows: 'mix-worker-windows-x64.exe',
+  macArm: 'mix-worker-macos-arm64',
+  macIntel: 'mix-worker-macos-x86_64',
+  macChmod: 'chmod +x mix-worker-macos-arm64',
+  macRun: './mix-worker-macos-arm64',
+  linux: 'mix-worker-linux-x86_64',
+  linuxChmod: 'chmod +x mix-worker-linux-x86_64',
+  linuxRun: './mix-worker-linux-x86_64',
+  cd: 'cd worker',
+  example: '.env.example',
+  dotenv: '.env',
+  sync: 'uv sync',
+  login: 'uv run mix-worker login',
+  watch: 'uv run mix-worker run --watch',
+  windowsName: 'Windows 10/11',
+  macName: 'macOS',
+  linuxName: 'Linux',
+} as const;
+
 /**
  * How to start the worker on each system, collapsed: the packaged
  * executable per OS from a `worker-v…` release, or the code with uv; the
  * VPN note from `worker/README.md`. The full manual is that file.
  */
 export function WorkerHelp() {
+  const h = msg().mix.help;
   return (
-    <Disclosure class="mix-howto" summary="Run the worker on your computer">
+    <Disclosure class="mix-howto" summary={h.summary}>
       <p>
-        The worker takes the requests above, downloads the set, identifies it
-        with Shazam and sends the tracklist back; the audio never leaves your
-        computer. Download the file for your system from the latest{' '}
+        {h.introBefore}{' '}
         <a href={RELEASES} target="_blank" rel="noopener">
-          release
+          {h.release}
         </a>{' '}
-        and put it in a folder of its own. The first start writes{' '}
-        <code>mix-worker.env</code> next to it: fill <code>SUPABASE_URL</code>{' '}
-        and <code>SUPABASE_KEY</code> (the same public values as the app's
-        server), start again, type your email and click the mail's link on that
-        computer. It then checks for requests every minute until you close it.
+        {h.introAfterRelease} <code>{CODE.env}</code> {h.introAfterEnv}{' '}
+        <code>{CODE.url}</code> {h.and} <code>{CODE.key}</code>{' '}
+        {h.introAfterKey}
       </p>
-      <Disclosure summary="Windows 10/11">
+      <Disclosure summary={CODE.windowsName}>
         <p>
-          File <code>mix-worker-windows-x64.exe</code>. Double-click it; on
-          "Windows protected your PC", choose More info → Run anyway (the file
-          is not signed).
+          {h.file} <code>{CODE.windows}</code>
+          {h.windows}
         </p>
       </Disclosure>
-      <Disclosure summary="macOS">
+      <Disclosure summary={CODE.macName}>
         <p>
-          File <code>mix-worker-macos-arm64</code> (Apple silicon: M1 and later)
-          or <code>mix-worker-macos-x86_64</code> (Intel). In Terminal, in its
-          folder: <code>chmod +x mix-worker-macos-arm64</code>, then right-click
-          it in Finder → Open the first time (unsigned), or run{' '}
-          <code>./mix-worker-macos-arm64</code>.
+          {h.file} <code>{CODE.macArm}</code> {h.macArm}{' '}
+          <code>{CODE.macIntel}</code> {h.macIntel} <code>{CODE.macChmod}</code>
+          {h.macThen} <code>{CODE.macRun}</code>.
         </p>
       </Disclosure>
-      <Disclosure summary="Linux">
+      <Disclosure summary={CODE.linuxName}>
         <p>
-          File <code>mix-worker-linux-x86_64</code>. In a terminal, in its
-          folder: <code>chmod +x mix-worker-linux-x86_64</code> then{' '}
-          <code>./mix-worker-linux-x86_64</code>.
+          {h.file} <code>{CODE.linux}</code>
+          {h.linuxFolder} <code>{CODE.linuxChmod}</code> {h.then}{' '}
+          <code>{CODE.linuxRun}</code>.
         </p>
       </Disclosure>
-      <Disclosure summary="From the code (any system, Python 3.11–3.13 and uv)">
+      <Disclosure summary={h.codeSummary}>
         <p>
-          <code>cd worker</code>, copy <code>.env.example</code> to{' '}
-          <code>.env</code> and fill the two values, then <code>uv sync</code>,{' '}
-          <code>uv run mix-worker login</code> and{' '}
-          <code>uv run mix-worker run --watch</code>.
+          <code>{CODE.cd}</code>
+          {h.codeCopy} <code>{CODE.example}</code> {h.codeTo}{' '}
+          <code>{CODE.dotenv}</code> {h.codeFill} <code>{CODE.sync}</code>,{' '}
+          <code>{CODE.login}</code> {h.and} <code>{CODE.watch}</code>.
         </p>
       </Disclosure>
-      <p>
-        Don't run the worker on a VPN: Shazam counts calls per address, and a
-        VPN's address is shared with many people, so it refuses often. If the
-        phone says "Shazam refuses often: a VPN or a shared network?", turn the
-        VPN off.
-      </p>
+      <p>{h.vpn}</p>
       <p class="mix-caption">
-        YouTube links also need Node or Deno installed on the computer;
-        SoundCloud, Mixcloud and the others need nothing.{' '}
+        {h.youtube}{' '}
         <a href={WORKER_MANUAL} target="_blank" rel="noopener">
-          Full manual ›
+          {h.manual}
         </a>
       </p>
     </Disclosure>

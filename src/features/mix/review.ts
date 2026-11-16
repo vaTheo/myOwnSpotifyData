@@ -1,4 +1,5 @@
 import type { TracklistRow } from '../../db/schema';
+import { msg } from '../../i18n';
 import { evidenceLevel, isFlagged } from './evidence';
 
 /**
@@ -9,17 +10,9 @@ import { evidenceLevel, isFlagged } from './evidence';
  */
 
 export type ReviewFilter =
-  | 'all'
-  | 'notOnSpotify'
-  | 'heardOnce'
-  | 'solid'
-  | 'flagged';
+  'all' | 'notOnSpotify' | 'heardOnce' | 'solid' | 'flagged';
 
 export type SpotifyStatus = 'unchecked' | 'found' | 'notFound';
-
-/** The caption under any chip but All (ruling D2). */
-export const FILTER_CAPTION =
-  'Hidden, not deleted. Create playlist adds every identified track, not this filter.';
 
 /** What Check on Spotify said about the row (T117). */
 export function spotifyStatus(row: TracklistRow): SpotifyStatus {
@@ -50,14 +43,6 @@ export interface ReviewChip {
   count: number;
 }
 
-const LABELS: Record<ReviewFilter, string> = {
-  all: 'All',
-  notOnSpotify: 'Not on Spotify',
-  heardOnce: 'Heard once',
-  solid: 'Solid',
-  flagged: 'Flagged',
-};
-
 /**
  * The chips with their counts: All, Not on Spotify,
  * Heard once only when a row has clip counts (round 004), then Solid and
@@ -72,7 +57,8 @@ export function reviewChips(rows: readonly TracklistRow[]): ReviewChip[] {
   }
   return filters.map((filter) => {
     const count = tracks.filter((r) => inFilter(r, filter)).length;
-    return { filter, label: `${LABELS[filter]} (${count})`, count };
+    const m = msg().mix.review;
+    return { filter, label: m.chip(m.chips[filter], count), count };
   });
 }
 
@@ -82,5 +68,5 @@ export function reviewLine(rows: readonly TracklistRow[]): string {
   const n = tracks.length;
   const found = tracks.filter((r) => spotifyStatus(r) === 'found').length;
   const notFound = tracks.filter((r) => spotifyStatus(r) === 'notFound').length;
-  return `${n} ${n === 1 ? 'track' : 'tracks'} · ${found} on Spotify · ${notFound} not found`;
+  return msg().mix.review.line(n, found, notFound);
 }

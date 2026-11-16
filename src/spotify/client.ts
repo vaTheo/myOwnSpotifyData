@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import { ApiError, QuotaError } from './errors';
 import type { ApiPage } from './types';
 import { MAX_5XX_RETRIES, backoffMs, parseRetryAfter } from '../util/retry';
@@ -109,7 +110,7 @@ export function createClient(deps: ClientDeps): SpotifyClient {
       } catch (err) {
         if (isPost) {
           const reason = err instanceof Error ? err.message : String(err);
-          throw new ApiError(0, `Network error: ${reason}`);
+          throw new ApiError(0, msg().core.spotify.networkError(reason));
         }
         attempts5xx += 1;
         if (attempts5xx <= MAX_5XX_RETRIES) {
@@ -117,7 +118,7 @@ export function createClient(deps: ClientDeps): SpotifyClient {
           continue;
         }
         const reason = err instanceof Error ? err.message : String(err);
-        throw new ApiError(0, `Network error: ${reason}`);
+        throw new ApiError(0, msg().core.spotify.networkError(reason));
       }
       if (res.ok) {
         // PUT /me/library answers 200 with an empty body. Only PUT may: an
@@ -146,7 +147,7 @@ export function createClient(deps: ClientDeps): SpotifyClient {
         }
         attempts429 += 1;
         if (attempts429 > MAX_429_RETRIES) {
-          throw new ApiError(429, 'Rate limited too many times in a row', body);
+          throw new ApiError(429, msg().core.spotify.rateLimited, body);
         }
         await deps.sleep(
           retryAfterS !== null ? retryAfterS * 1000 : backoffMs(attempts429)
@@ -157,7 +158,7 @@ export function createClient(deps: ClientDeps): SpotifyClient {
         if (isPost) {
           throw new ApiError(
             res.status,
-            `Spotify server error ${res.status}`,
+            msg().core.spotify.serverError(res.status),
             await safeJson(res)
           );
         }
@@ -168,7 +169,7 @@ export function createClient(deps: ClientDeps): SpotifyClient {
         }
         throw new ApiError(
           res.status,
-          `Spotify server error ${res.status}`,
+          msg().core.spotify.serverError(res.status),
           await safeJson(res)
         );
       }
@@ -176,7 +177,9 @@ export function createClient(deps: ClientDeps): SpotifyClient {
       const message = errorField(body, 'message');
       throw new ApiError(
         res.status,
-        typeof message === 'string' ? message : `Spotify error ${res.status}`,
+        typeof message === 'string'
+          ? message
+          : msg().core.spotify.error(res.status),
         body
       );
     }

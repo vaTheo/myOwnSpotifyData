@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { msg } from '../../i18n';
 import { serverLinkSent, startServerLink } from '../../model/state';
 import { Button } from '../components/Button';
 import { StatusLine } from '../components/StatusLine';
@@ -12,6 +13,7 @@ import { TextField } from '../components/TextField';
 export function ServerLinkForm() {
   const [email, setEmail] = useState('');
   const sent = serverLinkSent.value;
+  const t = msg().signin.linkForm;
   return (
     <>
       <form
@@ -23,22 +25,17 @@ export function ServerLinkForm() {
       >
         <TextField
           type="email"
-          placeholder="Email"
-          aria-label="Email"
+          placeholder={t.email}
+          aria-label={t.email}
           autocomplete="email"
           value={email}
           onValue={setEmail}
         />
         <Button type="submit" variant="filled" disabled={email.trim() === ''}>
-          Send me a link
+          {t.send}
         </Button>
       </form>
-      {sent !== null && (
-        <StatusLine kind="success">
-          If this email has an account, a link was sent to {sent}. Open it in
-          this browser within 10 minutes.
-        </StatusLine>
-      )}
+      {sent !== null && <StatusLine kind="success">{t.sent(sent)}</StatusLine>}
     </>
   );
 }

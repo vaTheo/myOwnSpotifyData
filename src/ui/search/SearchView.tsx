@@ -1,6 +1,7 @@
 import { signal } from '@preact/signals';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { MixRow } from '../../db/schema';
+import { msg } from '../../i18n';
 import { model, readMixesForSearch } from '../../model/state';
 import { parseRoute } from '../../router';
 import { StatusLine } from '../components/StatusLine';
@@ -38,11 +39,12 @@ const SEARCH_STATE = 'djSearch';
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-const GROUP: Record<SearchKind, { title: string; icon: IconName }> = {
-  track: { title: 'Tracks', icon: 'music_note' },
-  artist: { title: 'Artists', icon: 'person' },
-  playlist: { title: 'Playlists', icon: 'queue_music' },
-  mix: { title: 'Mixes', icon: 'headphones' },
+/** Each group's icon; its title is read when drawn (`msg().overview.search.groups`). */
+const GROUP_ICON: Record<SearchKind, IconName> = {
+  track: 'music_note',
+  artist: 'person',
+  playlist: 'queue_music',
+  mix: 'headphones',
 };
 
 /** Results in a group before "Show all N". */
@@ -109,6 +111,7 @@ export function SearchView() {
   const q = query.value;
   const m = model.value;
   const phone = windowClass.value === 'compact';
+  const text = msg().overview.search;
 
   const [left, setLeft] = useState<number | null>(null);
   // A layout effect: the field has the focus and the Escape layer is there
@@ -168,7 +171,7 @@ export function SearchView() {
   const sections = (
     q.trim() === ''
       ? recent.value.length > 0
-        ? [{ title: 'Recent', kind: null, entries: recent.value, total: 0 }]
+        ? [{ title: text.recent, kind: null, entries: recent.value, total: 0 }]
         : []
       : groups.map((g) => {
           const open = expanded.has(g.kind);
@@ -176,7 +179,7 @@ export function SearchView() {
             ? (all.find((a) => a.kind === g.kind)?.entries ?? g.entries)
             : g.entries;
           return {
-            title: GROUP[g.kind].title,
+            title: text.groups[g.kind],
             kind: g.kind,
             entries,
             total: open ? 0 : g.total,
@@ -280,9 +283,7 @@ export function SearchView() {
     if (item.type === 'more') {
       return (
         <div {...common} key={`more-${item.kind}`} data-more="true">
-          <span class="search-more">
-            Show all {item.total.toLocaleString()}
-          </span>
+          <span class="search-more">{text.showAll(item.total)}</span>
         </div>
       );
     }
@@ -290,7 +291,7 @@ export function SearchView() {
     const marked = markedLine(entry, q);
     return (
       <div {...common} key={`${entry.kind}:${entry.id}`}>
-        <Icon name={GROUP[entry.kind].icon} size={24} />
+        <Icon name={GROUP_ICON[entry.kind]} size={24} />
         <span class="search-text">
           <span class="search-name">
             <Marked text={entry.name} query={marked === 'name' ? q : ''} />
@@ -317,7 +318,7 @@ export function SearchView() {
         style={left === null ? undefined : { '--search-left': `${left}px` }}
         role="dialog"
         aria-modal="true"
-        aria-label="Search"
+        aria-label={text.label}
         ref={dialog}
         onKeyDown={trap}
       >
@@ -325,7 +326,7 @@ export function SearchView() {
           {phone ? (
             <IconButton
               icon="arrow_back"
-              label="Close search"
+              label={text.close}
               onClick={closeSearch}
             />
           ) : (
@@ -335,14 +336,14 @@ export function SearchView() {
             ref={input}
             type="text"
             role="combobox"
-            aria-label="Search tracks, artists, playlists and mixes"
+            aria-label={text.field}
             aria-expanded={items.length > 0}
             aria-controls="search-results"
             aria-autocomplete="list"
             aria-activedescendant={
               items.length > 0 ? `search-opt-${current}` : undefined
             }
-            placeholder="Search tracks, artists, playlists, mixes"
+            placeholder={text.placeholder}
             autoComplete="off"
             spellcheck={false}
             value={q}
@@ -354,7 +355,7 @@ export function SearchView() {
           {q !== '' && (
             <IconButton
               icon="close"
-              label="Clear search"
+              label={text.clear}
               onClick={() => {
                 query.value = '';
                 input.current?.focus();
@@ -368,15 +369,13 @@ export function SearchView() {
             <StatusLine kind="error">{mixesError.value}</StatusLine>
           )}
           {!m ? (
-            <p class="search-note">Your library is still loading.</p>
+            <p class="search-note">{text.loading}</p>
           ) : items.length === 0 ? (
             <p class="search-note">
-              {empty
-                ? 'Search the tracks, artists, playlists and mixes stored in this browser.'
-                : `Nothing matches '${q.trim()}'`}
+              {empty ? text.prompt : text.nothing(q.trim())}
             </p>
           ) : (
-            <div id="search-results" role="listbox" aria-label="Results">
+            <div id="search-results" role="listbox" aria-label={text.results}>
               {sections.map((s) => (
                 <div
                   key={s.title}

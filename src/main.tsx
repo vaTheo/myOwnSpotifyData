@@ -2,7 +2,7 @@ import { render } from 'preact';
 import { App, bootPhase, installRouter, route } from './app';
 import { auth } from './auth/browser';
 import { demoVariant } from './dev/flag';
-import { applyDocumentLang } from './i18n';
+import { applyDocumentLang, msg } from './i18n';
 import {
   activateServerUser,
   completeServerLink,
@@ -111,7 +111,9 @@ async function boot(): Promise<void> {
       auth.lastAuthError.value =
         err instanceof AuthError
           ? err.message
-          : `Login failed: ${err instanceof Error ? err.message : String(err)}`;
+          : msg().frame.loginFailed(
+              err instanceof Error ? err.message : String(err)
+            );
     }
     // Keep the entry state: `installRouter` has already stamped this entry.
     history.replaceState(history.state, '', location.pathname + location.hash);

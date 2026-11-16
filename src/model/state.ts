@@ -152,6 +152,7 @@ import { api } from '../spotify/api';
 import type { ApiProfile } from '../spotify/types';
 import {
   ACCOUNT_META,
+  ACCOUNT_MISMATCH,
   ACCOUNT_MISMATCH_NOTICE,
   ACCOUNT_SWITCH_CONFIRM,
   ACCOUNT_SWITCH_NOTICE,
@@ -162,6 +163,7 @@ import {
   type SyncState,
 } from '../sync/runner';
 import { formatDateTime } from '../ui/format';
+import { msg } from '../i18n';
 import {
   connectSignOutShown,
   signInRequired,
@@ -190,6 +192,28 @@ export const rekordboxSummary = signal<RekordboxSummary | null>(null);
 export const reachState = signal<ReachState>({ status: 'idle' });
 export const artistReachSummary = signal<ArtistReachSummary | null>(null);
 export const banner = signal<BannerMessage | null>(null);
+
+/**
+ * Banners the code recognises later, known by the banner object and never by
+ * its text, which is written in the language shown (spec 031, research R4).
+ */
+type BannerTag = 'accountMismatch' | 'crateNotice' | 'dbWait';
+const bannerTags = new WeakMap<BannerMessage, BannerTag>();
+
+function tagged(message: BannerMessage, tag: BannerTag): BannerMessage {
+  bannerTags.set(message, tag);
+  return message;
+}
+
+function bannerIs(tag: BannerTag): boolean {
+  const shown = banner.value;
+  return shown !== null && bannerTags.get(shown) === tag;
+}
+
+/** The account-mismatch notice, kept recognisable for the holds below. */
+function mismatchBanner(): BannerMessage {
+  return tagged(warnBanner(ACCOUNT_MISMATCH_NOTICE()), 'accountMismatch');
+}
 
 /**
  * The owner's server (ADR-08), as the Settings server card renders it. The
@@ -251,15 +275,17 @@ export async function loadServerPending(): Promise<void> {
     serverPendingError.value = null;
   } catch (err) {
     if (seq !== pendingSeq) return;
-    serverPendingError.value = `Could not read the changes waiting to send: ${describeError(err)}`;
+    serverPendingError.value = msg().core.server.pendingReadFailed(
+      describeError(err)
+    );
   }
 }
 
 /** The Free plan's database allowance, for the used share (SC-004). */
 export const SERVER_FREE_BYTES = 500 * 1024 * 1024;
 
-export const REMOVE_SERVER_DATA_CONFIRM =
-  'Remove all your data from the server? Local data on this browser is kept.';
+export const REMOVE_SERVER_DATA_CONFIRM = (): string =>
+  msg().core.server.removeConfirm;
 
 function serverDeps(): SyncDeps {
   return {
@@ -299,7 +325,7 @@ function serverFailure(
         ? { status: 'error', message: res.message }
         : {
             status: 'error',
-            message: `Signed out of the server: ${res.message}`,
+            message: msg().core.server.signedOut(res.message),
           };
     default:
       return { status: 'error', message: res.message };
@@ -399,15 +425,13 @@ export async function queueServerPush(
 export async function startServerPull(): Promise<boolean> {
   if (!serverConfigured || !serverAuth.session.value) return false;
   if (jobsBusy()) return false;
-  if (banner.value?.text === ACCOUNT_MISMATCH_NOTICE) return false;
+  if (bannerIs('accountMismatch')) return false;
   serverPulling.value = true;
   try {
     const res = await runPull(serverDeps());
     if (!res.ok) {
       serverState.value = serverFailure(res);
-      if (res.message === ACCOUNT_MISMATCH_NOTICE) {
-        banner.value = warnBanner(ACCOUNT_MISMATCH_NOTICE);
-      }
+      if (res.code === ACCOUNT_MISMATCH) banner.value = mismatchBanner();
       return false;
     }
     if (res.value.pulled.length > 0) {
@@ -421,7 +445,7 @@ export async function startServerPull(): Promise<boolean> {
     }
     serverState.value = await connectedView(res.value.rejected);
     if (res.value.stale.length > 0) {
-      serverState.value = { status: 'error', message: UPDATE_APP_MESSAGE };
+      serverState.value = { status: 'error', message: UPDATE_APP_MESSAGE() };
     }
   } finally {
     serverPulling.value = false;
@@ -464,10 +488,10 @@ export function deviceUserCount(): number {
   }
 }
 
-export const SIGN_OUT_BUSY_MESSAGE =
-  'Wait for the current job to finish before signing out.';
-export const SIGN_OUT_PUSH_MESSAGE =
-  'Wait for the current sync to finish before signing out.';
+export const SIGN_OUT_BUSY_MESSAGE = (): string =>
+  msg().core.server.signOutBusy;
+export const SIGN_OUT_PUSH_MESSAGE = (): string =>
+  msg().core.server.signOutPush;
 
 /**
  * Signs out of the server on this browser (round 011, FR-006): the server
@@ -481,12 +505,12 @@ export const SIGN_OUT_PUSH_MESSAGE =
  */
 export async function startServerSignOut(): Promise<void> {
   if (jobsBusy()) {
-    banner.value = warnBanner(SIGN_OUT_BUSY_MESSAGE);
+    banner.value = warnBanner(SIGN_OUT_BUSY_MESSAGE());
     return;
   }
   // A push joins no jobsBusy(), but it needs the session to its end.
   if (pushRunning) {
-    banner.value = warnBanner(SIGN_OUT_PUSH_MESSAGE);
+    banner.value = warnBanner(SIGN_OUT_PUSH_MESSAGE());
     return;
   }
   // Only once the sign-out goes ahead: a refusal keeps the chain running.
@@ -498,7 +522,7 @@ export async function startServerSignOut(): Promise<void> {
   } catch (err) {
     serverState.value = {
       status: 'error',
-      message: `Could not sign out on this device: ${storageMessage(err)}`,
+      message: msg().core.server.signOutFailed(storageMessage(err)),
     };
     return;
   }
@@ -512,12 +536,10 @@ export async function startServerSignOut(): Promise<void> {
 export async function removeServerData(): Promise<void> {
   if (!serverConfigured || !serverAuth.session.value) return;
   if (jobsBusy()) {
-    banner.value = warnBanner(
-      'Wait for the current job to finish before removing server data.'
-    );
+    banner.value = warnBanner(msg().core.server.removeBusy);
     return;
   }
-  if (!confirm(REMOVE_SERVER_DATA_CONFIRM)) return;
+  if (!confirm(REMOVE_SERVER_DATA_CONFIRM())) return;
   const res = await runRemoveAll(serverDeps());
   if (res.ok) mixJobs.value = {};
   serverState.value = res.ok ? await connectedView() : serverFailure(res);
@@ -541,8 +563,7 @@ export async function recordConnectedAccount(): Promise<void> {
     const cached = await getMeta<string>(ACCOUNT_META);
     const outcome = resolveConnectedAccount(cached, me.id);
     if (outcome === 'set') await putMeta(ACCOUNT_META, me.id);
-    if (outcome === 'mismatch')
-      banner.value = warnBanner(ACCOUNT_MISMATCH_NOTICE);
+    if (outcome === 'mismatch') banner.value = mismatchBanner();
   } catch (err) {
     if (err instanceof QuotaError) {
       noteQuotaLock(err.retryAt);
@@ -550,7 +571,7 @@ export async function recordConnectedAccount(): Promise<void> {
       return;
     }
     banner.value = errorBanner(
-      `Could not read the Spotify account: ${describeError(err)}`
+      msg().core.account.readFailed(describeError(err))
     );
   }
 }
@@ -627,8 +648,7 @@ export function sharedPort(): SharedFactsPort | undefined {
 export const spotifyReturnDropped = signal(false);
 
 /** Shown when a sign-in's token does not name its account (no `sub`). */
-export const SERVER_NO_USER_MESSAGE =
-  'This sign-in did not say which account it is. Send yourself a new link.';
+export const SERVER_NO_USER_MESSAGE = (): string => msg().core.server.noUser;
 
 type Activated = 'none' | 'ok' | 'reload' | 'invalid';
 
@@ -641,7 +661,7 @@ function activateStored(): { status: Activated; signedOut: Promise<void> } {
     return { status: 'none', signedOut: done };
   }
   let result: Activation;
-  let message = SERVER_NO_USER_MESSAGE;
+  let message = SERVER_NO_USER_MESSAGE();
   try {
     const enabled = scopeEnabled();
     // Pinned before the pointer moves: the names this page opened with.
@@ -658,7 +678,7 @@ function activateStored(): { status: Activated; signedOut: Promise<void> } {
   } catch (err) {
     // localStorage refused the pointer (full, locked down): never half-active.
     result = { ok: false };
-    message = `Could not record who is signed in on this device: ${storageMessage(err)}`;
+    message = msg().core.server.recordUserFailed(storageMessage(err));
   }
   if (result.ok) {
     return { status: result.reload ? 'reload' : 'ok', signedOut: done };
@@ -704,7 +724,7 @@ export async function completeServerLink(
   if (result === 'invalid') {
     serverState.value = {
       status: 'error',
-      message: serverAuth.lastError.value ?? LINK_BROWSER_MESSAGE,
+      message: serverAuth.lastError.value ?? LINK_BROWSER_MESSAGE(),
     };
     return result;
   }
@@ -1113,7 +1133,7 @@ const autoChain = createChain({
   // The one quota lock-out, whichever Spotify reader met it (S08d).
   lockedUntil: () => spotifyLockedUntil(),
   // Another account was connected: the wipe question waits for a tap.
-  spotifyHeld: () => banner.value?.text === ACCOUNT_MISMATCH_NOTICE,
+  spotifyHeld: () => bannerIs('accountMismatch'),
   // Playlists stored before round 005 have no album years: sync them first.
   yearsBackfillDue: () =>
     model.value?.playlists.some((p) => !p.withYears) ?? false,
@@ -1144,8 +1164,6 @@ export function setAutoUpdates(on: boolean): void {
 }
 
 export const CRATE_NOTICE_META = 'crateNoticeShown';
-
-const CRATE_NOTICE = 'The new Crate views need your history imported again.';
 
 export type CrateStatus = 'empty' | 'reimport' | 'ready';
 
@@ -1179,49 +1197,47 @@ async function showCrateNotice(): Promise<void> {
   // Already shown earlier in this session: it has had its turn.
   if (noticePending) return markNoticeShown();
   if ((await getMeta<boolean>(CRATE_NOTICE_META)) === true) return;
-  banner.value = warnBanner(CRATE_NOTICE);
+  banner.value = tagged(
+    warnBanner(msg().core.library.crateNotice),
+    'crateNotice'
+  );
   noticePending = true;
 }
 
 /** The banner's close button: dismissing the re-import notice retires it. */
 export function dismissBanner(): void {
-  const wasNotice = banner.value?.text === CRATE_NOTICE;
+  const wasNotice = bannerIs('crateNotice');
   banner.value = null;
   if (wasNotice && noticePending) void markNoticeShown();
 }
 
 /** A sync or an import clears its own message, never a pending notice. */
 function clearBanner(): void {
-  if (banner.value?.text !== CRATE_NOTICE) banner.value = null;
+  if (!bannerIs('crateNotice')) banner.value = null;
 }
 
 // Both database events end in a banner: a blocked upgrade would otherwise
 // leave "Loading your library…" on screen for as long as the other tab lives.
 setDbEvents({
   blocked: () => {
-    banner.value = errorBanner(DB_BLOCKED_MESSAGE);
+    banner.value = tagged(errorBanner(DB_BLOCKED_MESSAGE()), 'dbWait');
   },
   superseded: () => {
-    banner.value = warnBanner(DB_SUPERSEDED_MESSAGE);
+    banner.value = warnBanner(DB_SUPERSEDED_MESSAGE());
   },
 });
-
-const DB_WAIT_MESSAGES: readonly string[] = [
-  DB_BLOCKED_MESSAGE,
-  DB_SLOW_MESSAGE,
-];
 
 export async function loadFromDb(): Promise<void> {
   // Whatever keeps the database from opening, the screen says so after a
   // few seconds instead of showing "Loading your library…" indefinitely.
   const slow = setTimeout(() => {
-    if (!banner.value) banner.value = errorBanner(DB_SLOW_MESSAGE);
+    if (!banner.value)
+      banner.value = tagged(errorBanner(DB_SLOW_MESSAGE()), 'dbWait');
   }, DB_SLOW_MS);
   try {
     const rows = await getAllRows();
     // Those banners are stale once the database has opened.
-    if (banner.value && DB_WAIT_MESSAGES.includes(banner.value.text))
-      banner.value = null;
+    if (bannerIs('dbWait')) banner.value = null;
     model.value = buildModel(rows);
     lastSyncAt.value = (await getMeta<number>(LAST_SYNC_META)) ?? null;
     const saved = await getMeta<SyncState>(SYNC_STATE_META);
@@ -1238,7 +1254,7 @@ export async function loadFromDb(): Promise<void> {
     if (crateStatus.value === 'reimport') await showCrateNotice();
   } catch (err) {
     banner.value = errorBanner(
-      `Could not open local storage: ${describeError(err)}`
+      msg().core.library.openStorageFailed(describeError(err))
     );
   } finally {
     clearTimeout(slow);
@@ -1335,7 +1351,7 @@ export async function startSync(
       // automatic sync that meets another account cancels (round 006).
       confirmAccountSwitch: () => {
         if (auto) return false;
-        const ok = confirm(ACCOUNT_SWITCH_CONFIRM);
+        const ok = confirm(ACCOUNT_SWITCH_CONFIRM());
         if (ok) accountSwitched = true;
         return ok;
       },
@@ -1370,7 +1386,7 @@ export async function startSync(
   // Last, so it wins the banner: an error or a lock is still on the Settings
   // card, but nothing else on screen says why the data went away. It is a
   // notice, not a failure, so it is amber and never suppressed.
-  if (accountSwitched) banner.value = warnBanner(ACCOUNT_SWITCH_NOTICE);
+  if (accountSwitched) banner.value = warnBanner(ACCOUNT_SWITCH_NOTICE());
   // A finished or quota-locked sync wrote newer playlists: to the server.
   if (state.status === 'idle' || state.status === 'locked') {
     void queueServerPush(['library']);
@@ -1558,16 +1574,13 @@ export async function startReach(opts: JobOptions = {}): Promise<void> {
   if (reachChanged(state)) void queueServerPush(['reach']);
 }
 
-const MIX_NOT_A_LINK =
-  "That is not a SoundCloud track link. Paste the link to the mix's page.";
-const REPLACE_WITH_DESCRIPTION =
-  'Replace your edited tracklist with the one from the description?';
-const REPLACE_WITH_PASTED =
-  'Replace your edited tracklist with the pasted tracks?';
-const REPLACE_WITH_LOOKUP =
-  'Looking up again replaces the current tracklist, including your edits. Continue?';
-const REPLACE_WITH_TRACKLISTIFY =
-  'Importing this file replaces the current tracklist, including your edits. Continue?';
+const MIX_NOT_A_LINK = (): string => msg().core.mix.notALink;
+const REPLACE_WITH_DESCRIPTION = (): string =>
+  msg().core.mix.replaceDescription;
+const REPLACE_WITH_PASTED = (): string => msg().core.mix.replacePasted;
+const REPLACE_WITH_LOOKUP = (): string => msg().core.mix.replaceLookup;
+const REPLACE_WITH_TRACKLISTIFY = (): string =>
+  msg().core.mix.replaceTracklistify;
 
 /**
  * Never on load: the mix lookup runs only from the Mix screen's button. It
@@ -1579,7 +1592,7 @@ export async function startMixLookup(pastedUrl: string): Promise<void> {
   mixError.value = null;
   const input = classifyMixInput(pastedUrl);
   if (input === null) {
-    mixState.value = { status: 'error', message: MIX_NOT_A_LINK };
+    mixState.value = { status: 'error', message: MIX_NOT_A_LINK() };
     return;
   }
   // Claim the looking state synchronously so a second tap cannot double-run.
@@ -1647,7 +1660,7 @@ export async function startMixLookup(pastedUrl: string): Promise<void> {
   // description's rows, else nothing. Guarded exactly like the paste/apply
   // actions below (I2): a re-lookup must not silently discard curated edits.
   // A no-op guard on a first lookup, since mixRows.value is [] then.
-  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_LOOKUP)) return;
+  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_LOOKUP())) return;
   mixRemoved.value = removedOf(view.url);
   mixRows.value =
     trackid.status === 'ok' && trackid.rows.length > 0
@@ -1670,7 +1683,7 @@ export async function startTracklistifyImport(file: File): Promise<void> {
   try {
     text = await file.text();
   } catch (err) {
-    mixError.value = `Could not read that file: ${storageMessage(err)}`;
+    mixError.value = msg().core.mix.readFileFailed(storageMessage(err));
     return;
   }
   const parsed = parseTracklistifyJson(text);
@@ -1678,7 +1691,7 @@ export async function startTracklistifyImport(file: File): Promise<void> {
     mixError.value = parsed.message;
     return;
   }
-  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_TRACKLISTIFY)) {
+  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_TRACKLISTIFY())) {
     return;
   }
   const view: MixView = {
@@ -1712,7 +1725,7 @@ export function applyDescriptionTracklist(): void {
   if (state.status !== 'ready') return;
   mixError.value = null;
   if (state.view.descriptionRows.length === 0) return;
-  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_DESCRIPTION))
+  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_DESCRIPTION()))
     return;
   mixRows.value = state.view.descriptionRows;
   mixRowsReplaced.value += 1;
@@ -1735,7 +1748,7 @@ export function applyPastedTracklist(
   if (parsed.rows.length === 0) {
     return parsed.linkOut !== null ? 'linkOnly' : 'empty';
   }
-  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_PASTED)) {
+  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_PASTED())) {
     return 'added';
   }
   mixRows.value = parsed.rows;
@@ -1784,9 +1797,9 @@ export function editMixRow(
 }
 
 /** Round 011: the refusals of a pasted Spotify link, said under the field. */
-export const LINK_EMPTY = 'Paste a Spotify track link.';
-export const LINK_REFUSED = 'That is not a Spotify track link.';
-export const LINK_UNNAMED = 'This row has no track name to link.';
+export const LINK_EMPTY = (): string => msg().core.mix.linkEmpty;
+export const LINK_REFUSED = (): string => msg().core.mix.linkRefused;
+export const LINK_UNNAMED = (): string => msg().core.mix.linkUnnamed;
 
 /**
  * Round 011: the owner pastes a Spotify track link on a named row; it marks
@@ -1796,12 +1809,12 @@ export const LINK_UNNAMED = 'This row has no track name to link.';
  * saved at once, like an edit (spec 024).
  */
 export function linkMixRowSpotify(index: number, text: string): string | null {
-  if (text.trim() === '') return LINK_EMPTY;
+  if (text.trim() === '') return LINK_EMPTY();
   const id = parseSpotifyTrackLink(text);
-  if (id === null) return LINK_REFUSED;
+  if (id === null) return LINK_REFUSED();
   const rows = mixRows.value.slice();
   const row = rows[index];
-  if (!row || !isIdentified(row)) return LINK_UNNAMED;
+  if (!row || !isIdentified(row)) return LINK_UNNAMED();
   rows[index] = linkedRow(row, id, Date.now());
   mixRows.value = rows;
   saveIfSaved();
@@ -1867,7 +1880,7 @@ export async function loadSavedMixes(): Promise<void> {
     savedMixes.value = rows.sort((a, b) => b.savedAt - a.savedAt);
     mixJobs.value = (await getMeta<MixJobs>(MIX_JOBS_META)) ?? {};
   } catch (err) {
-    mixError.value = `Could not read your saved mixes: ${describeError(err)}`;
+    mixError.value = msg().core.mix.readSavedFailed(describeError(err));
   }
 }
 
@@ -1883,7 +1896,7 @@ export async function readMixesForSearch(): Promise<
     const rows = await getMixes();
     return { mixes: rows.sort((a, b) => b.savedAt - a.savedAt) };
   } catch (err) {
-    return { error: `Could not read your saved mixes: ${describeError(err)}` };
+    return { error: msg().core.mix.readSavedFailed(describeError(err)) };
   }
 }
 
@@ -1893,16 +1906,16 @@ async function reloadMixJobs(): Promise<void> {
   try {
     mixJobs.value = (await getMeta<MixJobs>(MIX_JOBS_META)) ?? {};
   } catch (err) {
-    mixError.value = `Could not read your requests: ${describeError(err)}`;
+    mixError.value = msg().core.server.readRequestsFailed(describeError(err));
   }
 }
 
 /** The identify requests per canonical link, newest first (FR-003). */
 export const mixJobs = signal<MixJobs>({});
-export const ALREADY_REQUESTED =
-  'Already requested. Your computer takes it the next time the worker runs.';
-export const NOT_A_REQUEST_LINK =
-  'That is not a link the worker can take: paste an https link to the set.';
+export const ALREADY_REQUESTED = (): string =>
+  msg().core.server.alreadyRequested;
+export const NOT_A_REQUEST_LINK = (): string =>
+  msg().core.server.notRequestLink;
 
 /**
  * "Identify on my computer": one request on the owner's server for the link
@@ -1915,7 +1928,7 @@ export async function startIdentifyRequest(url: string): Promise<void> {
   mixQueueNote.value = null;
   const key = requestKey(url);
   if (key === null) {
-    mixError.value = NOT_A_REQUEST_LINK;
+    mixError.value = NOT_A_REQUEST_LINK();
     return;
   }
   const latest = mixJobs.value[key]?.[0];
@@ -1923,28 +1936,28 @@ export async function startIdentifyRequest(url: string): Promise<void> {
   if (!text.canAsk) {
     mixError.value =
       latest && (latest.status === 'queued' || latest.status === 'claimed')
-        ? ALREADY_REQUESTED
+        ? ALREADY_REQUESTED()
         : text.button;
     return;
   }
   if (!serverConfigured || !serverAuth.session.value) {
-    mixError.value = 'Sign in to the server (Settings)';
+    mixError.value = msg().core.server.signInFirst;
     return;
   }
   const token = await serverAuth.getAccessToken();
   if (!token.ok) {
     serverState.value = serverFailure(token);
-    mixError.value = `Could not reach the server: ${token.message}`;
+    mixError.value = msg().core.server.reachFailed(token.message);
     return;
   }
   const res = await requestIdentify(serverClient, token.value, key);
   if (!res.ok) {
     serverState.value = serverFailure(res);
-    mixError.value = `Could not record the request: ${res.message}`;
+    mixError.value = msg().core.server.recordRequestFailed(res.message);
     return;
   }
   if (res.value === 'exists') {
-    mixError.value = ALREADY_REQUESTED;
+    mixError.value = ALREADY_REQUESTED();
     return;
   }
   const next: MixJobs = {
@@ -1955,7 +1968,7 @@ export async function startIdentifyRequest(url: string): Promise<void> {
   try {
     await putMeta(MIX_JOBS_META, next);
   } catch (err) {
-    mixError.value = `The request is recorded on the server but not here: ${storageMessage(err)}`;
+    mixError.value = msg().core.server.recordedNotHere(storageMessage(err));
   }
 }
 
@@ -2017,7 +2030,7 @@ async function writeMix(
   try {
     await putMix(row);
   } catch (err) {
-    mixError.value = `Could not save the mix: ${storageMessage(err)}`;
+    mixError.value = msg().core.mix.saveFailed(storageMessage(err));
     return false;
   }
   const open = mixState.peek();
@@ -2190,7 +2203,7 @@ export async function startCreatePlaylist(): Promise<void> {
       await loadSavedMixes();
       void queueServerPush(['mixes']);
     } catch (err) {
-      mixError.value = `Could not save the mix: ${storageMessage(err)}`;
+      mixError.value = msg().core.mix.saveFailed(storageMessage(err));
     }
   }
 
@@ -2232,7 +2245,7 @@ export async function startCreatePlaylist(): Promise<void> {
       await putMix(row);
       stampStored(view.url, row.savedAt);
     } catch (err) {
-      mixError.value = `Could not save the mix: ${storageMessage(err)}`;
+      mixError.value = msg().core.mix.saveFailed(storageMessage(err));
       saved = false;
     }
     const open = mixState.value;
@@ -2360,7 +2373,7 @@ export async function startSpotifyCheck(): Promise<void> {
     spotifyCheckState.value = { status: 'error', url, message };
   };
   if (!auth.session.value) {
-    fail('Connect to Spotify first (Settings), then check.');
+    fail(msg().core.mix.connectFirst);
     return;
   }
   const locked = spotifyLockedUntil();
@@ -2422,7 +2435,7 @@ export async function startSpotifyCheck(): Promise<void> {
       noteQuotaLock(out.error.retryAt);
       fail(heldQuotaMessage('check') ?? checkLockMessage(out.error.retryAt));
     } else {
-      fail(`Could not check on Spotify: ${describeError(out.error)}`);
+      fail(msg().core.mix.checkFailed(describeError(out.error)));
     }
     return;
   }
@@ -2495,7 +2508,7 @@ async function keepChecks(
       savedAt: Date.now(),
     });
   } catch (err) {
-    mixError.value = `Could not save the mix: ${storageMessage(err)}`;
+    mixError.value = msg().core.mix.saveFailed(storageMessage(err));
     return;
   }
   // The list refreshed without clearing `mixError`: the mix open now may
@@ -2595,39 +2608,38 @@ export async function removeMix(url: string): Promise<void> {
   try {
     await deleteMix(url);
   } catch (err) {
-    mixError.value = `Could not remove the mix: ${describeError(err)}`;
+    mixError.value = msg().core.mix.removeFailed(describeError(err));
     return;
   }
   await loadSavedMixes();
   void queueServerPush(['mixes']);
 }
 
-export const DELETE_MIX_CONFIRM =
-  "Delete this mix forever? Its saved tracks and request history are removed and can't be restored.";
+export const DELETE_MIX_CONFIRM = (): string => msg().core.mix.deleteConfirm;
 
 /**
  * Round 018: removes a link for good: its finished requests on the server,
  * then its saved mix. A failed server delete leaves the saved mix alone.
  */
 export async function deleteMixForever(url: string): Promise<void> {
-  if (!confirm(DELETE_MIX_CONFIRM)) return;
+  if (!confirm(DELETE_MIX_CONFIRM())) return;
   mixError.value = null;
   mixQueueNote.value = null;
   if (serverConfigured && serverAuth.session.value) {
     const token = await serverAuth.getAccessToken();
     if (!token.ok) {
       serverState.value = serverFailure(token);
-      mixError.value = queueFailure('Could not delete the mix', token.message);
+      mixError.value = queueFailure(msg().core.mix.deleteFailed, token.message);
       return;
     }
     const res = await deleteLinkRequests(serverClient, token.value, url);
     if (!res.ok) {
       serverState.value = serverFailure(res);
-      mixError.value = queueFailure('Could not delete the mix', res.message);
+      mixError.value = queueFailure(msg().core.mix.deleteFailed, res.message);
       return;
     }
   } else if (Object.keys(mixJobs.value).includes(url)) {
-    mixError.value = 'Sign in to the server (Settings)';
+    mixError.value = msg().core.server.signInFirst;
     return;
   }
   if (savedMixes.value.some((m) => m.url === url)) await removeMix(url);
@@ -2638,16 +2650,14 @@ export async function disconnect(): Promise<void> {
   // Nothing more starts by itself; the step running finishes first.
   autoChain.stop();
   if (jobsBusy()) {
-    banner.value = warnBanner(
-      'Wait for the current sync, history import, lookup, Rekordbox import or artist lookup to finish before disconnecting.'
-    );
+    banner.value = warnBanner(msg().core.library.disconnectBusy);
     return;
   }
   try {
     await wipeDb();
   } catch (err) {
     banner.value = errorBanner(
-      `Could not delete local data: ${describeError(err)}`
+      msg().core.library.deleteLocalFailed(describeError(err))
     );
     return;
   }
@@ -2686,10 +2696,9 @@ export async function disconnect(): Promise<void> {
 
 /* ---------- queue control from the phone (round 004) ---------- */
 
-export const CANCEL_REQUEST_CONFIRM =
-  'Cancel this request? It leaves the queue; you can ask again later.';
-export const STOP_REQUEST_CONFIRM =
-  'Stop this scan? The computer ends it within about a minute and keeps the tracks found so far.';
+export const CANCEL_REQUEST_CONFIRM = (): string =>
+  msg().core.server.cancelConfirm;
+export const STOP_REQUEST_CONFIRM = (): string => msg().core.server.stopConfirm;
 
 /** The status a request has after a pull, or undefined when no longer listed. */
 function pulledStatus(id: string): MixJobView['status'] | undefined {
@@ -2713,7 +2722,7 @@ async function queueAction(
   mixError.value = null;
   mixQueueNote.value = null;
   if (!serverConfigured || !serverAuth.session.value) {
-    mixError.value = 'Sign in to the server (Settings)';
+    mixError.value = msg().core.server.signInFirst;
     return;
   }
   const token = await serverAuth.getAccessToken();
@@ -2733,11 +2742,11 @@ async function queueAction(
 }
 
 export async function startCancelRequest(id: string): Promise<void> {
-  if (!confirm(CANCEL_REQUEST_CONFIRM)) return;
+  if (!confirm(CANCEL_REQUEST_CONFIRM())) return;
   await queueAction(
     id,
     (t) => cancelRequest(serverClient, t, id),
-    'Could not cancel the request'
+    msg().core.server.cancelFailed
   );
 }
 
@@ -2745,15 +2754,15 @@ export async function startMoveToTop(id: string): Promise<void> {
   await queueAction(
     id,
     (t) => moveRequestToTop(serverClient, t, id),
-    'Could not move the request'
+    msg().core.server.moveFailed
   );
 }
 
 export async function startStopRequest(id: string): Promise<void> {
-  if (!confirm(STOP_REQUEST_CONFIRM)) return;
+  if (!confirm(STOP_REQUEST_CONFIRM())) return;
   await queueAction(
     id,
     (t) => stopRequest(serverClient, t, id, Date.now()),
-    'Could not stop the scan'
+    msg().core.server.stopFailed
   );
 }

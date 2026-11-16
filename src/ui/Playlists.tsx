@@ -9,11 +9,13 @@ import { Empty } from './components/Empty';
 import { EmptyState } from './components/EmptyState';
 import { Filter } from './components/Filter';
 import { Flag } from './components/Flag';
-import { formatDate, plural } from './format';
+import { msg, type Messages } from '../i18n';
+import { formatDate } from './format';
 import { ListDetail, ListPane } from './layout/ListDetail';
 import { Playlist } from './Playlist';
 import { coverColumn, countColumn, titleColumn } from './table/columns';
 import { DataTable, type Column } from './table/DataTable';
+import { lastCall } from './table/lastCall';
 import type { SortState } from './table/sort';
 
 const filter = signal('');
@@ -26,47 +28,52 @@ interface PlaylistListRow {
 }
 
 /** "Synced 3 Nov 2026" on a phone's second line; the date alone in a cell. */
-const syncedColumn: Column<PlaylistListRow> = {
+const syncedColumn = (t: Messages['library']): Column<PlaylistListRow> => ({
   id: 'synced',
-  header: 'Last synced',
+  header: t.playlists.lastSynced,
   priority: 2,
   width: '160px',
   sortValue: (r) => r.playlist.syncedAt,
   firstDirection: 'desc',
   cell: (r) => (
     <span>
-      <span class="dt-prefix">synced </span>
+      <span class="dt-prefix">{t.playlists.syncedPrefix}</span>
       {formatDate(r.playlist.syncedAt)}
     </span>
   ),
   compact: 'meta',
-};
+});
 
 /** The "pending" flag while a sync still has this playlist to fetch. */
-const statusColumn: Column<PlaylistListRow> = {
+const statusColumn = (t: Messages['library']): Column<PlaylistListRow> => ({
   id: 'status',
-  header: 'Status',
+  header: t.playlists.status,
   priority: 1,
   width: '112px',
   sortValue: (r) => (r.pending ? 0 : 1),
   firstDirection: 'asc',
-  cell: (r) => (r.pending ? <Flag>pending</Flag> : null),
+  cell: (r) => (r.pending ? <Flag>{t.playlists.pending}</Flag> : null),
   compact: 'meta',
-};
+});
 
-/** Spec 003 §7: cover · name · tracks · last synced · status. */
-const COLUMNS: Column<PlaylistListRow>[] = [
-  coverColumn((r) => r.playlist.imageUrl, {}, { priority: 2 }),
-  titleColumn((r) => r.playlist.name, {
-    header: 'Name',
-    hrefOf: (r) => routeHref({ name: 'playlist', id: r.playlist.id }),
-  }),
-  countColumn('tracks', 'Tracks', (r) => r.tracks, {
-    unit: ['track', 'tracks'],
-  }),
-  syncedColumn,
-  statusColumn,
-];
+/**
+ * Spec 003 §7: cover · name · tracks · last synced · status. Built again
+ * only when the language shown changes (spec 031).
+ */
+const columnsOf = lastCall(
+  (t: Messages['library']): Column<PlaylistListRow>[] => [
+    coverColumn((r) => r.playlist.imageUrl, {}, { priority: 2 }),
+    titleColumn((r) => r.playlist.name, {
+      header: t.columns.name,
+      hrefOf: (r) => routeHref({ name: 'playlist', id: r.playlist.id }),
+    }),
+    countColumn('tracks', t.columns.tracks, (r) => r.tracks, {
+      unit: [t.columns.trackUnit(1), t.columns.trackUnit(2)],
+    }),
+    syncedColumn(t),
+    statusColumn(t),
+  ]
+);
 
 /** Today's order (`model.playlists`), filtered by name. */
 function listRows(m: Model): PlaylistListRow[] {
@@ -92,7 +99,7 @@ function FilterField() {
       onInput={(v) => {
         filter.value = v;
       }}
-      placeholder="Filter playlists"
+      placeholder={msg().library.playlists.filter}
     />
   );
 }
@@ -112,18 +119,15 @@ function PlaylistPane(p: { m: Model; selected: string | null }) {
       ).map((pl) => ({
         id: pl.id,
         title: pl.name,
-        subtitle: plural(
-          p.m.entriesByPlaylist.get(pl.id)?.length ?? 0,
-          'track'
-        ),
+        subtitle: msg().n.track(p.m.entriesByPlaylist.get(pl.id)?.length ?? 0),
         imageUrl: pl.imageUrl,
         href: routeHref({ name: 'playlist', id: pl.id }),
       })),
-    [p.m, query]
+    [p.m, query, msg()]
   );
   return (
     <ListPane
-      label="Playlists"
+      label={msg().library.playlists.title}
       head={<FilterField />}
       empty={<NoPlaylistMatch />}
       selectedId={p.selected}
@@ -146,9 +150,9 @@ function PlaylistTable(p: { m: Model }) {
         <NoPlaylistMatch />
       ) : (
         <DataTable
-          label="Playlists"
+          label={msg().library.playlists.title}
           noun="playlist"
-          columns={COLUMNS}
+          columns={columnsOf(msg().library)}
           rows={rows}
           rowKey={rowKey}
           sort={sort.value}
@@ -172,13 +176,13 @@ function NoPlaylistMatch() {
     <EmptyState
       icon="search"
       action={{
-        label: 'Clear filter',
+        label: msg().library.playlists.clearFilter,
         onClick: () => {
           filter.value = '';
         },
       }}
     >
-      <p>No playlists match "{filter.value}".</p>
+      <p>{msg().library.playlists.noMatch(filter.value)}</p>
     </EmptyState>
   );
 }

@@ -7,6 +7,7 @@ import {
   openMix,
   savedMixes,
 } from '../../model/state';
+import { msg } from '../../i18n';
 import { routeHref } from '../../router';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
@@ -201,13 +202,13 @@ export function Workspace(p: { mixKey?: string }) {
       aria-controls="mix-pane"
       onClick={() => setPaneShown(!paneShown)}
     >
-      Mixes
+      {msg().mix.common.mixes}
       {error !== null && (
         <>
           <span class="mix-pane-alert" aria-hidden="true">
             <Icon name="error" size={18} />
           </span>
-          <span class="visually-hidden"> (has an error)</span>
+          <span class="visually-hidden"> {msg().mix.workspace.hasError}</span>
         </>
       )}
     </Button>
@@ -220,9 +221,7 @@ export function Workspace(p: { mixKey?: string }) {
             link): said above it; the mix stays, it may be an unsaved
             lookup (S14 review M9). */}
         {stray !== null && stray.open === state.view.url && (
-          <StatusLine kind="warning">
-            This saved mix is not in this browser.
-          </StatusLine>
+          <StatusLine kind="warning">{msg().mix.workspace.notHere}</StatusLine>
         )}
         <MixDetail
           // One mix's edit, filter and sort never carry to another (S13 B1).
@@ -242,11 +241,11 @@ export function Workspace(p: { mixKey?: string }) {
       <EmptyState
         icon="warning"
         action={{
-          label: 'Back to your mixes',
+          label: msg().mix.workspace.back,
           href: routeHref({ name: 'mix' }),
         }}
       >
-        <p>This saved mix is not in this browser.</p>
+        <p>{msg().mix.workspace.notHere}</p>
       </EmptyState>
     ) : null;
 
@@ -271,7 +270,7 @@ export function Workspace(p: { mixKey?: string }) {
         detail={
           detail ?? (
             <EmptyState icon="queue_music">
-              <p>Paste a link, import a JSON, or pick a saved mix</p>
+              <p>{msg().mix.workspace.empty}</p>
             </EmptyState>
           )
         }

@@ -1,4 +1,5 @@
 import type { BannerMessage } from '../../model/banner';
+import { msg } from '../../i18n';
 import { Icon } from '../icons';
 import { IconButton } from './IconButton';
 
@@ -12,7 +13,11 @@ export function Banner(p: { message: BannerMessage; onClose: () => void }) {
     <div class={error ? 'banner error' : 'banner'} role="alert">
       <Icon name={error ? 'error' : 'warning'} />
       <span class="banner-text">{p.message.text}</span>
-      <IconButton icon="close" label="Dismiss" onClick={p.onClose} />
+      <IconButton
+        icon="close"
+        label={msg().frame.banner.dismiss}
+        onClick={p.onClose}
+      />
     </div>
   );
 }

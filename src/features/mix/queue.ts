@@ -1,12 +1,15 @@
 import type { MixJobView } from '../../db/schema';
+import { msg } from '../../i18n';
 
 /**
  * The words of the queue actions' outcomes (spec 003 §12, T122, rulings D4
  * and D5), shown inline in the Mixes pane, never as a banner.
  */
 
-export const MIGRATION_0003_MESSAGE =
-  'Apply migration 0003 on the server to use Cancel, Move to top and Stop';
+/** Read when called, so it follows the language shown (spec 031). */
+export function MIGRATION_0003_MESSAGE(): string {
+  return msg().mix.queue.migration;
+}
 
 /**
  * Cancel, Move to top or Stop found the request already moved on: its
@@ -16,13 +19,14 @@ export function goneNote(
   statusAfterPull: MixJobView['status'] | undefined
 ): string {
   return statusAfterPull === 'claimed'
-    ? 'Already taken by your computer'
-    : 'Already finished';
+    ? msg().mix.queue.taken
+    : msg().mix.queue.finished;
 }
 
 /** A gone answer whose new state this device could not read. */
-export const UNCONFIRMED_NOTE =
-  'The request had already moved on; Check now to see where it is';
+export function UNCONFIRMED_NOTE(): string {
+  return msg().mix.queue.unconfirmed;
+}
 
 /**
  * The note after a queue action (review F2): none when it took effect; for
@@ -36,13 +40,13 @@ export function queueNote(
   statusAfterPull: MixJobView['status'] | undefined
 ): string | null {
   if (answer !== 'gone') return null;
-  if (!pulled || statusAfterPull === 'queued') return UNCONFIRMED_NOTE;
+  if (!pulled || statusAfterPull === 'queued') return UNCONFIRMED_NOTE();
   return goneNote(statusAfterPull);
 }
 
 /** A server without migration 0003 answers "column … does not exist" (42703). */
 export function queueFailure(prefix: string, message: string): string {
   return /column\b.*does not exist|42703/i.test(message)
-    ? MIGRATION_0003_MESSAGE
-    : `${prefix}: ${message}`;
+    ? MIGRATION_0003_MESSAGE()
+    : msg().mix.queue.failure(prefix, message);
 }

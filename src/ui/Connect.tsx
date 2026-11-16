@@ -1,4 +1,5 @@
 import { auth } from '../auth/browser';
+import { msg } from '../i18n';
 import {
   banner,
   connectSignOutVisible,
@@ -25,35 +26,27 @@ export function Connect(p: { signingIn?: boolean }) {
   const session = connectSignOutVisible() ? serverSession.value : null;
   const state = serverState.value;
   const notice = banner.value;
+  const t = msg().signin;
   return (
     <main class="connect">
       <section class="connect-card">
         <LanguageSwitch class="connect-lang" />
         <Icon name="headphones" size={40} class="connect-mark" />
+        {/* eslint-disable-next-line no-restricted-syntax -- the app's name */}
         <h1>DJ Data</h1>
-        <p class="connect-purpose">
-          Your Spotify listening, ranked for DJ set preparation.
-        </p>
+        <p class="connect-purpose">{t.connect.purpose}</p>
         {p.signingIn ? (
-          <StatusLine>Signing you in…</StatusLine>
+          <StatusLine>{t.signingIn}</StatusLine>
         ) : (
           <>
             <ul class="connect-reads">
-              <li>Your top lists: 4 weeks, 6 months and all time</li>
-              <li>The playlists you own, when you sync them</li>
-              <li>Your listening history, when you import it</li>
+              <li>{t.connect.readsTop}</li>
+              <li>{t.connect.readsPlaylists}</li>
+              <li>{t.connect.readsHistory}</li>
             </ul>
             <details class="connect-privacy">
-              <summary>What leaves this browser</summary>
-              <p>
-                Your most played tracks, your playlists ranked by plays, and the
-                artists you have saved the most. Reads your top lists and the
-                playlists you own. Nothing leaves this browser except the track
-                ids sent to ReccoBeats when you look up BPM and key, and the
-                artist ids, ISRCs and article titles sent to MusicBrainz,
-                ListenBrainz, Deezer, Wikidata and Wikimedia when you look up
-                artists.
-              </p>
+              <summary>{t.connect.privacySummary}</summary>
+              <p>{t.connect.privacy}</p>
             </details>
             {session && (
               <StatusLine kind="success">
@@ -74,11 +67,11 @@ export function Connect(p: { signingIn?: boolean }) {
               class="primary"
               onClick={() => void auth.beginLogin()}
             >
-              Connect Spotify
+              {t.connect.connectSpotify}
             </button>
             {session && (
               <Button variant="tonal" onClick={() => void startServerSignOut()}>
-                Sign out
+                {t.connect.signOut}
               </Button>
             )}
           </>

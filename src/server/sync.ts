@@ -1,3 +1,4 @@
+import { msg } from '../i18n';
 import {
   MIX_DELETED_META,
   SERVER_LAST_SYNC_META,
@@ -11,7 +12,11 @@ import {
   type MixJobs,
   type MixJobView,
 } from '../db/schema';
-import { ACCOUNT_META, ACCOUNT_MISMATCH_NOTICE } from '../sync/runner';
+import {
+  ACCOUNT_META,
+  ACCOUNT_MISMATCH,
+  ACCOUNT_MISMATCH_NOTICE,
+} from '../sync/runner';
 import type { ServerClient, ServerResult } from './client';
 import {
   DATASETS,
@@ -264,8 +269,8 @@ async function pullMixes(
 export const PAGE_SIZE = 1000;
 /** A saved mix is a few KB of rows; fifty keep a body well under 1 MB. */
 export const MIX_BATCH = 50;
-export const UPDATE_APP_MESSAGE =
-  'The server holds data written by a newer version of the app. Reload to update.';
+/** Read when used, so it follows the language shown (spec 031). */
+export const UPDATE_APP_MESSAGE = (): string => msg().sources.sync.updateApp;
 
 const META_NAMES = [
   'lastSyncAt',
@@ -528,7 +533,12 @@ export async function runPull(
   if (!stamps.ok) return stamps;
   const mine = stamps.value.filter((s) => s.spotify_account_id === account);
   if (mine.length === 0 && stamps.value.length > 0) {
-    return { ok: false, kind: 'error', message: ACCOUNT_MISMATCH_NOTICE };
+    return {
+      ok: false,
+      kind: 'error',
+      code: ACCOUNT_MISMATCH,
+      message: ACCOUNT_MISMATCH_NOTICE(),
+    };
   }
   const rows = await deps.repo.getAllRows();
   const metas = await readMetas(deps.repo);
@@ -595,8 +605,6 @@ function missingColumn(message: string): boolean {
 }
 /** Requests kept per link on the Mix screen (FR-003). */
 export const JOB_HISTORY_MAX = 20;
-const UNEXPECTED_JOB_ROW =
-  'The server answered an unexpected request row. Sync and try again.';
 
 /**
  * The "Identify on my computer" tap: one open request per link (FR-004),
@@ -627,7 +635,11 @@ export async function requestIdentify(
   if (!created.ok) return created;
   const view = jobView(created.value);
   if (view === null)
-    return { ok: false, kind: 'error', message: UNEXPECTED_JOB_ROW };
+    return {
+      ok: false,
+      kind: 'error',
+      message: msg().sources.sync.unexpectedJobRow,
+    };
   return ok(view);
 }
 
@@ -808,7 +820,10 @@ export async function runRemoveAll(
       token.value
     );
     if (!res.ok) {
-      return { ...res, message: `Could not clear ${table}: ${res.message}` };
+      return {
+        ...res,
+        message: msg().sources.sync.couldNotClear(table, res.message),
+      };
     }
   }
   for (const name of SERVER_METAS) await deps.repo.deleteMeta(name);
@@ -824,7 +839,7 @@ export async function readUsage(deps: SyncDeps): Promise<ServerResult<number>> {
   const n = Number(res.value);
   return Number.isFinite(n)
     ? ok(n)
-    : { ok: false, kind: 'error', message: 'storage_used() gave no number.' };
+    : { ok: false, kind: 'error', message: msg().sources.sync.usageNoNumber };
 }
 
 /* ---------- queue control from the phone (round 004) ---------- */

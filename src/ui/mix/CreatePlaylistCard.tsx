@@ -18,7 +18,8 @@ import { DigLinks } from '../components/DigLinks';
 import { ProgressBar } from '../components/ProgressBar';
 import { SpotifyLink } from '../components/SpotifyLink';
 import { StatusLine } from '../components/StatusLine';
-import { formatClock, formatDateTime, plural } from '../format';
+import { msg } from '../../i18n';
+import { formatClock, formatDateTime } from '../format';
 import { Disclosure } from './Disclosure';
 
 /**
@@ -32,10 +33,9 @@ function NotFound(p: { unmatched: UnmatchedRow[] }) {
   return (
     <Disclosure
       summary={
-        <>
-          {n} not found
-          {rows.length !== n && ` (${plural(rows.length, 'track')})`}
-        </>
+        rows.length !== n
+          ? msg().mix.create.notFoundSongs(n, rows.length)
+          : msg().mix.create.notFound(n)
       }
     >
       <ul class="mix-notfound">
@@ -86,27 +86,24 @@ export function CreatePlaylistCard(p: { view: MixView }) {
     formatDateTime
   );
   // One Spotify reader at a time (S13): another one running rests it.
-  const busyLine = elsewhere
-    ? 'Create playlist is running for another mix: create this one once it ends.'
-    : spotifyBusyMessage('create');
+  const t = msg().mix.create;
+  const busyLine = elsewhere ? t.busyElsewhere : spotifyBusyMessage('create');
   return (
-    <Card title="Create playlist" class="mix-create">
+    <Card title={t.title} class="mix-create">
       {count > 0 ? (
         <>
-          <p class="mix-caption">
-            {`${plural(count, 'track')} will be added, in set order.`}
-          </p>
+          <p class="mix-caption">{t.willAdd(count)}</p>
           <Button
             variant="filled"
             icon="queue_music"
             disabled={running || lockLine !== null || busyLine !== null}
             onClick={() => void startCreatePlaylist()}
           >
-            {running ? 'Creating playlist…' : 'Create playlist from mix'}
+            {running ? t.creatingButton : t.button}
           </Button>
         </>
       ) : (
-        <p class="mix-caption">No identified track to add yet.</p>
+        <p class="mix-caption">{t.nothing}</p>
       )}
       {lockLine !== null && cs.status !== 'error' && !running && (
         <StatusLine kind="warning">{lockLine}</StatusLine>
@@ -117,31 +114,25 @@ export function CreatePlaylistCard(p: { view: MixView }) {
         !running && <StatusLine kind="warning">{busyLine}</StatusLine>}
       {cs.status === 'needScope' && (
         <>
-          <StatusLine kind="warning">
-            This app cannot create playlists yet — connect again to allow it.
-            Your saved mixes stay on this browser.
-          </StatusLine>
-          <Button onClick={() => auth.logout()}>
-            Connect again to allow playlists
-          </Button>
+          <StatusLine kind="warning">{t.needScope}</StatusLine>
+          <Button onClick={() => auth.logout()}>{t.connectAgain}</Button>
         </>
       )}
       {cs.status === 'resolving' && (
         <ProgressBar
-          label="Matching tracks"
+          label={t.matching}
           done={cs.done}
           total={cs.total}
-          unit="tracks"
+          unit={t.unit}
         />
       )}
-      {cs.status === 'creating' && (
-        <StatusLine>Creating the playlist…</StatusLine>
-      )}
-      {cs.status === 'adding' && <StatusLine>Adding tracks…</StatusLine>}
+      {cs.status === 'creating' && <StatusLine>{t.creating}</StatusLine>}
+      {cs.status === 'adding' && <StatusLine>{t.adding}</StatusLine>}
       {cs.status === 'done' && (
         <>
+          {/* The name is the one written on Spotify, kept as it is (FR-013). */}
           <StatusLine kind="success">
-            Created ‘{cs.name}’ — {cs.added} of {cs.total} tracks
+            {t.created(cs.name, cs.added, cs.total)}
           </StatusLine>
           {cs.url !== null && <SpotifyLink href={cs.url} label />}
           {cs.unmatched.length > 0 && <NotFound unmatched={cs.unmatched} />}
@@ -149,12 +140,10 @@ export function CreatePlaylistCard(p: { view: MixView }) {
       )}
       {cs.status === 'error' && (
         <>
-          <StatusLine kind="error">
-            Could not create the playlist: {cs.message}
-          </StatusLine>
+          <StatusLine kind="error">{t.failed(cs.message)}</StatusLine>
           {cs.url != null && (
             <p>
-              Playlist created · <SpotifyLink href={cs.url} label />
+              {t.playlistCreated} <SpotifyLink href={cs.url} label />
             </p>
           )}
           {/* `!== undefined`, not truthiness: a batch-1 failure reports
@@ -162,7 +151,7 @@ export function CreatePlaylistCard(p: { view: MixView }) {
               show. */}
           {cs.added !== undefined && (
             <p class="mix-caption">
-              Added {cs.added} of {cs.total ?? count} before the error.
+              {t.addedBefore(cs.added, cs.total ?? count)}
             </p>
           )}
         </>
@@ -170,7 +159,7 @@ export function CreatePlaylistCard(p: { view: MixView }) {
       {view.playlistUrl != null &&
         (cs.status === 'idle' || cs.status === 'needScope') && (
           <p>
-            Playlist created · <SpotifyLink href={view.playlistUrl} label />
+            {t.playlistCreated} <SpotifyLink href={view.playlistUrl} label />
           </p>
         )}
     </Card>

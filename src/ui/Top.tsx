@@ -1,6 +1,7 @@
 import { signal } from '@preact/signals';
 import { useState } from 'preact/hooks';
 import type { Period } from '../db/schema';
+import { lang, msg, type Lang, type Messages } from '../i18n';
 import {
   topArtists,
   topTracks,
@@ -18,12 +19,7 @@ import { SegmentedButtons } from './components/SegmentedButtons';
 import { openDetail } from './details/navigate';
 import { TrackSheet } from './details/TrackDetails';
 import { besideSheet } from './layout/SideSheet';
-import {
-  artistNames,
-  artistUrl,
-  topCaption,
-  TOP_PERIOD_LABEL,
-} from './format';
+import { artistNames, artistUrl, topCaption, TOP_PERIOD_LABEL } from './format';
 import { windowClass } from './layout/windowClass';
 import { spotifyTrackId, type ListenTrack } from './listen';
 import {
@@ -57,9 +53,12 @@ const tracksSort = signal<SortState>(DEFAULT_SORT);
 const artistsSort = signal<SortState>(DEFAULT_SORT);
 const tracksFilter = signal<TrackFilter>(EMPTY_FILTER);
 
-const PERIOD_OPTIONS = (
-  ['short_term', 'medium_term', 'long_term'] as const
-).map((value) => ({ value, label: TOP_PERIOD_LABEL[value] }));
+/** Built when drawn: each label is the text of the language shown. */
+const periodOptions = () =>
+  (['short_term', 'medium_term', 'long_term'] as const).map((value) => ({
+    value,
+    label: TOP_PERIOD_LABEL[value],
+  }));
 
 /** A top track's play button and Listen menu (round 017). */
 const trackOf = (r: AnnotatedTopTrack): ListenTrack => ({
@@ -95,36 +94,46 @@ function trackColumns(
 /* Kept while their inputs stay, so the tables' memos hold (S13 A5). */
 const topTracksOf = lastCall(topTracks);
 const topArtistsOf = lastCall(topArtists);
-const trackColumnsOf = lastCall((m: Model, hasPlaylists: boolean) =>
-  trackColumns(
-    hasPlaylists,
-    (r) => featureFor(m, r.item.id),
-    (r) => trackYear(m, r.item.id)
-  )
+// The language shown is an input, so a switch rebuilds the headers.
+const trackColumnsOf = lastCall(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- a memo key only
+  (m: Model, hasPlaylists: boolean, _lang: Lang) =>
+    trackColumns(
+      hasPlaylists,
+      (r) => featureFor(m, r.item.id),
+      (r) => trackYear(m, r.item.id)
+    )
 );
 const rankOfItem = (r: { item: { rank: number } }): number => r.item.rank;
 const keyOfItem = (r: { item: { id: string } }): string => r.item.id;
 
-/** Artists: # · image · name · saved tracks · playlists. */
-const ARTIST_COLUMNS: Column<AnnotatedTopArtist>[] = [
-  rankColumn(),
-  coverColumn((r) => r.item.imageUrl, { round: true }),
-  titleColumn((r) => r.item.name, {
-    header: 'Name',
-    hrefOf: (r) => routeHref({ name: 'artist', key: r.item.id }),
-  }),
-  countColumn('saved', 'Saved tracks', (r) => r.savedTracks, {
-    unit: ['saved track', 'saved tracks'],
-  }),
-  countColumn(
-    'playlists',
-    'Playlists',
-    (r) => r.playlistCount,
-    { unit: ['playlist', 'playlists'] },
-    { priority: 2 }
-  ),
-  spotifyLinkColumn((r) => artistUrl(r.item.id)),
-];
+/**
+ * Artists: # · image · name · saved tracks · playlists. Kept per language,
+ * so the table's memos hold and a switch rebuilds the headers.
+ */
+const artistColumnsOf = lastCall(
+  (text: Messages['overview']['topScreen']): Column<AnnotatedTopArtist>[] => {
+    return [
+      rankColumn(),
+      coverColumn((r) => r.item.imageUrl, { round: true }),
+      titleColumn((r) => r.item.name, {
+        header: text.name,
+        hrefOf: (r) => routeHref({ name: 'artist', key: r.item.id }),
+      }),
+      countColumn('saved', text.savedTracks, (r) => r.savedTracks, {
+        unit: [text.savedTrackOne, text.savedTrackMany],
+      }),
+      countColumn(
+        'playlists',
+        text.playlists,
+        (r) => r.playlistCount,
+        { unit: [text.playlistOne, text.playlistMany] },
+        { priority: 2 }
+      ),
+      spotifyLinkColumn((r) => artistUrl(r.item.id)),
+    ];
+  }
+);
 
 /**
  * Top on its 4-week tracks list, for the Overview's "Top this month" card
@@ -151,6 +160,7 @@ export function Top({ detail }: { detail?: string }) {
       </>
     );
   }
+  const text = msg().overview.topScreen;
   const comparing = compare.value && windowClass.value === 'large';
   const hasPlaylists = m.playlists.length > 0;
   const tracks = topTracksOf(m, period.value);
@@ -174,7 +184,7 @@ export function Top({ detail }: { detail?: string }) {
       <div class="toolbar">
         {!comparing && (
           <SegmentedButtons
-            options={PERIOD_OPTIONS}
+            options={periodOptions()}
             value={period.value}
             onChange={(v) => {
               period.value = v;
@@ -183,8 +193,8 @@ export function Top({ detail }: { detail?: string }) {
         )}
         <SegmentedButtons
           options={[
-            { value: 'tracks', label: 'Tracks' },
-            { value: 'artists', label: 'Artists' },
+            { value: 'tracks', label: text.tracks },
+            { value: 'artists', label: text.artists },
           ]}
           value={kind.value}
           onChange={(v) => {
@@ -200,7 +210,7 @@ export function Top({ detail }: { detail?: string }) {
               compare.value = !compare.value;
             }}
           >
-            Compare periods
+            {text.compare}
           </Button>
         )}
       </div>
@@ -215,9 +225,9 @@ export function Top({ detail }: { detail?: string }) {
           {filtered.bar}
           {filtered.empty ?? (
             <DataTable
-              label={`Top tracks, ${TOP_PERIOD_LABEL[period.value]}`}
+              label={text.tracksLabel(TOP_PERIOD_LABEL[period.value])}
               noun="track"
-              columns={trackColumnsOf(m, hasPlaylists)}
+              columns={trackColumnsOf(m, hasPlaylists, lang.value)}
               rows={tracks}
               only={filtered.only}
               rowKey={keyOfItem}
@@ -241,9 +251,9 @@ export function Top({ detail }: { detail?: string }) {
         </>
       ) : (
         <DataTable
-          label={`Top artists, ${TOP_PERIOD_LABEL[period.value]}`}
+          label={text.artistsLabel(TOP_PERIOD_LABEL[period.value])}
           noun="artist"
-          columns={ARTIST_COLUMNS}
+          columns={artistColumnsOf(text)}
           rows={topArtistsOf(m, period.value)}
           rowKey={keyOfItem}
           rankOf={rankOfItem}

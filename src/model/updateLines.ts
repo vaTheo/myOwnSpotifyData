@@ -4,7 +4,9 @@ import type { RekordboxSummary } from '../features/rekordboxImport';
 import type { ImportSummary } from '../history/importer';
 import type { ServerStatus } from '../server/types';
 import type { SyncState } from '../sync/runner';
+import { msg } from '../i18n';
 import { formatDateTime } from '../ui/format';
+import { datasetName } from '../ui/settings/lines';
 import { AUTO_SYNC_AGE_MS, type AutoStep, type ChainView } from './autoChain';
 
 /**
@@ -51,30 +53,39 @@ const body = (tone: UpdateTone, text: string): Body => ({
   retry: null,
 });
 
+/** Parts of a line: `Failed · boom`. Each part is a catalogue entry. */
+const parts = (...p: string[]) => p.join(' · ');
+const said = () => msg().settings.words;
+const text = () => msg().settings.updates;
+
 function serverLine(s: ServerStatus): Body {
+  const w = said();
+  const c = msg().settings.closed;
   switch (s.status) {
     case 'connected':
       return body(
         'ok',
         s.lastSyncAt === null
-          ? 'Never'
-          : `Up to date · ${formatDateTime(s.lastSyncAt)}`
+          ? w.never
+          : parts(w.upToDate, formatDateTime(s.lastSyncAt))
       );
     case 'pushing':
     case 'pulling':
-      return body('running', `Running · ${s.dataset}`);
+      return body('running', parts(w.running, datasetName(s.dataset)));
     case 'offline':
-      return body('paused', 'Offline');
+      return body('paused', w.offline);
     case 'paused':
-      return body('paused', 'Paused by the server');
+      return body('paused', c.pausedByServer);
     case 'error':
-      return body('failed', `Failed · ${s.message}`);
+      return body('failed', parts(w.failed, s.message));
     case 'signedOut':
-      return body('manual', 'Not signed in');
+      return body('manual', c.notSignedIn);
     case 'unset':
-      return body('manual', 'Not set up');
+      return body('manual', c.notSetUp);
   }
 }
+
+type Unit = 'playlists' | 'tracks' | 'artists';
 
 /**
  * The shared precedence of an automatic job: running, waiting in the chain,
@@ -83,32 +94,39 @@ function serverLine(s: ServerStatus): Body {
 function autoLine(
   step: AutoStep,
   i: UpdateInputs,
-  progress: { done: number; total: number; unit: string } | null,
+  progress: { done: number; total: number; unit: Unit } | null,
   error: string | null,
   paused: string | null,
   idle: string
 ): Body {
+  const w = said();
   if (progress) {
     return body(
       'running',
-      `Running · ${progress.done} / ${progress.total} ${progress.unit}`
+      parts(w.running, text()[progress.unit](progress.done, progress.total))
     );
   }
-  if (i.chain.waiting.includes(step)) return body('waiting', 'Waiting');
+  if (i.chain.waiting.includes(step)) return body('waiting', w.waiting);
   if (error !== null) {
-    return { tone: 'failed', text: `Failed · ${error}`, retry: step };
+    return { tone: 'failed', text: parts(w.failed, error), retry: step };
   }
   if (paused !== null) return body('paused', paused);
-  return i.autoOn ? body('ok', idle) : body('off', `Off · ${idle}`);
+  return i.autoOn ? body('ok', idle) : body('off', parts(w.off, idle));
 }
 
 function spotifyLine(i: UpdateInputs): Body {
   const s = i.sync;
+  const t = text();
   const synced =
-    i.lastSyncAt === null ? 'Never' : `Synced ${formatDateTime(i.lastSyncAt)}`;
+    i.lastSyncAt === null
+      ? said().never
+      : t.syncedAt(formatDateTime(i.lastSyncAt));
   const idle =
     i.lastSyncAt !== null && i.autoOn
-      ? `${synced} · next after ${formatDateTime(i.lastSyncAt + AUTO_SYNC_AGE_MS)}`
+      ? parts(
+          synced,
+          t.nextAfter(formatDateTime(i.lastSyncAt + AUTO_SYNC_AGE_MS))
+        )
       : synced;
   return autoLine(
     'spotify',
@@ -118,7 +136,7 @@ function spotifyLine(i: UpdateInputs): Body {
       : null,
     s.status === 'error' ? s.message : null,
     s.status === 'locked' && s.retryAt > i.now
-      ? `Paused by Spotify until ${formatDateTime(s.retryAt)}`
+      ? t.pausedSpotify(formatDateTime(s.retryAt))
       : null,
     idle
   );
@@ -135,8 +153,8 @@ function featuresLine(i: UpdateInputs): Body {
     l.status === 'error' ? l.message : null,
     null,
     i.features === null
-      ? 'Never'
-      : `${i.features.covered.toLocaleString()} / ${i.features.total.toLocaleString()} tracks with BPM or key`
+      ? said().never
+      : text().withBpm(i.features.covered, i.features.total)
   );
 }
 
@@ -151,35 +169,37 @@ function reachLine(i: UpdateInputs): Body {
     r.status === 'error' ? r.message : null,
     null,
     i.reachSummary === null
-      ? 'Never'
-      : `Checked ${formatDateTime(i.reachSummary.ranAt)}`
+      ? said().never
+      : text().checked(formatDateTime(i.reachSummary.ranAt))
   );
 }
 
 function importLine(importedAt: number | null, again: string): Body {
+  const t = text();
   return body(
     'manual',
     importedAt === null
-      ? 'Never · needs a file'
-      : `Imported ${formatDateTime(importedAt)} · ${again}`
+      ? parts(said().never, t.needsFile)
+      : parts(t.importedAt(formatDateTime(importedAt)), again)
   );
 }
 
 export function updateLines(i: UpdateInputs): UpdateLine[] {
+  const m = msg().settings;
   return [
-    { job: 'server', label: 'Server', ...serverLine(i.server) },
+    { job: 'server', label: m.items.server, ...serverLine(i.server) },
     { job: 'spotify', label: 'Spotify', ...spotifyLine(i) },
-    { job: 'features', label: 'BPM and key', ...featuresLine(i) },
-    { job: 'reach', label: 'Artist reach', ...reachLine(i) },
+    { job: 'features', label: m.words.bpmKey, ...featuresLine(i) },
+    { job: 'reach', label: m.items.reach, ...reachLine(i) },
     {
       job: 'history',
-      label: 'History',
-      ...importLine(i.history?.importedAt ?? null, 'needs a new export'),
+      label: m.updates.labelHistory,
+      ...importLine(i.history?.importedAt ?? null, m.updates.needsExport),
     },
     {
       job: 'rekordbox',
       label: 'Rekordbox',
-      ...importLine(i.rekordbox?.importedAt ?? null, 'needs a new XML'),
+      ...importLine(i.rekordbox?.importedAt ?? null, m.updates.needsXml),
     },
   ];
 }

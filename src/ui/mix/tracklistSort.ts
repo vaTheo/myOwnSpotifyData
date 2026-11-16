@@ -1,4 +1,5 @@
 import type { TracklistRow } from '../../db/schema';
+import { msg } from '../../i18n';
 import { evidenceLevel, evidenceRank } from '../../features/mix/evidence';
 import { spotifyStatus } from '../../features/mix/review';
 import { rowYear } from '../../features/mix/worker';
@@ -68,14 +69,25 @@ export function sortValue(id: SortId, l: SortLine): SortValue {
   }
 }
 
+/** The Sort select's choices, named like their columns, read when drawn. */
+const choice = (
+  id: SortId,
+  column: keyof ReturnType<typeof msg>['mix']['columns']
+): { id: SortId; label: string } => ({
+  id,
+  get label(): string {
+    return msg().mix.columns[column];
+  },
+});
+
 const CHOICES: { id: SortId; label: string }[] = [
-  { id: 'time', label: 'Time' },
-  { id: 'artist', label: 'Artist' },
-  { id: 'title', label: 'Title' },
-  { id: 'label', label: 'Label' },
-  { id: 'confidence', label: 'Evidence' },
-  { id: 'released', label: 'Released' },
-  { id: 'spotify', label: 'Spotify' },
+  choice('time', 'time'),
+  choice('artist', 'artist'),
+  choice('title', 'title'),
+  choice('label', 'label'),
+  choice('confidence', 'evidence'),
+  choice('released', 'released'),
+  choice('spotify', 'spotify'),
 ];
 
 /** Whether the open rows hold the values a column sorts by. */
