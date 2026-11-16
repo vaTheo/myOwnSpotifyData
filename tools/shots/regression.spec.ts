@@ -104,7 +104,12 @@ const test = base.extend<{ app: App }>({
     expect(app.findings, 'blocked requests, console or page errors').toEqual(
       []
     );
-    for (const c of app.confirms) {
+    // The list of how-it-works §14 is the English one; a French question is
+    // checked by its own test (G07) and by the catalogue's type.
+    const shown = await page
+      .evaluate(() => document.documentElement.lang)
+      .catch(() => 'en');
+    for (const c of shown === 'fr' ? [] : app.confirms) {
       const [type, ...rest] = c.split(': ');
       const text = rest.join(': ');
       expect(type, `a ${type}() was met: ${text}`).toBe('confirm');
@@ -3252,6 +3257,74 @@ test.describe('G. languages', () => {
     );
     await app.open('#/', 'signed-out');
     await expect(app.page.getByRole('group', { name: 'Langue' })).toBeVisible();
+  });
+
+  /** Picks Français in Settings, as a user does. */
+  const french = async (
+    app: { open: (hash: string) => Promise<unknown> },
+    page: Page
+  ) => {
+    await app.open('#/settings/language');
+    await language(page).filter({ hasText: 'Français' }).click();
+    await expect(
+      main(page).getByText('Conservé sur cet appareil.')
+    ).toBeVisible();
+  };
+
+  test('G06 in French a count agrees and a number takes the French form', async ({
+    app,
+  }) => {
+    await french(app, app.page);
+    let text = '';
+    for (const hash of ['#/', '#/playlists', '#/crate', '#/settings']) {
+      await app.open(hash);
+      await expect(main(app.page)).toBeVisible();
+      text += `\n${await main(app.page).innerText()}`;
+    }
+    // Counted nouns are French, and 0 and 1 never take the plural.
+    expect(text).toMatch(/\d titres/);
+    expect(text).not.toMatch(
+      /(^|[^\d\s\u00a0\u202f])\s?[01] (titres|écoutes|artistes|playlists)\b/m
+    );
+    expect(text).not.toMatch(/\d (tracks?|plays?)\b/);
+    // A thousand is grouped with a space, never with a comma.
+    expect(text).toMatch(/\d[\u00a0\u202f]\d{3}/);
+    expect(text).not.toMatch(/\d,\d{3}\b/);
+  });
+
+  test('G07 the Disconnect question is French and names the same consequence', async ({
+    app,
+  }) => {
+    await french(app, app.page);
+    await app.open('#/settings');
+    await openItem(app.page, 'Zone de danger');
+    await app.page
+      .getByRole('button', { name: 'Se déconnecter', exact: true })
+      .click();
+    expect(app.confirms).toEqual([
+      'confirm: Se déconnecter et supprimer toutes les données locales\u00a0? Les données du serveur sont conservées.',
+    ]);
+  });
+
+  test('G08 a track, artist, playlist and mix name are the same in both languages', async ({
+    app,
+  }) => {
+    const pages = ['#/top', '#/playlists', '#/artists', '#/mix'];
+    const names = async (hash: string): Promise<string[]> => {
+      await app.open(hash);
+      const cells = main(app.page).locator('.dt-text, a[href^="#/mix/"]');
+      await expect(cells.first()).toBeVisible();
+      // A mix row writes its state under its name: the name is the first line.
+      return (await cells.allInnerTexts())
+        .slice(0, 6)
+        .map((text) => text.split('\n')[0]);
+    };
+    const english: string[][] = [];
+    for (const hash of pages) english.push(await names(hash));
+    await french(app, app.page);
+    for (const [i, hash] of pages.entries()) {
+      expect(await names(hash), hash).toEqual(english[i]);
+    }
   });
 
   test.describe('with a French browser', () => {

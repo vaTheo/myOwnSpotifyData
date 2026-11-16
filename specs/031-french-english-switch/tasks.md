@@ -63,8 +63,8 @@ Rules that hold for every task that moves texts (T010 to T026):
 - [x] T022 [US1] Move the texts built below the UI, part 2: src/server (`client.ts`, `session.ts`, `sync.ts`, `validate.ts`, `sharedFacts.ts`, `datasets.ts`, `scopeBrowser.ts`: only what reaches the screen), src/features failure values (`lookup.ts`, `reccobeats.ts`, `musicbrainz.ts`, `wikidata.ts`, `deezer.ts`, `jsonp.ts`, `rekordbox.ts`, `rekordboxImport.ts`, `reachRun.ts`, `shared.ts`), src/features/like/likePlaylist.ts (agreement written per language, no "was / were" by hand), src/util/errors.ts, src/db/repo.ts; clients still never throw
 - [x] T023 [US1] Move the demo's on-screen app texts in src/dev (FR-018); the demo's music data stays as it is; tools/shots/pages.ts texts injected into states (for example line 418) stay English because the regression runs in English
 - [x] T024 [US1] Add the local lint rule to the ESLint config (`eslint.config.*`), with no new package: under src/, outside `*.test.ts`, refuse JSX text holding a letter and string literals in `aria-label`, `title`, `placeholder`, `alt`; allow-list by comment for the fixed names "Français" and "English"; `yarn lint` exit 0 proves T013 to T023 left none
-- [ ] T025 [US1] Sweep for leftovers in `.ts` files the lint rule does not see: `python3 -I` the scratch counter used for research (literals of two words under src/, tests and src/i18n left out) and read every hit; each is moved, or is one of: a class name, a log line, a key, a text sent outside; report the count before and after
-- [ ] T026 [US1] Regression rows G06 to G08 and tests in tools/shots/regression.spec.ts, in French: G06 a "0", a "1" and a "2" count on the demo read « 0 titre », « 1 titre », « 2 titres » and a number reads « 1 234 »; G07 a confirm question (Disconnect) is French and names the same consequence; G08 a track, artist, playlist and mix name are identical in both languages
+- [x] T025 [US1] Sweep for leftovers in `.ts` files the lint rule does not see: `python3 -I` the scratch counter used for research (literals of two words under src/, tests and src/i18n left out) and read every hit; each is moved, or is one of: a class name, a log line, a key, a text sent outside; report the count before and after
+- [x] T026 [US1] Regression rows G06 to G08 and tests in tools/shots/regression.spec.ts, in French: G06 a "0", a "1" and a "2" count on the demo read « 0 titre », « 1 titre », « 2 titres » and a number reads « 1 234 »; G07 a confirm question (Disconnect) is French and names the same consequence; G08 a track, artist, playlist and mix name are identical in both languages
 
 **Checkpoint**: `yarn typecheck && yarn lint && yarn test && yarn regression` exit 0; English screens unchanged.
 
@@ -72,7 +72,7 @@ Rules that hold for every task that moves texts (T010 to T026):
 
 **Independent test**: quickstart step 2.
 
-- [ ] T027 [US3] Regression row G05 and test in tools/shots/regression.spec.ts: a context with `locale: 'fr-FR'` and empty storage opens in French and `localStorage.getItem('lang')` is null after a reload; the default `en-GB` context opens in English; a saved `'en'` wins in the `fr-FR` context
+- [x] T027 [US3] Regression row G05 and test in tools/shots/regression.spec.ts: a context with `locale: 'fr-FR'` and empty storage opens in French and `localStorage.getItem('lang')` is null after a reload; the default `en-GB` context opens in English; a saved `'en'` wins in the `fr-FR` context
 
 ## Phase 6: Polish and cross-cutting
 
