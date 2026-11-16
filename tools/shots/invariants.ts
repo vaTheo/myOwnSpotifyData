@@ -83,6 +83,11 @@ const RENAMED_TESTS: Record<string, string> = {
   // free text) keep their test; the share link has its own, asserting the
   // new answer, and one more for a link without a token and a profile.
   'refuses a short link, http, and free text': 'refuses http and free text',
+  // Spec 031: Settings gained the Language item and the group This device.
+  'lists the seven items of US5 in page order':
+    'lists the items in page order, Language before the Danger zone (spec 031)',
+  'groups them under Spotify, Your data and Between devices, the Danger zone apart':
+    'groups them under Spotify, Your data, Between devices and This device, the Danger zone apart',
 };
 
 /**
@@ -90,6 +95,8 @@ const RENAMED_TESTS: Record<string, string> = {
  * reason: not renamed, retired. Each is reported, never counted missing.
  */
 const RETIRED_TESTS: Record<string, string> = {
+  pluralises:
+    'spec 031: `plural` is replaced by the counted nouns of the catalogue, tested in src/i18n/catalogue.test.ts',
   'counts BPM and key and release years; the job words only when not idle':
     'spec 027 US1.2: at rest the line says Up to date, never the counts',
   'counts artists with reach, then the job words':

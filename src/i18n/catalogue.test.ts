@@ -128,4 +128,31 @@ describe('the English and French catalogues (spec 031)', () => {
     expect(en.language.kept).toBe('Kept on this device.');
     expect(en.settings.items.sync).toBe('Spotify sync');
   });
+
+  it('keep every confirm() question of how-it-works §14 word for word', () => {
+    const texts = new Set(
+      ALL.filter((leaf) => typeof leaf.en === 'string').map((leaf) => leaf.en)
+    );
+    for (const question of [
+      'Disconnect and delete all local data? Server data is kept.',
+      'Remove this saved mix?',
+      'This is a different Spotify account. Delete all local data for the previous account?',
+      'Cancel this request? It leaves the queue; you can ask again later.',
+      "Delete this mix forever? Its saved tracks and request history are removed and can't be restored.",
+      'Remove all your data from the server? Local data on this browser is kept.',
+      'Replace your edited tracklist with the one from the description?',
+      'Looking up again replaces the current tracklist, including your edits. Continue?',
+      'Replace your edited tracklist with the pasted tracks?',
+      'Importing this file replaces the current tracklist, including your edits. Continue?',
+      'Stop this scan? The computer ends it within about a minute and keeps the tracks found so far.',
+    ]) {
+      expect(texts.has(question), question).toBe(true);
+    }
+    expect(en.sources.like.question(1, 2)).toBe(
+      "1 of 2 songs from your last sync isn't in your Liked Songs yet. Like it?"
+    );
+    expect(en.sources.like.question(2, 3)).toBe(
+      "2 of 3 songs from your last sync aren't in your Liked Songs yet. Like them?"
+    );
+  });
 });
