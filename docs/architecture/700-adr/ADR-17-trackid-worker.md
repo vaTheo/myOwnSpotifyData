@@ -7,7 +7,8 @@
 
 The worker identifies a mix by cutting 12-second windows and asking Shazam for each, which takes long on a two-hour set. TrackId.net
 is a public site where listeners have already written the tracklist of many known mixes, with the start and end of each track. The
-app already reads it for Look up (`src/features/mix/trackid.ts`); the worker did not. The owner picked (2026-11-08): the worker uses
+app already read it for Look up (`src/features/mix/trackid.ts`, removed with Look up by spec 032, 2026-11-16: the worker is
+now the only reader); the worker did not. The owner picked (2026-11-08): the worker uses
 it both to skip probes and to fill stretches nobody heard; a new row origin `trackid`; one confirming probe per span, TrackId.net
 being the source of truth. Release order: the app first, then worker 0.7.0.
 

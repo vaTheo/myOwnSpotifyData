@@ -184,20 +184,23 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 
 ## 10. `features/mix/`: Mix tracklist and Create playlist from mix
 
-`#/mix` drafts a SoundCloud mix's tracklist from two free keyless public lookups plus a paste-your-own box. Local rules:
-`src/features/mix/CLAUDE.md`.
+`#/mix` holds the tracklists of DJ mixes: a link is sent to the owner's computer (**Identify on my computer**, §17), a
+Tracklistify file is imported, a tracklist is pasted on an open mix. Local rules: `src/features/mix/CLAUDE.md`.
 
-**Lookup** (runs only from the screen's `Look up` button):
+The app itself reads no mix page and no TrackId.net since spec 032 (`specs/032-mix-identify-only/spec.md`): **Look up**, its
+SoundCloud oEmbed read, its TrackId.net read and **Replace with the description tracklist** were removed, and
+`https://soundcloud.com` and `https://trackid.net` left the page's `connect-src`. A mix saved by the old Look up still opens,
+with its "From TrackId.net" or "From the mix description" line.
 
-- `url.ts` (`normalizeMixUrl`): the one canonical string sent to both providers, compared by the guard and used as the `mixes` key;
-  `on.soundcloud.com` short links are resolved by trying several safe slug spellings. The rule is shared with the worker:
+**The tracklist** (no network call of the app's own):
+
+- `url.ts` (`normalizeMixUrl`): the one canonical form of a SoundCloud set address, used as the `mixes` key;
+  `classifyMixInput` also knows a phone share link (`on.soundcloud.com/<token>`). The rule is shared with the worker:
   `url.cases.json` lists links and their trimmed form, read by `url.cases.test.ts` and by the worker's `tests/test_links.py`
   (spec 028); a new case goes in the file.
-- `oembed.ts` (`fetchOembed`): SoundCloud oEmbed → title, author, description and the validated player iframe src.
-- `trackid.ts` (`fetchTrackId`): TrackId.net's two-call list-then-detail flow behind the mandatory `result.rowCount === 1` **and**
-  URL-equality guard, mapping the identified spans to rows with `ID · unidentified` gaps.
+- `player.ts` (`soundcloudPlayerSrc`, `SC_PLAYER_PREFIX`): the player iframe src built from the set address, no request.
 - Rows the worker sends from TrackId.net (round 016, §17) carry `origin: "trackid"`, `trackid {slug, span_start, span_end, references?}` and a `shazam_check` (`agrees`, `differs` with the other track, `no_match`, `not_asked`); the row shows "from TrackId.net · …" and the check line, and is flagged "not heard" like a clue row. The span is the truth: a differing check never changes the row.
-- `parse.ts`: the shared line grammar (`parseLines`, `parseClock`): six row shapes, the ≥5-line run guard, link-out detection.
+- `parse.ts`: the paste box's line grammar (`parsePasted`, `parseLines`, `parseClock`): six row shapes, the run guard, link-out detection.
 - `tracklistify.ts` (`parseTracklistifyJson`): imports a Tracklistify `tracklist.json` (confidence, ISRC, Shazam URL per row).
   `startTracklistifyImport` passes its rows through `oneRowPerSong` (spec 018, below).
 - `oneRowPerSong.ts` (spec 018): one row per song in an incoming result, the worker's (`resultToRows`) or a hand import. Identified
@@ -210,7 +213,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   so the owner's rows are never merged and saved mixes are not rewritten.
 - `match.ts` (`libraryTitleIndex`/`matchMixRow`): each row joined to the library live at render time, memoised on `Model` identity.
   Library matches are never stored, because a resync would make a stored match stale.
-- `lookup.ts` (`lookupMix`): runs both fetches in parallel so one layer's failure never hides the other's rows.
+- `rowEdit.ts`: `editTracklistRow` (the per-row edit rule) and `hasManualRows` (the guard of the two replace questions).
 
 **Create playlist from mix** (only on a deliberate tap):
 
@@ -243,8 +246,8 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 - `worker.ts` (pure, worker round): `resultToRows` (the worker's result through `parseTracklistifyJson`, re-checked), `mergeWorkerRows`
   (a new result replaces untouched scan rows only; the result's own copies of a song are first collapsed by `oneRowPerSong`), `jobView` and `requestStatusText` (the one wording of the Identify button and the
   request's state line for every server and request state). `url.ts` gains `requestKey`, the canonical link of a request: a SoundCloud set address trimmed, another `https` link without
-  its tracking parameters and, since spec 028, a phone share link (`on.soundcloud.com/<token>`) kept in the form Look up saves
-  a mix under. The app never follows a share link; the worker does (§17), and the result lands on the mix of the request's link.
+  its tracking parameters and, since spec 028, a phone share link (`on.soundcloud.com/<token>`) kept in the form a mix is saved
+  under. The app never follows a share link; the worker does (§17), and the result lands on the mix of the request's link.
   Round 003: `resultToRows` also maps a track's `origin` (`replay` with `speedPercent`, `clue` with its `clue`), builds gap
   rows (with `clues`) from `mix_info.gaps` and returns the set-wide `clues` (stored on `MixRow.clues`); `toClue` keeps only
   plain strings within their caps. Spec 029 (worker 0.7.5): a first-pass or `replay` row may also bring `evidence` (the level
@@ -291,7 +294,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   as optional fields (`spotify: {id, url} | 'not-found'`, `checkedAt`; no `DB_VERSION` bump) and the mix is saved at the end (its saved
   copy when it was closed meanwhile). An edit of the artist or title drops the answer (`editTracklistRow`). Create playlist adds a found
   id without searching again (`storedUri`). No write; not in `jobsBusy()`; failures (quota, network) inline, never a banner.
-  The check saves the mix when it ends, edits and deletions included, and an unsaved lookup becomes a saved mix (ruling R1, S08c fix
+  The check saves the mix when it ends, edits and deletions included, and an unsaved import becomes a saved mix (ruling R1, S08c fix
   round 1; Save mix's "Saved ✓" shows it). Answers are put back by the row's place and unchanged artist and title, never object
   identity, so a row whose label was edited or a list reopened during the run keeps them; an edited or deleted row's answer is dropped. A quota
   answer joins the app's one lock-out (§4 `quotaLock.ts`), which disables the button with its message until it lapses.
@@ -319,8 +322,8 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
   `'owner'` beside an object `spotify`.
 - `ui/mix/rowMark.ts` (round 013, the table's side of this list, §13 "Marked row"): `markAfter(marked, event)` is the marked
   row after a `click` (that row), `add` (the new row), `delete` (none: the rows after it shift), `open-mix` (another mix URL) or
-  `rows-replaced` (none). `mixRowsReplaced` (`model/state.ts`) counts the whole-list replaces that keep the URL (a lookup, a
-  Tracklistify import, a paste, the description, `openMix`), and `TracklistTable` sends `rows-replaced` when it moves.
+  `rows-replaced` (none). `mixRowsReplaced` (`model/state.ts`) counts the whole-list replaces (a
+  Tracklistify import, a paste, `openMix`), and `TracklistTable` sends `rows-replaced` when it moves.
 - `worker.ts` `toRun`/`runLine` (T124, owner's D3): `mix_info.second_pass` (`places` or round 003's `replays`), `resumed`,
   `stopped_early` and `warnings` kept as the optional `MixRow.run`, replaced wholesale by each result, shown under the open mix's header
   ("Second pass: 41 places · 3 found", "Resumed (120 clips kept)", "Stopped early at 01:12:00 (rate limited)" with Ask again, the
@@ -330,7 +333,7 @@ that stopped resumes ([ADR-04](700-adr/ADR-04-keyless-sources-by-id.md)). Local 
 - A row change saves itself (spec 024, `specs/024-mix-row-delete-sync/`): on a saved mix (its url in `savedMixes`), `deleteMixRow`,
   `editMixRow`, `linkMixRowSpotify` (when it links) and `unlinkMixRowSpotify` call `saveIfSaved`, the `saveMix` path (`putMix` with a new
   `savedAt`, removed tracks included, then `queueServerPush(['mixes'])`), so the change reaches the other devices with no tap; a failure
-  is `mixError`, inline. `addMixRow`'s blank row is not saved (its Edit's Save is); a lookup never saved stays in memory until Save mix,
+  is `mixError`, inline. `addMixRow`'s blank row is not saved (its Edit's Save is); an import never saved stays in memory until Save mix,
   which stays. `saveMix` takes the mix as it is at the call (url, rows, removed tracks, extras) and runs its saves one after another
   (`mixSaving`), so the last change is stored last and under its own mix, even when it is closed or another one opened meanwhile; a
   row change's save is dropped when the mix was removed before it runs (no resurrection). The open copy (`openCopy`: url, `savedAt` and the rows array last loaded by `openMix` or stored by `saveMix`) lets
@@ -602,7 +605,7 @@ screen, grouped by role under `src/ui/`.
 | ReccoBeats lookup | `startLookup` (`:1095`)                                        | Settings · Audio data, the automatic chain | yes                                                                                                                                                                   |
 | Rekordbox import  | `startRekordboxImport` (`:1137`)                               | Settings · Audio data                                          | yes                                                                                                                                                                   |
 | Artist reach      | `startReach` (`:1166`)                                         | Settings · Artist reach, the automatic chain | yes                                                                                                                                                                   |
-| Mix lookup        | `startMixLookup` (`:1228`), `startTracklistifyImport` (`:1317`) | `#/mix`                                                        | no                                                                                                                                                                    |
+| Mix import        | `startTracklistifyImport`                                       | `#/mix`                                                        | no                                                                                                                                                                    |
 | Create playlist   | `startCreatePlaylist` (`:1606`)                                | `#/mix`                                                        | no                                                                                                                                                                    |
 | Check on Spotify  | `startSpotifyCheck` (`:1877`), `stopSpotifyCheck` (`:1861`)       | `#/mix`, the open mix's header                                 | no (Spotify reads only, one track at a time; refused while another Spotify reader runs or inside the quota lock-out; no `confirm()`; reset by `disconnect`, which keeps the lock-out) |
 | Like all songs    | `startLikePlaylist` (`:2030`)                                 | Playlist screen                                                | no                                                                                                                                                                    |
@@ -642,8 +645,8 @@ Every `confirm()` the app makes, so the list is in one place. Destructive, in `s
 the open mix's header, `ui/mix/RunLine.tsx`; the scan keeps its tracks); Disconnect, asked by its button in
 `ui/settings/DangerZone.tsx` (`:26`); and Remove a saved mix ("Remove this saved mix?"), asked by its row menu in
 `ui/mix/MixListPane.tsx` (`:173`). Non-destructive, in
-`state.ts`: Like all songs' count (`:2053`) and the four "replace the working list" questions of the Mix screen (`:1301`, `:1331`,
-`:1363`, `:1385`). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
+`state.ts`: Like all songs' count (`:2053`) and the two "replace the working list" questions of the Mix screen (a Tracklistify
+file, pasted tracks). All are plain `confirm()` calls, so the pure cores stay testable and the unit tests, which pass no confirm, keep the
 old behaviour.
 
 Their texts, word for word, in English (`<…>` is filled in when asked); `yarn regression` holds every `confirm()` it meets to this list, and
@@ -659,9 +662,7 @@ its French text sits beside the English one in `src/i18n/fr/` and is not repeate
 - Disconnect: "Disconnect and delete all local data? Server data is kept."
 - Remove a saved mix: "Remove this saved mix?"
 - Like all songs: "<n> of <songs> from your last sync <isn't or aren't> in your Liked Songs yet. Like <it or them>?"
-- Look up again: "Looking up again replaces the current tracklist, including your edits. Continue?"
 - A Tracklistify file: "Importing this file replaces the current tracklist, including your edits. Continue?"
-- The description: "Replace your edited tracklist with the one from the description?"
 - Pasted tracks: "Replace your edited tracklist with the pasted tracks?"
 
 Round 014 adds no job and no `confirm()`: the shared store is read and written inside the two existing runs (BPM and key, artist

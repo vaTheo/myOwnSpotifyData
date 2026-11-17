@@ -23,7 +23,6 @@ import {
   IdentifyRequest,
   JsonImport,
   LinkForm,
-  LookupLines,
   MixesList,
   MixListPane,
   WorkerHelp,
@@ -71,14 +70,13 @@ function focusAfterClose(url: string | null): void {
  * when none is open. Below 1,600 px the pane folds while a mix is open, so
  * the tracklist keeps its columns (S08 fix 1); the header's **Mixes**
  * button brings it back. On compact and medium windows one column, in the
- * contract's phone order: link field, open mix, Identify, JSON import, the
- * lists, the worker help.
+ * phone order: link field, Identify, open mix, JSON import, the lists, the
+ * worker help.
  *
  * The address: `#/mix/<key>` opens that saved mix once the saved mixes are
  * read, or says it is not in this browser; opening a saved mix sets it;
  * closing returns to `#/mix` (replaced, so Back does not reopen it); an
- * unsaved lookup stays at `#/mix`; a mix no longer on screen (a failed Look
- * up) leaves its address. No network call on open (ADR-02).
+ * unsaved import stays at `#/mix`. No network call on open (ADR-02).
  */
 export function Workspace(p: { mixKey?: string }) {
   const key = p.mixKey;
@@ -89,7 +87,7 @@ export function Workspace(p: { mixKey?: string }) {
   /**
    * An unknown key met while a mix was open (Back after a removal, a stale
    * link): the address goes back to the open mix, which stays (it may be an
-   * unsaved lookup), and a line above it says what happened (S14 review
+   * unsaved import), and a line above it says what happened (S14 review
    * M9). Dropped on the next address that is not the open mix's.
    */
   const [stray, setStray] = useState<{ key: string; open: string } | null>(
@@ -219,7 +217,7 @@ export function Workspace(p: { mixKey?: string }) {
       <>
         {/* An unknown key over an open mix (Back after a removal, a stale
             link): said above it; the mix stays, it may be an unsaved
-            lookup (S14 review M9). */}
+            import (S14 review M9). */}
         {stray !== null && stray.open === state.view.url && (
           <StatusLine kind="warning">{msg().mix.workspace.notHere}</StatusLine>
         )}
@@ -228,7 +226,6 @@ export function Workspace(p: { mixKey?: string }) {
           key={state.view.url}
           view={state.view}
           onClose={close}
-          stacked={stacked}
           paneButton={paneButton}
           error={
             errorInDetail && error !== null ? (
@@ -253,9 +250,8 @@ export function Workspace(p: { mixKey?: string }) {
     return (
       <section class="mix mix-stack">
         <LinkForm />
-        {detail}
         <IdentifyRequest />
-        <LookupLines />
+        {detail}
         <JsonImport />
         <MixesList showError={!errorInDetail} />
         <WorkerHelp />

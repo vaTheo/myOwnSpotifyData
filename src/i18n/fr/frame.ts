@@ -58,7 +58,6 @@ export const frame: Messages['frame'] = {
     like: 'Ajout aux Titres likés',
     createPlaylist: 'Création de la playlist',
     spotifyCheck: 'Vérification sur Spotify',
-    mixLookup: 'Recherche du mix',
   },
   banner: { dismiss: 'Fermer' },
   empty: {

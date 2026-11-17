@@ -10,7 +10,6 @@ export const mix = {
     stop: 'Stop',
     stopping: 'Stopping…',
     askAgain: 'Ask again',
-    lookUpAgain: 'Look up again',
     removeLink: 'Remove link',
     moreFor: (name: string): string => `More for ${name}`,
     mixes: 'Mixes',
@@ -63,11 +62,8 @@ export const mix = {
   },
   /** `MixDetail.tsx`. */
   detail: {
-    shortLink:
-      'This is a mobile share link, so the TrackId.net lookup could not be confirmed for it. The player and any tracklist in the description are shown below — or paste a tracklist. Identify on my computer works with this link. On a computer, open the mix and copy its full soundcloud.com/… link for a TrackId lookup.',
     fromTrackid: (n: number): string =>
       `From TrackId.net · ${count('track')(n)}`,
-    identifiedShare: (pct: number): string => `${pct}% of the mix identified`,
     openTrackid: 'Open on TrackId.net ›',
     trackidEmpty: 'TrackId.net has this mix but identified no tracks yet ·',
     fromTracklistify: (n: number): string =>
@@ -80,10 +76,6 @@ export const mix = {
     linkOut: 'The description links a full tracklist ·',
     nothingFound:
       "Nothing found automatically — paste a tracklist below, or read the player's comments.",
-    trackidError: (message: string): string =>
-      `TrackId.net could not be reached: ${message}`,
-    oembedError: (message: string): string =>
-      `The mix page could not be read: ${message}`,
     player: 'SoundCloud player',
     largerPlayer: 'Larger player',
     pasteLinkOnly:
@@ -93,17 +85,11 @@ export const mix = {
     pastePlaceholder: 'e.g. from MixesDB or a player comment',
     addTracks: 'Add these tracks',
     close: 'Close this mix',
-    replace: 'Replace with the description tracklist',
   },
   /** `MixListPane.tsx`: the link field, the requests, the Mixes list. */
   pane: {
     linkPlaceholder:
       'Paste a mix link (SoundCloud, or any set for your computer)',
-    lookingUp: 'Looking up…',
-    lookUp: 'Look up',
-    lookingUpMix: 'Looking up the mix…',
-    notSoundcloud:
-      'That is not a SoundCloud track link, so there is nothing to look up here. Any set link can still be sent to your computer with the button above.',
     earlier: (n: number): string => `Earlier requests (${int(n)})`,
     importLabel: 'Or import a Tracklistify tracklist.json',
     importHint: 'or drop it here',
@@ -346,11 +332,10 @@ export const mix = {
       syncing: 'Syncing with the server…',
     },
   },
-  /** `features/mix/tracklistify.ts`, `oembed.ts`: read failures. */
+  /** `features/mix/tracklistify.ts`: read failures. */
   read: {
     notJson: 'That is not a JSON file.',
     notTracklistify: "That doesn't look like a Tracklistify tracklist.json.",
     noTracks: 'No tracks found in that file.',
-    pageNotJson: 'the mix page was not readable JSON',
   },
 };

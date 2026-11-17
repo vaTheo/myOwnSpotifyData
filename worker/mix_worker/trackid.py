@@ -7,7 +7,8 @@ keyword endpoint is never used (a name search; ADR-04, ADR-10).
 
 `fetch(url, headers, timeout)` returns `(status, body_bytes)` or raises; it is
 injected (the real one lives in the pipeline wiring), as are `sleep` and `log`.
-`parse_spans` ports `tidSpansToRows` of `src/features/mix/trackid.ts`.
+`parse_spans` is the rule the app's own TrackId.net reader used, removed
+with the app's Look up (spec 032).
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ TRACKID_DURATION_TOLERANCE = 0.05
 TRACKID_SPAN_CAP = 500
 TRACKID_TIMEOUT_SECONDS = 10
 TRACKID_INTERVAL_SECONDS = 0.25
-MERGE_TOLERANCE_SECONDS = 5  # the app's MIX_MERGE_TOLERANCE_SEC
+MERGE_TOLERANCE_SECONDS = 5
 
 Fetch = Callable[[str, dict[str, str], float], tuple[int, bytes]]
 

@@ -112,10 +112,7 @@ function openMix(): void {
       author: null,
       playerSrc: null,
       sources: { trackid: false, description: false, tracklistify: false },
-      descriptionRows: [],
       trackid: null,
-      oembedError: null,
-      trackidError: null,
     },
   } as unknown as typeof state.mixState.value;
   state.mixRows.value = [row('One'), row('Two')];
@@ -1213,17 +1210,13 @@ describe('mixRowsReplaced (spec 013: the marked row clears)', () => {
     state.savedMixes.value = [];
   });
 
-  it('counts a paste, the description and a saved mix reopened; not an edit', () => {
+  it('counts a paste and a saved mix reopened; not an edit', () => {
     vi.stubGlobal('confirm', () => true);
     const start = state.mixRowsReplaced.value;
     state.editMixRow(0, { artist: 'A', title: 'B', label: '' });
     expect(state.mixRowsReplaced.value).toBe(start);
     expect(state.applyPastedTracklist('X - One\nY - Two')).toBe('added');
     expect(state.mixRowsReplaced.value).toBe(start + 1);
-    const s = state.mixState.value as { view: { descriptionRows: unknown } };
-    s.view.descriptionRows = [row('Three')];
-    state.applyDescriptionTracklist();
-    expect(state.mixRowsReplaced.value).toBe(start + 2);
     state.savedMixes.value = [
       {
         url: URL,
@@ -1235,7 +1228,7 @@ describe('mixRowsReplaced (spec 013: the marked row clears)', () => {
       },
     ] as unknown as typeof state.savedMixes.value;
     state.openMix(URL);
-    expect(state.mixRowsReplaced.value).toBe(start + 3);
+    expect(state.mixRowsReplaced.value).toBe(start + 2);
   });
 
   it('is not counted when the replace is refused', () => {
@@ -1389,7 +1382,7 @@ describe('a row change of a saved mix saves itself (spec 024, US1)', () => {
     expect(vi.mocked(repo.putMix)).not.toHaveBeenCalled();
   });
 
-  it('a lookup never saved stays unsaved after a delete', async () => {
+  it('an import never saved stays unsaved after a delete', async () => {
     const repo = await import('../db/repo');
     openMix();
     state.deleteMixRow(0);

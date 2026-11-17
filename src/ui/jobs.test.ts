@@ -11,7 +11,6 @@ const IDLE: JobStates = {
   server: { status: 'unset' },
   like: { status: 'idle' },
   createPlaylist: { status: 'idle' },
-  mix: { status: 'idle' },
   spotifyCheck: { status: 'idle' },
 };
 
@@ -59,7 +58,6 @@ describe('activeJobs (data-model §7)', () => {
         total: 20,
         mixUrl: 'https://soundcloud.com/a/c',
       },
-      mix: { status: 'looking', url: 'https://soundcloud.com/a/b' },
       spotifyCheck: {
         status: 'running',
         url: 'https://soundcloud.com/a/d',
@@ -131,13 +129,6 @@ describe('activeJobs (data-model §7)', () => {
         done: 12,
         total: 40,
         href: '#/mix/https%3A%2F%2Fsoundcloud.com%2Fa%2Fd',
-      },
-      {
-        id: 'mixLookup',
-        label: 'Looking up mix',
-        done: null,
-        total: null,
-        href: '#/mix',
       },
     ]);
   });

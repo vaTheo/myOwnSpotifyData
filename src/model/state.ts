@@ -33,16 +33,12 @@ import {
   type TracklistRow,
 } from '../db/schema';
 import { jsonp } from '../features/jsonp';
-import {
-  editTracklistRow,
-  hasManualRows,
-  lookupMix,
-} from '../features/mix/lookup';
+import { editTracklistRow, hasManualRows } from '../features/mix/rowEdit';
 import { recordRemoved } from '../features/mix/keepReview';
-import { parseDescription, parsePasted } from '../features/mix/parse';
+import { parsePasted } from '../features/mix/parse';
 import { oneRowPerSong } from '../features/mix/oneRowPerSong';
 import { parseTracklistifyJson } from '../features/mix/tracklistify';
-import { classifyMixInput, isShortLink, requestKey } from '../features/mix/url';
+import { requestKey } from '../features/mix/url';
 import { queueFailure, queueNote } from '../features/mix/queue';
 import { requestStatusText } from '../features/mix/worker';
 import {
@@ -69,7 +65,7 @@ import {
   runSpotifyCheck,
   type CheckAnswer,
 } from '../features/mix/spotifyCheck';
-import { soundcloudPlayerSrc } from '../features/mix/oembed';
+import { soundcloudPlayerSrc } from '../features/mix/player';
 import { QuotaError } from '../spotify/errors';
 import {
   QUOTA_LOCK_KEY,
@@ -744,49 +740,27 @@ export interface MixView {
   author: string | null;
   playerSrc: string | null;
   sources: MixRow['sources'];
-  /**
-   * The description's parsed rows, kept so the "Replace with the description
-   * tracklist" button has something to apply. Empty when the description held
-   * no listing, and empty on reopen (the raw description is not stored).
-   */
-  descriptionRows: TracklistRow[];
-  /** TrackId provenance summary, or null when TrackId did not answer. */
+  /** TrackId provenance summary of a mix saved from TrackId.net, or null. */
   trackid: {
     slug: string;
     count: number;
-    timeHitRate: number | null;
     empty: boolean;
   } | null;
-  /** Layer error messages to show inline; null when the layer was fine. */
-  oembedError: string | null;
-  trackidError: string | null;
-  /**
-   * True when the input was an on.soundcloud.com mobile share link that
-   * TrackId could not be confirmed for (oEmbed resolved it, but the guard did
-   * not confirm the reconstructed permalink). The screen (§5.2) shows one
-   * honest inline note; a confirmed short link keys on its resolved permalink
-   * and behaves like any hit (no note).
-   */
-  shortLink: boolean;
   /** external_urls.spotify of the playlist last created for this mix. */
   playlistUrl?: string;
   /** Spotify id of that playlist; the only durable handle on it. */
   playlistId?: string;
 }
 
-export type MixState =
-  | { status: 'idle' }
-  | { status: 'looking'; url: string }
-  | { status: 'ready'; view: MixView }
-  | { status: 'error'; message: string }; // only "that is not a SoundCloud link"
+export type MixState = { status: 'idle' } | { status: 'ready'; view: MixView };
 
-/** The Mix screen's lookup/open state (spec §4). Never touched on load. */
+/** The Mix screen's open mix (spec §4). Never touched on load. */
 export const mixState = signal<MixState>({ status: 'idle' });
 /** The one working, editable tracklist; its own signal so an edit re-renders. */
 export const mixRows = signal<TracklistRow[]>([]);
 /**
- * Counts the times the whole working list was replaced (a lookup, an import,
- * a paste, the description, a saved mix opened), so the tracklist's marked
+ * Counts the times the whole working list was replaced (an import, a paste,
+ * a saved mix opened), so the tracklist's marked
  * row (spec 013) clears: its index would land on another track.
  */
 export const mixRowsReplaced = signal(0);
@@ -857,10 +831,9 @@ function stampStored(url: string, savedAt: number): void {
 /**
  * The Mix screen's inline channel for a storage failure §6 did not enumerate:
  * a rejected `putMix`/`deleteMix`, or a `getMixes` that could not be read. §6
- * keeps the Mix screen off `BannerMessage`; the two network layers speak
- * through `view.oembedError`/`view.trackidError` and a bad URL through
- * `mixState`'s error arm, but an IndexedDB read or write has nowhere else to
- * land and the global rule is that nothing is swallowed. Rendered inline
+ * keeps the Mix screen off `BannerMessage`, but an IndexedDB read or write
+ * has nowhere else to land and the global rule is that nothing is swallowed.
+ * Rendered inline
  * (Task 5), never a banner. (The paste-box "gentle inline note" of §4 is a
  * separate concern and lives in the screen's local state — see Task 5.)
  */
@@ -1574,108 +1547,16 @@ export async function startReach(opts: JobOptions = {}): Promise<void> {
   if (reachChanged(state)) void queueServerPush(['reach']);
 }
 
-const MIX_NOT_A_LINK = (): string => msg().core.mix.notALink;
-const REPLACE_WITH_DESCRIPTION = (): string =>
-  msg().core.mix.replaceDescription;
 const REPLACE_WITH_PASTED = (): string => msg().core.mix.replacePasted;
-const REPLACE_WITH_LOOKUP = (): string => msg().core.mix.replaceLookup;
 const REPLACE_WITH_TRACKLISTIFY = (): string =>
   msg().core.mix.replaceTracklistify;
-
-/**
- * Never on load: the mix lookup runs only from the Mix screen's button. It
- * does NOT join jobsBusy() and does NOT call loadFromDb() — it writes no
- * library store and rebuilds no model, so it clobbers nothing (spec §8).
- */
-export async function startMixLookup(pastedUrl: string): Promise<void> {
-  if (mixState.value.status === 'looking') return;
-  mixError.value = null;
-  const input = classifyMixInput(pastedUrl);
-  if (input === null) {
-    mixState.value = { status: 'error', message: MIX_NOT_A_LINK() };
-    return;
-  }
-  // Claim the looking state synchronously so a second tap cannot double-run.
-  // `as MixState` keeps the signal at its declared union type, as startSync,
-  // startLookup and startReach each do.
-  mixState.value = { status: 'looking', url: input.url } as MixState;
-  // lookupMix never throws, so the state can never strand on `looking`.
-  const { oembed, trackid, resolvedUrl } = await lookupMix(
-    {
-      // Bare `fetch` throws "Illegal invocation" once unbound from window.
-      fetchFn: (input, init) => fetch(input, init),
-      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    },
-    input
-  );
-  const parsed =
-    oembed.status === 'ok'
-      ? parseDescription(oembed.description)
-      : { rows: [], linkOut: null };
-  const descriptionRows = parsed.rows;
-  const identified =
-    trackid.status === 'ok' ? trackid.rows.filter((row) => !row.gap).length : 0;
-  // Key on the confirmed permalink when TrackId confirmed the candidate (for a
-  // permalink `resolvedUrl` is the input, so this collapses to `input.url`);
-  // otherwise the input url — the permalink, or the short link when TrackId did
-  // not confirm it — so one mix never saves twice.
-  const url =
-    trackid.status === 'ok' && resolvedUrl !== null ? resolvedUrl : input.url;
-  const view: MixView = {
-    url,
-    title: oembed.status === 'ok' ? oembed.title : null,
-    author: oembed.status === 'ok' ? oembed.author : null,
-    playerSrc: oembed.status === 'ok' ? oembed.playerSrc : null,
-    sources: {
-      trackid: trackid.status === 'ok',
-      description: descriptionRows.length > 0,
-      pasted: false,
-      linkOut: parsed.linkOut,
-    },
-    descriptionRows,
-    trackid:
-      trackid.status === 'ok'
-        ? {
-            slug: trackid.slug,
-            count: identified,
-            timeHitRate: trackid.timeHitRate,
-            empty: identified === 0,
-          }
-        : null,
-    oembedError: oembed.status === 'error' ? oembed.message : null,
-    trackidError: trackid.status === 'error' ? trackid.message : null,
-    // A short link whose oEmbed resolved but whose TrackId lookup was not
-    // confirmed: the screen shows the honest "mobile share link" note. Gated on
-    // oEmbed ok so the note (which promises a player and description below) is
-    // never shown when there is nothing to show — a failed oEmbed prints its
-    // own error line instead.
-    shortLink:
-      input.kind === 'shortlink' &&
-      oembed.status === 'ok' &&
-      trackid.status !== 'ok',
-  };
-  mixState.value = { status: 'ready', view };
-  // Seed the working list from the richest layer that answered: TrackId's rows
-  // (which already carry their gap rows) when it identified anything, else the
-  // description's rows, else nothing. Guarded exactly like the paste/apply
-  // actions below (I2): a re-lookup must not silently discard curated edits.
-  // A no-op guard on a first lookup, since mixRows.value is [] then.
-  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_LOOKUP())) return;
-  mixRemoved.value = removedOf(view.url);
-  mixRows.value =
-    trackid.status === 'ok' && trackid.rows.length > 0
-      ? trackid.rows
-      : descriptionRows;
-  mixRowsReplaced.value += 1;
-}
 
 /**
  * Imports a Tracklistify tracklist.json as a standalone mix — no SoundCloud
  * link exists for these, so the working list and a synthetic save key (spec
  * §4) are built directly from the file. Never on load: only from the Mix
  * screen's file picker. Parse/read failures go through `mixError` (the
- * general "nothing is swallowed" channel), never `mixState`'s `error` arm,
- * which is reserved for the one SoundCloud-link-shaped message.
+ * general "nothing is swallowed" channel).
  */
 export async function startTracklistifyImport(file: File): Promise<void> {
   mixError.value = null;
@@ -1706,28 +1587,12 @@ export async function startTracklistifyImport(file: File): Promise<void> {
       linkOut: null,
       tracklistify: true,
     },
-    descriptionRows: [],
     trackid: null,
-    oembedError: null,
-    trackidError: null,
-    shortLink: false,
   };
   mixState.value = { status: 'ready', view };
   mixRemoved.value = removedOf(view.url);
   // Spec 018: a song named at several times keeps one row, the earliest.
   mixRows.value = oneRowPerSong(parsed.rows);
-  mixRowsReplaced.value += 1;
-}
-
-/** Replaces the working list with the description's rows (spec §4/§5.2). */
-export function applyDescriptionTracklist(): void {
-  const state = mixState.value;
-  if (state.status !== 'ready') return;
-  mixError.value = null;
-  if (state.view.descriptionRows.length === 0) return;
-  if (hasManualRows(mixRows.value) && !confirm(REPLACE_WITH_DESCRIPTION()))
-    return;
-  mixRows.value = state.view.descriptionRows;
   mixRowsReplaced.value += 1;
 }
 
@@ -1762,8 +1627,8 @@ export function applyPastedTracklist(
 
 /**
  * Spec 024: a row change of a saved mix (its url in `savedMixes`) is saved
- * at once, as Save mix does, so it reaches the other devices with no tap. A
- * lookup never saved stays in memory. A failure lands in `mixError`.
+ * at once, as Save mix does, so it reaches the other devices with no tap. An
+ * import never saved stays in memory. A failure lands in `mixError`.
  */
 function saveIfSaved(): void {
   const state = mixState.peek();
@@ -2109,8 +1974,8 @@ export async function startCreatePlaylist(): Promise<void> {
   if (toAdd.length === 0) return;
 
   // Claim the running state synchronously so a second tap cannot double-run,
-  // with the `as CreatePlaylistState` cast the codebase uses (startSync /
-  // startMixLookup) to hold the signal at its declared union type.
+  // with the `as CreatePlaylistState` cast the codebase uses (startSync)
+  // to hold the signal at its declared union type.
   createPlaylistState.value = {
     status: 'resolving',
     done: 0,
@@ -2271,9 +2136,7 @@ export async function startCreatePlaylist(): Promise<void> {
 /**
  * Reopens a saved mix from memory with no network call — reopening must not
  * re-fetch, or never-on-load is broken (spec §4). The MixView is rebuilt from
- * the stored row: the two layer errors are null, the description rows empty
- * (the raw description is not stored), and the TrackId summary reconstructed
- * from the saved slug with its hit rate dropped.
+ * the stored row, the TrackId summary from the saved slug.
  */
 export function openMix(url: string): void {
   const row = savedMixes.value.find((mix) => mix.url === url);
@@ -2297,16 +2160,10 @@ export function openMix(url: string): void {
         ? null
         : soundcloudPlayerSrc(row.url)),
     sources: row.sources,
-    descriptionRows: [],
     trackid:
       row.sources.trackid && row.slug !== null
-        ? { slug: row.slug, count, timeHitRate: null, empty: count === 0 }
+        ? { slug: row.slug, count, empty: count === 0 }
         : null,
-    oembedError: null,
-    trackidError: null,
-    // A confirmed short link saved under its resolved permalink, so only an
-    // unconfirmed one keeps an on.soundcloud.com url and re-shows the note.
-    shortLink: isShortLink(row.url),
     playlistUrl: row.playlistUrl,
     playlistId: row.playlistId,
   };
@@ -2361,7 +2218,7 @@ export function stopSpotifyCheck(): void {
  * no sync running, no quota lock-out. Runs `searchTrack`/`pickMatch`
  * unchanged on each named track not checked yet, puts each answer on its
  * row as it comes (by place and text, never object identity), and saves
- * the mix at the end (an unsaved lookup becomes a saved mix; when the mix
+ * the mix at the end (an unsaved import becomes a saved mix; when the mix
  * was closed meanwhile, its saved copy), so the quota spent is never lost.
  */
 export async function startSpotifyCheck(): Promise<void> {

@@ -1,12 +1,9 @@
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import type { TracklistRow } from '../../db/schema';
 import {
-  applyDescriptionTracklist,
   applyPastedTracklist,
   mixRows,
   savedMixes,
-  startMixLookup,
   type MixView,
 } from '../../model/state';
 import { Button } from '../components/Button';
@@ -46,12 +43,7 @@ function Provenance(p: { view: MixView }) {
     view.sources.pasted ||
     view.sources.tracklistify === true ||
     view.sources.worker === true;
-  // The short-link note already says to paste or read the player.
-  const nothingFound =
-    !foundSomething &&
-    !view.shortLink &&
-    view.trackidError === null &&
-    view.oembedError === null;
+  const nothingFound = !foundSomething;
   const identifiedAt = savedMixes.value.find(
     (m) => m.url === view.url
   )?.identifiedAt;
@@ -59,13 +51,9 @@ function Provenance(p: { view: MixView }) {
   const computerTracks = rows.filter((r) => r.source === 'tracklistify').length;
   return (
     <div class="mix-provenance">
-      {view.shortLink && <p class="mix-caption">{t.shortLink}</p>}
       {tid && tid.count > 0 && (
         <p class="mix-caption">
-          {t.fromTrackid(tid.count)}
-          {tid.timeHitRate !== null &&
-            ` · ${t.identifiedShare(Math.round(tid.timeHitRate * 100))}`}{' '}
-          ·{' '}
+          {t.fromTrackid(tid.count)} ·{' '}
           <OutLink href={`https://trackid.net/audiostream/${tid.slug}`}>
             {t.openTrackid}
           </OutLink>
@@ -104,32 +92,8 @@ function Provenance(p: { view: MixView }) {
         </p>
       )}
       {nothingFound && <p class="mix-caption">{t.nothingFound}</p>}
-      {view.trackidError !== null && (
-        <StatusLine kind="error">
-          {t.trackidError(view.trackidError)}
-        </StatusLine>
-      )}
-      {view.oembedError !== null && (
-        <StatusLine kind="error">{t.oembedError(view.oembedError)}</StatusLine>
-      )}
     </div>
   );
-}
-
-/** Cheap content compare, so Replace hides once the description rows show. */
-function sameRows(a: TracklistRow[], b: TracklistRow[]): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((r, i) => {
-    const o = b[i];
-    return (
-      o !== undefined &&
-      r.source === o.source &&
-      r.artist === o.artist &&
-      r.title === o.title &&
-      r.startSec === o.startSec &&
-      r.gap === o.gap
-    );
-  });
 }
 
 /** SoundCloud's player: its compact 166 px, or 400 px on request. */
@@ -192,8 +156,7 @@ function PasteBox() {
 }
 
 /**
- * The open mix (spec 003 §12, T083): header with provenance, Look up again
- * and Replace with the description tracklist; the player; the set-wide
+ * The open mix (spec 003 §12, T083): header with provenance; the player; the set-wide
  * clues; the tracklist table; Create playlist; Paste a tracklist.
  * `aside` is the slot later steps fill under the header (S08b/c: the
  * running request's line and Stop, the run line, Check on Spotify).
@@ -202,18 +165,12 @@ export function MixDetail(p: {
   view: MixView;
   onClose: () => void;
   aside?: ComponentChildren;
-  /** One column: the link field right above already reads Look up again. */
-  stacked?: boolean;
   /** Brings back the folded Mixes pane (wide windows under 1,600 px). */
   paneButton?: ComponentChildren;
   /** `mixError` while the Mixes pane is folded (review F1), under the header. */
   error?: ComponentChildren;
 }) {
   const { view } = p;
-  const real = !p.stacked && view.url.startsWith('https://');
-  const showReplace =
-    view.descriptionRows.length > 0 &&
-    !sameRows(mixRows.value, view.descriptionRows);
   const saved = savedMixes.value.find((m) => m.url === view.url);
   const clues = saved?.clues;
   return (
@@ -232,20 +189,6 @@ export function MixDetail(p: {
       </header>
       {p.error}
       <Provenance view={view} />
-      {(real || showReplace) && (
-        <div class="mix-head-actions">
-          {real && (
-            <Button icon="sync" onClick={() => void startMixLookup(view.url)}>
-              {msg().mix.common.lookUpAgain}
-            </Button>
-          )}
-          {showReplace && (
-            <Button onClick={() => applyDescriptionTracklist()}>
-              {msg().mix.detail.replace}
-            </Button>
-          )}
-        </div>
-      )}
       {p.aside}
       <OpenMixRequest url={view.url} />
       <RunLine url={view.url} run={saved?.run} />

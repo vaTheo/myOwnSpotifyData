@@ -1,5 +1,5 @@
 import type { AllRows, MixRow } from '../db/schema';
-import { SC_PLAYER_PREFIX } from '../features/mix/oembed';
+import { SC_PLAYER_PREFIX } from '../features/mix/player';
 import { parseYear } from '../model/year';
 import type { DatasetName, StoreName } from './datasets';
 import type { SharedReachFact, SharedTrackFact } from '../features/shared';

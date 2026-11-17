@@ -50,7 +50,7 @@ function confirmList(): RegExp[] {
   const texts = [...items.replace(/\n\s+/g, ' ').matchAll(/"([^"]+)"/g)].map(
     (m) => m[1]
   );
-  if (texts.length < 12) {
+  if (texts.length < 11) {
     throw new Error(`how-it-works §14 lists ${texts.length} confirm texts`);
   }
   return texts.map(
@@ -1521,63 +1521,6 @@ test.describe('F. features', () => {
     await expect(grid).toContainText('Pasted Title');
     await expect(grid).not.toContainText('Manual Title');
     expect(app.confirms).toHaveLength(2);
-  });
-
-  test('F12d Mix: the description over edited rows asks first', async ({
-    app,
-  }) => {
-    await app.open(`#/mix/${enc(HARBOUR)}`);
-    await openGrid(app.page);
-    // A lookup that read a description keeps its rows on the view (a saved
-    // mix does not): the demo sets that view over the open mix.
-    const row = (artist: string, title: string, startSec: number) => ({
-      startSec,
-      endSec: null,
-      artist,
-      title,
-      label: null,
-      source: 'description',
-      gap: false,
-      detected: null,
-      referenceCount: null,
-    });
-    await app.set('mixState', {
-      status: 'ready',
-      view: {
-        url: HARBOUR,
-        title: 'Peak time set at the Harbour',
-        author: 'Demo DJ',
-        playerSrc: null,
-        sources: {
-          trackid: true,
-          description: true,
-          pasted: false,
-          linkOut: null,
-        },
-        descriptionRows: [
-          row('Described Artist', 'Described Title', 0),
-          row('Second Described', 'Another Title', 300),
-        ],
-        trackid: null,
-        oembedError: null,
-        trackidError: null,
-        shortLink: false,
-      },
-    });
-    await addManualRow(app.page);
-    const grid = await openGrid(app.page);
-    const replace = app.page.getByRole('button', {
-      name: 'Replace with the description tracklist',
-    });
-    await replace.click();
-    expect(app.confirms).toEqual([
-      'confirm: Replace your edited tracklist with the one from the description?',
-    ]);
-    await expect(grid).toContainText('Manual Title');
-    app.answer = true;
-    await replace.click();
-    await expect(grid).toContainText('Described Title');
-    await expect(grid).not.toContainText('Manual Title');
   });
 
   test('F13 Create playlist: every track, gated by the scope, no request', async ({
