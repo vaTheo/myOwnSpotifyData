@@ -1,5 +1,5 @@
-One executable per system, from `worker/` at this tag. Put it in a folder of its own, start it once (it writes
-`mix-worker.env`), fill `SUPABASE_URL` and `SUPABASE_KEY`, start it again. The manual: `worker/README.md`.
+One executable per system, from `worker/` at this tag. Put it in a folder of its own and start it: it knows the app's
+server, so it goes straight to the sign-in (your email, then the mail's link on that computer). The manual: `worker/README.md`.
 
 - `mix-worker-windows-x64.exe`: Windows 10/11, 64-bit. Windows warns the first time ("Windows protected your PC"): More info → Run anyway.
 - `mix-worker-linux-x86_64`: `chmod +x` first. Built on Ubuntu 22.04, runs on distributions with glibc 2.35 or newer.
@@ -11,6 +11,11 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.7.7: **nothing to fill in on the first start**. The executables know the app's server: the release build writes in the
+  repository variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (the same public values the app is built with; the code
+  holds none). The first start writes `mix-worker.env` with the optional settings and goes on to the sign-in. A
+  `SUPABASE_URL` and `SUPABASE_KEY` pair in that file or in the environment still wins; `check` says `(built in)` or
+  `(settings)`. Form A (`uv run`) still reads `worker/.env`. No change to scanning or to the JSON.
 - 0.7.6: **two fixes found on the first 0.7.5 scans**. A row's level now also counts the hits of its track that a TrackId.net
   span took: a track heard just before its span (or just after), then several times in step inside it, read `out_of_step` or
   `once` because the level only saw the hits outside the span; it now reads `solid`. Those hits still make no row and stay out

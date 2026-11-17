@@ -45,9 +45,9 @@ running on a computer to answer it. It is optional, and it needs the server (see
    SoundCloud's phone app copies (`https://on.soundcloud.com/…`) works too: the worker (0.7.4 or newer) finds the set it leads to.
 2. **On your computer**, download the file for your system from the
    [latest `worker-v…` release](https://github.com/vaTheo/myOwnSpotifyData/releases/latest) and put it in a folder of its own.
-3. Start it once. It writes `mix-worker.env` and stops. Open that file and fill in `SUPABASE_URL` and `SUPABASE_KEY` (the same two
-   public values the app uses; the owner gives them to you).
-4. Start it again. It asks for your email: open the email **on that same computer** and click the link. Leave the window open.
+3. Start it. Since worker 0.7.7 it already knows the app's server: there is nothing to fill in. (An older worker writes
+   `mix-worker.env` and stops: download the latest one instead.)
+4. It asks for your email: open the email **on that same computer** and click the link. Leave the window open.
 5. Back in the app, the request goes _Queued → Identifying → Found tracks_ (about 40 minutes for a 2-hour set). Open the mix, review
    the tracks, then **Create playlist from mix**.
 
@@ -516,8 +516,10 @@ Two ways to run it, both in the worker's manual, [`worker/README.md`](worker/REA
   mix-worker login` (click the mail's link on that computer), `uv run
   mix-worker run --once`;
 - or one packaged executable per system (Windows, Linux, macOS) from a
-  `worker-v…` release: put it in a folder, start it, fill the two values in the
-  `mix-worker.env` it wrote, start again. ffmpeg and yt-dlp are inside; only
+  `worker-v…` release: put it in a folder and start it; since 0.7.7 it knows
+  the server (the release build writes in the repository variables
+  `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY`, never the code), and a value in
+  the `mix-worker.env` it writes still wins. ffmpeg and yt-dlp are inside; only
   YouTube links need Node or Deno on the computer.
 
 Once, in the Supabase dashboard: run `supabase/migrations/0002_jobs.sql`.

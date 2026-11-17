@@ -3,6 +3,18 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-17 — The worker knows the server (worker 0.7.7)
+
+A downloaded worker no longer asks for `SUPABASE_URL` and `SUPABASE_KEY`. The release build writes in the same public values
+the app is built with, from the repository variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY`; the code holds none. The
+first start writes `mix-worker.env` with the optional settings and goes straight to the sign-in: type your email, click the
+mail's link on that computer. A pair set in `mix-worker.env` or the environment still wins, and `check` says which is used
+(`built in` or `settings`). The Mix screen's worker help says so, in English and French. The `uv run` form still reads
+`worker/.env`. Spec `specs/033-worker-built-in-server/`.
+
+**What to do**: download worker 0.7.7 from the latest `worker-v…` release. An existing `mix-worker.env` with both values keeps
+working as before.
+
 ## 2026-11-16 — Mix keeps only Identify on my computer
 
 **Look up** is removed from the Mix screen, on the owner's request. The link field now has one action: **Identify on my

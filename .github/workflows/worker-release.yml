@@ -9,7 +9,7 @@ name: Worker release
 on:
   push:
     branches: [main]
-    paths: ['worker/**', '.github/workflows/worker-release.yml']
+    paths: ['worker/**', '.github/workflows/worker-release.yml', '.github/scripts/write_builtin.py']
   workflow_dispatch:
 
 concurrency:
@@ -76,6 +76,15 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --frozen --group build
       - run: uv run python -m unittest discover -s tests -v
+      # The server the executable reaches with no setting: the repository
+      # variables the app is built with (public values, never in the code).
+      # Written after the tests, which run on the empty builtin.py.
+      - name: Write the built-in server
+        shell: bash
+        env:
+          BUILTIN_URL: ${{ vars.VITE_SUPABASE_URL }}
+          BUILTIN_KEY: ${{ vars.VITE_SUPABASE_KEY }}
+        run: uv run python ../.github/scripts/write_builtin.py mix_worker/builtin.py
       - run: uv run --frozen --group build pyinstaller mix-worker.spec
       - name: Smoke test the executable
         shell: bash
@@ -83,6 +92,8 @@ jobs:
           printf 'SUPABASE_URL=https://example.supabase.co\nSUPABASE_KEY=sb_publishable_smoke\n' > smoke.env
           ./${{ matrix.built }} --version
           ./${{ matrix.built }} --config smoke.env check
+          # With no settings file, the built-in server is used.
+          ./${{ matrix.built }} --config none.env check | grep -F '(built in)'
           mv ${{ matrix.built }} ${{ matrix.asset }}
       - uses: actions/upload-artifact@v4
         with:
