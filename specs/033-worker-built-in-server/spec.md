@@ -20,7 +20,9 @@
 
 - `worker/mix_worker/builtin.py` holds `SUPABASE_URL = ""` and `SUPABASE_KEY = ""` in the repository. Never a value committed.
 - The release build (`.github/workflows/worker-release.yml`), after the tests and before PyInstaller, overwrites it in the
-  runner's checkout with the two repository variables (`.github/scripts/write_builtin.py`). A missing variable, a URL not in
+  runner's checkout with the repository secrets `SUPABASE_URL` and `SUPABASE_KEY` (`.github/scripts/write_builtin.py`; owner
+  2026-11-17: secrets, for the worker build only, so its log masks them; the app build keeps its `VITE_` variables). A
+  missing secret, a URL not in
   `https://` or a key not `sb_publishable_…` fails the build. The smoke test checks `check` reads `(built in)` with no settings
   file.
 - `load_settings(builtin=)` uses the built-in pair only when neither the file nor the environment sets `SUPABASE_URL` or

@@ -77,13 +77,14 @@ jobs:
       - run: uv sync --frozen --group build
       - run: uv run python -m unittest discover -s tests -v
       # The server the executable reaches with no setting: the repository
-      # variables the app is built with (public values, never in the code).
-      # Written after the tests, which run on the empty builtin.py.
+      # secrets SUPABASE_URL and SUPABASE_KEY (public values, the app's own,
+      # kept as secrets so the log masks them; never in the code). Written
+      # after the tests, which run on the empty builtin.py.
       - name: Write the built-in server
         shell: bash
         env:
-          BUILTIN_URL: ${{ vars.VITE_SUPABASE_URL }}
-          BUILTIN_KEY: ${{ vars.VITE_SUPABASE_KEY }}
+          BUILTIN_URL: ${{ secrets.SUPABASE_URL }}
+          BUILTIN_KEY: ${{ secrets.SUPABASE_KEY }}
         run: uv run python ../.github/scripts/write_builtin.py mix_worker/builtin.py
       - run: uv run --frozen --group build pyinstaller mix-worker.spec
       - name: Smoke test the executable

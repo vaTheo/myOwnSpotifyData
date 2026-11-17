@@ -62,7 +62,7 @@ one PyInstaller executable per system.
   it uses only `is_shared_worker`, `claim_any_job`, `worker_set_progress`, `worker_finish_job`, `worker_release_job`; the start check
   and a 42501 during a run end with exit code 7.
 - Worker 0.7.7 (`builtin.py`): empty in the repository, never a value committed; the release build overwrites it from the
-  repository variables `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY` (`.github/scripts/write_builtin.py`, after the tests). `load_settings(builtin=)`
+  repository secrets `SUPABASE_URL`/`SUPABASE_KEY` (`.github/scripts/write_builtin.py`, after the tests). `load_settings(builtin=)`
   uses the pair only when neither the file nor the environment sets `SUPABASE_URL` or `SUPABASE_KEY`, and only whole;
   `Settings.server_from` is `built in` or `settings`. A packaged first start with a built-in server writes the template and goes on
   (no exit 6).

@@ -12,7 +12,7 @@ Deno on the computer; other platforms need nothing else.
 ## What changed
 
 - 0.7.7: **nothing to fill in on the first start**. The executables know the app's server: the release build writes in the
-  repository variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (the same public values the app is built with; the code
+  repository secrets `SUPABASE_URL` and `SUPABASE_KEY` (the same public values the app is built with; the code
   holds none). The first start writes `mix-worker.env` with the optional settings and goes on to the sign-in. A
   `SUPABASE_URL` and `SUPABASE_KEY` pair in that file or in the environment still wins; `check` says `(built in)` or
   `(settings)`. Form A (`uv run`) still reads `worker/.env`. No change to scanning or to the JSON.

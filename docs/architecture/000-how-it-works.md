@@ -682,7 +682,7 @@ inline, the Connect screen having no banner.
 ## 15. Build, CI and deploy
 
 `.github/workflows/ci.yml` runs `yarn install --frozen-lockfile`, `typecheck`, `lint`, `test` on every push to `main` and every PR, then a
-`deploy` job builds with the `VITE_SPOTIFY_CLIENT_ID` secret and the two `VITE_SUPABASE_*` repository variables, and publishes `dist/`
+`deploy` job builds with the `VITE_SPOTIFY_CLIENT_ID` secret and the two `VITE_SUPABASE_*` repository variables (the worker release reads the same two values from the secrets `SUPABASE_URL` and `SUPABASE_KEY`, spec 033), and publishes `dist/`
 to GitHub Pages on pushes to `main`. Commands: [Contributing](../dev-guide/000-contributing.md).
 
 ## 16. `server/`: the owner's server
@@ -816,7 +816,7 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   at mode 600; `--code` for a typed six-digit code), `logout`, `run --once|--watch`, `--config`, `--version`;
   no command = the double-click: login if needed, then watch; a packaged start without a settings file writes `mix-worker.env`
   and exits 6, unless the executable has a built-in server (worker 0.7.7, `builtin.py`, filled only by the release build from
-  the repository variables `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY`): then it goes on to sign in. A pair in the file or the
+  the repository secrets `SUPABASE_URL`/`SUPABASE_KEY`, masked in its log): then it goes on to sign in. A pair in the file or the
   environment wins over the built-in one. Exit codes 0/2/3/4/5/6/7/130 (`contracts/worker.md`; 7 = not, or no longer, a shared worker). Every dependency (environment, terminal, clock, client, the
   queue loop) is a `CliDeps` field, so `tests/test_cli.py` runs every command offline.
 - Round 015 (shared mode, `WORKER_MODE=shared`, or chosen by `auto` since round 017): `cli.make_client` picks `SharedServerClient`, the start asks `is_shared_worker`

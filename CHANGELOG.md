@@ -6,7 +6,7 @@ by feature, newest first, and name their spec under `docs/specs/`. Entries befor
 ## 2026-11-17 — The worker knows the server (worker 0.7.7)
 
 A downloaded worker no longer asks for `SUPABASE_URL` and `SUPABASE_KEY`. The release build writes in the same public values
-the app is built with, from the repository variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY`; the code holds none. The
+the app is built with, from the repository secrets `SUPABASE_URL` and `SUPABASE_KEY` (masked in the build log); the code holds none. The
 first start writes `mix-worker.env` with the optional settings and goes straight to the sign-in: type your email, click the
 mail's link on that computer. A pair set in `mix-worker.env` or the environment still wins, and `check` says which is used
 (`built in` or `settings`). The Mix screen's worker help says so, in English and French. The `uv run` form still reads

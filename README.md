@@ -517,8 +517,8 @@ Two ways to run it, both in the worker's manual, [`worker/README.md`](worker/REA
   mix-worker run --once`;
 - or one packaged executable per system (Windows, Linux, macOS) from a
   `worker-v…` release: put it in a folder and start it; since 0.7.7 it knows
-  the server (the release build writes in the repository variables
-  `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY`, never the code), and a value in
+  the server (the release build writes in the repository secrets
+  `SUPABASE_URL` and `SUPABASE_KEY`, never the code), and a value in
   the `mix-worker.env` it writes still wins. ffmpeg and yt-dlp are inside; only
   YouTube links need Node or Deno on the computer.
 

@@ -50,8 +50,8 @@ Download the file for your system from the [latest release](https://github.com/v
 | macOS Apple silicon / Intel | `mix-worker-macos-arm64` / `mix-worker-macos-x86_64` | right-click → Open the first time (unsigned) |
 
 The first start writes `mix-worker.env` beside the executable (the optional settings) and goes on: since 0.7.7 the
-executable knows the app's server, written in by the release build from the repository variables `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_KEY` (the code holds no value). To use another server, fill `SUPABASE_URL` and `SUPABASE_KEY` in that file: the
+executable knows the app's server, written in by the release build from the repository secrets `SUPABASE_URL` and
+`SUPABASE_KEY` (the code holds no value). To use another server, fill `SUPABASE_URL` and `SUPABASE_KEY` in that file: the
 pair there wins. It asks for your email, you open the mail on that computer and click its link (a tab says "mix-worker is signed in"),
 it keeps the session in that folder (`session.json`, next to it), then polls until you close the window. When a double-clicked Windows `.exe` stops because of a problem (a missing or wrong setting, the first-start template, a failed sign-in), the window stays open with the message and "Press Enter to close this window." The same commands work from a terminal: `mix-worker-windows-x64.exe check`, `… run --once`.
 
