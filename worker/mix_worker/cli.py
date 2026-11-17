@@ -24,7 +24,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from . import __version__
+from . import __version__, builtin
 from .autoresume import AutoResume
 from .config import Settings, SettingsError, load_settings, write_template
 from .links import PAGE_HOSTS, SHORT_HOST, host_on, working_address
@@ -293,6 +293,10 @@ class CliDeps:
     which: Callable[[str], str | None] = shutil.which
     now: Callable[[], float] = time.time
     wait_for_code: Callable[[str, float], str | None] = wait_for_code
+    # The server the release build wrote in (`builtin.py`); empty in the code.
+    builtin: Mapping[str, str] = field(
+        default_factory=lambda: {"SUPABASE_URL": builtin.SUPABASE_URL, "SUPABASE_KEY": builtin.SUPABASE_KEY}
+    )
 
     def __post_init__(self) -> None:
         if self.run_queue is None:
@@ -456,7 +460,7 @@ def _masked(key: str) -> str:
 def cmd_check(settings: Settings, config: Path | None, deps: CliDeps) -> int:
     out = deps.out
     out(f"settings file: {config}")
-    out(f"server: {settings.supabase_url}")
+    out(f"server: {settings.supabase_url} ({settings.server_from})")
     out(f"key: {_masked(settings.supabase_key)}")
     out(f"worker name: {settings.worker_name}")
     out(f"session file: {settings.session_file}")
@@ -640,8 +644,12 @@ def _main(argv: list[str] | None, deps: CliDeps) -> int:
         config = frozen / "mix-worker.env" if frozen is not None else Path(__file__).resolve().parent.parent / ".env"
     if frozen is not None and args.config is None and not config.exists():
         write_template(config)
-        deps.out(f"Wrote the settings template to {config}. Fill SUPABASE_URL and SUPABASE_KEY, then start again.")
-        return EXIT_TEMPLATE
+        if not (deps.builtin.get("SUPABASE_URL") and deps.builtin.get("SUPABASE_KEY")):
+            deps.out(f"Wrote the settings template to {config}. Fill SUPABASE_URL and SUPABASE_KEY, then start again.")
+            return EXIT_TEMPLATE
+        # A released executable knows its server: the template only holds the
+        # optional settings, so the first start goes on to sign in.
+        deps.out(f"Wrote the optional settings to {config}; the server is built in.")
     try:
         settings = load_settings(
             config,
@@ -651,6 +659,7 @@ def _main(argv: list[str] | None, deps: CliDeps) -> int:
             platform=deps.platform,
             frozen_dir=frozen,
             exists=lambda p: p.exists(),
+            builtin=deps.builtin,
         )
     except SettingsError as err:
         deps.out(f"setting {err.setting}: {err.message} (file: {config})")

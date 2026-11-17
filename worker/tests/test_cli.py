@@ -44,7 +44,7 @@ class FakeClient:
 
 
 class Harness:
-    def __init__(self, tmp, config_text=GOOD, frozen=None, answers=(), session=None):
+    def __init__(self, tmp, config_text=GOOD, frozen=None, answers=(), session=None, builtin=None):
         self.tmp = Path(tmp)
         self.config = self.tmp / "mix-worker.env"
         if config_text is not None:
@@ -74,6 +74,7 @@ class Harness:
             ffmpeg_version=lambda path: "n9.0.2" if path != "/nowhere" else None,
             which=lambda name: "/usr/bin/node" if name == "node" else None,
             now=lambda: 1000.0,
+            builtin=builtin or {},
         )
 
     def main(self, *argv):
@@ -229,6 +230,31 @@ class NoCommand(unittest.TestCase):
             self.assertTrue(written.exists())
             self.assertIn(str(written), h.text())
             self.assertEqual(h.ran, [])
+
+    def test_frozen_first_start_with_a_built_in_server_goes_on(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "app"
+            folder.mkdir()
+            builtin = {"SUPABASE_URL": "https://built.supabase.co", "SUPABASE_KEY": "sb_publishable_built"}
+            h = Harness(
+                tmp, config_text=None, frozen=folder, builtin=builtin, session=Session("dj@example.com", "a", "r", 9e9)
+            )
+            code = main([], deps=h.deps)
+            self.assertEqual(code, EXIT_OK)
+            self.assertTrue((folder / "mix-worker.env").exists())
+            self.assertIn("the server is built in", h.text())
+            self.assertEqual(h.ran, [(False, 60)])
+
+    def test_check_says_where_the_server_comes_from(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            builtin = {"SUPABASE_URL": "https://built.supabase.co", "SUPABASE_KEY": "sb_publishable_built"}
+            h = Harness(tmp, config_text=None, builtin=builtin)
+            self.assertEqual(h.main("check"), EXIT_OK)
+            self.assertIn("server: https://built.supabase.co (built in)", h.text())
+            h = Harness(tmp, builtin=builtin)
+            self.assertEqual(h.main("check"), EXIT_OK)
+            self.assertIn("(settings)", h.text())
+            self.assertNotIn("built.supabase.co", h.text())
 
 
 

@@ -103,11 +103,8 @@ export const mix: Messages['mix'] = {
       'Le worker prend les demandes ci-dessus, télécharge le set, l’identifie avec Shazam et renvoie la tracklist\u00a0; l’audio ne quitte jamais votre ordinateur. Téléchargez le fichier de votre système depuis la dernière',
     release: 'version',
     introAfterRelease:
-      'et placez-le dans un dossier à part. Au premier démarrage, il écrit',
-    introAfterEnv: 'à côté de lui\u00a0: remplissez',
+      'et placez-le dans un dossier à part. Lancez-le, saisissez votre e-mail et cliquez sur le lien du mail sur cet ordinateur\u00a0: depuis le worker 0.7.7, il connaît le serveur de l’app, il n’y a rien à remplir. Il vérifie ensuite les demandes chaque minute jusqu’à ce que vous le fermiez.',
     and: 'et',
-    introAfterKey:
-      '(les mêmes valeurs publiques que le serveur de l’app), relancez-le, saisissez votre e-mail et cliquez sur le lien du mail sur cet ordinateur. Il vérifie ensuite les demandes chaque minute jusqu’à ce que vous le fermiez.',
     file: 'Fichier',
     windows:
       '. Double-cliquez dessus\u00a0; à «\u00a0Windows a protégé votre ordinateur\u00a0», choisissez Informations complémentaires → Exécuter quand même (le fichier n’est pas signé).',

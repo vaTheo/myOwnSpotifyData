@@ -61,5 +61,10 @@ one PyInstaller executable per system.
 - Mode (`WORKER_MODE`, round 015, ADR-16): `auto` (default, round 017: after sign-in `is_shared_worker` says shared or personal; a failed check ends the run, no guess), `personal` or `shared` (both forced). Shared mode never reads a personal table:
   it uses only `is_shared_worker`, `claim_any_job`, `worker_set_progress`, `worker_finish_job`, `worker_release_job`; the start check
   and a 42501 during a run end with exit code 7.
+- Worker 0.7.7 (`builtin.py`): empty in the repository, never a value committed; the release build overwrites it from the
+  repository secrets `SUPABASE_URL`/`SUPABASE_KEY` (`.github/scripts/write_builtin.py`, after the tests). `load_settings(builtin=)`
+  uses the pair only when neither the file nor the environment sets `SUPABASE_URL` or `SUPABASE_KEY`, and only whole;
+  `Settings.server_from` is `built in` or `settings`. A packaged first start with a built-in server writes the template and goes on
+  (no exit 6).
 - Settings: `config.py` is the one reader; every setting has a default in `.env.example` (shipped as `mix_worker/env.example`,
   kept byte-identical by `test_config.py`). The session file is 0600 and never in the repo; the `service_role` key is never used.

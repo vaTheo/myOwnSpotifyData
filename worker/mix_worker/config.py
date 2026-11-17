@@ -66,6 +66,9 @@ class Settings:
     # Round 023: the automatic Ask again after a rate-limit stop; 0 minutes = off.
     auto_resume_minutes: int = 30
     auto_resumes: int = 6
+    # Where SUPABASE_URL and SUPABASE_KEY came from: "built in" (the release
+    # build's values, `builtin.py`) or "settings" (a file or the environment).
+    server_from: str = "settings"
 
 
 def template_text() -> str:
@@ -205,11 +208,15 @@ def load_settings(
     platform: str,
     frozen_dir: Path | None,
     exists: Callable[[Path], bool],
+    builtin: Mapping[str, str] | None = None,
 ) -> Settings:
     """The settings from `path` (when it exists) overridden by `env`.
 
     `frozen_dir` is the packaged executable's folder: a `session.json` there
     wins over the per-user default, so one folder can hold everything.
+    `builtin` holds the server the release build wrote in (`builtin.py`):
+    used only when neither the file nor the environment names one, and
+    only as a pair, so a URL is never sent another project's key.
     """
     values: dict[str, str] = {}
     if path is not None and exists(path):
@@ -217,6 +224,18 @@ def load_settings(
     for key, value in env.items():
         if value:
             values[key] = value
+
+    server_from = "settings"
+    pair = builtin or {}
+    if (
+        not values.get("SUPABASE_URL")
+        and not values.get("SUPABASE_KEY")
+        and pair.get("SUPABASE_URL")
+        and pair.get("SUPABASE_KEY")
+    ):
+        values["SUPABASE_URL"] = pair["SUPABASE_URL"]
+        values["SUPABASE_KEY"] = pair["SUPABASE_KEY"]
+        server_from = "built in"
 
     url = values.get("SUPABASE_URL", "").rstrip("/")
     if not url:
@@ -236,6 +255,7 @@ def load_settings(
     return Settings(
         supabase_url=url,
         supabase_key=key,
+        server_from=server_from,
         worker_name=values.get("WORKER_NAME") or hostname(),
         session_file=Path(values["WORKER_SESSION_FILE"]) if values.get("WORKER_SESSION_FILE") else session_default,
         work_dir=work_dir,

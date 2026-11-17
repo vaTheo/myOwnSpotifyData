@@ -13,9 +13,9 @@ Design record: `../specs/002-mix-analysis-worker/` (the spec, the research, the 
 1. **Update the app first**: open <https://vatheo.github.io/myOwnSpotifyData/> and hard-reload it (an old app refuses new worker results).
 2. **Download** the file for your system from the [latest `worker-v…` release](https://github.com/vaTheo/myOwnSpotifyData/releases/latest)
    into a folder of its own (details and first-start warnings in form B below).
-3. **Start it once**: it writes `mix-worker.env` beside it and stops. Fill in `SUPABASE_URL` and `SUPABASE_KEY` (the two public values
-   of the app's `.env`).
-4. **Start it again**: type your email, open the email on **this computer**, click the link. Keep the window open; it checks the queue
+3. **Start it**: since 0.7.7 the executable knows the app's server, so there is nothing to fill in. It writes `mix-worker.env` beside
+   it, with the optional settings only.
+4. **Sign in**: type your email, open the email on **this computer**, click the link. Keep the window open; it checks the queue
    every minute.
 5. **In the app**, Mix → paste the set's link → **Identify on my computer**. When the row says _Found tracks_, open it and review.
    The link SoundCloud's phone app copies (`https://on.soundcloud.com/…`) works too, since worker 0.7.4.
@@ -49,8 +49,10 @@ Download the file for your system from the [latest release](https://github.com/v
 | Linux 64-bit | `mix-worker-linux-x86_64` | `chmod +x mix-worker-linux-x86_64 && ./mix-worker-linux-x86_64` |
 | macOS Apple silicon / Intel | `mix-worker-macos-arm64` / `mix-worker-macos-x86_64` | right-click → Open the first time (unsigned) |
 
-The first start writes `mix-worker.env` beside the executable and exits. Fill `SUPABASE_URL` and `SUPABASE_KEY`, start
-again: it asks for your email, you open the mail on that computer and click its link (a tab says "mix-worker is signed in"),
+The first start writes `mix-worker.env` beside the executable (the optional settings) and goes on: since 0.7.7 the
+executable knows the app's server, written in by the release build from the repository secrets `SUPABASE_URL` and
+`SUPABASE_KEY` (the code holds no value). To use another server, fill `SUPABASE_URL` and `SUPABASE_KEY` in that file: the
+pair there wins. It asks for your email, you open the mail on that computer and click its link (a tab says "mix-worker is signed in"),
 it keeps the session in that folder (`session.json`, next to it), then polls until you close the window. When a double-clicked Windows `.exe` stops because of a problem (a missing or wrong setting, the first-start template, a failed sign-in), the window stays open with the message and "Press Enter to close this window." The same commands work from a terminal: `mix-worker-windows-x64.exe check`, `… run --once`.
 
 Only **YouTube** links need one more thing: a JavaScript runtime on the computer, [Node](https://nodejs.org) or
@@ -159,7 +161,7 @@ Only the first two are required.
 
 | Name | Default | Meaning |
 |---|---|---|
-| `SUPABASE_URL`, `SUPABASE_KEY` | — | the project URL and publishable key (public values; nothing secret lives here) |
+| `SUPABASE_URL`, `SUPABASE_KEY` | built in (executable), none (form A) | the project URL and publishable key (public values; nothing secret lives here). A released executable has the app's server built in; set both to use another one (a lone URL is refused, never sent the built-in key). `check` says `(built in)` or `(settings)` |
 | `WORKER_NAME` | the computer's hostname | shown on the phone as "Running on <name>" |
 | `WORKER_SESSION_FILE` | `~/.config/myownspotifydata-worker/session.json` (`%APPDATA%\myownspotifydata-worker\` on Windows; `session.json` beside the executable when present) | the sign-in session, readable by you only |
 | `WORKER_WORK_DIR` | `~/.cache/myownspotifydata-worker` (`%LOCALAPPDATA%\…` on Windows) | one folder per request while it runs; the log file |

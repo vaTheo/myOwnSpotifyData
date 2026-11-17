@@ -386,9 +386,6 @@ const WORKER_MANUAL =
 
 /** File names and commands in the worker help: typed as they are, never translated. */
 const CODE = {
-  env: 'mix-worker.env',
-  url: 'SUPABASE_URL',
-  key: 'SUPABASE_KEY',
   windows: 'mix-worker-windows-x64.exe',
   macArm: 'mix-worker-macos-arm64',
   macIntel: 'mix-worker-macos-x86_64',
@@ -422,9 +419,7 @@ export function WorkerHelp() {
         <a href={RELEASES} target="_blank" rel="noopener">
           {h.release}
         </a>{' '}
-        {h.introAfterRelease} <code>{CODE.env}</code> {h.introAfterEnv}{' '}
-        <code>{CODE.url}</code> {h.and} <code>{CODE.key}</code>{' '}
-        {h.introAfterKey}
+        {h.introAfterRelease}
       </p>
       <Disclosure summary={CODE.windowsName}>
         <p>

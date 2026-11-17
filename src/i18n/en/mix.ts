@@ -112,11 +112,8 @@ export const mix = {
       'The worker takes the requests above, downloads the set, identifies it with Shazam and sends the tracklist back; the audio never leaves your computer. Download the file for your system from the latest',
     release: 'release',
     introAfterRelease:
-      'and put it in a folder of its own. The first start writes',
-    introAfterEnv: 'next to it: fill',
+      "and put it in a folder of its own. Start it, type your email and click the mail's link on that computer: since worker 0.7.7 it knows the app's server, there is nothing to fill in. It then checks for requests every minute until you close it.",
     and: 'and',
-    introAfterKey:
-      "(the same public values as the app's server), start again, type your email and click the mail's link on that computer. It then checks for requests every minute until you close it.",
     file: 'File',
     windows:
       '. Double-click it; on "Windows protected your PC", choose More info → Run anyway (the file is not signed).',

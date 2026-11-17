@@ -23,6 +23,50 @@ def load(env=None, path=None, platform="linux", frozen_dir=None, exists=lambda p
     )
 
 
+BUILT = {"SUPABASE_URL": "https://built.supabase.co", "SUPABASE_KEY": "sb_publishable_built"}
+
+
+def load_bare(env=None, builtin=None):
+    """No GOOD pair: only what the test gives."""
+    return load_settings(
+        None,
+        env or {},
+        hostname=lambda: "laptop",
+        home=HOME,
+        platform="linux",
+        frozen_dir=None,
+        exists=lambda p: False,
+        builtin=builtin,
+    )
+
+
+class BuiltInServer(unittest.TestCase):
+    def test_the_code_holds_no_server(self):
+        from mix_worker import builtin
+
+        self.assertEqual((builtin.SUPABASE_URL, builtin.SUPABASE_KEY), ("", ""))
+
+    def test_used_when_nothing_names_a_server(self):
+        s = load_bare(builtin=BUILT)
+        self.assertEqual((s.supabase_url, s.supabase_key), ("https://built.supabase.co", "sb_publishable_built"))
+        self.assertEqual(s.server_from, "built in")
+
+    def test_a_setting_wins(self):
+        s = load_bare(env=GOOD, builtin=BUILT)
+        self.assertEqual((s.supabase_url, s.supabase_key), (GOOD["SUPABASE_URL"], GOOD["SUPABASE_KEY"]))
+        self.assertEqual(s.server_from, "settings")
+
+    def test_never_mixes_a_set_url_with_the_built_in_key(self):
+        with self.assertRaises(SettingsError) as err:
+            load_bare(env={"SUPABASE_URL": "https://other.supabase.co"}, builtin=BUILT)
+        self.assertEqual(err.exception.setting, "SUPABASE_KEY")
+
+    def test_a_half_built_in_pair_is_ignored(self):
+        with self.assertRaises(SettingsError) as err:
+            load_bare(builtin={"SUPABASE_URL": "https://built.supabase.co", "SUPABASE_KEY": ""})
+        self.assertEqual(err.exception.setting, "SUPABASE_URL")
+
+
 class Defaults(unittest.TestCase):
     def test_every_default(self):
         s = load()

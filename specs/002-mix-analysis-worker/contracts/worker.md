@@ -20,13 +20,13 @@ Spotify host (FR-019).
 
 Shared exits: **2** server unreachable (network or 5xx), **3** server paused ("resume it from the dashboard"), **4** not signed
 in or refresh refused ("run `mix-worker login`"), **5** missing setting or tool, **6** config template written (packaged form,
-first start). A failed *request* is not a failed *run*: the worker marks it `failed` and continues (FR-018).
+first start, no built-in server). A failed *request* is not a failed *run*: the worker marks it `failed` and continues (FR-018).
 
 ## Settings (`worker/.env.example` = the template; environment overrides the file)
 
 | Name | Default | Meaning |
 |---|---|---|
-| `SUPABASE_URL`, `SUPABASE_KEY` | — (required) | the project URL and publishable key, the same public values the app builds with |
+| `SUPABASE_URL`, `SUPABASE_KEY` | built in for a released executable (worker 0.7.7), else required | the project URL and publishable key, the same public values the app builds with; a pair set here wins over the built-in one |
 | `WORKER_NAME` | the hostname | `claimed_by`, shown on the phone as "on <name>" |
 | `WORKER_SESSION_FILE` | `~/.config/myownspotifydata-worker/session.json` (`%APPDATA%\…` on Windows; beside the executable when present there) | the session (0600) |
 | `WORKER_WORK_DIR` | `~/.cache/myownspotifydata-worker` (`%LOCALAPPDATA%\…`) | one sub-folder per request, deleted when it ends |
