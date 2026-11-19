@@ -79,8 +79,16 @@ lead to a SoundCloud set") before any download. This check runs in both modes (`
 the same guard for share links. Every other host still fails in shared mode with "link not allowed in shared mode". Cost: one more
 outbound host, and what the short host answers is SoundCloud's to change.
 
+## Amendment (spec 034, worker 0.7.8): a shared-worker account may sign in by password
+
+A shared-worker account may sign in by password from the worker's settings (`WORKER_EMAIL`, `WORKER_PASSWORD`), so a server
+with no screen runs without a mail link; the worker signs in again by itself when its session is refused, and stops after one
+refused password. The isolation is what makes it acceptable: a leaked password reaches only the five functions, never a table.
+Use a dedicated account, never the owner's own (whose password would open the owner's data). No server change.
+
 ## Links
 
+- Spec: [`specs/034-worker-password-sign-in/spec.md`](../../../specs/034-worker-password-sign-in/spec.md) (the password sign-in amendment)
 - Spec: [`specs/028-worker-short-links/spec.md`](../../../specs/028-worker-short-links/spec.md) · [contract](../../../specs/028-worker-short-links/contracts/worker.md) (the share-link amendment)
 - Spec: [`specs/015-shared-worker/spec.md`](../../../specs/015-shared-worker/spec.md) · [plan](../../../specs/015-shared-worker/plan.md) · [research](../../../specs/015-shared-worker/research.md)
 - Amends [ADR-14](ADR-14-users-by-server-account.md) (the shared worker is the one named exception to "the worker reads its signed-in user's queue") and [ADR-08](ADR-08-owner-server-free-tier.md) (the worker may serve every user); keeps [ADR-09](ADR-09-mix-identification-on-the-owners-computer.md) and [ADR-15](ADR-15-shared-track-facts.md)

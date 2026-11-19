@@ -160,6 +160,11 @@ class ServerClient:
         r = self._request("POST", "/auth/v1/verify", {"type": "email", "email": email, "token": code})
         return self._session_triple(r)
 
+    def sign_in_password(self, email: str, password: str) -> Result:
+        """Spec 034: the password grant of WORKER_EMAIL/WORKER_PASSWORD, same host and key as every sign-in."""
+        r = self._request("POST", "/auth/v1/token?grant_type=password", {"email": email, "password": password})
+        return self._session_triple(r)
+
     def refresh(self, refresh_token: str) -> Result:
         r = self._request("POST", "/auth/v1/token?grant_type=refresh_token", {"refresh_token": refresh_token})
         return self._session_triple(r)

@@ -23,7 +23,7 @@ Design record: `../specs/002-mix-analysis-worker/` (the spec, the research, the 
 If the window closes or prints an error, find the number in [Exit codes](#exit-codes). No VPN while it runs. Do not have `yarn dev`
 running at sign-in time (same port). Prefer Python? Use form A below instead of steps 2–3.
 
-## Two ways to run it
+## Three ways to run it
 
 ### A. From this folder (Linux, macOS, Windows with Python)
 
@@ -57,6 +57,89 @@ it keeps the session in that folder (`session.json`, next to it), then polls unt
 
 Only **YouTube** links need one more thing: a JavaScript runtime on the computer, [Node](https://nodejs.org) or
 [Deno](https://deno.com) (`check` says whether one is found). SoundCloud, Mixcloud and the rest need nothing.
+
+### C. On a headless Linux server (a Debian LXC)
+
+Since 0.7.8 the worker can sign in by itself with a password: no browser, no mail, no tunnel. Use a **dedicated account**
+listed as a shared worker, never your own: a shared worker reaches the queue through five functions only and no table
+(ADR-16), so its password, the one secret on the server, opens nothing else.
+
+1. **Create the account** (Supabase dashboard → Authentication → Users → Add user → Create new user): an email you control,
+   for example `worker@example.com`, a long password, **Auto Confirm User** ticked. A password of letters and digits only
+   (`openssl rand -hex 24`) is the simplest to copy without a mistake.
+2. **List it as a shared worker** (SQL editor; migration `0006_shared_worker.sql` applied):
+
+   ```sql
+   insert into public.shared_workers (user_id, label)
+   select id, 'lxc' from auth.users where email = 'worker@example.com';
+   ```
+
+3. **Copy the Linux executable** and give it a user of its own (as root):
+
+   ```sh
+   useradd --system --create-home --home-dir /var/lib/mix-worker --shell /usr/sbin/nologin mix-worker
+   install -d /opt/mix-worker
+   install -m 755 mix-worker-linux-x86_64 /opt/mix-worker/
+   ```
+
+4. **The settings**, `/etc/mix-worker.env`, readable by the service user only:
+
+   ```sh
+   WORKER_EMAIL=worker@example.com
+   WORKER_PASSWORD='the-password'
+   WORKER_NAME=lxc
+   WORKER_SESSION_FILE=/var/lib/mix-worker/session.json
+   ```
+
+   ```sh
+   chown mix-worker:mix-worker /etc/mix-worker.env && chmod 600 /etc/mix-worker.env
+   ```
+
+   Keep the password between single quotes: the worker reads it whole between the first and the last quote, spaces, `#`
+   and quotes included. The server is built into the executable, so nothing else is needed. The password stays in this
+   file, which only the worker reads (`--config`, below; it is not put in the service's environment): the worker never
+   prints, logs or saves it; the session file holds the session only.
+5. **Check**: `sudo -u mix-worker /opt/mix-worker/mix-worker-linux-x86_64 --config /etc/mix-worker.env check` prints
+   `sign-in: by password as worker@example.com` and never the password. `--config` keeps the worker from writing a template
+   beside the executable, and is the one way the service reads its settings.
+6. **The service**, `/etc/systemd/system/mix-worker.service`:
+
+   ```ini
+   [Unit]
+   Description=mix-worker (identify the sets queued from the app)
+   After=network-online.target
+   Wants=network-online.target
+
+   [Service]
+   User=mix-worker
+   ExecStart=/opt/mix-worker/mix-worker-linux-x86_64 --config /etc/mix-worker.env run --watch
+   Restart=on-failure
+   RestartSec=60
+   RestartPreventExitStatus=4 5 7
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   ```sh
+   systemctl daemon-reload
+   systemctl enable --now mix-worker
+   journalctl -u mix-worker -f
+   ```
+
+   The log starts with `signed in as worker@example.com by password`, then `… · shared worker (the account is listed)` and
+   `queue empty · next look in 60 s`. When the session is later refused, the worker signs in again by itself. A wrong
+   password stops it with exit code 4 after one try (`sign-in refused: the email or password is wrong`): fix the file, then
+   `systemctl restart mix-worker`. `Restart=on-failure` starts it again a minute after an unreachable or paused server
+   (exit 2, 3); `RestartPreventExitStatus` keeps it stopped after a refused password (4), a wrong setting (5) or an account
+   no longer listed (7), which only a person can fix.
+
+What a shared worker does not do: it fetches only SoundCloud links (any other link fails with "link not allowed in shared
+mode"), and it never asks again by itself after a rate-limit stop (press Ask again in the app). Shazam counts calls per
+address: the server shares your home address with your computer, so run one worker at a time there, and never behind a VPN.
+`WORKER_YTDLP_COOKIES` is not needed for SoundCloud; if you set one, put the file where the service user can read it
+(`/var/lib/mix-worker/`). To stop using the server: `systemctl disable --now mix-worker`, and delete the account's row from
+`public.shared_workers` (or the account itself).
 
 ## Before the first login (once, in the Supabase dashboard)
 
@@ -148,7 +231,7 @@ queue. The scanned JSON stays in your music folder, so you can also import it by
 | 0 | done, or the queue was empty | — |
 | 2 | the server is unreachable | check the connection, try later |
 | 3 | the Supabase project is paused | Resume project in the dashboard, then run again |
-| 4 | not signed in, or the session expired | `mix-worker login` |
+| 4 | not signed in, or the session expired; with `WORKER_EMAIL`/`WORKER_PASSWORD`, the password was refused | `mix-worker login`; or fix the email or password in the settings |
 | 5 | a setting is missing or ffmpeg cannot start | the message names the setting and the file |
 | 6 | the settings template was just written (packaged form) | fill the two values, start again |
 | 7 | `WORKER_MODE=shared` (forced) and the account is not (or no longer) in `shared_workers` | ask the owner to add it, or set `WORKER_MODE=personal` |
@@ -157,11 +240,12 @@ queue. The scanned JSON stays in your music folder, so you can also import it by
 ## Settings
 
 `worker/.env` (form A) or `mix-worker.env` beside the executable (form B); an environment variable with the same name wins.
-Only the first two are required.
+Only the first two are required, and a released executable has them built in.
 
 | Name | Default | Meaning |
 |---|---|---|
 | `SUPABASE_URL`, `SUPABASE_KEY` | built in (executable), none (form A) | the project URL and publishable key (public values; nothing secret lives here). A released executable has the app's server built in; set both to use another one (a lone URL is refused, never sent the built-in key). `check` says `(built in)` or `(settings)` |
+| `WORKER_EMAIL`, `WORKER_PASSWORD` | none | both or neither (one alone exits 5): the worker signs in by itself with that password, when it has no session, when the saved one is another account's and when a refresh is refused; for a dedicated account listed in `shared_workers`, never your own (form C). The password is the one secret in the file: write it between single quotes, keep the file readable by you only; it is never printed, logged or saved (0.7.8) |
 | `WORKER_NAME` | the computer's hostname | shown on the phone as "Running on <name>" |
 | `WORKER_SESSION_FILE` | `~/.config/myownspotifydata-worker/session.json` (`%APPDATA%\myownspotifydata-worker\` on Windows; `session.json` beside the executable when present) | the sign-in session, readable by you only |
 | `WORKER_WORK_DIR` | `~/.cache/myownspotifydata-worker` (`%LOCALAPPDATA%\…` on Windows) | one folder per request while it runs; the log file |
@@ -228,6 +312,9 @@ With `WORKER_TRACKID` on (the default) the worker asks TrackId.net about the exa
   finished normally is scanned afresh.
 
 - **"not signed in"**: `mix-worker login`, then click the mail's link on this computer within ten minutes.
+- **"sign-in refused: the email or password is wrong"** (exit 4, `WORKER_EMAIL`/`WORKER_PASSWORD` set): tried once only. Check the two
+  settings (single quotes around the password in a settings file) and that the account exists and is confirmed, then start again;
+  "Email not confirmed" at the end of the line: confirm the account in the dashboard.
 - **"could not listen on port 5173"**: stop `yarn dev` (or whatever holds the port) and run `login` again.
 - **"the project is paused"**: Supabase pauses a Free project after a week without traffic; resume it from the dashboard.
 - **"Recognition service refused (rate limited)"**: Shazam throttled the computer's address four times before any track was

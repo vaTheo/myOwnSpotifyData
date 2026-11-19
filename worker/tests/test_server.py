@@ -95,6 +95,24 @@ class Auth(unittest.TestCase):
         self.assertEqual(o.calls[0]["url"], BASE + "/auth/v1/token?grant_type=refresh_token")
         self.assertEqual(o.calls[0]["body"], {"refresh_token": "r1"})
 
+    def test_sign_in_password(self):
+        # Spec 034: the password grant, same host and key as every sign-in.
+        c, o = client(FakeResponse(200, {"access_token": "a", "refresh_token": "r", "expires_in": 3600, "user": {}}))
+        r = c.sign_in_password("worker@example.com", "p a#ss")
+        self.assertEqual(r.value, {"access_token": "a", "refresh_token": "r", "expires_in": 3600})
+        self.assertEqual(o.calls[0]["url"], BASE + "/auth/v1/token?grant_type=password")
+        self.assertEqual(o.calls[0]["method"], "POST")
+        self.assertEqual(o.calls[0]["body"], {"email": "worker@example.com", "password": "p a#ss"})
+        self.assertEqual(o.calls[0]["headers"]["apikey"], KEY)
+        self.assertNotIn("authorization", o.calls[0]["headers"])
+
+    def test_sign_in_password_refused(self):
+        c, _ = client(http_error(400, b'{"error":"invalid_grant","error_description":"Invalid login credentials"}'))
+        r = c.sign_in_password("worker@example.com", "wrong")
+        self.assertEqual((r.kind, r.status), ("error", 400))
+        self.assertIn("Invalid login credentials", r.message)
+        self.assertNotIn("wrong", r.message)
+
     def test_logout(self):
         c, o = client(FakeResponse(204, b""))
         self.assertEqual(c.logout("a").kind, "ok")
