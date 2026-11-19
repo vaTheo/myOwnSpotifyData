@@ -66,5 +66,11 @@ one PyInstaller executable per system.
   uses the pair only when neither the file nor the environment sets `SUPABASE_URL` or `SUPABASE_KEY`, and only whole;
   `Settings.server_from` is `built in` or `settings`. A packaged first start with a built-in server writes the template and goes on
   (no exit 6).
+- Spec 034 (worker 0.7.8): `WORKER_EMAIL`/`WORKER_PASSWORD`, both or neither (exit 5). `session.PasswordSignIn` signs in by the
+  password grant (`ServerClient.sign_in_password`) when there is no session, another email's (case ignored) or a refused refresh
+  (`None`, or with an account only an `error` 400/422: GoTrue's answer to a dead refresh token; the file cleared first),
+  through `cmd_run`, `run_queue(account=)` and `token()`; a refused password is tried once per run (exit 4), offline/paused keep
+  2/3; `login` asks nothing. The password is never printed, logged, saved or in a repr; `run_queue` without `account` is unchanged.
+  `parse_env_file` keeps a quoted value whole between its first and last quote, a comment may follow.
 - Settings: `config.py` is the one reader; every setting has a default in `.env.example` (shipped as `mix_worker/env.example`,
   kept byte-identical by `test_config.py`). The session file is 0600 and never in the repo; the `service_role` key is never used.

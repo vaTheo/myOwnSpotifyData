@@ -11,6 +11,12 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.7.8: **a server with no screen signs in by itself**. Two optional settings, `WORKER_EMAIL` and `WORKER_PASSWORD`
+  (both or neither), for a dedicated account the owner listed as a shared worker, never your own: the worker signs in with
+  the password when it has no session, when the saved one is another account's, and when a refresh is refused. A wrong password
+  stops it with exit code 4 after one try. The password is never printed, logged or saved; write it between single quotes in
+  the settings file. Without the two settings nothing changes. The README's section C sets it up on a Debian server as a
+  service. No change to scanning or to the JSON.
 - 0.7.7: **nothing to fill in on the first start**. The executables know the app's server: the release build writes in the
   repository secrets `SUPABASE_URL` and `SUPABASE_KEY` (the same public values the app is built with; the code
   holds none). The first start writes `mix-worker.env` with the optional settings and goes on to the sign-in. A

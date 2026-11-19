@@ -3,6 +3,17 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-19 — The worker signs in by itself with a password (worker 0.7.8)
+
+A worker on a server with no screen (a Debian LXC) no longer needs a mail link opened on that machine. Two optional settings,
+`WORKER_EMAIL` and `WORKER_PASSWORD` (both or neither), name a dedicated account listed as a shared worker: the worker signs
+in with that password when it has no session, when the saved one is another account's, and when a refresh is refused. A wrong
+password stops it with exit code 4 after one try. The password is never printed, logged or saved; `check` names the account
+only. Without the two settings nothing changes. The worker README's new section C sets up the account, the settings file
+(mode 600) and a systemd service. ADR-16 amended. Spec `specs/034-worker-password-sign-in/`.
+
+**What to do**: nothing on your own computer. For a server: follow `worker/README.md` form C with worker 0.7.8.
+
 ## 2026-11-17 — The worker knows the server (worker 0.7.7)
 
 A downloaded worker no longer asks for `SUPABASE_URL` and `SUPABASE_KEY`. The release build writes in the same public values

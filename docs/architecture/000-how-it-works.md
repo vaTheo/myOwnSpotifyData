@@ -817,7 +817,11 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   no command = the double-click: login if needed, then watch; a packaged start without a settings file writes `mix-worker.env`
   and exits 6, unless the executable has a built-in server (worker 0.7.7, `builtin.py`, filled only by the release build from
   the repository secrets `SUPABASE_URL`/`SUPABASE_KEY`, masked in its log): then it goes on to sign in. A pair in the file or the
-  environment wins over the built-in one. Exit codes 0/2/3/4/5/6/7/130 (`contracts/worker.md`; 7 = not, or no longer, a shared worker). Every dependency (environment, terminal, clock, client, the
+  environment wins over the built-in one. Spec 034 (worker 0.7.8): with `WORKER_EMAIL` and `WORKER_PASSWORD` (both or neither,
+  exit 5) `session.PasswordSignIn` signs in by the password grant (`ServerClient.sign_in_password`) when there is no session, the
+  saved one is another email's or a refresh is refused (401/403, or with an account the 400/422 GoTrue gives a dead refresh token) (`cmd_run` before the loop, `run_queue`'s `keep`, a request's `token()`);
+  a refused password is tried once per run, then exit 4; offline and paused keep 2 and 3; `login` asks nothing; the password is
+  never printed, logged or saved (`Settings.worker_password` has `repr=False`). Without the two settings nothing changes. Exit codes 0/2/3/4/5/6/7/130 (`contracts/worker.md`; 7 = not, or no longer, a shared worker). Every dependency (environment, terminal, clock, client, the
   queue loop) is a `CliDeps` field, so `tests/test_cli.py` runs every command offline.
 - Round 015 (shared mode, `WORKER_MODE=shared`, or chosen by `auto` since round 017): `cli.make_client` picks `SharedServerClient`, the start asks `is_shared_worker`
   once, and the claim takes the next request of any user in turns. **Move to top** orders a user's own requests only in shared
@@ -831,7 +835,7 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
 - `config.py`: the one reader of the settings file and the environment (`Settings`, defaults per OS, `SettingsError` naming
   the setting). `server.py`: `ServerClient` over `urllib` (`send_otp`, `verify`, `refresh`, `logout`, `claim` → `rpc/claim_job`,
   `finish` → `PATCH jobs?id=eq.&status=eq.claimed&claimed_by=eq.` with `return=representation` ("taken" when it answers no
-  row), `release`), every call a `Result`, the error mapping of `client.ts`. `session.py`: load/save/refresh with a 60 s margin.
+  row), `release`), every call a `Result`, the error mapping of `client.ts`. `session.py`: load/save/refresh with a 60 s margin; `PasswordSignIn` (spec 034).
 - `download.py`: `yt_dlp.YoutubeDL` in-process, `bestaudio/best`, no playlist, no live, no post-processing; the error text
   mapped to one-line reasons. `scan.py`: `probe_times` (one 12 s probe every 15 s), `cut_probe` (ffmpeg → mono 16 kHz WAV through a
   scratch file), `recognize(bytes, max_skew)` one at a time behind a cooldown (a `RateLimited` pauses once, then `ScanRefused`),

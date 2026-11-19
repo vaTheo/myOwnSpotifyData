@@ -30,7 +30,7 @@ from .config import Settings, SettingsError, load_settings, write_template
 from .links import PAGE_HOSTS, SHORT_HOST, host_on, working_address
 from .pipeline import Deps, Outcome, _fail, run_one
 from .server import Result, ServerClient, SharedServerClient
-from .session import Session, challenge_for, clear, code_from_redirect, ensure_fresh, load, new_verifier, save
+from .session import PasswordSignIn, Session, challenge_for, clear, code_from_redirect, ensure_fresh, load, new_verifier, same_account, save
 
 EXIT_OK = 0
 EXIT_OFFLINE = 2
@@ -320,24 +320,38 @@ def run_queue(
     interval: int,
     sleep: Any = time.sleep,
     clock: Callable[[], float] = time.monotonic,
+    account: PasswordSignIn | None = None,
 ) -> int:
     """Claims and processes requests until the queue is empty (`once`) or
     forever (`--watch`), with the exit codes of the contract. Round 023: in
     personal `--watch` mode a set stopped by Shazam's refusals is asked again
-    `WORKER_AUTO_RESUME_MINUTES` later, between two requests (`AutoResume`)."""
+    `WORKER_AUTO_RESUME_MINUTES` later, between two requests (`AutoResume`).
+    Spec 034: with an `account`, a lost session is signed in again by password."""
     log = deps.log
     client = deps.client
+    if account is not None:
+        account.line = log.line
+
+    def keep(current: Session) -> Session | Result | None:
+        if account is not None:
+            return account.fresh(current, client)
+        return ensure_fresh(current, client, settings.session_file)
+
+    def stop(fresh: Result) -> int:
+        # A refused password sign-in has logged its own line.
+        if not (account is not None and fresh is account.refused):
+            log.line(f"server: {fresh.message}")
+        return code_for(fresh)
     start = f"mix-worker {__version__} · {settings.supabase_url} · as {session.email} · on {settings.worker_name}"
     reason = ""
     if settings.worker_mode == "auto":
         # Round 017: the server says what the account is; the worker follows.
-        fresh = ensure_fresh(session, client, settings.session_file)
+        fresh = keep(session)
         if fresh is None:
             log.line(NOT_SIGNED_IN)
             return EXIT_SIGNED_OUT
         if isinstance(fresh, Result):
-            log.line(f"server: {fresh.message}")
-            return code_for(fresh)
+            return stop(fresh)
         session = fresh
         role = client.is_shared_worker(session.access_token)
         if not role.ok:
@@ -352,13 +366,12 @@ def run_queue(
             settings = replace(settings, worker_mode="personal")
             start += " · personal worker (the account is not listed)"
     if settings.worker_mode == "shared":
-        fresh = ensure_fresh(session, client, settings.session_file)
+        fresh = keep(session)
         if fresh is None:
             log.line(NOT_SIGNED_IN)
             return EXIT_SIGNED_OUT
         if isinstance(fresh, Result):
-            log.line(f"server: {fresh.message}")
-            return code_for(fresh)
+            return stop(fresh)
         session = fresh
         known = client.is_shared_worker(session.access_token)
         if not known.ok:
@@ -380,13 +393,12 @@ def run_queue(
     if off is None and settings.auto_resume_minutes > 0 and settings.auto_resumes > 0:
         log.line(f"auto ask again · {auto_resume_text(settings)}")
     while True:
-        fresh = ensure_fresh(session, client, settings.session_file)
+        fresh = keep(session)
         if fresh is None:
             log.line(NOT_SIGNED_IN)
             return EXIT_SIGNED_OUT
         if isinstance(fresh, Result):
-            log.line(f"server: {fresh.message}")
-            return code_for(fresh)
+            return stop(fresh)
         session = fresh
         for due in auto.take_due():
             # Between two requests; one try, never a retry loop (round 023).
@@ -416,7 +428,7 @@ def run_queue(
         def token() -> str:
             # A long scan outlives the access token: refresh before sending.
             nonlocal current
-            fresh = ensure_fresh(current, client, settings.session_file)
+            fresh = keep(current)
             if isinstance(fresh, Session):
                 current = fresh
             return current.access_token
@@ -484,6 +496,8 @@ def cmd_check(settings: Settings, config: Path | None, deps: CliDeps) -> int:
     out(f"ffmpeg: packaged ({version})" if not settings.ffmpeg else f"ffmpeg: {settings.ffmpeg} ({version})")
     runtime = next((name for name in ("node", "deno") if deps.which(name)), None)
     out(f"JavaScript runtime: {runtime} found" if runtime else f"JavaScript runtime: {NO_RUNTIME}")
+    if settings.signs_in_by_password:
+        out(f"sign-in: by password as {settings.worker_email} (WORKER_EMAIL, WORKER_PASSWORD)")
     session = load(settings.session_file)
     out(f"session: signed in as {session.email}" if session else "session: none")
     return EXIT_OK
@@ -507,6 +521,8 @@ def cmd_login(settings: Settings, client: Any, deps: CliDeps, *, by_code: bool =
     for a project whose Magic Link template carries `{{ .Token }}`."""
     out = deps.out
     existing = load(settings.session_file)
+    if settings.signs_in_by_password:
+        return _login_by_password(settings, client, deps, existing)
     if existing is not None:
         out(f"already signed in as {existing.email} (run `mix-worker logout` first to change)")
         return EXIT_OK
@@ -527,6 +543,26 @@ def cmd_login(settings: Settings, client: Any, deps: CliDeps, *, by_code: bool =
         out(f"code refused: {verified.message}")
         return code_for(verified) if verified.kind in ("offline", "paused") else EXIT_SIGNED_OUT
     return _save_session(settings, deps, email, verified.value)
+
+
+def password_sign_in(settings: Settings, deps: CliDeps) -> PasswordSignIn | None:
+    """Spec 034: the account of WORKER_EMAIL/WORKER_PASSWORD, or None when unset."""
+    if not settings.signs_in_by_password:
+        return None
+    return PasswordSignIn(settings.worker_email, settings.worker_password, settings.session_file, deps.out, deps.now)
+
+
+def _login_by_password(settings: Settings, client: Any, deps: CliDeps, existing: Session | None) -> int:
+    """No prompt: a session for the configured account is kept, any other replaced."""
+    if existing is not None and same_account(existing.email, settings.worker_email):
+        deps.out(f"already signed in as {existing.email} (run `mix-worker logout` first to change)")
+        return EXIT_OK
+    account = password_sign_in(settings, deps)
+    assert account is not None
+    if existing is not None:
+        deps.out(f"the saved session is for {existing.email}, not {settings.worker_email}: signing in again")
+    signed = account.sign_in(client)
+    return code_for(signed) if isinstance(signed, Result) else EXIT_OK
 
 
 def _login_by_link(settings: Settings, client: Any, deps: CliDeps, email: str) -> int:
@@ -567,8 +603,19 @@ def cmd_logout(settings: Settings, client: Any, deps: CliDeps) -> int:
     return EXIT_OK
 
 
-def cmd_run(settings: Settings, deps: CliDeps, *, once: bool, interval: int | None) -> int:
+def cmd_run(settings: Settings, deps: CliDeps, *, once: bool, interval: int | None, client: Any = None) -> int:
     session = load(settings.session_file)
+    account = password_sign_in(settings, deps)
+    if account is not None:
+        # Spec 034: no session, another account's, or a refused refresh: sign in by password.
+        fresh = account.fresh(session, client or deps.client_factory(settings.supabase_url, settings.supabase_key))
+        if isinstance(fresh, Result):
+            if fresh is not account.refused:
+                deps.out(f"server: {fresh.message}")
+            return code_for(fresh)
+        return deps.run_queue(
+            settings, deps.build_deps(settings), fresh, once=once, interval=interval or settings.poll_seconds, account=account
+        )
     if session is None:
         deps.out(NOT_SIGNED_IN)
         return EXIT_SIGNED_OUT
@@ -672,13 +719,13 @@ def _main(argv: list[str] | None, deps: CliDeps) -> int:
     if args.command == "logout":
         return cmd_logout(settings, client, deps)
     if args.command == "run":
-        return cmd_run(settings, deps, once=not args.watch, interval=args.interval)
+        return cmd_run(settings, deps, once=not args.watch, interval=args.interval, client=client)
     # No command: the double-click. Sign in when needed, then watch.
-    if load(settings.session_file) is None:
+    if load(settings.session_file) is None and not settings.signs_in_by_password:
         code = cmd_login(settings, client, deps)
         if code != EXIT_OK:
             return code
-    return cmd_run(settings, deps, once=False, interval=None)
+    return cmd_run(settings, deps, once=False, interval=None, client=client)
 
 
 if __name__ == "__main__":

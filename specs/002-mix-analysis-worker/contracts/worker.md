@@ -10,16 +10,18 @@ Spotify host (FR-019).
 | Command | Does | Exit |
 |---|---|---|
 | `mix-worker check` | prints the settings it resolved (secrets masked), the ffmpeg it will use and its version, whether a JavaScript runtime is on PATH (YouTube only), whether a session exists; touches no network | 0, or 5 when a required setting is missing or ffmpeg cannot start |
-| `mix-worker login` | email → the magic link opened on this computer, caught on 127.0.0.1:5173 → session file (D8); `--code`: the typed six-digit code instead | 0; 2/3 server; 4 refused, timed out, or port 5173 busy |
+| `mix-worker login` | email → the magic link opened on this computer, caught on 127.0.0.1:5173 → session file (D8); `--code`: the typed six-digit code instead. Spec 034: with `WORKER_EMAIL` and `WORKER_PASSWORD` set, no prompt: the password grant, a session of that account kept, another account's replaced | 0; 2/3 server; 4 refused, timed out, or port 5173 busy |
 | `mix-worker logout` | revokes and deletes the session | 0 |
 | `mix-worker run --once` | claims and processes requests until the queue is empty, then exits | 0 |
 | `mix-worker run --watch [--interval N]` | as `--once`, then polls every N s (default `WORKER_POLL_SECONDS`) until stopped | 130 on Ctrl-C |
-| `mix-worker` (no command; the double-click) | `login` when no session, then `run --watch` | as above |
+| `mix-worker` (no command; the double-click) | `login` when no session (with `WORKER_EMAIL`/`WORKER_PASSWORD`: the password sign-in, no prompt), then `run --watch` | as above |
 | `mix-worker --version` | prints the version and exits | 0 |
 | any | `--config PATH` reads that settings file instead of the default | |
 
 Shared exits: **2** server unreachable (network or 5xx), **3** server paused ("resume it from the dashboard"), **4** not signed
-in or refresh refused ("run `mix-worker login`"), **5** missing setting or tool, **6** config template written (packaged form,
+in or refresh refused ("run `mix-worker login`"; spec 034: with `WORKER_EMAIL`/`WORKER_PASSWORD`, a refused refresh first
+leads to one password sign-in, and 4 means that sign-in was refused: "the email or password is wrong", tried once per run), **5**
+missing setting or tool (one of `WORKER_EMAIL`/`WORKER_PASSWORD` without the other), **6** config template written (packaged form,
 first start, no built-in server). A failed *request* is not a failed *run*: the worker marks it `failed` and continues (FR-018).
 
 ## Settings (`worker/.env.example` = the template; environment overrides the file)
@@ -27,6 +29,7 @@ first start, no built-in server). A failed *request* is not a failed *run*: the 
 | Name | Default | Meaning |
 |---|---|---|
 | `SUPABASE_URL`, `SUPABASE_KEY` | built in for a released executable (worker 0.7.7), else required | the project URL and publishable key, the same public values the app builds with; a pair set here wins over the built-in one |
+| `WORKER_EMAIL`, `WORKER_PASSWORD` | unset | spec 034, worker 0.7.8: both or neither (one alone: exit 5 naming the other). The worker signs in with `POST /auth/v1/token?grant_type=password` (same host and key) when it has no session, when the saved one belongs to another email (case ignored), and when a refresh is refused (401/403, or 400/422: GoTrue's answer to a dead refresh token, counted as refused only with the two settings), at start, between requests and in a request's `token()`; a refused password ends the run with 4 after one try. The password is never printed, logged, saved, in `Settings`' repr or in `check` (which prints `sign-in: by password as <email>`). In a settings file a quoted value is kept whole between its first and last quote, a ` # comment` may follow; for a dedicated account listed in `shared_workers`, never the owner's |
 | `WORKER_NAME` | the hostname | `claimed_by`, shown on the phone as "on <name>" |
 | `WORKER_SESSION_FILE` | `~/.config/myownspotifydata-worker/session.json` (`%APPDATA%\…` on Windows; beside the executable when present there) | the session (0600) |
 | `WORKER_WORK_DIR` | `~/.cache/myownspotifydata-worker` (`%LOCALAPPDATA%\…`) | one sub-folder per request, deleted when it ends |

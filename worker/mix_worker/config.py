@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import importlib.resources
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 APP_DIR = "myownspotifydata-worker"
@@ -69,6 +69,14 @@ class Settings:
     # Where SUPABASE_URL and SUPABASE_KEY came from: "built in" (the release
     # build's values, `builtin.py`) or "settings" (a file or the environment).
     server_from: str = "settings"
+    # Spec 034: the account the worker signs in to by itself (both or neither).
+    # The password is the one secret among the settings: never in a repr.
+    worker_email: str = ""
+    worker_password: str = field(default="", repr=False)
+
+    @property
+    def signs_in_by_password(self) -> bool:
+        return bool(self.worker_email and self.worker_password)
 
 
 def template_text() -> str:
@@ -86,7 +94,8 @@ def write_template(path: Path) -> None:
 
 
 def parse_env_file(text: str) -> dict[str, str]:
-    """KEY=VALUE lines; `#` comments (whole line or after the value); quotes.
+    """KEY=VALUE lines; `#` comments (whole line or after the value); quotes
+    keep a value whole, ` #` included (a password, spec 034).
 
     An empty value is "unset", so the template's blank lines change nothing.
     """
@@ -98,8 +107,12 @@ def parse_env_file(text: str) -> dict[str, str]:
         key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip()
-        if value[:1] in ('"', "'") and len(value) >= 2 and value.endswith(value[0]):
-            value = value[1:-1]
+        quote = value[:1]
+        end = value.rfind(quote) if quote in ('"', "'") else -1
+        if end > 0 and (not value[end + 1 :].strip() or value[end + 1 :].lstrip().startswith("#")):
+            # Quoted: kept whole between the first and the last quote, `#` and
+            # spaces included; a comment may follow the closing quote (spec 034).
+            value = value[1:end]
         else:
             for marker in (" #", "\t#"):
                 if marker in value:
@@ -199,6 +212,18 @@ def _trackid(values: Mapping[str, str]) -> bool:
     return value == "on"
 
 
+def _account(values: Mapping[str, str]) -> tuple[str, str]:
+    """WORKER_EMAIL and WORKER_PASSWORD, both or neither (spec 034). The
+    password is kept whole; a message never holds it."""
+    email = values.get("WORKER_EMAIL", "").strip()
+    password = values.get("WORKER_PASSWORD", "")
+    if email and not password:
+        raise SettingsError("WORKER_PASSWORD", "not set; WORKER_EMAIL is set and the two go together")
+    if password and not email:
+        raise SettingsError("WORKER_EMAIL", "not set; WORKER_PASSWORD is set and the two go together")
+    return email, password
+
+
 def load_settings(
     path: Path | None,
     env: Mapping[str, str],
@@ -251,6 +276,7 @@ def load_settings(
         session_default = frozen_dir / "session.json"
     work_dir = Path(values["WORKER_WORK_DIR"]) if values.get("WORKER_WORK_DIR") else work_default
     cookies = values.get("WORKER_YTDLP_COOKIES")
+    email, password = _account(values)
 
     return Settings(
         supabase_url=url,
@@ -293,4 +319,6 @@ def load_settings(
         trackid=_trackid(values),
         auto_resume_minutes=_int(values, "WORKER_AUTO_RESUME_MINUTES", 30, 0),
         auto_resumes=_int(values, "WORKER_AUTO_RESUMES", 6, 0),
+        worker_email=email,
+        worker_password=password,
     )

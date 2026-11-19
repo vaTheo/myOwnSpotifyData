@@ -95,6 +95,85 @@ def ensure_fresh(
     return r
 
 
+# -- the password sign-in (spec 034) --------------------------------------------
+
+WRONG_PASSWORD = "sign-in refused: the email or password is wrong (WORKER_EMAIL, WORKER_PASSWORD)"
+
+
+def same_account(a: str, b: str) -> bool:
+    return a.strip().lower() == b.strip().lower()
+
+
+class PasswordSignIn:
+    """WORKER_EMAIL and WORKER_PASSWORD: signs in when the saved session is
+    missing, belongs to another account, or its refresh is refused.
+
+    A refused sign-in is tried once per run: every later call returns the
+    same refusal, so a wrong password never loops. The password is sent to
+    the server and nowhere else: never logged, never saved.
+    """
+
+    def __init__(
+        self,
+        email: str,
+        password: str,
+        path: Path,
+        line: Callable[[str], None],
+        now: Callable[[], float] = time.time,
+    ) -> None:
+        self.email = email
+        self._password = password
+        self.path = path
+        self.line = line
+        self.now = now
+        self.refused: Result | None = None
+
+    def __repr__(self) -> str:
+        return f"PasswordSignIn({self.email!r})"
+
+    def sign_in(self, client: Any) -> Session | Result:
+        """A new session for the account (saved), or the `Result`: offline
+        and paused as the server said, anything else an `unauthorized` refusal."""
+        if self.refused is not None:
+            return self.refused
+        r = client.sign_in_password(self.email, self._password)
+        if r.ok:
+            fresh = Session(
+                email=self.email,
+                access_token=r.value["access_token"],
+                refresh_token=r.value["refresh_token"],
+                expires_at=self.now() + float(r.value["expires_in"]),
+            )
+            save(self.path, fresh)
+            self.line(f"signed in as {self.email} by password · session kept at {self.path}")
+            return fresh
+        if r.kind in ("offline", "paused"):
+            return r
+        wrong = r.kind == "unauthorized" or r.status in (400, 422)
+        message = WRONG_PASSWORD if wrong else "sign-in by password failed"
+        self.refused = Result("unauthorized", None, r.status, f"{message}: {r.message}" if r.message else message)
+        self.line(self.refused.message)
+        return self.refused
+
+    def fresh(self, session: Session | None, client: Any) -> Session | Result:
+        """`ensure_fresh` that signs in again instead of giving up."""
+        if session is None:
+            return self.sign_in(client)
+        if not same_account(session.email, self.email):
+            self.line(f"the saved session is for {session.email}, not {self.email}: signing in again")
+            return self.sign_in(client)
+        kept = ensure_fresh(session, client, self.path, self.now)
+        if isinstance(kept, Result) and kept.kind == "error" and kept.status in (400, 422):
+            # GoTrue answers a dead refresh token with 400 (refresh_token_not_found,
+            # refresh_token_already_used, session_not_found): refused too, here only.
+            clear(self.path)
+            kept = None
+        if kept is None:
+            self.line("the session was refused: signing in again by password")
+            return self.sign_in(client)
+        return kept
+
+
 # -- the magic link in the PKCE flow (research D8) -----------------------------
 
 
