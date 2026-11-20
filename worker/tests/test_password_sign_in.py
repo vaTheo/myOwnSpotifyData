@@ -4,6 +4,7 @@ Every server answer is faked; the password below must never appear in any
 line the worker prints or logs, nor in any file it writes (SC-003).
 """
 
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -122,7 +123,8 @@ class PasswordSignInTest(unittest.TestCase):
             self.assertEqual(len(lines), 1)
             self.assertIn(f"signed in as {EMAIL} by password", lines[0])
             self.assertNotIn(PASSWORD, files_text(tmp) + "\n".join(lines) + repr(account))
-            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            if sys.platform != "win32":  # Windows has no Unix file modes
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
     def test_a_valid_session_of_the_account_is_kept(self):
         with tempfile.TemporaryDirectory() as tmp:
