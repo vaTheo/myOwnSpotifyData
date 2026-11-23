@@ -197,8 +197,11 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+      # Only the executables: build-push-action also uploads build records
+      # (*.dockerbuild), which download-artifact cannot extract.
       - uses: actions/download-artifact@v4
         with:
+          pattern: mix-worker-*
           path: assets
           merge-multiple: true
       - name: Create the release with every executable and the compose file
