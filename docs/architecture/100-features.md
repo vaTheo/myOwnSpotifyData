@@ -124,4 +124,5 @@ Nothing else writes to the owner's Spotify account ([ADR-03](700-adr/ADR-03-libr
 - [ADR index](700-adr/README.md)
 - [Specs](../specs/) · [CHANGELOG](../../CHANGELOG.md)
 - [Contributing](../dev-guide/000-contributing.md)
+- [Owner's manual](../manual/000-using-the-app.md)
 - [Documentation map](../README.md)

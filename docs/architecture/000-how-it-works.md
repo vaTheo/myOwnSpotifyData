@@ -3,7 +3,8 @@
 > **Status**: Living
 > **Last updated**: 2026-11-23
 
-The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
+The reference for every "how does X work?" question. The [owner's manual](../manual/000-using-the-app.md) covers setup and daily use, the
+[README](../../README.md) is the short guide, the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
 dated [specs](../specs/) hold the reasoning of each round, and the [research notes](../research/) the verified external facts. The
 decisions that still hold are in the [ADR index](700-adr/README.md); the rules for working on the repo are in

@@ -3,6 +3,17 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-23 — A short README, the manual moves to docs/manual
+
+The README becomes a short guide for someone who uses the app or identifies a DJ mix. The owner's manual moves, word for word, to
+`docs/manual/`: [Using the app](docs/manual/000-using-the-app.md) (what leaves your browser, every screen),
+[Identify a mix](docs/manual/100-identify-a-mix.md), [Owner setup](docs/manual/200-owner-setup.md) (one-time setup, the server,
+several people, shared BPM and key) and [Developers](docs/manual/300-developers.md) (run locally, the scripts). No code change. Spec
+`specs/036-readme-short-guide/`.
+The new [README](README.md): a centered header with three badges, then numbered steps to use the app and to identify a mix (computer or Docker).
+
+**What to do**: nothing.
+
 ## 2026-11-23 — The worker as a Docker image (worker 0.7.9)
 
 The worker also ships as a Docker image, `ghcr.io/vatheo/mix-worker:<version>` and `:latest`, for `linux/amd64` and

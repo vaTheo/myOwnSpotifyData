@@ -8,7 +8,8 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
 
 ## Start here
 
-- [README](../README.md) — what the app is, setup, the owner's manual.
+- [README](../README.md) — what the app is, a short guide for someone who uses the app or identifies a mix.
+- [Owner's manual](manual/000-using-the-app.md) — every screen, identifying a mix, the owner's setup (below).
 - [100 — Feature inventory](architecture/100-features.md) — every feature, where it lives, its spec, when it shipped, its state.
 - [000 — How the app works](architecture/000-how-it-works.md) — the reference for every "how does it work?" question.
 - [CHANGELOG](../CHANGELOG.md) — what changed, when, and what to do after upgrading.
@@ -39,6 +40,13 @@ The map of the app's documentation, kept by hand: every page is listed here, in 
   - [ADR-18 — Two languages, one typed catalogue, no library](architecture/700-adr/ADR-18-two-languages-typed-catalogue.md)
 - [800 — Limits and roadmap](architecture/800-limits-roadmap.md)
 
+## Owner's manual
+
+- [000 — Using the app](manual/000-using-the-app.md) — what leaves your browser, then every screen.
+- [100 — Identify a mix](manual/100-identify-a-mix.md) — the worker that answers **Identify on my computer**.
+- [200 — Owner setup](manual/200-owner-setup.md) — the owner's quick start, one-time setup, the server, several people, shared BPM and key.
+- [300 — Developers](manual/300-developers.md) — run locally, the scripts.
+
 ## Dev guide
 
 - [000 — Contributing](dev-guide/000-contributing.md) — commands, code conventions, the files that change together, the documentation
@@ -54,6 +62,7 @@ One design document per feature round, dated. The first one is the base model; l
 - [2026-11-09 — One row per song in a scanned mix](specs/2026-11-09-mix-one-row-per-song-design.md) (the one-row round, full round under [`specs/018-mix-one-row-per-song/`](../specs/018-mix-one-row-per-song/spec.md))
 - [2026-11-10 — Artist and Title columns in the Mix tracklist](specs/2026-11-10-mix-artist-title-columns-design.md) (full round under [`specs/020-mix-artist-title-columns/`](../specs/020-mix-artist-title-columns/spec.md))
 - 2026-11-10 — Comments without their commenter's name (the quiet-comments round): [`specs/021-mix-hide-commenter-names/`](../specs/021-mix-hide-commenter-names/spec.md)
+- 2026-11-23 — A short README, the owner's manual in `docs/manual/` (round 036): [`specs/036-readme-short-guide/`](../specs/036-readme-short-guide/spec.md)
 - 2026-11-23 — The worker as a Docker image, amd64 and arm64 (worker 0.7.9, round 035): [`specs/035-worker-docker-image/`](../specs/035-worker-docker-image/spec.md)
 - 2026-11-19 — The worker signs in by itself with a password (worker 0.7.8, round 034): [`specs/034-worker-password-sign-in/`](../specs/034-worker-password-sign-in/spec.md), decision [ADR-16](architecture/700-adr/ADR-16-shared-worker.md) (amended)
 - 2026-11-17 — The worker executable knows the app's server (worker 0.7.7, round 033): [`specs/033-worker-built-in-server/`](../specs/033-worker-built-in-server/spec.md)

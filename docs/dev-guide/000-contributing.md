@@ -1,7 +1,7 @@
 # 000 — Contributing
 
 > **Status**: Living
-> **Last updated**: 2026-11-16
+> **Last updated**: 2026-11-23
 
 How to work on this repository: the commands, the files that change together, the documentation conventions (borrowed from the Armtek
 repos, adapted to one small app), what a feature round looks like, and how a release happens. The product itself is described in
@@ -90,12 +90,14 @@ their exit code.
 ## One change, several files
 
 - A **feature** ends with: its dated spec under `docs/specs/`, a row in the [feature inventory](../architecture/100-features.md), the
-  section of [How the app works](../architecture/000-how-it-works.md) for the folders it touched, the owner's manual in `README.md`
-  ("Using it", and the "Nothing is uploaded" paragraph if data leaves the browser), a `CHANGELOG.md` entry, and an ADR when the decision
+  section of [How the app works](../architecture/000-how-it-works.md) for the folders it touched, the owner's manual in `docs/manual/`
+  ([Using the app](../manual/000-using-the-app.md) "Using it", and its "What leaves your browser" part and the README's "What leaves
+  your browser" if data leaves the browser), a `CHANGELOG.md` entry, and an ADR when the decision
   outlives the round.
 - A **new Spotify scope or write**: `SCOPES` in `src/auth/session.ts`, a `hasScope` gate, the re-login prompt, [ADR-03](../architecture/700-adr/ADR-03-library-writes-on-tap.md),
   the inventory's "two Spotify writes" table.
-- A **new external source**: the inventory's "What leaves the browser" table, `README.md`'s first paragraph, [ADR-04](../architecture/700-adr/ADR-04-keyless-sources-by-id.md)
+- A **new external source**: the inventory's "What leaves the browser" table, the "What leaves your browser" part of
+  [Using the app](../manual/000-using-the-app.md) and of `README.md`, [ADR-04](../architecture/700-adr/ADR-04-keyless-sources-by-id.md)
   if the rule bends, a research note under `docs/research/`.
 - A **new IndexedDB store or field**: `src/db/CLAUDE.md` rules, the store table in How the app works §6.
 - A **new job**: the jobs table in How the app works §14, and a decision on `jobsBusy()` and `disconnect`.
@@ -123,10 +125,11 @@ generated index ([ADR-06](../architecture/700-adr/ADR-06-lean-tooling.md)).
 | `docs/architecture/` | how the app works, the feature inventory, limits and roadmap | `NNN-slug.md` |
 | `docs/architecture/700-adr/` | one decision per file, listed in its `README.md` table | `ADR-NN-slug.md` |
 | `docs/dev-guide/` | how to work on the repo (this page) | `NNN-slug.md` |
+| `docs/manual/` | the owner's manual: using the app, identifying a mix, owner setup, developers | `NNN-slug.md` |
 | `docs/specs/` | one design document per feature round | `YYYY-MM-DD-slug-design.md` |
 | `docs/plans/` | the executed implementation plan of a spec; history, never edited after | `YYYY-MM-DD-slug.md` |
 | `docs/research/` | verified external facts behind a spec, dated | `YYYY-MM-DD-slug.md` |
-| repo root | `README.md` (owner's manual), `CHANGELOG.md`, `CLAUDE.md` (+ `AGENTS.md` symlink) | — |
+| repo root | `README.md` (short guide for users), `CHANGELOG.md`, `CLAUDE.md` (+ `AGENTS.md` symlink) | — |
 | `src/db/`, `src/features/`, `src/features/mix/`, `src/i18n/` | a local `CLAUDE.md` each: required inputs, expected outputs | — |
 
 **Numbers.** Three digits with gaps: `000–099` introduction and policies, `100–199` inventories and guides, `700–799` decisions,
@@ -136,7 +139,7 @@ generated index ([ADR-06](../architecture/700-adr/ADR-06-lean-tooling.md)).
 (an ADR has `Accepted | Proposed | Superseded by [ADR-NN](…)` and `> **Date**:`). The date is the last substantive edit.
 
 **Links.** Relative Markdown links only, never an absolute path or a `[[wikilink]]`. Every page under `architecture/`, `dev-guide/`,
-`700-adr/`, `specs/` and `research/` ends with `## Links`. A link between two such pages is answered: the target links back, to the page or
+`manual/`, `700-adr/`, `specs/` and `research/` ends with `## Links`. A link between two such pages is answered: the target links back, to the page or
 to its folder. Plans are history and keep their text.
 
 **CLAUDE.md.** The root one is at most 150 lines with four sections: Routing, Reading protocol, Non-negotiable rules, References. A local
