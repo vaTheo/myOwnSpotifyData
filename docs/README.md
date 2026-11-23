@@ -1,7 +1,7 @@
 # Documentation
 
 > **Status**: Living
-> **Last updated**: 2026-11-16
+> **Last updated**: 2026-11-23
 
 The map of the app's documentation, kept by hand: every page is listed here, in its section. How pages are named, headed and linked:
 [Contributing](dev-guide/000-contributing.md), section "Documentation".
@@ -54,6 +54,7 @@ One design document per feature round, dated. The first one is the base model; l
 - [2026-11-09 — One row per song in a scanned mix](specs/2026-11-09-mix-one-row-per-song-design.md) (the one-row round, full round under [`specs/018-mix-one-row-per-song/`](../specs/018-mix-one-row-per-song/spec.md))
 - [2026-11-10 — Artist and Title columns in the Mix tracklist](specs/2026-11-10-mix-artist-title-columns-design.md) (full round under [`specs/020-mix-artist-title-columns/`](../specs/020-mix-artist-title-columns/spec.md))
 - 2026-11-10 — Comments without their commenter's name (the quiet-comments round): [`specs/021-mix-hide-commenter-names/`](../specs/021-mix-hide-commenter-names/spec.md)
+- 2026-11-23 — The worker as a Docker image, amd64 and arm64 (worker 0.7.9, round 035): [`specs/035-worker-docker-image/`](../specs/035-worker-docker-image/spec.md)
 - 2026-11-19 — The worker signs in by itself with a password (worker 0.7.8, round 034): [`specs/034-worker-password-sign-in/`](../specs/034-worker-password-sign-in/spec.md), decision [ADR-16](architecture/700-adr/ADR-16-shared-worker.md) (amended)
 - 2026-11-17 — The worker executable knows the app's server (worker 0.7.7, round 033): [`specs/033-worker-built-in-server/`](../specs/033-worker-built-in-server/spec.md)
 - 2026-11-16 — Mix keeps only Identify on my computer, Look up removed (round 032): [`specs/032-mix-identify-only/`](../specs/032-mix-identify-only/spec.md)

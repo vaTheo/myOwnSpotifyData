@@ -4,6 +4,8 @@ server, so it goes straight to the sign-in (your email, then the mail's link on 
 - `mix-worker-windows-x64.exe`: Windows 10/11, 64-bit. Windows warns the first time ("Windows protected your PC"): More info → Run anyway.
 - `mix-worker-linux-x86_64`: `chmod +x` first. Built on Ubuntu 22.04, runs on distributions with glibc 2.35 or newer.
 - `mix-worker-macos-arm64` (Apple silicon) and `mix-worker-macos-x86_64` (Intel): right-click → Open the first time (unsigned).
+- `docker-compose.yml`: starts the Docker image `ghcr.io/vatheo/mix-worker` (amd64 and arm64) on a server; it signs in by
+  password with a dedicated shared-worker account. Section D of `worker/README.md`.
 
 Inside: yt-dlp, ShazamIO and a static ffmpeg built by BtbN/FFmpeg-Builds under the GPL v3, shipped unmodified through the
 `imageio-ffmpeg` package (its own licence: BSD-2-Clause). The worker itself is MIT, like the app. YouTube links need Node or
@@ -11,6 +13,11 @@ Deno on the computer; other platforms need nothing else.
 
 ## What changed
 
+- 0.7.9: **a Docker image for a server**. The same worker, built from the Python source, as `ghcr.io/vatheo/mix-worker`
+  (this version's tag and `latest`) for amd64 and arm64, with `docker-compose.yml` attached to the release. It knows the app's
+  server; put `WORKER_EMAIL` and `WORKER_PASSWORD` in `mix-worker.env` beside the compose file (a container has no browser to
+  sign in with), then `docker compose up -d`. The session and the results stay in the `/data` volume. The README's section D
+  sets it up. No change to scanning, to the sign-in or to the JSON.
 - 0.7.8: **a server with no screen signs in by itself**. Two optional settings, `WORKER_EMAIL` and `WORKER_PASSWORD`
   (both or neither), for a dedicated account the owner listed as a shared worker, never your own: the worker signs in with
   the password when it has no session, when the saved one is another account's, and when a refresh is refused. A wrong password

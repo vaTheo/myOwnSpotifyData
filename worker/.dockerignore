@@ -1,0 +1,17 @@
+# Only pyproject.toml, uv.lock, README.md (hatchling reads `readme`) and mix_worker/ are needed (spec 035).
+.env
+*.env
+.venv
+dist
+build
+tests
+__pycache__
+*.pyc
+.pytest_cache
+session.json
+runs
+*.spec
+CLAUDE.md
+AGENTS.md
+RELEASE_NOTES.md
+.env.example

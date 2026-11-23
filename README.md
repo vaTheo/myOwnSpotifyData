@@ -509,7 +509,7 @@ which dates the undated tracks); sort **by year** or keep one **decade**,
 also with Heard once.
 Every identified set stays in this browser and on the server.
 
-Three ways to run it, all in the worker's manual, [`worker/README.md`](worker/README.md):
+Four ways to run it, all in the worker's manual, [`worker/README.md`](worker/README.md):
 
 - from the repo with Python and uv: `cd worker && cp .env.example .env`
   (the same two public values as the app's `.env`), `uv sync`, `uv run
@@ -523,7 +523,10 @@ Three ways to run it, all in the worker's manual, [`worker/README.md`](worker/RE
   YouTube links need Node or Deno on the computer;
 - or on a server with no screen (a Debian LXC), as a service: since 0.7.8
   a dedicated account listed as a shared worker signs in by itself with
-  `WORKER_EMAIL` and `WORKER_PASSWORD` (form C of the manual).
+  `WORKER_EMAIL` and `WORKER_PASSWORD` (form C of the manual);
+- or on a server with Docker, amd64 or arm64: since 0.7.9 the image
+  `ghcr.io/vatheo/mix-worker` and the release's `docker-compose.yml`, signed
+  in the same way (form D of the manual).
 
 Once, in the Supabase dashboard: run `supabase/migrations/0002_jobs.sql`.
 Nothing else: the worker signs in with the same magic link as the app,
