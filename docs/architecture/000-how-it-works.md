@@ -1,7 +1,7 @@
 # 000 — How the app works
 
 > **Status**: Living
-> **Last updated**: 2026-11-16
+> **Last updated**: 2026-11-23
 
 The reference for every "how does X work?" question. The [README](../../README.md) is the owner's manual (setup and daily use), the
 [feature inventory](100-features.md) lists what is built and where, the [changelog](../../CHANGELOG.md) says what changed when, the
@@ -685,6 +685,13 @@ inline, the Connect screen having no banner.
 `deploy` job builds with the `VITE_SPOTIFY_CLIENT_ID` secret and the two `VITE_SUPABASE_*` repository variables (the worker release reads the same two values from the secrets `SUPABASE_URL` and `SUPABASE_KEY`, spec 033), and publishes `dist/`
 to GitHub Pages on pushes to `main`. Commands: [Contributing](../dev-guide/000-contributing.md).
 
+`.github/workflows/worker-release.yml` runs when `worker/pyproject.toml` names a version with no `worker-v<version>` release:
+the worker tests, the four PyInstaller executables, then (spec 035) the `image` job (after the builds, `packages: write` on that
+job only): it writes the built-in server, builds `worker/Dockerfile` for `linux/amd64` and `linux/arm64` (QEMU), smoke-tests
+each (`--version` equals the version; `check` with no setting says `(built in)`), then pushes both platforms from the two build
+caches as `ghcr.io/vatheo/mix-worker:<version>` and `:latest`. The `release` job waits for it and attaches the executables and
+`worker/docker-compose.yml`. A failed build leaves no image and no moved `latest`.
+
 ## 16. `server/`: the owner's server
 
 One Supabase Free project, for the owner and the accounts the owner adds (round 011), that stores every dataset the app builds and
@@ -808,7 +815,7 @@ were already per account (`owner_id = auth.uid()`, no `anon` grant), pinned by `
 
 A Python `uv` project (3.11–3.13; `yt-dlp`, `shazamio`, `imageio-ffmpeg`; tests with the standard library's `unittest`, run by CI)
 and one PyInstaller executable per system built by `.github/workflows/worker-release.yml` and released as `worker-v<version>` on the first push to `main` carrying a new
-version in `worker/pyproject.toml`
+version in `worker/pyproject.toml`, with a Docker image of the same version (spec 035)
 ([ADR-09](700-adr/ADR-09-mix-identification-on-the-owners-computer.md); the round's record under `specs/002-mix-analysis-worker/`;
 the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never calls a Spotify host; besides the project, Shazam and the link's platform it reaches `trackid.net` by the exact mix link only ([ADR-17](700-adr/ADR-17-trackid-worker.md)) and `on.soundcloud.com` for where a share link leads (spec 028).
 
@@ -880,6 +887,15 @@ the owner's manual `worker/README.md`; local rules `worker/CLAUDE.md`). It never
   `cut_probe` passes its WAV to `pad_wav`, which fills a probe holding less than 12 s with silence to 12 s (Shazam's window, not
   `WORKER_PROBE_SECONDS`); data under `MIN_PROBE_BYTES` or an unreadable WAV is returned as it is, so a probe with no audio still
   ends a scan of unknown length. The TrackId.net confirm's retries at the second-pass speeds: the round 016 bullet above.
+- The Docker image (spec 035, worker 0.7.9): `worker/Dockerfile` builds from the source in two stages (`python:3.13-slim-bookworm`,
+  `uv sync --frozen --no-dev`, no compiler in the final stage), user `mix-worker` (uid and gid 10001), `VOLUME /data` with
+  `WORKER_SESSION_FILE=/data/session.json`, `WORKER_WORK_DIR=/data/work`, `WORKER_JSON_DIR=/data/results` (an environment value
+  still wins), `ENTRYPOINT mix-worker --config /data/mix-worker.env` (read when present), `CMD run --watch`, `STOPSIGNAL SIGINT`
+  (so `docker stop` releases the request as Ctrl+C does). `worker/docker-compose.yml`: the published image, `env_file:
+  mix-worker.env`, `WORKER_NAME` in `environment:`, a named volume on `/data`, `restart: on-failure`. With no browser, the
+  container signs in by password only (spec 034); without `WORKER_EMAIL`/`WORKER_PASSWORD` it exits 4 and Docker restarts it,
+  the delay doubling up to one minute. `worker/.dockerignore` keeps `.env`, `.venv`, tests, sessions and results out of the
+  context. The release job: §15. The code does not change.
 - The result lands in `jobs.result`; the app's pull (§16) turns it into rows of the saved mix.
 - How accurate a scan is and why, measured on four mixes, with the options built (spec 029) and not built:
   [Shazam on DJ mixes](../research/2026-11-13-shazam-mix-accuracy.md).

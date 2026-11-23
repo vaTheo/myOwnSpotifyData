@@ -3,6 +3,19 @@
 What changed, when, and what to do about it. Every push to `main` deploys to GitHub Pages; there are no versions. Entries group the work
 by feature, newest first, and name their spec under `docs/specs/`. Entries before 2026-11-05 were reconstructed from the git history.
 
+## 2026-11-23 — The worker as a Docker image (worker 0.7.9)
+
+The worker also ships as a Docker image, `ghcr.io/vatheo/mix-worker:<version>` and `:latest`, for `linux/amd64` and
+`linux/arm64`. It is built from the Python source by the same release that builds the executables, smoke-tested on both
+platforms, and knows the app's server like them. The release also attaches `worker/docker-compose.yml`. One volume, `/data`,
+holds the session, the work folder and the results; settings come from `mix-worker.env` (`env_file`). In a container the
+worker signs in by password only (`WORKER_EMAIL`, `WORKER_PASSWORD`, spec 034). `docker stop` stops a scan like Ctrl+C. The
+worker README's new section D sets it up. Nothing changes in scanning, sign-in or the JSON. Spec
+`specs/035-worker-docker-image/`.
+
+**What to do**: nothing on your own computer. For a server with Docker: follow `worker/README.md` form D. Once, the owner sets
+the `mix-worker` package public on GitHub (Packages → Package settings → Change visibility).
+
 ## 2026-11-19 — The worker signs in by itself with a password (worker 0.7.8)
 
 A worker on a server with no screen (a Debian LXC) no longer needs a mail link opened on that machine. Two optional settings,

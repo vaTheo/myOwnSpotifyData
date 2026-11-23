@@ -1,0 +1,18 @@
+# The worker on a server with Docker (worker README, section D).
+# Put a file mix-worker.env beside this one, readable by you only (chmod 600 mix-worker.env):
+#   WORKER_EMAIL=worker@example.com   # the account the worker signs in with
+#   WORKER_PASSWORD='...'              # that account's password, in single quotes: compose keeps a $ in it as is
+# The published image knows the app's server; to use another one add SUPABASE_URL and SUPABASE_KEY.
+# Any other setting of .env.example may go there too. Then: docker compose up -d, and docker compose logs -f.
+services:
+  mix-worker:
+    image: ghcr.io/vatheo/mix-worker:latest
+    env_file: mix-worker.env
+    environment:
+      WORKER_NAME: docker # shown on the phone as "Running on <name>": change it
+    volumes:
+      - mix-worker-data:/data
+    restart: on-failure
+
+volumes:
+  mix-worker-data: {}

@@ -2,8 +2,8 @@
 
 Complements the root `CLAUDE.md` for changes under `worker/`: the Python program on the owner's computer that takes
 `identify-mix` requests from the server's `jobs` table, fetches the audio, identifies the tracks and sends the tracklist back
-(ADR-08: it runs outside the server; the server stores and never computes). Two forms from one code: `uv run mix-worker` and
-one PyInstaller executable per system.
+(ADR-08: it runs outside the server; the server stores and never computes). Three forms from one code: `uv run mix-worker`,
+one PyInstaller executable per system and, since 0.7.9, a Docker image built from the source.
 
 ## Required inputs
 
@@ -55,7 +55,7 @@ one PyInstaller executable per system.
 - The result keeps the F15 shape pinned by `tests/test_scan.py` against the app's fixture keys; absent metadata is omitted,
   never `null`-filled; `time_in_mix` is the probe start as `HH:MM:SS`.
 - A change meant for the owner's computer bumps the version in `pyproject.toml` and `mix_worker/__init__.py` (tested equal),
-  then `uv lock`: the push to `main` releases `worker-v<version>` with the four executables; an unchanged version builds nothing.
+  then `uv lock`: the push to `main` releases `worker-v<version>` with the four executables and the image; an unchanged version builds nothing.
 - Exit codes: 0 ok / queue empty, 2 unreachable, 3 paused, 4 not signed in, 5 missing setting or tool, 6 config template
   written, 7 not (or no longer) a shared worker, 130 Ctrl-C (after releasing the request). A failed request never fails the run.
 - Mode (`WORKER_MODE`, round 015, ADR-16): `auto` (default, round 017: after sign-in `is_shared_worker` says shared or personal; a failed check ends the run, no guess), `personal` or `shared` (both forced). Shared mode never reads a personal table:
@@ -72,5 +72,8 @@ one PyInstaller executable per system.
   through `cmd_run`, `run_queue(account=)` and `token()`; a refused password is tried once per run (exit 4), offline/paused keep
   2/3; `login` asks nothing. The password is never printed, logged, saved or in a repr; `run_queue` without `account` is unchanged.
   `parse_env_file` keeps a quoted value whole between its first and last quote, a comment may follow.
+- Spec 035 (worker 0.7.9): `Dockerfile` (uid/gid 10001, `VOLUME /data`, `--config /data/mix-worker.env`, `STOPSIGNAL SIGINT`),
+  `docker-compose.yml` (`WORKER_NAME` in `environment:`, which beats `env_file`), `.dockerignore` (never list `pyproject.toml`,
+  `uv.lock`, `README.md`, `mix_worker/`); a container signs in by password only. Manual: README section D; release: the `image` job.
 - Settings: `config.py` is the one reader; every setting has a default in `.env.example` (shipped as `mix_worker/env.example`,
   kept byte-identical by `test_config.py`). The session file is 0600 and never in the repo; the `service_role` key is never used.

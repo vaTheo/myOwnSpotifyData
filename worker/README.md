@@ -22,8 +22,10 @@ Design record: `../specs/002-mix-analysis-worker/` (the spec, the research, the 
 
 If the window closes or prints an error, find the number in [Exit codes](#exit-codes). No VPN while it runs. Do not have `yarn dev`
 running at sign-in time (same port). Prefer Python? Use form A below instead of steps 2–3.
+On a server with no screen: [form C](#c-on-a-headless-linux-server-a-debian-lxc) (systemd) or
+[form D](#d-with-docker-on-a-server) (Docker).
 
-## Three ways to run it
+## Four ways to run it
 
 ### A. From this folder (Linux, macOS, Windows with Python)
 
@@ -140,6 +142,59 @@ address: the server shares your home address with your computer, so run one work
 `WORKER_YTDLP_COOKIES` is not needed for SoundCloud; if you set one, put the file where the service user can read it
 (`/var/lib/mix-worker/`). To stop using the server: `systemctl disable --now mix-worker`, and delete the account's row from
 `public.shared_workers` (or the account itself).
+
+### D. With Docker on a server
+
+Since 0.7.9 the same worker also ships as a Docker image, `ghcr.io/vatheo/mix-worker`, for `linux/amd64` and `linux/arm64`
+(it should run on a 64-bit Raspberry Pi: the arm64 image is smoke-tested under emulation). It is built from the Python source
+of the release, not from the executable, and weighs a few hundred MB. Like the executable, it knows the app's server. It signs in by password, as in C: there
+is no browser in a container, so `WORKER_EMAIL` and `WORKER_PASSWORD` are required here. Without them `run --watch` stops at
+once with exit code 4 (not signed in), and Docker starts it again and again.
+
+1. **The account**: steps 1 and 2 of [section C](#c-on-a-headless-linux-server-a-debian-lxc) (a dedicated account, listed as
+   a shared worker).
+2. **A folder** on the server, with `docker-compose.yml` from the
+   [latest `worker-v…` release](https://github.com/vaTheo/myOwnSpotifyData/releases/latest) (or `worker/docker-compose.yml`
+   from this repo).
+3. **The settings**, `mix-worker.env` beside it:
+
+   ```sh
+   WORKER_EMAIL=worker@example.com
+   WORKER_PASSWORD='the-password'
+   ```
+
+   ```sh
+   chmod 600 mix-worker.env
+   ```
+
+   Generate the password with `openssl rand -hex 24`: hex has no quote and no `$`, and a single quote in the password
+   breaks the quoting. Keep the password between single quotes: Docker Compose then takes it as it is, a `$` included (no
+   variable substitution). Any other setting of `.env.example` may go in this file too. `WORKER_NAME` is set in
+   `docker-compose.yml` (`environment:`, which wins over the file): change `docker` there to the name the phone should show.
+   The image keeps the session, the work folder and the results in its volume, `/data`.
+4. **Check**: `docker compose run --rm mix-worker check` prints `sign-in: by password as worker@example.com` and never the
+   password.
+5. **Start**: `docker compose up -d`, then `docker compose logs -f`. The log starts as in C: `signed in as
+   worker@example.com by password`, then `… · shared worker (the account is listed)` and `queue empty · next look in 60 s`.
+
+To update: `docker compose pull && docker compose up -d`. To stop: `docker compose down`; `docker stop` stops a scan cleanly,
+like Ctrl+C (the request is released). The data volume stays until `docker compose down -v`.
+
+A refused password (exit 4), a wrong setting (5) or an account no longer listed (7) stops the worker, and Docker starts it
+again (`restart: on-failure`). Docker has no way to keep it stopped on these codes, as systemd's `RestartPreventExitStatus`
+does, but it waits longer each time, up to one minute between tries. `docker compose logs` shows the reason: fix
+`mix-worker.env`, then `docker compose up -d`.
+
+A host folder instead of the named volume (`- ./data:/data` under `volumes:`) must belong to the image's user:
+`mkdir data && sudo chown 10001:10001 data`.
+
+**Build it yourself** (any x86_64 or arm64 machine, from a clone of this repo): `docker build -t mix-worker worker/`, then
+`image: mix-worker` in `docker-compose.yml`. An image built from the repository has no built-in server, so add
+`SUPABASE_URL` and `SUPABASE_KEY` (the two public values of the app's `.env`) to `mix-worker.env`.
+
+The image is public once the owner has made the package public, once (GitHub → Packages → mix-worker → Package settings →
+Change visibility). Until then `docker compose pull` answers "denied". The limits of a shared worker are those of C:
+SoundCloud links only, no automatic Ask again, one worker per home address, never behind a VPN.
 
 ## Before the first login (once, in the Supabase dashboard)
 
