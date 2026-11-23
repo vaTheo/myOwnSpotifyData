@@ -1,7 +1,7 @@
 # 100 — Design guide
 
 > **Status**: Living
-> **Last updated**: 2026-11-16
+> **Last updated**: 2026-11-23
 
 How a screen of this app is designed and built. Read it before you add or change anything under `src/ui/` or `src/styles.css`, in any
 session. It states the rules and where each one is pinned; the values live in the contracts, so this page links them and does not copy
@@ -108,7 +108,7 @@ Read Spotify on load or without a tap; call a host that is not already named; sh
 5. Features carry a row in `specs/003-web-first-redesign/regression.md` and, where the demo can drive it, a test in
    `tools/shots/regression.spec.ts`; `yarn regression` and `yarn invariants` exit 0 before a merge
    ([Contributing](000-contributing.md) "Before a merge").
-6. Docs follow the change: how-it-works §13, README (owner's manual) if the owner sees it, CHANGELOG.
+6. Docs follow the change: how-it-works §13, the owner's manual (`docs/manual/`) if the owner sees it, CHANGELOG.
 
 ## Links
 

@@ -38,7 +38,7 @@ Every page of the docs: [docs/README.md](docs/README.md). What is built and the 
 2. A feature starts with options put to the owner, who picks; the pick is then implemented in full, docs included.
 3. Replies short and direct: the answer or the action first, then the evidence (command, output, `file:line`).
 4. After any change: `yarn typecheck`, `yarn lint`, `yarn test` (CI runs the same three).
-5. A round ends with its docs: spec, inventory row, how-it-works section, README (owner's manual), CHANGELOG, an ADR when a decision lasts,
+5. A round ends with its docs: spec, inventory row, how-it-works section, the owner's manual (`docs/manual/`), CHANGELOG, an ADR when a decision lasts,
    Limits and roadmap when a limit is found or lifted.
    Every plan and every approved change carries a documentation task: the docs of everything it touches (folder `CLAUDE.md`, how-it-works
    section, READMEs, the round's contracts, inventory, limits, CHANGELOG) are updated in the same batch and commit as the code, then
@@ -91,5 +91,5 @@ Details: [Contributing](docs/dev-guide/000-contributing.md).
 
 - [Documentation map](docs/README.md) · [Feature inventory](docs/architecture/100-features.md) · [Limits and roadmap](docs/architecture/800-limits-roadmap.md)
 - [How the app works](docs/architecture/000-how-it-works.md) · [Contributing](docs/dev-guide/000-contributing.md)
-- [ADR index](docs/architecture/700-adr/README.md) · [CHANGELOG](CHANGELOG.md) · [README](README.md) (owner's manual)
+- [ADR index](docs/architecture/700-adr/README.md) · [CHANGELOG](CHANGELOG.md) · [README](README.md) (short guide) · [Owner's manual](docs/manual/000-using-the-app.md)
 - Local rules: `src/db/CLAUDE.md`, `src/features/CLAUDE.md`, `src/features/mix/CLAUDE.md`, `src/i18n/CLAUDE.md`

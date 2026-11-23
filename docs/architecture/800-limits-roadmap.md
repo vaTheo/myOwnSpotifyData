@@ -13,7 +13,7 @@ What the app cannot do, what was decided against, and the ideas not built yet. A
 |---|---|---|
 | No play counts from Spotify's Web API | the API has none; only the history export carries them | [ADR-07](700-adr/ADR-07-play-counts-from-export.md), [platform research](../research/2026-09-04-spotify-platform-research.md) |
 | Daily quota on playlist reads, lock-out of hours | unpublished Spotify limit | [ADR-02](700-adr/ADR-02-no-spotify-reads-on-load.md) |
-| Development Mode: owner listed in User Management, Premium | Spotify app mode | [README](../../README.md) "One-time setup" |
+| Development Mode: owner listed in User Management, Premium | Spotify app mode | [Owner setup](../manual/200-owner-setup.md#one-time-setup) |
 | No Spotify audio features, artist followers or popularity for new apps | Spotify stopped answering them | [BPM research](../research/2026-09-05-bpm-key-sources.md), [reach research](../research/2026-09-05-artist-reach-sources.md) |
 | A token refresh never widens the scope | OAuth: the refresh keeps the original grant | [ADR-03](700-adr/ADR-03-library-writes-on-tap.md) |
 | No browser-only path returns a full mix tracklist | public sources only know already-identified mixes | [Mix tracklist spec](../specs/2026-09-06-mix-tracklist-design.md) |
